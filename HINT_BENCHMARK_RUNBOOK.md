@@ -24,6 +24,7 @@ cd ~/agentic_hardware
 - [OpenClaw](#openclaw)
 - [NeMo Agent Toolkit / NAT](#nemo-agent-toolkit--nat)
 - [Hermes Agent](#hermes-agent)
+- [Unobserved Hint Experiment Backlog](#unobserved-hint-experiment-backlog)
 - [Missing Or Blocked Today](#missing-or-blocked-today)
 - [Inspect Results](#inspect-results)
 
@@ -1398,6 +1399,36 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
 </tr>
 </tbody>
 </table>
+
+## Unobserved Hint Experiment Backlog
+
+This table is the future experiment queue. A row here means the signal has not
+been observed in the current benchmark evidence for that harness, or it was
+only observed through a weaker lane than the one we want. Use it to plan the
+next round of omission-closing experiments.
+
+| Harness | Hint Not Observed Or Not Fully Proven | Deck-Supported? | Current Reason | Next Experiment To Try | Requires Real Provider? |
+| --- | --- | --- | --- | --- | --- |
+| NAT | cache-hit runtime feedback | yes | Request-boundary capture cannot show backend cache hits or runtime reuse metrics. | Run a real backend cache-hit experiment and collect SGLang/NAT profiler or metrics output after repeated cacheable requests. | yes |
+| NAT | literal `cache_pinning=true` | no | NAT 1.8.0 exposes first-only/ephemeral cache control, not a separate pinning field. | Recheck on a newer NAT path or treat FIRST_ONLY/ephemeral cache control as the observable pin-like behavior. | no |
+| Claude Code | native `service_tier=auto` / `standard_only` body field | conditional | Tested Claude Code env-var paths did not forward a literal body field. | Try a Claude Code/provider configuration that explicitly forwards `ANTHROPIC_SERVICE_TIER` or `CLAUDE_CODE_SERVICE_TIER`, then rerun the service-tier scenarios. | no |
+| Claude Code | literal cache key | conditional | Claude appears to use provider-derived exact-prefix matching without exposing a cache-key field. | Use a provider/API path that surfaces prompt-cache identity, or keep validating repeated-prefix behavior without expecting a literal key. | maybe |
+| Claude Code | tool-level `cache_control` | conditional | Tool-heavy request had tools, but no `tools.*.cache_control` marker. | Build a stable-tool-definition scenario and inspect whether Claude Code/provider marks reusable tool definitions directly. | no |
+| Claude Code | native `max_tokens=0` prewarm | conditional | Native Claude Code capture emitted cache control, but not a zero-token prewarm request. | Find or add a Claude Code path that can issue a prewarm-like request, then compare against the direct API max-token-zero capability fixture. | no |
+| Claude Code | real cache-hit usage counters | yes | Current real-provider probe is blocked by Claude login/auth on EC2. | Authenticate Claude/provider, run repeated identical cacheable prefixes inside TTL, and collect `cache_creation_input_tokens` / `cache_read_input_tokens`. | yes |
+| Qwen Code | literal cache key | conditional | Deck frames Qwen cache keying as automatic prefix matching; no literal request cache-key field appeared. | Run against a provider/gateway that exposes cache identity, or add a repeated-prefix provider trace lane. | maybe |
+| Qwen Code | real cache-hit usage counters | yes | Local request-boundary capture cannot prove provider cache hits. | Run repeated cacheable Qwen requests against a real provider and collect `usage.cached_tokens` or provider-specific cache counters. | yes |
+| Pi Agent Harness | cache-hit feedback | yes | Request-boundary capture saw Pi request fields, but not real provider cache-hit usage. | Run repeated cacheable Pi requests against a real provider and collect Pi footer/provider usage counters such as cache read/write. | yes |
+| OpenClaw | provider QoS / service tier | yes | Deck maps fast mode to `service_tier=priority`, but current native capture did not forward `service_tier` or `extra_body.service_tier`. | Identify the OpenClaw provider/config path that forwards service tier to supported OpenAI-compatible requests and rerun `openclaw_provider_qos_fast_mode`. | no |
+| OpenClaw | provider cache key | yes | Deck marks cache keying as provider-managed; current request body did not expose `prompt_cache_key`. | Use a provider/path that surfaces prompt-cache request metadata or provider-side cache trace output. | maybe |
+| OpenClaw | cache TTL / retention | yes | Provider cache config did not produce a literal retention or TTL field in the local request body. | Exercise a provider path that exposes `prompt_cache_retention` or cache-control TTL metadata. | maybe |
+| OpenClaw | cache entry type | yes | Current request body did not expose `cache_control.type`. | Try an OpenClaw provider path with explicit prompt-cache block metadata and inspect message/content blocks. | maybe |
+| OpenClaw | cached WebSocket / prewarm metadata | conditional | Deck labels this as a different mechanism from KV prefill; no `cached_websocket` or `websocket_prewarm` field appeared. | Exercise the real cached-WebSocket path and capture WebSocket session metadata or provider trace. | maybe |
+| OpenClaw | real cache-hit usage counters | yes | Request-boundary capture cannot prove provider cache hits. | Run repeated cacheable OpenClaw requests against a real provider and collect OpenClaw/provider trace or usage counters. | yes |
+| OpenClaw | cache pinning / retention | conditional | Deck says provider-managed only; current capture did not expose retention or literal `cache_pinning`. | Use a provider path that exposes retention metadata, or keep treating this as provider-managed until evidence appears. | maybe |
+| Hermes Agent | native request-boundary evidence | yes | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. | no |
+| Hermes Agent | literal cache key | conditional | Deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal key may not exist. | Run native Hermes repeated-prefix probes and, if needed, a provider trace lane that exposes cache identity. | maybe |
+| Hermes Agent | real cache-hit usage counters | yes | Request-boundary capture cannot prove provider cache hits. | Run repeated cacheable Hermes requests against a real provider and collect prompt-cache metrics or usage counters. | yes |
 
 ## Missing Or Blocked Today
 
