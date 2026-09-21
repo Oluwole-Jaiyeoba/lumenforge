@@ -16,9 +16,12 @@ export PRESSURE_LEVELS="${PRESSURE_LEVELS:-p3_high}"
 
 # Hardware-telemetry follow-up:
 # - no_prefetch shows ordinary behavior
-# - controller_predictive_deadline_queue_admission_guard isolates ready-time ordering
-# - controller_ready_time_gpu_backfill adds cached GPU-idle telemetry to admission
-export MODES="${MODES:-no_prefetch controller_predictive_deadline_queue_admission_guard controller_ready_time_gpu_backfill}"
+# - controller_ready_time_gpu_backfill tests the single H1 addition: cached
+#   GPU-idle telemetry for safe backfill admission
+#
+# Keep the default proof run two-mode. Add counterfactual modes only by
+# explicitly overriding MODES for diagnostic ablations.
+export MODES="${MODES:-no_prefetch controller_ready_time_gpu_backfill}"
 
 # Create staggered ready times plus a constant stream of candidate work.
 # The backfill stream is what gives GPU telemetry a chance to matter: the

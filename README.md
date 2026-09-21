@@ -110,9 +110,10 @@ sitting idle when safe work can fit.
 | `estimated_runtime_ms` | Controller/runtime estimate | Lets the controller decide whether candidate work can likely finish before the next replay becomes ready. |
 | `gpu_idle_state` | Hardware telemetry, sampled from GPU utilization | Lets the controller admit safe backfill when the GPU would otherwise be idle, without using idle time as permission to block soon-ready replay work. |
 
-For signal-attribution experiments, compare the full `controller_ready_time_gpu_backfill`
-mode against counterfactual variants later. The first implementation records
-which of these signals was available and used for each admission decision.
+For signal-attribution experiments, start with the clean two-mode comparison:
+`no_prefetch` versus `controller_ready_time_gpu_backfill`. Add counterfactual
+variants later only when the two-mode result needs diagnosis. The implementation
+records which signals were available and used for each admission decision.
 
 ### Hardware-Telemetry Follow-Up: GPU-Occupancy-Aware Backfill
 
@@ -129,18 +130,21 @@ cd sglang_direct_kv
 bash scripts/run_gpu_occupancy_backfill_realistic.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-The wrapper compares:
+The wrapper defaults to the clean two-mode proof:
 
 | Mode | Purpose |
 | --- | --- |
 | `no_prefetch` | Baseline behavior without harness/controller help. |
-| `controller_predictive_deadline_queue_admission_guard` | Ready-time-only counterfactual: protect near-ready replay, but do not use GPU-idle telemetry to admit optional backfill. |
-| `controller_ready_time_gpu_backfill` | Full V1 controller: protect near-ready replay and use GPU-idle telemetry to admit bounded backfill when the GPU would otherwise sit idle. |
+| `controller_ready_time_gpu_backfill` | H1 controller: protect near-ready replay and use GPU-idle telemetry to admit bounded backfill when the GPU would otherwise sit idle. |
+
+For diagnostics, you can explicitly override `MODES` to add
+`controller_predictive_deadline_queue_admission_guard` as a ready-time-only
+counterfactual, but that should not be the default proof run.
 
 The key proof columns are whether any decisions have
 `reason=gpu_idle_safe_backfill`, whether the counterfactual says the candidate
 would have been held without GPU-idle state, and whether TTFT/lateness improve
-without increasing the replay workload window.
+without regressing the replay workload window or measured workload time.
 
 ### Timing Metrics Guardrail
 

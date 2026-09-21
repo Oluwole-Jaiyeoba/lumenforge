@@ -407,7 +407,6 @@ Modes:
 
 ```text
 no_prefetch
-controller_predictive_deadline_queue_admission_guard
 controller_ready_time_gpu_backfill
 ```
 
@@ -416,8 +415,11 @@ What each mode proves:
 | Mode | Simple meaning |
 | --- | --- |
 | `no_prefetch` | What happens without the harness-aware controller. |
-| `controller_predictive_deadline_queue_admission_guard` | What ready-time scheduling alone can do. |
 | `controller_ready_time_gpu_backfill` | Whether adding GPU-idle telemetry admits useful work during otherwise empty GPU windows without hurting replay. |
+
+Keep H1 as this two-mode proof by default. Add
+`controller_predictive_deadline_queue_admission_guard` only as an explicit
+diagnostic override when we need to isolate ready-time-only behavior.
 
 The proof should show at least one decision where GPU telemetry was decisive:
 
@@ -427,7 +429,7 @@ counterfactual_without_gpu_idle_state=would_hold_instead_of_backfill
 ```
 
 Manager-facing success means TTFT and lateness stay better than baseline, the
-replay workload window does not regress, and the GPU occupancy chart shows less
+replay workload window and measured workload time do not regress, and the GPU occupancy chart shows less
 wasted idle time or a higher active-sample rate.
 
 ## Combined Controller: Scenarios 1 + 2 + 3
