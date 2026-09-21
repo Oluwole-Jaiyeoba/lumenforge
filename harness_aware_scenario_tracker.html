@@ -434,6 +434,77 @@
       color: var(--muted);
     }
 
+    .metric-table .metric-win {
+      color: #166534;
+      background: #ecfdf3;
+      font-weight: 800;
+    }
+
+    .metric-table .metric-loss {
+      color: #991b1b;
+      background: #fef2f2;
+      font-weight: 800;
+    }
+
+    .metric-table .metric-neutral {
+      color: #475569;
+      background: #f8fafc;
+      font-weight: 700;
+    }
+
+    .metric-table .verdict {
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .metric-table .verdict.win {
+      color: #166534;
+    }
+
+    .metric-table .verdict.mixed {
+      color: #b45309;
+    }
+
+    .metric-table .verdict.neutral {
+      color: #475569;
+    }
+
+    .table-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin: 8px 0 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      border: 1px solid rgba(15, 23, 42, .08);
+    }
+
+    .legend-swatch.win {
+      background: #ecfdf3;
+    }
+
+    .legend-swatch.loss {
+      background: #fef2f2;
+    }
+
+    .legend-swatch.neutral {
+      background: #f8fafc;
+    }
+
     .blocker-quality {
       display: grid;
       gap: 12px;
@@ -1633,6 +1704,11 @@
       <div class="chart" aria-label="Combined controller detailed mode metrics">
         <h3>Detailed Mode Metrics</h3>
         <p class="small">Replay workload window is the total measured replay workload time for that mode: from the first replay request starting to the final replay request completing. It excludes server startup and report generation.</p>
+        <div class="table-legend" aria-label="Detailed mode metrics legend">
+          <span class="legend-chip"><span class="legend-swatch win"></span>Better than baseline</span>
+          <span class="legend-chip"><span class="legend-swatch loss"></span>Worse than baseline</span>
+          <span class="legend-chip"><span class="legend-swatch neutral"></span>Baseline / neutral</span>
+        </div>
         <div class="table-panel">
           <table class="metric-table">
             <thead>
@@ -1647,6 +1723,7 @@
                 <th class="num">P95 lateness</th>
                 <th class="num">Max lateness</th>
                 <th class="num">Replay workload window</th>
+                <th>Verdict</th>
                 <th>Takeaway</th>
               </tr>
             </thead>
@@ -1655,65 +1732,70 @@
                 <td class="mode-name">no_prefetch</td>
                 <td>None; baseline behavior</td>
                 <td class="num">32</td>
-                <td class="num">455.5s</td>
-                <td class="num">14.2s</td>
-                <td class="num">969.5s</td>
-                <td class="num">30.3s</td>
-                <td class="num">88.3s</td>
-                <td class="num">94.6s</td>
-                <td class="num">95.6s</td>
+                <td class="num metric-neutral">455.5s</td>
+                <td class="num metric-neutral">14.2s</td>
+                <td class="num metric-neutral">969.5s</td>
+                <td class="num metric-neutral">30.3s</td>
+                <td class="num metric-neutral">88.3s</td>
+                <td class="num metric-neutral">94.6s</td>
+                <td class="num metric-neutral">95.6s</td>
+                <td class="verdict neutral">Baseline</td>
                 <td class="takeaway">Replay work stretched out badly.</td>
               </tr>
               <tr>
                 <td class="mode-name">controller_harness_aware_sched</td>
                 <td>Ready-time scheduling</td>
                 <td class="num">32</td>
-                <td class="num">443.5s</td>
-                <td class="num">13.9s</td>
-                <td class="num">504.9s</td>
-                <td class="num">15.8s</td>
-                <td class="num">35.2s</td>
-                <td class="num">36.6s</td>
-                <td class="num">37.2s</td>
+                <td class="num metric-win">443.5s</td>
+                <td class="num metric-win">13.9s</td>
+                <td class="num metric-win">504.9s</td>
+                <td class="num metric-win">15.8s</td>
+                <td class="num metric-win">35.2s</td>
+                <td class="num metric-win">36.6s</td>
+                <td class="num metric-win">37.2s</td>
+                <td class="verdict win">Clear win</td>
                 <td class="takeaway">Scheduling alone produced a large lateness and workload-window win.</td>
               </tr>
               <tr>
                 <td class="mode-name">controller_harness_aware_sched_kv</td>
                 <td>Ready-time scheduling + direct KV prepare</td>
                 <td class="num">32</td>
-                <td class="num">478.1s</td>
-                <td class="num">14.9s</td>
-                <td class="num">573.6s</td>
-                <td class="num">17.9s</td>
-                <td class="num">34.5s</td>
-                <td class="num">38.0s</td>
-                <td class="num">38.5s</td>
+                <td class="num metric-loss">478.1s</td>
+                <td class="num metric-loss">14.9s</td>
+                <td class="num metric-win">573.6s</td>
+                <td class="num metric-win">17.9s</td>
+                <td class="num metric-win">34.5s</td>
+                <td class="num metric-win">38.0s</td>
+                <td class="num metric-win">38.5s</td>
+                <td class="verdict mixed">Mixed win</td>
                 <td class="takeaway">KV prepare was active, but did not add clean benefit in this run.</td>
               </tr>
               <tr>
                 <td class="mode-name">controller_harness_aware_sched_evict</td>
                 <td>Ready-time scheduling + value-aware eviction</td>
                 <td class="num">32</td>
-                <td class="num">415.5s</td>
-                <td class="num">13.0s</td>
-                <td class="num">477.0s</td>
-                <td class="num">14.9s</td>
-                <td class="num">31.6s</td>
-                <td class="num">33.8s</td>
-                <td class="num">34.4s</td>
+                <td class="num metric-win">415.5s</td>
+                <td class="num metric-win">13.0s</td>
+                <td class="num metric-win">477.0s</td>
+                <td class="num metric-win">14.9s</td>
+                <td class="num metric-win">31.6s</td>
+                <td class="num metric-win">33.8s</td>
+                <td class="num metric-win">34.4s</td>
+                <td class="verdict win">Clear win</td>
                 <td class="takeaway">Best all-around mode in this run.</td>
               </tr>
               <tr>
                 <td class="mode-name">controller_harness_aware_full</td>
                 <td>Scheduling + direct KV prepare + value-aware eviction</td>
                 <td class="num">32</td>
-                <td class="num">398.1s</td>
-                <td class="num">12.4s</td>
-                <td class="num">500.5s</td>
-                <td class="num">15.6s</td>
-                <td class="num">33.8s</td>
-                <td class="num">37.8s</td>
-                <td class="num">38.4s</td>
+                <td class="num metric-win">398.1s</td>
+                <td class="num metric-win">12.4s</td>
+                <td class="num metric-win">500.5s</td>
+                <td class="num metric-win">15.6s</td>
+                <td class="num metric-win">33.8s</td>
+                <td class="num metric-win">37.8s</td>
+                <td class="num metric-win">38.4s</td>
+                <td class="verdict win">Clear win</td>
                 <td class="takeaway">Clean win versus baseline; best TTFT, but not the best lateness/window.</td>
               </tr>
             </tbody>
