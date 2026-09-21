@@ -537,6 +537,19 @@
       stroke: #2563eb;
     }
 
+    .occupancy-line .end-marker {
+      stroke-width: 1.5;
+      stroke-dasharray: 5 4;
+    }
+
+    .occupancy-line .end-marker.baseline {
+      stroke: #64748b;
+    }
+
+    .occupancy-line .end-marker.controller {
+      stroke: #2563eb;
+    }
+
     .occupancy-chart-panel {
       margin-top: 14px;
       overflow-x: auto;
@@ -575,6 +588,28 @@
 
     .occupancy-swatch.controller {
       background: #2563eb;
+    }
+
+    .occupancy-swatch.baseline-end {
+      background: repeating-linear-gradient(
+        90deg,
+        #64748b,
+        #64748b 4px,
+        transparent 4px,
+        transparent 7px
+      );
+      border: 1px solid #64748b;
+    }
+
+    .occupancy-swatch.controller-end {
+      background: repeating-linear-gradient(
+        90deg,
+        #2563eb,
+        #2563eb 4px,
+        transparent 4px,
+        transparent 7px
+      );
+      border: 1px solid #2563eb;
     }
 
     .explain-panel {
@@ -913,29 +948,36 @@
         <h3>GPU Occupancy Balance</h3>
         <p class="small">This checks the caveat we discussed: fewer red bars are only valuable if we do not create empty GPU time. In this run, the controller improved blocker count and kept occupancy slightly higher.</p>
         <div class="metric-grid">
-          <div class="metric-tile"><div class="metric-name">Avg GPU Utilization</div><div class="metric-value">13.4%</div><p class="small">Baseline was 12.8%.</p></div>
-          <div class="metric-tile"><div class="metric-name">GPU Active Samples</div><div class="metric-value">91.2%</div><p class="small">Baseline was 87.9%.</p></div>
+          <div class="metric-tile"><div class="metric-name">Avg GPU Utilization</div><div class="metric-value">15.7%</div><p class="small">Baseline was 15.4% during the workload window.</p></div>
+          <div class="metric-tile"><div class="metric-name">GPU Active Samples</div><div class="metric-value">99.8%</div><p class="small">Baseline was 99.9% during the workload window.</p></div>
           <div class="metric-tile"><div class="metric-name">Workload Window</div><div class="metric-value">168.1 s</div><p class="small">Baseline was 171.8 s; controller was 3.7 s shorter.</p></div>
         </div>
           <div class="occupancy-chart-panel">
             <div class="occupancy-legend">
               <span><i class="occupancy-swatch baseline"></i>Baseline</span>
               <span><i class="occupancy-swatch controller"></i>Controller</span>
+              <span><i class="occupancy-swatch baseline-end"></i>Baseline end: 171.8s</span>
+              <span><i class="occupancy-swatch controller-end"></i>Controller end: 168.1s</span>
             </div>
-            <svg class="occupancy-line" viewBox="0 0 900 260" role="img" aria-label="GPU utilization over normalized workload progress for baseline and controller">
-              <line x1="48" y1="18" x2="48" y2="208" class="axis" />
-              <line x1="48" y1="208" x2="876" y2="208" class="axis" />
-              <line x1="48" y1="18" x2="876" y2="18" class="grid" />
-              <line x1="48" y1="113.0" x2="876" y2="113.0" class="grid" />
+            <svg class="occupancy-line" viewBox="0 0 900 275" role="img" aria-label="GPU utilization over raw elapsed workload seconds for baseline and controller">
+              <line x1="54" y1="18" x2="54" y2="214" class="axis" />
+              <line x1="54" y1="214" x2="876" y2="214" class="axis" />
+              <line x1="54" y1="18" x2="876" y2="18" class="grid" />
+              <line x1="54" y1="116.0" x2="876" y2="116.0" class="grid" />
+              <line x1="858.1" y1="18" x2="858.1" y2="214" class="end-marker controller" />
+              <line x1="876.0" y1="18" x2="876.0" y2="214" class="end-marker baseline" />
               <text x="10" y="22">100%</text>
-              <text x="18" y="117.0">50%</text>
-              <text x="24" y="212">0%</text>
-              <text x="48" y="242">start</text>
-              <text x="848" y="242">end</text>
-              <polyline class="occupancy-series baseline" points="48.0,208.0 65.6,208.0 83.2,208.0 100.9,208.0 118.5,186.8 136.1,181.9 153.7,207.3 171.3,191.0 188.9,196.9 206.6,197.2 224.2,155.1 241.8,132.2 259.4,107.9 277.0,96.0 294.6,170.6 312.3,110.9 329.9,113.1 347.5,166.4 365.1,126.7 382.7,179.1 400.3,193.2 418.0,195.9 435.6,193.4 453.2,194.9 470.8,190.8 488.4,193.8 506.0,195.8 523.7,193.8 541.3,194.2 558.9,196.6 576.5,196.6 594.1,196.6 611.7,196.6 629.4,196.7 647.0,196.6 664.6,193.9 682.2,196.7 699.8,194.5 717.4,196.6 735.1,196.6 752.7,196.7 770.3,190.1 787.9,196.8 805.5,196.6 823.1,196.6 840.8,196.6 858.4,190.3 876.0,195.0"><title>Baseline GPU utilization over normalized workload progress</title></polyline>
-              <polyline class="occupancy-series controller" points="48.0,208.0 65.6,208.0 83.2,177.7 100.9,206.1 118.5,190.6 136.1,207.2 153.7,189.5 171.3,197.2 188.9,197.2 206.6,174.2 224.2,111.0 241.8,131.2 259.4,95.6 277.0,154.5 294.6,120.4 312.3,115.9 329.9,147.8 347.5,192.8 365.1,159.0 382.7,168.9 400.3,149.6 418.0,193.5 435.6,187.6 453.2,191.9 470.8,194.8 488.4,192.8 506.0,196.6 523.7,193.7 541.3,194.2 558.9,196.8 576.5,196.8 594.1,196.9 611.7,197.1 629.4,196.8 647.0,197.1 664.6,193.8 682.2,196.7 699.8,196.7 717.4,193.9 735.1,196.6 752.7,196.7 770.3,193.7 787.9,194.4 805.5,193.6 823.1,196.6 840.8,196.6 858.4,189.6 876.0,196.3"><title>Controller GPU utilization over normalized workload progress</title></polyline>
+              <text x="22" y="120.0">50%</text>
+              <text x="30" y="218">0%</text>
+              <text x="54" y="248">0s</text>
+              <text x="341.1" y="248">60s</text>
+              <text x="628.1" y="248">120s</text>
+              <text x="816.1" y="232">controller end</text>
+              <text x="838.0" y="266">baseline end</text>
+              <polyline class="occupancy-series baseline" points="54.0,95.2 67.0,123.8 80.1,171.0 93.1,95.8 106.2,95.4 119.2,97.6 132.3,184.1 145.3,144.9 158.4,124.8 171.4,109.0 184.5,126.9 197.5,150.6 210.6,169.2 223.6,136.0 236.7,123.3 249.7,187.2 262.8,200.8 275.8,204.2 288.9,199.6 301.9,200.0 315.0,198.9 328.0,201.0 341.0,197.0 354.1,204.1 367.1,194.3 380.2,197.2 393.2,199.0 406.3,200.4 419.3,202.3 432.4,202.2 445.4,197.3 458.5,197.9 471.5,202.2 484.6,202.2 497.6,202.2 510.7,202.2 523.7,202.2 536.8,202.2 549.8,202.2 562.9,202.3 575.9,202.3 589.0,202.2 602.0,197.5 615.0,202.2 628.1,202.2 641.1,202.2 654.2,202.8 667.2,198.0 680.3,202.2 693.3,202.2 706.4,202.2 719.4,202.2 732.5,202.4 745.5,197.6 758.6,195.7 771.6,202.2 784.7,202.2 797.7,202.2 810.8,202.2 823.8,202.2 836.9,202.2 849.9,202.2 863.0,198.8 876.0,189.7"><title>Baseline GPU utilization over raw workload seconds</title></polyline>
+              <polyline class="occupancy-series controller" points="54.0,95.9 67.0,122.8 80.1,166.7 93.1,94.1 106.2,98.2 119.2,103.7 132.3,184.0 145.3,141.3 158.4,121.4 171.4,112.7 184.5,124.6 197.5,157.2 210.6,195.9 223.6,202.2 236.7,178.1 249.7,152.9 262.8,176.8 275.8,123.2 288.9,187.4 301.9,197.4 315.0,196.7 328.0,190.8 341.0,202.2 354.1,192.7 367.1,203.5 380.2,193.0 393.2,202.4 406.3,202.2 419.3,202.3 432.4,202.2 445.4,197.4 458.5,197.8 471.5,202.6 484.6,202.4 497.6,202.4 510.7,202.5 523.7,202.7 536.8,202.6 549.8,202.8 562.9,202.5 575.9,202.5 589.0,203.0 602.0,197.2 615.0,202.4 628.1,202.5 641.1,202.2 654.2,202.3 667.2,197.7 680.3,202.2 693.3,202.2 706.4,202.2 719.4,202.3 732.5,202.3 745.5,197.3 758.6,198.2 771.6,202.5 784.7,197.1 797.7,202.2 810.8,202.2 823.8,202.2 836.9,202.6 849.9,194.0 863.0,190.6"><title>Controller GPU utilization over raw workload seconds</title></polyline>
             </svg>
-            <p class="small">X-axis is normalized workload progress, so the two modes can be compared even though the controller finished sooner. Spikes show bursts of model/GPU work; flat low sections are tool-wait or idle periods.</p>
+            <p class="small">X-axis is raw elapsed workload time. The controller line stops at 168.1s, while the baseline continues to 171.8s. This shows the controller improved TTFT and lateness without creating visible empty-GPU time during the workload window.</p>
           </div>
       </div>
 
