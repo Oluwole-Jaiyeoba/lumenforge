@@ -419,6 +419,42 @@ Manager-facing success means TTFT and lateness stay better than baseline, the
 replay workload window does not regress, and the GPU occupancy chart shows less
 wasted idle time or a higher active-sample rate.
 
+## Combined Controller: Scenarios 1 + 2 + 3
+
+The next combined pass should use one controller family with independent knobs:
+
+```text
+ready_time_scheduling
+direct_kv_prepare
+value_aware_eviction
+```
+
+The additive mode matrix is:
+
+| Mode | Ready-time scheduling | Direct KV prepare | Value-aware eviction | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `no_prefetch` | off | off | off | Baseline |
+| `controller_harness_aware_sched` | on | off | off | Scenario 1 isolated inside the combined controller family |
+| `controller_harness_aware_sched_kv` | on | on | off | Scheduling plus Scenario 2 direct SGLang/HiCache KV preparation |
+| `controller_harness_aware_sched_evict` | on | off | on | Scheduling plus Scenario 3 value-aware priority radix eviction |
+| `controller_harness_aware_full` | on | on | on | Full combined controller |
+
+Run wrapper:
+
+```bash
+cd sglang_direct_kv
+bash scripts/run_harness_aware_combined_realistic.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+Important proof requirements:
+
+```text
+ready-time proof: priority assigned before replay, local gate uses it, SGLang receives it
+KV proof: prepared_prefix_control plans/loads useful KV directly through SGLang/HiCache
+eviction proof: value metadata reaches SGLang and priority radix eviction is active
+combined proof: each mode records controller_capabilities_active
+```
+
 ### 4. Just-In-Time GPU Headroom
 
 Harness signal:

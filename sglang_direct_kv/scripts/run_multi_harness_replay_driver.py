@@ -41,6 +41,10 @@ from agentic_kv.controller.modes import (
     CONTROLLER_DEMOTE_RESTORE_MODE,
     CONTROLLER_FULL_CHUNKED_PREFILL_MODE,
     CONTROLLER_FULL_MODE,
+    CONTROLLER_HARNESS_AWARE_FULL_MODE,
+    CONTROLLER_HARNESS_AWARE_SCHED_EVICT_MODE,
+    CONTROLLER_HARNESS_AWARE_SCHED_KV_MODE,
+    CONTROLLER_HARNESS_AWARE_SCHED_MODE,
     CONTROLLER_OBSERVE_ONLY_MODE,
     CONTROLLER_ORACLE_SAFE_SJF_MODES,
     CONTROLLER_ORACLE_SAFE_SJF_MODE,
@@ -75,6 +79,7 @@ from agentic_kv.controller.modes import (
     controller_admission_lead_ms,
     controller_demote_restore_mode,
     controller_full_mode,
+    controller_harness_aware_combined_mode,
     controller_memory_admission_mode,
     controller_mode,
     controller_observe_only_mode,
@@ -2241,12 +2246,26 @@ async def main_async() -> None:
         CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
         CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
         CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
+        CONTROLLER_HARNESS_AWARE_SCHED_MODE,
+        CONTROLLER_HARNESS_AWARE_SCHED_KV_MODE,
+        CONTROLLER_HARNESS_AWARE_SCHED_EVICT_MODE,
+        CONTROLLER_HARNESS_AWARE_FULL_MODE,
     }
-    controller_active_ready_time_gpu_backfill = args.mode == CONTROLLER_READY_TIME_GPU_BACKFILL_MODE
+    controller_active_ready_time_gpu_backfill = args.mode in {
+        CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
+        CONTROLLER_HARNESS_AWARE_SCHED_MODE,
+        CONTROLLER_HARNESS_AWARE_SCHED_KV_MODE,
+        CONTROLLER_HARNESS_AWARE_SCHED_EVICT_MODE,
+        CONTROLLER_HARNESS_AWARE_FULL_MODE,
+    }
     controller_active_predictive_admission_guard = (
         args.mode in {
             CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
             CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
+            CONTROLLER_HARNESS_AWARE_SCHED_MODE,
+            CONTROLLER_HARNESS_AWARE_SCHED_KV_MODE,
+            CONTROLLER_HARNESS_AWARE_SCHED_EVICT_MODE,
+            CONTROLLER_HARNESS_AWARE_FULL_MODE,
         }
         and os.environ.get("CONTROLLER_REPLAY_ADMISSION_GUARD", "1").strip().lower()
         in {"1", "true", "yes", "on"}
@@ -2255,6 +2274,7 @@ async def main_async() -> None:
     controller_active_preload = controller_speculative_preload_mode(args.mode)
     controller_active_targeted_prefetch = controller_targeted_kv_prefetch_mode(args.mode)
     controller_active_proactive_kv_management = controller_proactive_kv_management_mode(args.mode)
+    controller_active_harness_aware_combined = controller_harness_aware_combined_mode(args.mode)
     controller_active_demote_restore = controller_demote_restore_mode(args.mode)
     controller_active_priority_demotion_admission = controller_priority_demotion_admission_mode(args.mode)
     controller_active_admission = controller_admission_control_mode(args.mode)
@@ -2293,7 +2313,25 @@ async def main_async() -> None:
         "meta": {},
         "release_event": controller_admission_gate_event,
     }
-    if controller_active_priority:
+    if controller_active_targeted_prefetch:
+        controller_backend = SGLangTargetedKVPrefetchBackendAdapter(
+            BackendCapabilities(
+                priority_queue=controller_active_predictive_deadline_queue,
+                background_prefill_budget=False,
+                kv_demote=False,
+                kv_prefetch=True,
+                kv_release=False,
+                live_metrics=True,
+                observe_only=False,
+                backend_name=args.mode,
+                backend_version=(
+                    "direct_hook_available=1"
+                    if os.environ.get("AGENTIC_KV_TARGETED_PREFETCH_HOOK", "").lower() in {"1", "true", "yes"}
+                    else "direct_hook_available=0"
+                ),
+            )
+        )
+    elif controller_active_priority:
         controller_backend = GatewayPriorityBackendAdapter(
             BackendCapabilities(
                 priority_queue=True,
@@ -2317,24 +2355,6 @@ async def main_async() -> None:
                 live_metrics=True,
                 observe_only=False,
                 backend_name=args.mode,
-            )
-        )
-    elif controller_active_targeted_prefetch:
-        controller_backend = SGLangTargetedKVPrefetchBackendAdapter(
-            BackendCapabilities(
-                priority_queue=False,
-                background_prefill_budget=False,
-                kv_demote=False,
-                kv_prefetch=True,
-                kv_release=False,
-                live_metrics=True,
-                observe_only=False,
-                backend_name=args.mode,
-                backend_version=(
-                    "direct_hook_available=1"
-                    if os.environ.get("AGENTIC_KV_TARGETED_PREFETCH_HOOK", "").lower() in {"1", "true", "yes"}
-                    else "direct_hook_available=0"
-                ),
             )
         )
     elif controller_active_demote_restore:
@@ -2462,6 +2482,24 @@ async def main_async() -> None:
         "admitted_candidates": 0,
         "safe_backfills": 0,
     }
+    if controller_active_harness_aware_combined:
+        write_trace(
+            args.trace,
+            {
+                "event": "m27.controller_harness_aware.capabilities",
+                "mode": args.mode,
+                "harness": args.harness,
+                "pressure_level": args.pressure_level,
+                "ready_time_scheduling_enabled": controller_active_predictive_deadline_queue,
+                "ready_time_gpu_backfill_enabled": controller_active_ready_time_gpu_backfill,
+                "direct_kv_prepare_enabled": controller_active_proactive_kv_management,
+                "value_aware_eviction_enabled": controller_value_aware_eviction_mode(args.mode),
+                "direct_load_mechanism": os.environ.get("CONTROLLER_DIRECT_LOAD_MECHANISM", AUTHORIZED_DIRECT_LOAD_MECHANISM),
+                "eviction_policy": os.environ.get("CONTROLLER_VALUE_AWARE_RADIX_EVICTION_POLICY", ""),
+                "signals": "session_id,phase,ready_time_ms,prefix_id,reuse_probability,recompute_cost_tokens,gpu_idle_state",
+                "offset_ms": round(offset_ms(), 3),
+            },
+        )
 
     def replay_guard_lookahead_ms() -> float:
         return float(os.environ.get("CONTROLLER_REPLAY_LOOKAHEAD_MS", "5000") or "5000")
@@ -3851,6 +3889,20 @@ async def main_async() -> None:
             "controller_admission_aggressiveness": admission_aggressiveness
             if controller_active_priority_demotion_admission
             else "",
+            "controller_harness_aware_combined": controller_active_harness_aware_combined,
+            "controller_capabilities_active": ",".join(
+                capability
+                for capability, enabled in [
+                    ("ready_time_scheduling", controller_active_predictive_deadline_queue),
+                    ("ready_time_gpu_backfill", controller_active_ready_time_gpu_backfill),
+                    ("direct_kv_prepare", controller_active_proactive_kv_management),
+                    ("value_aware_eviction", controller_value_aware_eviction_mode(args.mode)),
+                ]
+                if enabled
+            ),
+            "controller_ready_time_scheduling_enabled": controller_active_predictive_deadline_queue,
+            "controller_direct_kv_prepare_enabled": controller_active_proactive_kv_management,
+            "controller_value_aware_eviction_enabled": controller_value_aware_eviction_mode(args.mode),
             "_trace_path": str(args.trace),
             "nat_inferred_prefix_total_requests": 10,
             "nat_inferred_prefix_osl": 512,

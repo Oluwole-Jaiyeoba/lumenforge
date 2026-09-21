@@ -474,6 +474,10 @@ The current manager-facing comparisons use these modes:
 | `controller_priority_demotion_admission_shorthand` | Same priority + demotion + admission path, plus request-local relational shorthand. Configure with `CONTROLLER_SHORTHAND_CODEC_CONFIG`; default is `configs/prompt_codecs/agent_trace_relations_v1.json`. |
 | `controller_admission_control` | Portable controller phase 6. The controller admits or skips speculative warmup based on pressure limits, so overload cases get explicit skip reasons instead of unbounded background work. |
 | `controller_ready_time_gpu_backfill` | Scenario 1 V1 controller. It orders equal-importance requests by predicted replay-ready time, carries that priority through the local gate and SGLang priority path, and uses cached GPU-idle telemetry only to admit safe backfill work. |
+| `controller_harness_aware_sched` | Combined-controller preset with only Scenario 1 enabled: ready-time scheduling through the local gate and SGLang priority path. |
+| `controller_harness_aware_sched_kv` | Combined-controller preset with Scenario 1 + Scenario 2 enabled: ready-time scheduling plus direct prepared-prefix KV preparation through SGLang/HiCache. |
+| `controller_harness_aware_sched_evict` | Combined-controller preset with Scenario 1 + Scenario 3 enabled: ready-time scheduling plus value-aware priority metadata for SGLang priority radix eviction. |
+| `controller_harness_aware_full` | Full combined preset with Scenarios 1, 2, and 3 enabled: ready-time scheduling, direct KV preparation, and value-aware eviction metadata. |
 
 The lightweight master report also includes a **System Cost Accounting** section.
 It sums TTFT and positive replay-deadline debt separately for target replay

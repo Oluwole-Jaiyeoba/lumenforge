@@ -1529,6 +1529,55 @@
       </div>
     </section>
 
+    <section class="section scenario">
+      <div class="scenario-head">
+        <h2>Combined Controller: Scenarios 1 + 2 + 3</h2>
+        <span class="status pending">Ready To Run</span>
+      </div>
+      <p class="lede">This experiment combines the three proven controller directions behind independent knobs: ready-time scheduling, direct KV preparation, and value-aware eviction. The goal is to see whether the benefits stack when the controller can schedule better, prepare useful KV, and help SGLang protect valuable prefixes from eviction.</p>
+      <div class="setup">
+        <p class="setup-title">How the experiment is set up</p>
+        <p>The run uses the same realistic replay timeline for every mode. Each mode turns on one more capability so we can see whether the combined controller improves beyond the isolated scenarios rather than hiding which feature caused the result.</p>
+      </div>
+      <div class="signals">
+        <p class="signals-title">Composable controller knobs</p>
+        <div class="chip-row">
+          <span class="chip">ready_time_scheduling</span>
+          <span class="chip">direct_kv_prepare</span>
+          <span class="chip">value_aware_eviction</span>
+          <span class="chip">gpu_idle_state</span>
+          <span class="chip">reuse_probability</span>
+          <span class="chip">recompute_cost_tokens</span>
+        </div>
+      </div>
+      <div class="chart pending" aria-label="Combined controller planned manager summary">
+        <h3>Planned Manager Summary</h3>
+        <p class="small">When run, this section should compare the additive matrix: baseline, scheduling only, scheduling + KV, scheduling + eviction, and full combined controller.</p>
+        <div class="metric-grid">
+          <div class="metric-tile"><div class="metric-name">Scheduling Proof</div><div class="metric-value pending">pending</div><p class="small">Ready-time priority assigned, local gate used it, and SGLang received it.</p></div>
+          <div class="metric-tile"><div class="metric-name">KV Prepare Proof</div><div class="metric-value pending">pending</div><p class="small">Prepared-prefix control planned or loaded useful host-backed KV directly through SGLang/HiCache.</p></div>
+          <div class="metric-tile"><div class="metric-name">Eviction Proof</div><div class="metric-value pending">pending</div><p class="small">Value metadata reached SGLang priority scheduling and priority radix eviction was enabled.</p></div>
+        </div>
+      </div>
+      <div class="evidence" aria-label="Combined controller reproducibility settings">
+        <p class="evidence-title">Reproduce This Planned Run</p>
+        <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Run wrapper</div><div class="evidence-value">scripts/run_harness_aware_combined_realistic.sh</div></div>
+          <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">baseline, sched, sched+KV, sched+evict, full</div></div>
+          <div class="evidence-item"><div class="evidence-label">Harness / pressure</div><div class="evidence-value">hatcher / p3_high</div></div>
+          <div class="evidence-item"><div class="evidence-label">Replay requests</div><div class="evidence-value">32 per mode planned</div></div>
+          <div class="evidence-item"><div class="evidence-label">Wait ranges</div><div class="evidence-value">100-500ms, 1-5s, 10-30s, 60-120s</div></div>
+          <div class="evidence-item"><div class="evidence-label">Direct KV path</div><div class="evidence-value">prepared_prefix_control only</div></div>
+          <div class="evidence-item"><div class="evidence-label">Eviction path</div><div class="evidence-value">SGLang priority radix eviction</div></div>
+          <div class="evidence-item"><div class="evidence-label">Trace profile</div><div class="evidence-value">rich + blocker tracing + GPU sampler</div></div>
+        </div>
+      </div>
+      <div class="links">
+        <a href="sglang_direct_kv/scripts/run_harness_aware_combined_realistic.sh">Run wrapper</a>
+        <a href="README.md">Mode definitions</a>
+      </div>
+    </section>
+
     <section class="section">
       <h2>Upcoming Scenarios</h2>
       <p class="lede">These are not run yet in the simplified two-mode format. Each should use the same pattern: baseline without the harness signal, then controller behavior enabled by the exposed harness signal.</p>
