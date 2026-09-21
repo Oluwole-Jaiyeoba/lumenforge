@@ -1532,12 +1532,12 @@
     <section class="section scenario">
       <div class="scenario-head">
         <h2>Combined Controller: Scenarios 1 + 2 + 3</h2>
-        <span class="status pending">Ready To Run</span>
+        <span class="status">Clear Win</span>
       </div>
-      <p class="lede">This experiment combines the three proven controller directions behind independent knobs: ready-time scheduling, direct KV preparation, and value-aware eviction. The goal is to see whether the benefits stack when the controller can schedule better, prepare useful KV, and help SGLang protect valuable prefixes from eviction.</p>
+      <p class="lede">This experiment combines the three controller directions behind independent knobs: ready-time scheduling, direct KV preparation, and value-aware eviction. The goal is to see whether the benefits stack when the controller can schedule better, prepare useful KV, and help SGLang protect valuable prefixes from eviction.</p>
       <div class="setup">
         <p class="setup-title">How the experiment is set up</p>
-        <p>The run uses the same realistic replay timeline for every mode. Each mode turns on one more capability so we can see whether the combined controller improves beyond the isolated scenarios rather than hiding which feature caused the result.</p>
+        <p>The run used the same realistic replay timeline for every mode: 32 replay requests per mode, two replay steps per session, 15 pressure sessions, 4k-token target prompts, 4k-token pressure prompts, and tool waits spread across 100-500ms, 1-5s, 10-30s, and 60-120s. Each controller mode turned on a different combination of the three knobs so we could see which combination helped.</p>
       </div>
       <div class="signals">
         <p class="signals-title">Composable controller knobs</p>
@@ -1550,22 +1550,52 @@
           <span class="chip">recompute_cost_tokens</span>
         </div>
       </div>
-      <div class="chart pending" aria-label="Combined controller planned manager summary">
-        <h3>Planned Manager Summary</h3>
-        <p class="small">When run, this section should compare the additive matrix: baseline, scheduling only, scheduling + KV, scheduling + eviction, and full combined controller.</p>
+      <div class="chart" aria-label="Combined controller manager summary">
+        <h3>Manager Summary</h3>
+        <p class="small"><strong>Latest run:</strong> <code>harness_aware_combined_20260921_191502</code>. The full controller beat baseline across total TTFT, average TTFT, total lateness, average lateness, P95/max lateness, and workload window. The best all-around variant in this run was scheduling + value-aware eviction; the full controller had the best TTFT.</p>
         <div class="metric-grid">
-          <div class="metric-tile"><div class="metric-name">Scheduling Proof</div><div class="metric-value pending">pending</div><p class="small">Ready-time priority assigned, local gate used it, and SGLang received it.</p></div>
-          <div class="metric-tile"><div class="metric-name">KV Prepare Proof</div><div class="metric-value pending">pending</div><p class="small">Prepared-prefix control planned or loaded useful host-backed KV directly through SGLang/HiCache.</p></div>
-          <div class="metric-tile"><div class="metric-name">Eviction Proof</div><div class="metric-value pending">pending</div><p class="small">Value metadata reached SGLang priority scheduling and priority radix eviction was enabled.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Total TTFT</div><div class="metric-value">12.6% better</div><p class="small">Baseline 455.5s; full controller 398.1s across 32 requests.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Avg TTFT</div><div class="metric-value">12.4s</div><p class="small">Baseline average was 14.2s per request.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Total Lateness</div><div class="metric-value">48.4% better</div><p class="small">Baseline 969.5s; full controller 500.5s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Avg Lateness</div><div class="metric-value">15.6s</div><p class="small">Baseline average was 30.3s per request.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full P95 Lateness</div><div class="metric-value">61.7% better</div><p class="small">Baseline 88.3s; full controller 33.8s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Workload Window</div><div class="metric-value">59.9% better</div><p class="small">Baseline 95.6s; full controller 38.4s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Best Lateness Variant</div><div class="metric-value">sched + evict</div><p class="small">Average lateness 14.9s, total lateness 477.0s, workload window 34.4s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Direct KV Prepare</div><div class="metric-value">106 events</div><p class="small">Observed in sched+KV and full modes through <code>prepare_prefix_control</code>.</p></div>
+          <div class="metric-tile"><div class="metric-name">Eviction Smoke</div><div class="metric-value">passed</div><p class="small">SGLang exposed <code>priority</code> radix eviction and selected <code>PriorityStrategy</code>.</p></div>
         </div>
       </div>
-      <div class="evidence" aria-label="Combined controller reproducibility settings">
-        <p class="evidence-title">Reproduce This Planned Run</p>
+      <div class="chart" aria-label="Combined controller mode comparison">
+        <h3>Mode Comparison</h3>
+        <div class="bar-row"><div class="label">Baseline avg lateness</div><div class="track"><div class="fill baseline" style="width:100%"></div></div><div class="value">30.3s</div></div>
+        <div class="bar-row"><div class="label">Sched avg lateness</div><div class="track"><div class="fill aware" style="width:52%"></div></div><div class="value">15.8s</div></div>
+        <div class="bar-row"><div class="label">Sched + KV avg lateness</div><div class="track"><div class="fill aware" style="width:59%"></div></div><div class="value">17.9s</div></div>
+        <div class="bar-row"><div class="label">Sched + evict avg lateness</div><div class="track"><div class="fill aware" style="width:49%"></div></div><div class="value">14.9s</div></div>
+        <div class="bar-row"><div class="label">Full avg lateness</div><div class="track"><div class="fill aware" style="width:52%"></div></div><div class="value">15.6s</div></div>
+        <p class="evidence-note">Simple meaning: the controller moved the workload much closer to its replay-ready times. Direct KV preparation was active, but in this particular run it was not the strongest additive knob by itself; scheduling plus value-aware eviction gave the best lateness and workload-window result.</p>
+      </div>
+      <div class="evidence" aria-label="Combined controller mechanism evidence">
+        <p class="evidence-title">Mechanism Evidence</p>
         <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Replay rows measured</div><div class="evidence-value">32 per mode</div></div>
+          <div class="evidence-item"><div class="evidence-label">Ready-time decisions</div><div class="evidence-value">32 / 32 in each controller mode</div></div>
+          <div class="evidence-item"><div class="evidence-label">Direct KV path</div><div class="evidence-value">prepared_prefix_control only</div></div>
+          <div class="evidence-item"><div class="evidence-label">Direct KV evidence</div><div class="evidence-value">106 prepare events in KV modes</div></div>
+          <div class="evidence-item"><div class="evidence-label">Priority eviction path</div><div class="evidence-value">SGLang priority radix eviction</div></div>
+          <div class="evidence-item"><div class="evidence-label">Priority smoke</div><div class="evidence-value">low-priority evicted, high-priority kept</div></div>
+          <div class="evidence-item"><div class="evidence-label">Blocker tracing</div><div class="evidence-value">32 / 32 requests covered</div></div>
+          <div class="evidence-item"><div class="evidence-label">Audit caveat</div><div class="evidence-value">eviction audit needs controller rows</div></div>
+        </div>
+        <p class="evidence-note">Simple meaning: the combined controller was not using fake warmup requests. It assigned replay-aware priority, used SGLang's prepared-prefix control path for direct KV preparation, and launched eviction modes with SGLang's priority radix eviction policy. The generated value-aware eviction audit only summarized the baseline row in this run, so the tracker records the passed smoke test and launch evidence while leaving the deeper per-mode eviction audit as follow-up.</p>
+      </div>
+      <div class="evidence" aria-label="Combined controller reproducibility settings">
+        <p class="evidence-title">Reproduce This Run</p>
+        <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Run label</div><div class="evidence-value">harness_aware_combined_20260921_191502</div></div>
           <div class="evidence-item"><div class="evidence-label">Run wrapper</div><div class="evidence-value">scripts/run_harness_aware_combined_realistic.sh</div></div>
           <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">baseline, sched, sched+KV, sched+evict, full</div></div>
           <div class="evidence-item"><div class="evidence-label">Harness / pressure</div><div class="evidence-value">hatcher / p3_high</div></div>
-          <div class="evidence-item"><div class="evidence-label">Replay requests</div><div class="evidence-value">32 per mode planned</div></div>
+          <div class="evidence-item"><div class="evidence-label">Replay requests</div><div class="evidence-value">32 per mode</div></div>
           <div class="evidence-item"><div class="evidence-label">Wait ranges</div><div class="evidence-value">100-500ms, 1-5s, 10-30s, 60-120s</div></div>
           <div class="evidence-item"><div class="evidence-label">Direct KV path</div><div class="evidence-value">prepared_prefix_control only</div></div>
           <div class="evidence-item"><div class="evidence-label">Eviction path</div><div class="evidence-value">SGLang priority radix eviction</div></div>
@@ -1573,6 +1603,10 @@
         </div>
       </div>
       <div class="links">
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/master_report.html">Combined run report</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/replay_friction_summary.csv">Replay friction summary CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/replay_friction_deep_dive.csv">Replay friction deep-dive CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/value_aware_eviction_audit.html">Value-aware eviction audit</a>
         <a href="sglang_direct_kv/scripts/run_harness_aware_combined_realistic.sh">Run wrapper</a>
         <a href="README.md">Mode definitions</a>
       </div>
