@@ -378,6 +378,62 @@
       color: #b91c1c;
     }
 
+    .table-panel {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: white;
+    }
+
+    .metric-table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .metric-table th,
+    .metric-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #e8eef5;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .metric-table th {
+      color: #334155;
+      background: #f8fafc;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .metric-table td {
+      color: #223149;
+    }
+
+    .metric-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .metric-table .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .metric-table .mode-name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 750;
+      color: #0f4f4a;
+      white-space: nowrap;
+    }
+
+    .metric-table .takeaway {
+      min-width: 220px;
+      color: var(--muted);
+    }
+
     .blocker-quality {
       display: grid;
       gap: 12px;
@@ -1573,6 +1629,96 @@
         <div class="bar-row"><div class="label">Sched + evict avg lateness</div><div class="track"><div class="fill aware" style="width:49%"></div></div><div class="value">14.9s</div></div>
         <div class="bar-row"><div class="label">Full avg lateness</div><div class="track"><div class="fill aware" style="width:52%"></div></div><div class="value">15.6s</div></div>
         <p class="evidence-note">Simple meaning: the controller moved the workload much closer to its replay-ready times. Direct KV preparation was active, but in this particular run it was not the strongest additive knob by itself; scheduling plus value-aware eviction gave the best lateness and workload-window result.</p>
+      </div>
+      <div class="chart" aria-label="Combined controller detailed mode metrics">
+        <h3>Detailed Mode Metrics</h3>
+        <p class="small">Replay workload window is the total measured replay workload time for that mode: from the first replay request starting to the final replay request completing. It excludes server startup and report generation.</p>
+        <div class="table-panel">
+          <table class="metric-table">
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Active knobs</th>
+                <th class="num">Requests</th>
+                <th class="num">Total TTFT</th>
+                <th class="num">Avg TTFT</th>
+                <th class="num">Total lateness</th>
+                <th class="num">Avg lateness</th>
+                <th class="num">P95 lateness</th>
+                <th class="num">Max lateness</th>
+                <th class="num">Replay workload window</th>
+                <th>Takeaway</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mode-name">no_prefetch</td>
+                <td>None; baseline behavior</td>
+                <td class="num">32</td>
+                <td class="num">455.5s</td>
+                <td class="num">14.2s</td>
+                <td class="num">969.5s</td>
+                <td class="num">30.3s</td>
+                <td class="num">88.3s</td>
+                <td class="num">94.6s</td>
+                <td class="num">95.6s</td>
+                <td class="takeaway">Replay work stretched out badly.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_sched</td>
+                <td>Ready-time scheduling</td>
+                <td class="num">32</td>
+                <td class="num">443.5s</td>
+                <td class="num">13.9s</td>
+                <td class="num">504.9s</td>
+                <td class="num">15.8s</td>
+                <td class="num">35.2s</td>
+                <td class="num">36.6s</td>
+                <td class="num">37.2s</td>
+                <td class="takeaway">Scheduling alone produced a large lateness and workload-window win.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_sched_kv</td>
+                <td>Ready-time scheduling + direct KV prepare</td>
+                <td class="num">32</td>
+                <td class="num">478.1s</td>
+                <td class="num">14.9s</td>
+                <td class="num">573.6s</td>
+                <td class="num">17.9s</td>
+                <td class="num">34.5s</td>
+                <td class="num">38.0s</td>
+                <td class="num">38.5s</td>
+                <td class="takeaway">KV prepare was active, but did not add clean benefit in this run.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_sched_evict</td>
+                <td>Ready-time scheduling + value-aware eviction</td>
+                <td class="num">32</td>
+                <td class="num">415.5s</td>
+                <td class="num">13.0s</td>
+                <td class="num">477.0s</td>
+                <td class="num">14.9s</td>
+                <td class="num">31.6s</td>
+                <td class="num">33.8s</td>
+                <td class="num">34.4s</td>
+                <td class="takeaway">Best all-around mode in this run.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_full</td>
+                <td>Scheduling + direct KV prepare + value-aware eviction</td>
+                <td class="num">32</td>
+                <td class="num">398.1s</td>
+                <td class="num">12.4s</td>
+                <td class="num">500.5s</td>
+                <td class="num">15.6s</td>
+                <td class="num">33.8s</td>
+                <td class="num">37.8s</td>
+                <td class="num">38.4s</td>
+                <td class="takeaway">Clean win versus baseline; best TTFT, but not the best lateness/window.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       <div class="evidence" aria-label="Combined controller mechanism evidence">
         <p class="evidence-title">Mechanism Evidence</p>
