@@ -136,6 +136,41 @@
       flex-wrap: wrap;
     }
 
+    .section.collapsible > .scenario-head {
+      cursor: pointer;
+    }
+
+    .section-body {
+      display: grid;
+      gap: 18px;
+    }
+
+    .section-body[hidden] {
+      display: none;
+    }
+
+    .collapse-toggle {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #334155;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 7px 9px;
+      cursor: pointer;
+    }
+
+    .collapse-toggle:hover {
+      background: #eef2f7;
+    }
+
+    .collapse-toggle:focus-visible {
+      outline: 3px solid rgba(15, 118, 110, .28);
+      outline-offset: 2px;
+    }
+
     .chart {
       display: grid;
       gap: 12px;
@@ -1979,5 +2014,68 @@
       </div>
     </section>
   </main>
+  <script>
+    (function () {
+      const sections = Array.from(document.querySelectorAll("main > section.section"));
+
+      sections.forEach((section, index) => {
+        let header = section.querySelector(":scope > .scenario-head");
+        const heading = section.querySelector(":scope > h2, :scope > .scenario-head > h2");
+        if (!heading) return;
+
+        if (!header) {
+          header = document.createElement("div");
+          header.className = "scenario-head";
+          section.insertBefore(header, heading);
+          header.appendChild(heading);
+        }
+
+        const body = document.createElement("div");
+        body.className = "section-body";
+        body.id = `section-body-${index + 1}`;
+
+        while (header.nextSibling) {
+          body.appendChild(header.nextSibling);
+        }
+        section.appendChild(body);
+
+        const startsOpen = /Scenario H1: GPU-Occupancy-Aware Backfill/.test(heading.textContent || "");
+        section.classList.add("collapsible");
+        body.hidden = !startsOpen;
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "collapse-toggle";
+        button.setAttribute("aria-controls", body.id);
+
+        const updateButton = () => {
+          const expanded = !body.hidden;
+          button.textContent = expanded ? "Collapse" : "Expand";
+          button.setAttribute("aria-expanded", String(expanded));
+          section.classList.toggle("is-open", expanded);
+          section.classList.toggle("is-collapsed", !expanded);
+        };
+
+        const toggleSection = () => {
+          body.hidden = !body.hidden;
+          updateButton();
+        };
+
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleSection();
+        });
+
+        header.addEventListener("click", (event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("a, button, input, textarea, select, summary")) return;
+          toggleSection();
+        });
+
+        header.appendChild(button);
+        updateButton();
+      });
+    }());
+  </script>
 </body>
 </html>
