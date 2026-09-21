@@ -1,0 +1,144 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "openclaw",
+    "display_name": "OpenClaw",
+    "initial_status": "native_client_capture_required"
+  },
+  "baseline_scenario_id": "openclaw_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [3, 8, 13]
+  },
+  "docs_sources": [
+    "https://openclaw.dev/",
+    "https://github.com/openclaw-ai/openclaw"
+  ],
+  "deck_signal_accounting": {
+    "focused_signal_count": 16,
+    "deck_supported_or_conditional_count": 8,
+    "native_request_boundary_observed_count": 1,
+    "supported_or_conditional_not_observed_count": 7,
+    "deck_unsupported_count": 8,
+    "supported_or_conditional_signals": [
+      "provider_qos",
+      "cache_key_bucket",
+      "cache_namespace",
+      "cache_ttl",
+      "cache_entry_type",
+      "speculative_prefill",
+      "cache_hit_feedback",
+      "cache_pinning"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole OpenClaw session or provider configuration.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or provider cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage, trace, or metrics feedback."
+  },
+  "source_classes": {
+    "provider_config": "An OpenClaw provider/model config setting caused or carried the hint.",
+    "provider_automatic": "The provider derives the behavior without a client-visible field.",
+    "pass_through": "OpenClaw preserved configured request metadata at the request boundary.",
+    "different_mechanism": "OpenClaw has an adjacent mechanism that is not a portable KV prefill hint.",
+    "metrics_feedback": "The value appears after execution as provider usage or tracing feedback."
+  },
+  "required_smoke_scenarios": [
+    "openclaw_no_hints_baseline",
+    "openclaw_provider_qos_fast_mode",
+    "openclaw_provider_cache_config"
+  ],
+  "hints": [
+    {
+      "id": "provider_qos",
+      "canonical_signal": "Provider speed/QoS tier",
+      "meaning": "OpenClaw fast mode can map to provider service_tier=priority on supported OpenAI-compatible requests.",
+      "raw_fields": ["service_tier", "extra_body.service_tier", "speed", "qos_tier"],
+      "default_injection_level": "provider_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "OpenAI-compatible provider or gateway",
+      "scenario_ids": ["openclaw_provider_qos_fast_mode"],
+      "status": "targeted_native_capture_not_observed"
+    },
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "OpenClaw cache keying is provider-managed; cached WebSocket state can reuse prior response state.",
+      "raw_fields": ["prompt_cache_key", "cache_key_policy", "model"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["openclaw_provider_cache_config"],
+      "status": "provider_managed_not_observed"
+    },
+    {
+      "id": "cache_namespace",
+      "canonical_signal": "Cache namespace/isolation",
+      "meaning": "OpenClaw cache isolation is provider/session scoped, with optional namespace metadata for gateways.",
+      "raw_fields": ["cache_namespace", "provider_session", "_capture.headers.x-hintbench-cache-namespace", "_capture.headers.x-session-affinity"],
+      "default_injection_level": "session_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "Provider prompt cache or gateway",
+      "scenario_ids": ["openclaw_provider_session_namespace"],
+      "status": "native_request_boundary_observed"
+    },
+    {
+      "id": "cache_ttl",
+      "canonical_signal": "Cache TTL",
+      "meaning": "OpenClaw TTL behavior is provider-managed; no generic portable TTL hint is identified in the deck.",
+      "raw_fields": ["prompt_cache_retention", "cache_control.ttl", "messages.*.content.*.cache_control.ttl"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["openclaw_provider_cache_config"],
+      "status": "provider_managed_not_observed"
+    },
+    {
+      "id": "cache_entry_type",
+      "canonical_signal": "Cache entry type",
+      "meaning": "OpenClaw cache entry behavior is provider-managed.",
+      "raw_fields": ["cache_control.type", "messages.*.content.*.cache_control.type"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["openclaw_provider_cache_config"],
+      "status": "provider_managed_not_observed"
+    },
+    {
+      "id": "speculative_prefill",
+      "canonical_signal": "Speculative prefill",
+      "meaning": "OpenClaw has cached WebSocket/prewarm behavior, but the deck labels this as a different mechanism from KV prefill.",
+      "raw_fields": ["websocket_prewarm", "cached_websocket", "speculative_prefill"],
+      "default_injection_level": "request_level",
+      "expected_source_class": "different_mechanism",
+      "supported_consumer": "OpenClaw provider/session runtime",
+      "scenario_ids": ["openclaw_cached_websocket_prewarm_probe"],
+      "status": "different_mechanism_not_observed"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "OpenClaw cache feedback is expected through provider usage or tracing after execution.",
+      "raw_fields": ["usage.cached_tokens", "usage.cache_read_input_tokens", "trace.cache_hit", "provider_trace.cache"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["openclaw_provider_trace_feedback"],
+      "status": "real_provider_response_required"
+    },
+    {
+      "id": "cache_pinning",
+      "canonical_signal": "Cache pinning / retention",
+      "meaning": "OpenClaw cache retention is provider-managed only, not a literal pinning field.",
+      "raw_fields": ["cache_pinning", "prompt_cache_retention"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["openclaw_cache_pinning_negative_probe"],
+      "status": "provider_managed_retention_not_observed"
+    }
+  ]
+}

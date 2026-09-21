@@ -3,8 +3,9 @@
 This document is the source of truth for the hint benchmarking workstream.
 The first implementation target was NeMo Agent Toolkit / NAT. Claude Code was
 the second target, Qwen Code was the third request-boundary target, Hermes
-Agent is wired as a request-boundary setup pending native CLI evidence, and Pi
-Agent Harness now has native request-boundary evidence.
+Agent is wired as a request-boundary setup pending native CLI evidence, Pi
+Agent Harness has native request-boundary evidence, and OpenClaw is now wired
+with native request-boundary evidence.
 
 ## Core Objective
 
@@ -43,7 +44,7 @@ use to answer:
 ## Initial Scope
 
 Start with NAT, then Claude Code, then Qwen Code, then Hermes Agent, then Pi
-Agent Harness.
+Agent Harness, then OpenClaw.
 
 Do not start by benchmarking every harness. NAT is the best first target because
 the signal table lists many explicit scheduling and cache-related hints for it.
@@ -55,7 +56,10 @@ comes next because the deck gives it provider QoS plus prompt-cache TTL/type and
 provider/session/model cache-identity signals. Pi Agent Harness then adds a
 lightweight native CLI path with provider prompt-cache keying, session-affinity
 namespace metadata, long retention, cache-control markers, and pinning-negative
-evidence. Once these paths are solid, reuse the same suite structure for the
+evidence. OpenClaw follows because the deck gives it provider QoS/fast-mode
+and provider-managed cache/session/prewarm signals; the first native capture
+shows namespace passthrough but not literal provider cache or service-tier
+fields yet. Once these paths are solid, reuse the same suite structure for the
 remaining harnesses.
 
 ## Claude Evidence Lanes
@@ -707,6 +711,48 @@ The observed Pi request-boundary signals are `prompt_cache_key`,
 Anthropic-style `cache_control` markers with `ttl="1h"`, and the absence of a
 literal `cache_pinning` field while long retention is present. Cache-hit
 feedback still requires a real provider/cache reuse run.
+
+### Phase 10: OpenClaw Extension
+
+OpenClaw now follows the same manifest, scenario, knob-profile, and runner
+structure as the earlier harnesses.
+
+Current OpenClaw implementation:
+
+```text
+manifest: sglang_direct_kv/configs/hint_benchmark/openclaw_hints.json
+scenarios: sglang_direct_kv/configs/hint_benchmark/openclaw_scenarios.json
+knobs: sglang_direct_kv/configs/hint_benchmark/openclaw_knobs.json
+request-boundary runner mode: --openclaw-native-capture
+```
+
+Current local native status:
+
+```text
+native capture adapter: implemented
+native OpenClaw CLI/client: available through npx
+current native run_id: openclaw_native_request_boundary_20260921
+scenario_count: 6
+validation_rows: 15
+unknown_hint_rows: 0
+```
+
+OpenClaw signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
+
+```text
+focused serving-control signals for OpenClaw: 16
+supported or conditional in the deck: 8
+observed in native request-boundary capture: 1
+not observed yet: 7 supported/conditional signals
+unsupported in the deck: 8
+```
+
+The observed OpenClaw request-boundary signal is
+`x-hintbench-cache-namespace`. Provider QoS/service-tier, provider cache key,
+cache TTL/retention, cache entry type, cached-WebSocket/prewarm metadata,
+cache-hit feedback, and provider-managed cache pinning/retention are still not
+visible in the current local request body. Those remain provider/config or
+real-provider trace candidates until another OpenClaw path exposes them.
 
 ## Later Work
 

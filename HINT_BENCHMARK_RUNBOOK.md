@@ -21,6 +21,7 @@ cd ~/agentic_hardware
 - [Claude Code](#claude-code)
 - [Qwen Code](#qwen-code)
 - [Pi Agent Harness](#pi-agent-harness)
+- [OpenClaw](#openclaw)
 - [NeMo Agent Toolkit / NAT](#nemo-agent-toolkit--nat)
 - [Hermes Agent](#hermes-agent)
 - [Missing Or Blocked Today](#missing-or-blocked-today)
@@ -45,6 +46,8 @@ cd ~/agentic_hardware
 | Qwen Code + Provider Config | Qwen Code carried provider/model configuration such as `extra_body`, custom headers, or cache-control settings. |
 | Native Pi Agent Harness | The real Pi Agent Harness CLI emitted or carried the signal at the request boundary. |
 | Pi Agent Harness + Provider Config | Pi carried provider/model configuration such as prompt-cache retention, cache-control markers, or session-affinity headers. |
+| Native OpenClaw | The real OpenClaw CLI emitted or carried the signal at the request boundary. |
+| OpenClaw + Provider Config | OpenClaw carried provider/model configuration such as service-tier, provider cache, cached-WebSocket, or namespace settings. |
 | Native Hermes Agent | The real Hermes Agent CLI emitted or carried the signal at the request boundary. |
 | Hermes Agent + Provider Config | Hermes carried provider/model configuration such as `service_tier`, `extra_body`, headers, or prompt-cache settings. |
 | Native NAT Workflow | The real NeMo/NAT transport emitted the signal from workflow or transport settings. |
@@ -613,6 +616,148 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
 <td>Runs scenario <code>pi_provider_account_namespace</code>, with session affinity enabled in the provider extension.</td>
 <td>Session</td>
 <td>Provider/config carried by Pi and preserved at the request boundary.</td>
+</tr>
+</tbody>
+</table>
+
+## OpenClaw
+
+The current OpenClaw suite has native request-boundary evidence from the real
+OpenClaw CLI via `npx -y openclaw@latest`. Against
+`presentation/Harness Signal Tables As-Is.pptx`, OpenClaw has 8 supported or
+conditional cache/provider signals and 8 unsupported focused signals. The
+current request-boundary run observed 1 of the 8 supported or conditional
+signals: configured namespace header preservation.
+
+Current artifact: `openclaw_native_request_boundary_20260921`.
+
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All OpenClaw request-boundary probes</td>
+<td>Run every OpenClaw request-boundary probe and report what actually appears.</td>
+<td>OpenClaw + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="openclaw_all_request_boundary_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile all_request_boundary \
+  --openclaw-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>x-hintbench-cache-namespace</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining provider QoS, provider/session namespace, provider cache config, cached-WebSocket/prewarm, and cache-pinning negative probes.</td>
+<td>Session</td>
+<td>Native OpenClaw request-boundary capture. Current artifact: <code>openclaw_native_request_boundary_20260921</code>.</td>
+</tr>
+<tr>
+<td>OpenClaw native baseline</td>
+<td>Confirm OpenClaw emits no benchmark cache or QoS hints when knobs are off.</td>
+<td>Native OpenClaw</td>
+<td>
+
+```bash
+RUN_ID="openclaw_baseline_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile baseline \
+  --openclaw-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No OpenClaw benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native OpenClaw request-boundary control case.</td>
+</tr>
+<tr>
+<td>OpenClaw namespace probe</td>
+<td>Show provider/session cache namespace metadata when configured.</td>
+<td>OpenClaw + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="openclaw_namespace_only_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile namespace_only \
+  --openclaw-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>x-hintbench-cache-namespace</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>openclaw_provider_session_namespace</code>, whose provider config supplies a namespace header.</td>
+<td>Session</td>
+<td>Provider/config carried by OpenClaw and preserved at the request boundary.</td>
+</tr>
+<tr>
+<td>OpenClaw cache candidate probes</td>
+<td>Probe provider-managed cache key, retention, entry type, cached-WebSocket, and pinning-negative recipes.</td>
+<td>OpenClaw + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="openclaw_cache_only_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile cache_only \
+  --openclaw-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li>none observed in the current native request-boundary run</li>
+</ul>
+</td>
+<td>Runs provider cache config, cached-WebSocket/prewarm, and cache-pinning negative probes.</td>
+<td>Configuration</td>
+<td>These remain provider-managed candidates today; the current OpenClaw request body did not expose literal cache fields.</td>
 </tr>
 </tbody>
 </table>
@@ -1268,6 +1413,11 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
 | Qwen Code | literal cache key | Not observed in request-boundary capture; the deck frames Qwen cache keying as automatic prefix matching. | A provider or future Qwen path would need to expose a literal request cache-key field. |
 | Qwen Code | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider usage counters such as cached tokens. |
 | Pi Agent Harness | cache-hit feedback | Request-boundary capture saw Pi request fields, but not real provider cache-hit usage. | Use a real provider run with repeated cacheable prefix requests and collect Pi footer/provider usage counters such as cache read/write. |
+| OpenClaw | provider QoS / service tier | The deck maps fast mode to `service_tier=priority`, but the current OpenClaw native capture did not forward `service_tier` or `extra_body.service_tier`. | Find the OpenClaw provider/config path that forwards service tier to supported OpenAI-compatible requests, then rerun `openclaw_provider_qos_fast_mode`. |
+| OpenClaw | provider cache key, TTL, and entry type | The deck marks these as provider-managed; the current local request-boundary capture did not expose literal cache fields. | Use a provider/path that surfaces prompt-cache request metadata, or collect provider-side cache trace output. |
+| OpenClaw | cached WebSocket / prewarm metadata | The deck labels this as a different mechanism from KV prefill; no `cached_websocket` or `websocket_prewarm` request field appeared. | Exercise the real cached-WebSocket path and capture either the WebSocket session metadata or provider trace. |
+| OpenClaw | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect OpenClaw/provider trace or usage counters. |
+| OpenClaw | cache pinning / retention | The deck says provider-managed only; current capture did not expose retention or literal `cache_pinning`. | Use a provider path that exposes retention metadata, or keep treating this as provider-managed until evidence appears. |
 | Hermes Agent | native request-boundary evidence | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. |
 | Hermes Agent | literal cache key | The deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal cache-key field is optional. | A provider or future Hermes path would need to expose a literal request cache-key field. |
 | Hermes Agent | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider prompt-cache metrics. |

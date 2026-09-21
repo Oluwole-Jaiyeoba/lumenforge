@@ -6,9 +6,9 @@ enter the harness path, what JSON shape they use, and what benchmark knobs can
 expose or hide them.
 
 The current completed native/request-boundary harnesses are NeMo Agent Toolkit
-/ NAT, Claude Code, Qwen Code, and Pi Agent Harness. Hermes Agent has benchmark
-setup and fixture validation, but native Hermes evidence is still pending a host
-with the Hermes CLI installed.
+/ NAT, Claude Code, Qwen Code, Pi Agent Harness, and OpenClaw. Hermes Agent has
+benchmark setup and fixture validation, but native Hermes evidence is still
+pending a host with the Hermes CLI installed.
 
 ## Evidence
 
@@ -121,6 +121,34 @@ real Pi CLI pointed at a local capture endpoint. They prove Pi can carry the
 observed provider/config/cache fields. They do not prove a real provider acted
 on those fields, and they do not prove cache-hit feedback.
 
+Current OpenClaw evidence:
+
+```text
+run_id: openclaw_native_request_boundary_20260921
+harness: openclaw
+execution_mode: openclaw_native_capture
+scenario_count: 6
+validation_rows: 15
+unknown_hint_rows: 0
+artifact_dir: sglang_direct_kv/artifacts/results/hint_benchmark/openclaw_native_request_boundary_20260921
+```
+
+OpenClaw signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
+
+```text
+focused serving-control signals for OpenClaw: 16
+deck-supported or conditional signals: 8
+native request-boundary signals observed: 1
+supported/conditional signals not observed yet: 7
+deck-unsupported signals: 8
+```
+
+Important boundary: OpenClaw rows below are native request-boundary captures
+from the real OpenClaw CLI pointed at a local capture endpoint. The current run
+proves OpenClaw can preserve configured namespace headers. It did not expose
+literal service-tier, provider cache, cached-WebSocket, cache-retention, or
+cache-feedback fields in the local request body.
+
 Benchmark outputs include an `evidence_tier` column:
 
 | Evidence Tier | How To Interpret It |
@@ -186,6 +214,14 @@ Benchmark outputs include an `evidence_tier` column:
 | Pi Agent Harness | cache entry type | yes | content block level | prompt cache control | Pi emitted Anthropic-style ephemeral cache-control markers | `pi_cache_retention_long` | `messages.*.content.*.cache_control.type="ephemeral"` | provider/config carried by Pi | `pi_native_request_boundary_rescored_20260921` | Observed on message content blocks. |
 | Pi Agent Harness | cache pinning / long retention | yes | cache entry level | cache retention behavior | Pinning-negative probe observed long retention and absence of literal `cache_pinning` | `pi_cache_pinning_negative_probe` | `{"prompt_cache_retention":"24h"}` and no `cache_pinning` field | provider retention behavior | `pi_native_request_boundary_rescored_20260921` | Matches the deck wording: long retention where provider supports it, not pinning. |
 | Pi Agent Harness | cache-hit feedback | no | runtime feedback level | post-execution usage metrics | Requires real provider response or Pi footer/provider cache usage counters | `pi_cache_feedback_footer_usage` | expected future shape: `usage.cacheRead`, `footer.cache_usage`, or provider cache counters | real provider/metrics required | not observed in local request-boundary capture | Local capture returns dummy usage, so it cannot prove a cache hit. |
+| OpenClaw | provider QoS / service tier | optional not observed | provider level | provider/model behavior | OpenClaw provider config attempted to supply service-tier metadata | `openclaw_provider_qos_fast_mode` | expected optional `{"service_tier":"priority"}` or `{"extra_body":{"service_tier":"priority"}}` | provider/config candidate carried by OpenClaw | `openclaw_native_request_boundary_20260921` | Slide 8 maps fast mode to `service_tier=priority`, but the tested native path did not forward the field. |
+| OpenClaw | provider/session namespace | yes | session level | cache namespace / isolation | Configured OpenClaw provider header survived to the request boundary | `openclaw_provider_session_namespace` | header `x-hintbench-cache-namespace: openclaw_provider_session` | provider/config carried by OpenClaw | `openclaw_native_request_boundary_20260921` | This proves header preservation only, not provider-side cache isolation behavior. |
+| OpenClaw | provider cache key | optional not observed | cache entry level | prompt cache matching | Provider cache config attempted to supply a prompt cache key | `openclaw_provider_cache_config` | expected optional `{"prompt_cache_key":...}` | provider-managed cache candidate | `openclaw_native_request_boundary_20260921` | Slide 13 labels cache keying as provider-managed; no literal cache key appeared in the request body. |
+| OpenClaw | cache TTL / retention | optional not observed | cache entry level | provider cache retention | Provider cache config attempted to supply long retention | `openclaw_provider_cache_config` | expected optional `{"prompt_cache_retention":"long"}` or `{"prompt_cache_retention":"24h"}` | provider-managed cache candidate | `openclaw_native_request_boundary_20260921` | No literal retention field appeared in the tested native path. |
+| OpenClaw | cache entry type | optional not observed | content block level | prompt cache control | Provider cache config attempted to expose cache-control markers | `openclaw_provider_cache_config` | expected optional `messages.*.content.*.cache_control.type="ephemeral"` | provider-managed cache candidate | `openclaw_native_request_boundary_20260921` | The request body did not contain cache-control markers. |
+| OpenClaw | cached WebSocket / prewarm | optional not observed | request level | cache warmup / alternate reuse mechanism | Cached-WebSocket probe checked for OpenClaw prewarm metadata | `openclaw_cached_websocket_prewarm_probe` | expected optional `cached_websocket=true` or `websocket_prewarm=true`; no `speculative_prefill` field | different mechanism candidate | `openclaw_native_request_boundary_20260921` | The deck says this is not KV prefill; the tested request did not expose cached-WebSocket metadata either. |
+| OpenClaw | cache-hit feedback | no | runtime feedback level | post-execution usage metrics | Requires real provider trace or usage counters | `openclaw_provider_trace_feedback` | expected future shape: `usage.cached_tokens` or `trace.cache_hit` | real provider/metrics required | not observed in local request-boundary capture | Local capture cannot prove provider cache-hit feedback. |
+| OpenClaw | cache pinning / retention | optional not observed | cache entry level | cache retention behavior | Pinning-negative probe checked whether OpenClaw emits literal pinning or provider retention | `openclaw_cache_pinning_negative_probe` | no `cache_pinning` field; expected optional `prompt_cache_retention` did not appear | provider-managed retention candidate | `openclaw_native_request_boundary_20260921` | Matches the deck boundary: provider-managed only, with no literal pin flag observed. |
 
 ## Benchmark Knobs
 
@@ -197,6 +233,7 @@ sglang_direct_kv/configs/hint_benchmark/claude_knobs.json
 sglang_direct_kv/configs/hint_benchmark/qwen_knobs.json
 sglang_direct_kv/configs/hint_benchmark/hermes_knobs.json
 sglang_direct_kv/configs/hint_benchmark/pi_knobs.json
+sglang_direct_kv/configs/hint_benchmark/openclaw_knobs.json
 ```
 
 The operational runbook with copy-paste commands is:
@@ -233,6 +270,10 @@ without manually listing scenario IDs.
 | `pi_prompt_cache` | provider prompt cache, long retention | `prompt_cache_key`, `prompt_cache_retention`, `cache_control.type`, `cache_control.ttl` | Configures Pi provider cache compatibility and verifies native request-boundary cache fields. | Pi Agent Harness | no |
 | `pi_namespace` | session affinity / provider account | `x-session-affinity`, namespace header | Enables Pi session affinity and verifies namespace metadata at the request boundary. | Pi Agent Harness | no |
 | `pi_cache_feedback` | real provider response | Pi footer/provider usage cache counters | Requires a real provider/backend response path to observe cache feedback. | Pi Agent Harness | yes |
+| `openclaw_provider_qos` | service tier / fast mode | optional `service_tier`, `extra_body.service_tier` | Configures OpenClaw provider QoS candidates and checks whether the native request carries them. | OpenClaw | no |
+| `openclaw_namespace` | provider/session namespace | `x-hintbench-cache-namespace` | Adds OpenClaw provider header metadata and verifies request-boundary preservation. | OpenClaw | no |
+| `openclaw_provider_cache` | provider-managed cache config | optional `prompt_cache_key`, `prompt_cache_retention`, `cache_control.type` | Configures provider cache candidates; current native request-boundary run did not expose literal cache fields. | OpenClaw | no |
+| `openclaw_cache_feedback` | real provider trace/usage | `usage.cached_tokens`, `trace.cache_hit` | Requires a real provider/backend response path to observe cache feedback. | OpenClaw | yes |
 
 ## Knob Profiles
 
@@ -275,6 +316,13 @@ without manually listing scenario IDs.
 | Pi `feedback_only` | Probe whether Pi/provider can expose cache feedback. | `pi_cache_feedback_footer_usage` | cache-read/write or footer usage counters |
 | Pi `all_request_boundary` | Run every Pi request-boundary probe. | `pi_request_boundary_coverage` | native Pi request-boundary probe targets only |
 | Pi `full_coverage` | List every Pi signal recipe. | `full_pi_coverage` | request-boundary plus provider-feedback recipes |
+| OpenClaw `baseline` | Hide intentional hints. | `openclaw_no_hints_baseline` | none |
+| OpenClaw `qos_only` | Probe OpenClaw provider QoS/service-tier config. | `openclaw_provider_qos_fast_mode` | optional `service_tier`, optional `extra_body.service_tier` |
+| OpenClaw `cache_only` | Probe provider-managed cache config, cached-WebSocket, and pinning-negative recipes. | provider cache config, cached-WebSocket, and pinning-negative scenarios | optional cache fields; none observed in current native request-boundary run |
+| OpenClaw `namespace_only` | Probe OpenClaw provider/session namespace metadata. | `openclaw_provider_session_namespace` | `x-hintbench-cache-namespace` |
+| OpenClaw `feedback_only` | Probe whether OpenClaw/provider can expose cache feedback. | `openclaw_provider_trace_feedback` | cache-read/cached-token usage counters or trace fields |
+| OpenClaw `all_request_boundary` | Run every OpenClaw request-boundary probe. | `openclaw_request_boundary_coverage` | native OpenClaw request-boundary probe targets only |
+| OpenClaw `full_coverage` | List every OpenClaw signal recipe. | `full_openclaw_coverage` | request-boundary plus provider-feedback recipes |
 
 Example:
 

@@ -1,0 +1,53 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "openclaw",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["openclaw_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "qos_only": {
+      "display_name": "OpenClaw provider QoS probes",
+      "scenario_selectors": ["openclaw_provider_qos_fast_mode"],
+      "expected_signal_visibility": ["service_tier", "extra_body.service_tier"]
+    },
+    "cache_only": {
+      "display_name": "OpenClaw provider cache probes",
+      "scenario_selectors": [
+        "openclaw_provider_cache_config",
+        "openclaw_cached_websocket_prewarm_probe",
+        "openclaw_cache_pinning_negative_probe"
+      ],
+      "expected_signal_visibility": [
+        "prompt_cache_key",
+        "prompt_cache_retention",
+        "messages.*.content.*.cache_control.type",
+        "cached_websocket"
+      ]
+    },
+    "namespace_only": {
+      "display_name": "OpenClaw provider/session namespace probes",
+      "scenario_selectors": ["openclaw_provider_session_namespace"],
+      "expected_signal_visibility": [
+        "_capture.headers.x-hintbench-cache-namespace",
+        "provider_session"
+      ]
+    },
+    "feedback_only": {
+      "display_name": "OpenClaw provider trace feedback probe",
+      "scenario_selectors": ["openclaw_provider_trace_feedback"],
+      "expected_signal_visibility": ["usage.cached_tokens", "trace.cache_hit"]
+    },
+    "all_request_boundary": {
+      "display_name": "All OpenClaw request-boundary probes",
+      "scenario_selectors": ["openclaw_request_boundary_coverage"],
+      "expected_signal_visibility": ["OpenClaw native request-boundary probe targets only"]
+    },
+    "full_coverage": {
+      "display_name": "Full OpenClaw signal coverage",
+      "scenario_selectors": ["full_openclaw_coverage"],
+      "expected_signal_visibility": ["OpenClaw request-boundary plus provider-feedback recipes"]
+    }
+  }
+}

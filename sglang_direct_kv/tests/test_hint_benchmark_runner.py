@@ -38,6 +38,9 @@ HERMES_KNOBS = ROOT / "configs" / "hint_benchmark" / "hermes_knobs.json"
 PI_MANIFEST = ROOT / "configs" / "hint_benchmark" / "pi_hints.json"
 PI_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "pi_scenarios.json"
 PI_KNOBS = ROOT / "configs" / "hint_benchmark" / "pi_knobs.json"
+OPENCLAW_MANIFEST = ROOT / "configs" / "hint_benchmark" / "openclaw_hints.json"
+OPENCLAW_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "openclaw_scenarios.json"
+OPENCLAW_KNOBS = ROOT / "configs" / "hint_benchmark" / "openclaw_knobs.json"
 
 
 class HintBenchmarkRunnerTests(unittest.TestCase):
@@ -237,6 +240,10 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
         )
         self.assertEqual(
             evidence_tier_for_mode("pi_native_capture"),
+            "native_client_or_transport_capture",
+        )
+        self.assertEqual(
+            evidence_tier_for_mode("openclaw_native_capture"),
             "native_client_or_transport_capture",
         )
         self.assertEqual(
@@ -461,6 +468,86 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
         self.assertEqual(by_scenario["pi_provider_prompt_cache_config"]["result"], "pass")
         self.assertEqual(by_scenario["pi_provider_account_namespace"]["result"], "pass")
         self.assertEqual(by_scenario["pi_cache_retention_long"]["result"], "pass")
+
+    def test_loads_openclaw_manifest_and_scenarios(self):
+        manifest, scenarios = load_benchmark_inputs(OPENCLAW_MANIFEST, OPENCLAW_SCENARIOS)
+        self.assertEqual(manifest["harness"]["id"], "openclaw")
+        self.assertEqual(len(manifest["hints"]), 8)
+        self.assertEqual(len(scenarios["scenarios"]), 7)
+        self.assertEqual(manifest["deck_signal_accounting"]["deck_supported_or_conditional_count"], 8)
+
+    def test_selects_openclaw_knob_profile_scenarios(self):
+        _, scenarios = load_benchmark_inputs(OPENCLAW_MANIFEST, OPENCLAW_SCENARIOS)
+        knobs = load_knob_profiles(OPENCLAW_KNOBS)
+        profile = select_knob_profile(knobs, "cache_only")
+        selected = select_scenarios(scenarios, profile["scenario_selectors"])
+        self.assertEqual(
+            [scenario["id"] for scenario in selected],
+            [
+                "openclaw_provider_cache_config",
+                "openclaw_cached_websocket_prewarm_probe",
+                "openclaw_cache_pinning_negative_probe",
+            ],
+        )
+        self.assertIn("prompt_cache_key", profile["expected_signal_visibility"])
+
+    def test_openclaw_payload_observations_extract_qos_and_cache_fields(self):
+        manifest, scenarios = load_benchmark_inputs(OPENCLAW_MANIFEST, OPENCLAW_SCENARIOS)
+        selected = select_scenarios(
+            scenarios,
+            "openclaw_provider_qos_fast_mode,openclaw_provider_session_namespace,openclaw_provider_cache_config",
+        )
+        result = build_dry_run(
+            manifest,
+            selected,
+            run_id="unit_test",
+            created_at=1.0,
+            execution_mode="openclaw_native_capture",
+        )
+        observations = build_payload_observations(
+            manifest,
+            result["scenario_records"],
+            {
+                "openclaw_provider_qos_fast_mode": [
+                    {"service_tier": "priority", "extra_body": {"service_tier": "priority"}}
+                ],
+                "openclaw_provider_session_namespace": [
+                    {
+                        "provider_session": "present",
+                        "_capture": {"headers": {"x-hintbench-cache-namespace": "openclaw_provider_session"}},
+                    }
+                ],
+                "openclaw_provider_cache_config": [
+                    {
+                        "prompt_cache_key": "openclaw_cache_key",
+                        "prompt_cache_retention": "long",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": "stable user",
+                                        "cache_control": {"type": "ephemeral"},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            evidence_source="openclaw_native_capture",
+        )
+        validation = validate_hint_evidence(
+            manifest,
+            result["scenario_records"],
+            observations,
+            execution_mode="openclaw_native_capture",
+        )
+        by_scenario = {row["scenario_id"]: row for row in validation["scenario_summaries"]}
+        self.assertEqual(by_scenario["openclaw_provider_qos_fast_mode"]["result"], "pass")
+        self.assertEqual(by_scenario["openclaw_provider_session_namespace"]["result"], "pass")
+        self.assertEqual(by_scenario["openclaw_provider_cache_config"]["result"], "pass")
 
     def test_payload_index_expectations_can_check_first_only_cache_control(self):
         manifest, scenarios = load_benchmark_inputs(MANIFEST, SCENARIOS)

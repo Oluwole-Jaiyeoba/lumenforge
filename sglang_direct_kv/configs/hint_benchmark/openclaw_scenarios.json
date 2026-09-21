@@ -1,0 +1,242 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "openclaw",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/openclaw_hints.json",
+  "scenario_groups": {
+    "smoke": [
+      "openclaw_no_hints_baseline",
+      "openclaw_provider_qos_fast_mode",
+      "openclaw_provider_cache_config"
+    ],
+    "full_openclaw_coverage": [
+      "openclaw_no_hints_baseline",
+      "openclaw_provider_qos_fast_mode",
+      "openclaw_provider_session_namespace",
+      "openclaw_provider_cache_config",
+      "openclaw_cached_websocket_prewarm_probe",
+      "openclaw_provider_trace_feedback",
+      "openclaw_cache_pinning_negative_probe"
+    ],
+    "openclaw_request_boundary_coverage": [
+      "openclaw_no_hints_baseline",
+      "openclaw_provider_qos_fast_mode",
+      "openclaw_provider_session_namespace",
+      "openclaw_provider_cache_config",
+      "openclaw_cached_websocket_prewarm_probe",
+      "openclaw_cache_pinning_negative_probe"
+    ],
+    "openclaw_provider_feedback_coverage": [
+      "openclaw_provider_trace_feedback"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole OpenClaw session or provider configuration.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or provider cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage, trace, or metrics feedback."
+  },
+  "scenarios": [
+    {
+      "id": "openclaw_no_hints_baseline",
+      "display_name": "OpenClaw baseline",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "request_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What fields appear when OpenClaw sends a minimal one-turn OpenAI-compatible request?",
+      "workload_shape": {"request_count": 1, "client": "openclaw_cli"},
+      "client_setup": {
+        "model": "openclaw-hint-benchmark-model",
+        "cli_prompt": "OpenClaw hint benchmark baseline. Reply with one short sentence."
+      },
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "present"},
+        {"hint_id": "cache_key_bucket", "raw_field": "prompt_cache_key", "expected_value": "present"},
+        {"hint_id": "cache_pinning", "raw_field": "cache_pinning", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "openclaw_provider_qos_fast_mode",
+      "display_name": "OpenClaw provider QoS fast mode",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "provider_level",
+      "scope": "provider",
+      "trigger_type": "configured_provider_qos",
+      "target_hint_ids": ["provider_qos"],
+      "benchmark_question": "Does OpenClaw carry provider QoS metadata such as service_tier=priority into an OpenAI-compatible request?",
+      "workload_shape": {"request_count": 1, "client": "openclaw_cli"},
+      "client_setup": {
+        "model": "openclaw-hint-benchmark-model",
+        "provider_fields": {
+          "service_tier": "priority",
+          "extra_body": {
+            "service_tier": "priority"
+          }
+        },
+        "env": {
+          "OPENCLAW_FAST_MODE": "1"
+        },
+        "cli_prompt": "OpenClaw provider QoS hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "priority", "required": false},
+        {"hint_id": "provider_qos", "raw_field": "extra_body.service_tier", "expected_value": "priority", "required": false}
+      ],
+      "notes": "Slide 8 maps OpenClaw fast mode to service_tier=priority on supported OpenAI requests. The exact wire location is provider dependent."
+    },
+    {
+      "id": "openclaw_provider_session_namespace",
+      "display_name": "OpenClaw provider/session namespace",
+      "status": "native_client_required",
+      "source_class": "provider_automatic",
+      "injection_level": "session_level",
+      "scope": "cache_namespace",
+      "trigger_type": "session_isolation",
+      "target_hint_ids": ["cache_namespace"],
+      "benchmark_question": "Does OpenClaw expose provider/session cache isolation through headers or a literal request field?",
+      "workload_shape": {"request_count": 1, "client": "openclaw_cli"},
+      "client_setup": {
+        "model": "openclaw-hint-benchmark-model",
+        "provider_fields": {
+          "headers": {
+            "X-HintBench-Cache-Namespace": "openclaw_provider_session"
+          }
+        },
+        "cli_prompt": "OpenClaw cache namespace hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {
+          "hint_id": "cache_namespace",
+          "raw_field": "_capture.headers.x-hintbench-cache-namespace",
+          "expected_value": "openclaw_provider_session",
+          "required": false
+        },
+        {"hint_id": "cache_namespace", "raw_field": "provider_session", "expected_value": "present", "required": false}
+      ],
+      "notes": "The deck describes provider/session isolation. A literal request field is optional unless configured gateway headers survive."
+    },
+    {
+      "id": "openclaw_provider_cache_config",
+      "display_name": "OpenClaw provider cache config",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "configured_provider_cache",
+      "target_hint_ids": ["cache_key_bucket", "cache_ttl", "cache_entry_type"],
+      "benchmark_question": "Does OpenClaw emit provider prompt-cache key, retention, or cache-control metadata when provider cache compatibility is configured?",
+      "workload_shape": {"request_count": 1, "client": "openclaw_cli", "stable_prefix": true},
+      "client_setup": {
+        "model": "openclaw-hint-benchmark-model",
+        "compat": {
+          "supportsPromptCacheKey": true,
+          "supportsLongCacheRetention": true
+        },
+        "provider_fields": {
+          "prompt_cache_key": "openclaw_provider_prompt_cache",
+          "prompt_cache_retention": "long"
+        },
+        "env": {
+          "OPENCLAW_CACHE_RETENTION": "long",
+          "OPENCLAW_CACHE_TRACE": "1"
+        },
+        "cli_prompt": "OpenClaw provider cache config benchmark. Keep the same stable context and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "prompt_cache_key", "expected_value": "present", "required": false},
+        {"hint_id": "cache_ttl", "raw_field": "prompt_cache_retention", "expected_value": {"one_of": ["long", "24h"]}, "required": false},
+        {"hint_id": "cache_entry_type", "raw_field": "messages.*.content.*.cache_control.type", "expected_value": "ephemeral", "required": false}
+      ],
+      "notes": "Slide 13 labels OpenClaw cache key, TTL, and entry type as provider-managed, so request-boundary fields may be absent."
+    },
+    {
+      "id": "openclaw_cached_websocket_prewarm_probe",
+      "display_name": "OpenClaw cached WebSocket prewarm probe",
+      "status": "native_client_required",
+      "source_class": "different_mechanism",
+      "injection_level": "request_level",
+      "scope": "cache_or_prewarm",
+      "trigger_type": "cached_websocket",
+      "target_hint_ids": ["speculative_prefill"],
+      "benchmark_question": "Does OpenClaw expose cached WebSocket or prewarm metadata at the request boundary, distinct from KV prefill?",
+      "workload_shape": {"request_count": 1, "client": "openclaw_cli"},
+      "client_setup": {
+        "model": "openclaw-hint-benchmark-model",
+        "provider_fields": {
+          "cached_websocket": true
+        },
+        "cli_prompt": "OpenClaw cached WebSocket prewarm probe. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "speculative_prefill", "raw_field": "cached_websocket", "expected_value": true, "required": false},
+        {"hint_id": "speculative_prefill", "raw_field": "websocket_prewarm", "expected_value": true, "required": false}
+      ],
+      "negative_expectations": [
+        {"hint_id": "speculative_prefill", "raw_field": "speculative_prefill", "expected_value": true}
+      ],
+      "notes": "The deck explicitly says this is a different mechanism from KV prefill."
+    },
+    {
+      "id": "openclaw_provider_trace_feedback",
+      "display_name": "OpenClaw provider trace feedback",
+      "status": "real_provider_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "post_execution_metrics",
+      "trigger_type": "provider_cache_trace",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Does OpenClaw or the provider report cache feedback through usage or trace data after cacheable requests?",
+      "workload_shape": {"request_count": 2, "client": "openclaw_cli", "stable_prefix": true, "requires_real_provider": true},
+      "client_setup": {
+        "model": "openclaw-hint-benchmark-model",
+        "env": {
+          "OPENCLAW_CACHE_TRACE": "1"
+        },
+        "cli_prompt": "OpenClaw provider trace cache feedback probe turn {invocation_index}. Keep the stable prefix and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cached_tokens", "expected_value": {"numeric_range": [1, 1000000]}, "required": false},
+        {"hint_id": "cache_hit_feedback", "raw_field": "trace.cache_hit", "expected_value": "present", "required": false}
+      ],
+      "notes": "Request-boundary local capture cannot prove provider trace/cache feedback."
+    },
+    {
+      "id": "openclaw_cache_pinning_negative_probe",
+      "display_name": "OpenClaw cache pinning negative probe",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "configured_provider_cache",
+      "target_hint_ids": ["cache_pinning"],
+      "benchmark_question": "Does OpenClaw expose a separate cache_pinning field, or only provider-managed cache retention?",
+      "workload_shape": {"request_count": 1, "client": "openclaw_cli"},
+      "client_setup": {
+        "model": "openclaw-hint-benchmark-model",
+        "compat": {
+          "supportsLongCacheRetention": true
+        },
+        "provider_fields": {
+          "prompt_cache_retention": "long"
+        },
+        "env": {
+          "OPENCLAW_CACHE_RETENTION": "long"
+        },
+        "cli_prompt": "OpenClaw cache pinning negative probe. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_pinning", "raw_field": "prompt_cache_retention", "expected_value": {"one_of": ["long", "24h"]}, "required": false}
+      ],
+      "negative_expectations": [
+        {"hint_id": "cache_pinning", "raw_field": "cache_pinning", "expected_value": "present"}
+      ],
+      "notes": "Slide 13 describes provider-managed cache pinning behavior, not a separate literal pin flag."
+    }
+  ]
+}

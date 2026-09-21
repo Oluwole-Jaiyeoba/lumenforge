@@ -64,6 +64,11 @@ DEFAULT_CONFIGS = {
         "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "pi_scenarios.json",
         "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "pi_knobs.json",
     },
+    "openclaw": {
+        "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "openclaw_hints.json",
+        "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "openclaw_scenarios.json",
+        "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "openclaw_knobs.json",
+    },
 }
 DEFAULT_OUT_ROOT = REPO_ROOT / "artifacts" / "results" / "hint_benchmark"
 
@@ -407,6 +412,25 @@ class PiCaptureHandler(QwenCaptureHandler):
 class PiCaptureServer(ThreadingHTTPServer):
     def __init__(self) -> None:
         super().__init__(("127.0.0.1", 0), PiCaptureHandler)
+        self.payloads: list[dict[str, Any]] = []
+
+
+class OpenClawCaptureHandler(QwenCaptureHandler):
+    server: "OpenClawCaptureServer"
+
+    def do_GET(self) -> None:
+        response = {"object": "list", "data": [{"id": "openclaw-hint-benchmark-model", "object": "model"}]}
+        encoded = json.dumps(response).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+
+class OpenClawCaptureServer(ThreadingHTTPServer):
+    def __init__(self) -> None:
+        super().__init__(("127.0.0.1", 0), OpenClawCaptureHandler)
         self.payloads: list[dict[str, Any]] = []
 
 
@@ -1117,6 +1141,180 @@ def capture_pi_native_payloads(
     return captured, client_runs
 
 
+def openclaw_config_for_scenario(scenario: dict[str, Any], base_url: str, config_dir: Path) -> tuple[Path, Path, dict[str, str]]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    model = str(setup.get("model") or "openclaw-hint-benchmark-model")
+    compat = setup.get("compat", {})
+    if not isinstance(compat, dict):
+        compat = {}
+    provider_fields = setup.get("provider_fields", {})
+    if not isinstance(provider_fields, dict):
+        provider_fields = {}
+    config_dir.mkdir(parents=True, exist_ok=True)
+    state_dir = config_dir / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "config.json"
+    model_config = {
+        "id": model,
+        "name": model,
+        "api": "openai-completions",
+        "baseUrl": base_url,
+        "reasoning": False,
+        "input": ["text"],
+        "contextWindow": 32768,
+        "maxTokens": 4096,
+        **({"compat": compat} if compat else {}),
+        **provider_fields,
+    }
+    config = {
+        "models": {
+            "mode": "merge",
+            "providers": {
+                "harness": {
+                    "baseUrl": base_url,
+                    "apiKey": "dummy",
+                    "auth": "api-key",
+                    "api": "openai-completions",
+                    "timeoutSeconds": 900,
+                    "models": [model_config],
+                }
+            },
+        }
+    }
+    config_path.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
+    env = {
+        "OPENAI_API_KEY": "dummy",
+        "HARNESS_GATEWAY_API_KEY": "dummy",
+        "OPENCLAW_STATE_DIR": str(state_dir),
+        "OPENCLAW_CONFIG_PATH": str(config_path),
+        "NO_COLOR": "1",
+    }
+    env_overrides = setup.get("env", {}) if isinstance(setup, dict) else {}
+    if isinstance(env_overrides, dict):
+        env.update({str(key): str(value).replace("{base_url}", base_url) for key, value in env_overrides.items()})
+    return config_path, state_dir, env
+
+
+def openclaw_cli_command(
+    scenario: dict[str, Any],
+    base_command: str,
+    config_path: Path,
+    state_dir: Path,
+    invocation_index: int = 0,
+) -> list[str]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    cli_args = setup.get("cli_args")
+    command = shlex.split(base_command)
+    if isinstance(cli_args, list) and cli_args:
+        replacements = {
+            "{invocation_index}": str(invocation_index),
+            "{config_path}": str(config_path),
+            "{state_dir}": str(state_dir),
+        }
+        for arg in cli_args:
+            value = str(arg)
+            for key, replacement in replacements.items():
+                value = value.replace(key, replacement)
+            command.append(value)
+        return command
+    prompt = setup.get("cli_prompt") or f"OpenClaw hint benchmark scenario {scenario['id']}. Reply with one short sentence."
+    prompt = str(prompt).replace("{invocation_index}", str(invocation_index))
+    model = str(setup.get("model") or "openclaw-hint-benchmark-model")
+    command.extend(
+        [
+            "agent",
+            "exec",
+            "--config",
+            str(config_path),
+            "--state-dir",
+            str(state_dir),
+            "--model",
+            f"harness/{model}",
+            "--code-mode",
+            "direct",
+            "--local-model-lean",
+            "--timeout",
+            "900",
+            "--json",
+            prompt,
+        ]
+    )
+    return command
+
+
+def capture_openclaw_native_payloads(
+    scenarios: list[dict[str, Any]],
+    *,
+    command: str,
+    timeout_seconds: float,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    captured: dict[str, list[dict[str, Any]]] = {}
+    client_runs: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        server = OpenClawCaptureServer()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}/v1"
+            request_count = max(1, int(scenario.get("workload_shape", {}).get("request_count") or 1))
+            with tempfile.TemporaryDirectory(prefix=f"openclaw_hint_{scenario['id']}_") as temp_dir:
+                temp_path = Path(temp_dir)
+                openclaw_home = temp_path / "openclaw_home"
+                config_path, state_dir, env_overrides = openclaw_config_for_scenario(scenario, base_url, openclaw_home)
+                env = os.environ.copy()
+                env.update(env_overrides)
+                for invocation_index in range(request_count):
+                    cmd = openclaw_cli_command(scenario, command, config_path, state_dir, invocation_index)
+                    started_at = time.time()
+                    try:
+                        completed = subprocess.run(
+                            cmd,
+                            cwd=temp_dir,
+                            env=env,
+                            text=True,
+                            capture_output=True,
+                            timeout=timeout_seconds,
+                            check=False,
+                        )
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": completed.returncode,
+                                "stdout_tail": completed.stdout[-2000:],
+                                "stderr_tail": completed.stderr[-2000:],
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+                    except FileNotFoundError as exc:
+                        raise HintBenchmarkConfigError(
+                            f"OpenClaw native capture requires the OpenClaw command {cmd[0]!r}. "
+                            "Install/configure OpenClaw or pass --openclaw-command."
+                        ) from exc
+                    except subprocess.TimeoutExpired as exc:
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": "timeout",
+                                "stdout_tail": (exc.stdout or "")[-2000:] if isinstance(exc.stdout, str) else "",
+                                "stderr_tail": (exc.stderr or "")[-2000:] if isinstance(exc.stderr, str) else "",
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+        finally:
+            captured[scenario["id"]] = list(server.payloads)
+            server.shutdown()
+            thread.join(timeout=1)
+    return captured, client_runs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--harness", default="nemo_agent_toolkit", choices=tuple(DEFAULT_CONFIGS))
@@ -1188,6 +1386,11 @@ def main() -> None:
         help="Run the real Pi Agent Harness CLI against a local capture endpoint and validate emitted request fields.",
     )
     parser.add_argument(
+        "--openclaw-native-capture",
+        action="store_true",
+        help="Run the real OpenClaw CLI against a local capture endpoint and validate emitted request fields.",
+    )
+    parser.add_argument(
         "--claude-command",
         default=os.environ.get("CLAUDE_CODE_BIN", "claude"),
         help="Claude CLI command to execute for --claude-native-capture. Default: claude.",
@@ -1232,6 +1435,17 @@ def main() -> None:
         help="Per-scenario timeout for --pi-native-capture.",
     )
     parser.add_argument(
+        "--openclaw-command",
+        default=os.environ.get("OPENCLAW_BIN", "npx -y openclaw@latest"),
+        help="OpenClaw command to execute for --openclaw-native-capture. Default: npx -y openclaw@latest.",
+    )
+    parser.add_argument(
+        "--openclaw-timeout-seconds",
+        type=float,
+        default=120.0,
+        help="Per-scenario timeout for --openclaw-native-capture.",
+    )
+    parser.add_argument(
         "--out-dir",
         type=Path,
         default=None,
@@ -1258,6 +1472,7 @@ def main() -> None:
             args.qwen_native_capture,
             args.hermes_native_capture,
             args.pi_native_capture,
+            args.openclaw_native_capture,
         )
     )
     if mode_count != 1:
@@ -1265,7 +1480,8 @@ def main() -> None:
             "Choose exactly one of --dry-run, --fixture-observations, "
             "--nat-dynamo-transport-capture, --claude-native-capture, "
             "--claude-real-provider-capture, --anthropic-api-payload-capture, "
-            "--qwen-native-capture, --hermes-native-capture, or --pi-native-capture."
+            "--qwen-native-capture, --hermes-native-capture, --pi-native-capture, "
+            "or --openclaw-native-capture."
         )
     if args.nat_dynamo_transport_capture and args.harness != "nemo_agent_toolkit":
         parser.error("--nat-dynamo-transport-capture requires --harness nemo_agent_toolkit.")
@@ -1281,6 +1497,8 @@ def main() -> None:
         parser.error("--hermes-native-capture requires --harness hermes_agent.")
     if args.pi_native_capture and args.harness != "pi_agent_harness":
         parser.error("--pi-native-capture requires --harness pi_agent_harness.")
+    if args.openclaw_native_capture and args.harness != "openclaw":
+        parser.error("--openclaw-native-capture requires --harness openclaw.")
 
     defaults = DEFAULT_CONFIGS[args.harness]
     manifest_path = args.manifest or defaults["manifest"]
@@ -1315,6 +1533,8 @@ def main() -> None:
             if args.hermes_native_capture
             else "pi_native_capture"
             if args.pi_native_capture
+            else "openclaw_native_capture"
+            if args.openclaw_native_capture
             else "fixture_smoke"
             if args.fixture_observations
             else "dry_run"
@@ -1333,6 +1553,7 @@ def main() -> None:
             args.qwen_native_capture,
             args.hermes_native_capture,
             args.pi_native_capture,
+            args.openclaw_native_capture,
         ]
         if any(generated_observation_modes) and args.observed_jsonl:
             raise HintBenchmarkConfigError("Generated observation modes cannot be combined with --observed-jsonl")
@@ -1430,6 +1651,22 @@ def main() -> None:
                 result["scenario_records"],
                 captured_payloads,
                 evidence_source="pi_native_capture",
+            )
+            result["client_runs"] = client_runs
+            result["captured_payload_counts"] = {
+                scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
+            }
+        elif args.openclaw_native_capture:
+            captured_payloads, client_runs = capture_openclaw_native_payloads(
+                selected,
+                command=args.openclaw_command,
+                timeout_seconds=args.openclaw_timeout_seconds,
+            )
+            observations = build_payload_observations(
+                manifest,
+                result["scenario_records"],
+                captured_payloads,
+                evidence_source="openclaw_native_capture",
             )
             result["client_runs"] = client_runs
             result["captured_payload_counts"] = {
