@@ -501,6 +501,82 @@
       font-size: 12px;
     }
 
+
+    .occupancy-line {
+      min-width: 760px;
+      width: 100%;
+      height: 300px;
+    }
+
+    .occupancy-line .axis {
+      stroke: #94a3b8;
+      stroke-width: 1.2;
+    }
+
+    .occupancy-line .grid {
+      stroke: #e5ebf3;
+      stroke-width: 1;
+    }
+
+    .occupancy-line text {
+      fill: var(--muted);
+      font-size: 12px;
+    }
+
+    .occupancy-series {
+      fill: none;
+      stroke-width: 3;
+      opacity: 0.95;
+    }
+
+    .occupancy-series.baseline {
+      stroke: #64748b;
+    }
+
+    .occupancy-series.controller {
+      stroke: #2563eb;
+    }
+
+    .occupancy-chart-panel {
+      margin-top: 14px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .occupancy-legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .occupancy-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .occupancy-swatch {
+      display: inline-block;
+      width: 18px;
+      height: 3px;
+      border-radius: 999px;
+    }
+
+    .occupancy-swatch.baseline {
+      background: #64748b;
+    }
+
+    .occupancy-swatch.controller {
+      background: #2563eb;
+    }
+
     .explain-panel {
       border: 1px solid #d9e2ec;
       border-radius: 8px;
@@ -841,6 +917,26 @@
           <div class="metric-tile"><div class="metric-name">GPU Active Samples</div><div class="metric-value">91.2%</div><p class="small">Baseline was 87.9%.</p></div>
           <div class="metric-tile"><div class="metric-name">Workload Window</div><div class="metric-value">168.1 s</div><p class="small">Baseline was 171.8 s; controller was 3.7 s shorter.</p></div>
         </div>
+          <div class="occupancy-chart-panel">
+            <div class="occupancy-legend">
+              <span><i class="occupancy-swatch baseline"></i>Baseline</span>
+              <span><i class="occupancy-swatch controller"></i>Controller</span>
+            </div>
+            <svg class="occupancy-line" viewBox="0 0 900 260" role="img" aria-label="GPU utilization over normalized workload progress for baseline and controller">
+              <line x1="48" y1="18" x2="48" y2="208" class="axis" />
+              <line x1="48" y1="208" x2="876" y2="208" class="axis" />
+              <line x1="48" y1="18" x2="876" y2="18" class="grid" />
+              <line x1="48" y1="113.0" x2="876" y2="113.0" class="grid" />
+              <text x="10" y="22">100%</text>
+              <text x="18" y="117.0">50%</text>
+              <text x="24" y="212">0%</text>
+              <text x="48" y="242">start</text>
+              <text x="848" y="242">end</text>
+              <polyline class="occupancy-series baseline" points="48.0,208.0 65.6,208.0 83.2,208.0 100.9,208.0 118.5,186.8 136.1,181.9 153.7,207.3 171.3,191.0 188.9,196.9 206.6,197.2 224.2,155.1 241.8,132.2 259.4,107.9 277.0,96.0 294.6,170.6 312.3,110.9 329.9,113.1 347.5,166.4 365.1,126.7 382.7,179.1 400.3,193.2 418.0,195.9 435.6,193.4 453.2,194.9 470.8,190.8 488.4,193.8 506.0,195.8 523.7,193.8 541.3,194.2 558.9,196.6 576.5,196.6 594.1,196.6 611.7,196.6 629.4,196.7 647.0,196.6 664.6,193.9 682.2,196.7 699.8,194.5 717.4,196.6 735.1,196.6 752.7,196.7 770.3,190.1 787.9,196.8 805.5,196.6 823.1,196.6 840.8,196.6 858.4,190.3 876.0,195.0"><title>Baseline GPU utilization over normalized workload progress</title></polyline>
+              <polyline class="occupancy-series controller" points="48.0,208.0 65.6,208.0 83.2,177.7 100.9,206.1 118.5,190.6 136.1,207.2 153.7,189.5 171.3,197.2 188.9,197.2 206.6,174.2 224.2,111.0 241.8,131.2 259.4,95.6 277.0,154.5 294.6,120.4 312.3,115.9 329.9,147.8 347.5,192.8 365.1,159.0 382.7,168.9 400.3,149.6 418.0,193.5 435.6,187.6 453.2,191.9 470.8,194.8 488.4,192.8 506.0,196.6 523.7,193.7 541.3,194.2 558.9,196.8 576.5,196.8 594.1,196.9 611.7,197.1 629.4,196.8 647.0,197.1 664.6,193.8 682.2,196.7 699.8,196.7 717.4,193.9 735.1,196.6 752.7,196.7 770.3,193.7 787.9,194.4 805.5,193.6 823.1,196.6 840.8,196.6 858.4,189.6 876.0,196.3"><title>Controller GPU utilization over normalized workload progress</title></polyline>
+            </svg>
+            <p class="small">X-axis is normalized workload progress, so the two modes can be compared even though the controller finished sooner. Spikes show bursts of model/GPU work; flat low sections are tool-wait or idle periods.</p>
+          </div>
       </div>
 
       <div class="evidence" aria-label="Scenario 1 reproducibility settings">
