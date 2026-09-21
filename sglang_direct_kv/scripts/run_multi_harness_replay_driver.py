@@ -47,6 +47,7 @@ from agentic_kv.controller.modes import (
     CONTROLLER_ORACLE_EXACT_RUNTIME_ADMISSION_MODE,
     CONTROLLER_ORACLE_TIMELINE_MODE,
     CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
+    CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
     CONTROLLER_PROACTIVE_KV_MANAGEMENT_MODE,
     CONTROLLER_PRIORITY_DEMOTION_CALIBRATED_ADMISSION_MODE,
     CONTROLLER_PRIORITY_DEMOTE_MODE,
@@ -2235,7 +2236,15 @@ async def main_async() -> None:
     controller_demotion_state: dict[str, Any] = {"active": False, "meta": {}, "owners": set()}
     controller_enabled = controller_mode(args.mode)
     controller_active_deadline_fair = args.mode == CONTROLLER_DEADLINE_FAIR_MODE
-    controller_active_predictive_deadline_queue = args.mode == CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE
+    controller_active_predictive_deadline_queue = args.mode in {
+        CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
+        CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
+    }
+    controller_active_predictive_admission_guard = (
+        args.mode == CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE
+        and os.environ.get("CONTROLLER_REPLAY_ADMISSION_GUARD", "1").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
     controller_active_priority = controller_scheduler_priority_mode(args.mode)
     controller_active_preload = controller_speculative_preload_mode(args.mode)
     controller_active_targeted_prefetch = controller_targeted_kv_prefetch_mode(args.mode)
@@ -2440,6 +2449,189 @@ async def main_async() -> None:
         "delayed_candidates": 0,
         "admitted_candidates": 0,
     }
+    predictive_admission_guard_state: dict[str, Any] = {
+        "predicted_replays": {},
+        "decision_seq": 0,
+        "delayed_candidates": 0,
+        "admitted_candidates": 0,
+        "safe_backfills": 0,
+    }
+
+    def replay_guard_lookahead_ms() -> float:
+        return float(os.environ.get("CONTROLLER_REPLAY_LOOKAHEAD_MS", "5000") or "5000")
+
+    def replay_guard_safety_margin_ms() -> float:
+        return float(os.environ.get("CONTROLLER_REPLAY_SAFETY_MARGIN_MS", "500") or "500")
+
+    def replay_guard_max_hold_ms() -> float:
+        return float(os.environ.get("CONTROLLER_MAX_HOLD_MS", "10000") or "10000")
+
+    def replay_guard_allow_small_work_tokens() -> int:
+        return int(float(os.environ.get("CONTROLLER_ALLOW_SMALL_WORK_TOKENS", "256") or "256"))
+
+    def replay_guard_candidate_runtime_ms(meta: dict[str, Any]) -> float:
+        configured = optional_float(meta.get("estimated_runtime_ms"))
+        if configured is not None:
+            return max(1.0, configured)
+        return float(
+            estimate_request_runtime_ms(
+                int(meta.get("prompt_tokens") or 0),
+                int(meta.get("max_tokens") or 1),
+            )
+        )
+
+    def replay_guard_candidate_kind(meta: dict[str, Any]) -> str:
+        phase = str(meta.get("phase") or "")
+        if phase == "replay" or meta.get("deadline_offset_ms") not in (None, ""):
+            return "deadline_work"
+        if phase in {"initial_turn", "pressure_filler_initial", "pressure_filler", "background"}:
+            return "flexible_work"
+        return "other"
+
+    def register_predictive_admission_guard_replay(
+        meta: dict[str, Any],
+        replay_due_ms: float,
+        request_group: str,
+        stage: str,
+    ) -> None:
+        if not controller_active_predictive_admission_guard:
+            return
+        request_id = str(meta.get("label") or meta.get("request_id") or "")
+        if not request_id:
+            return
+        entry = {
+            "request_id": request_id,
+            "session_id": str(meta.get("session_id") or ""),
+            "request_group": request_group,
+            "stage": stage,
+            "phase": str(meta.get("phase") or ""),
+            "replay_due_offset_ms": float(replay_due_ms),
+            "tool_wait_step": meta.get("tool_wait_step", ""),
+            "tool_wait_class": meta.get("tool_wait_class", ""),
+            "tool_wait_ms": meta.get("tool_wait_ms", ""),
+        }
+        predictive_admission_guard_state["predicted_replays"][request_id] = entry
+        write_trace(
+            args.trace,
+            {
+                "event": "m27.controller_predictive_admission_guard.replay_registered",
+                "mode": args.mode,
+                "harness": args.harness,
+                "pressure_level": args.pressure_level,
+                **entry,
+                "lookahead_ms": replay_guard_lookahead_ms(),
+                "safety_margin_ms": replay_guard_safety_margin_ms(),
+                "offset_ms": round(offset_ms(), 3),
+            },
+        )
+
+    def replay_guard_active_replays(now_ms: float, candidate_due_ms: float | None = None) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for entry in predictive_admission_guard_state["predicted_replays"].values():
+            due_ms = float(entry.get("replay_due_offset_ms") or 0.0)
+            if due_ms < now_ms or due_ms > now_ms + replay_guard_lookahead_ms():
+                continue
+            if candidate_due_ms is not None and candidate_due_ms <= due_ms:
+                continue
+            out.append(entry)
+        out.sort(key=lambda item: float(item.get("replay_due_offset_ms") or 0.0))
+        return out
+
+    async def apply_predictive_admission_guard_if_needed(meta: dict[str, Any]) -> dict[str, Any]:
+        if not controller_active_predictive_admission_guard:
+            return meta
+        now_ms = offset_ms()
+        kind = replay_guard_candidate_kind(meta)
+        candidate_due_ms = optional_float(meta.get("deadline_offset_ms"))
+        active_replays = replay_guard_active_replays(now_ms, candidate_due_ms)
+        estimated_runtime_ms = replay_guard_candidate_runtime_ms(meta)
+        prompt_tokens = int(meta.get("prompt_tokens") or 0)
+        candidate_finish_ms = now_ms + estimated_runtime_ms
+        earliest_due_ms = float(active_replays[0]["replay_due_offset_ms"]) if active_replays else 0.0
+        safe_finish_ms = earliest_due_ms - replay_guard_safety_margin_ms() if active_replays else 0.0
+        small_work = bool(prompt_tokens and prompt_tokens <= replay_guard_allow_small_work_tokens())
+        risky_overlap = bool(active_replays and candidate_finish_ms > safe_finish_ms)
+        flexible_or_later_due = kind == "flexible_work" or (
+            candidate_due_ms is not None and active_replays and candidate_due_ms > earliest_due_ms
+        )
+        decision = "admit"
+        reason = "no_near_future_replay"
+        delay_ms = 0.0
+        if kind == "deadline_work" and not flexible_or_later_due:
+            reason = "candidate_due_not_later_than_protected_replay"
+        elif small_work:
+            reason = "small_work_safe_backfill"
+            predictive_admission_guard_state["safe_backfills"] += 1
+        elif risky_overlap and flexible_or_later_due:
+            decision = "delay"
+            delay_until_ms = min(
+                earliest_due_ms + replay_guard_safety_margin_ms(),
+                now_ms + replay_guard_max_hold_ms(),
+            )
+            delay_ms = max(0.0, delay_until_ms - now_ms)
+            reason = "candidate_would_overlap_earlier_replay_due_time"
+        elif active_replays:
+            reason = "candidate_predicted_to_finish_before_replay_due"
+        if delay_ms <= 1:
+            decision = "admit"
+        predictive_admission_guard_state["decision_seq"] += 1
+        decision_seq = int(predictive_admission_guard_state["decision_seq"])
+        base_event = {
+            "event": "m27.controller_predictive_admission_guard.decision",
+            "mode": args.mode,
+            "harness": args.harness,
+            "pressure_level": args.pressure_level,
+            "decision_seq": decision_seq,
+            "decision": decision,
+            "reason": reason,
+            "session_id": meta.get("session_id", ""),
+            "prefix_id": meta.get("prefix_id", ""),
+            "phase": meta.get("phase", ""),
+            "request_id": meta.get("label", ""),
+            "label": meta.get("label", ""),
+            "candidate_kind": kind,
+            "candidate_due_offset_ms": round(candidate_due_ms, 3) if candidate_due_ms is not None else "",
+            "candidate_prompt_tokens": prompt_tokens,
+            "candidate_max_tokens": meta.get("max_tokens", ""),
+            "candidate_estimated_runtime_ms": round(estimated_runtime_ms, 3),
+            "candidate_predicted_finish_offset_ms": round(candidate_finish_ms, 3),
+            "protected_replay_count": len(active_replays),
+            "earliest_protected_replay_due_offset_ms": round(earliest_due_ms, 3) if active_replays else "",
+            "safe_finish_offset_ms": round(safe_finish_ms, 3) if active_replays else "",
+            "planned_delay_ms": round(delay_ms, 3),
+            "lookahead_ms": replay_guard_lookahead_ms(),
+            "safety_margin_ms": replay_guard_safety_margin_ms(),
+            "max_hold_ms": replay_guard_max_hold_ms(),
+            "allow_small_work_tokens": replay_guard_allow_small_work_tokens(),
+            "offset_ms": round(now_ms, 3),
+        }
+        write_trace(args.trace, base_event)
+        out = {
+            **meta,
+            "controller_replay_admission_guard": True,
+            "controller_replay_admission_guard_decision": decision,
+            "controller_replay_admission_guard_reason": reason,
+            "controller_replay_admission_guard_predicted_replay_count": len(active_replays),
+            "controller_replay_admission_guard_estimated_runtime_ms": round(estimated_runtime_ms, 3),
+        }
+        if decision == "delay":
+            predictive_admission_guard_state["delayed_candidates"] += 1
+            await sleep_until(now_ms + delay_ms)
+            released_at_ms = offset_ms()
+            actual_delay_ms = released_at_ms - now_ms
+            out["controller_replay_admission_guard_delayed_for_ms"] = round(actual_delay_ms, 3)
+            write_trace(
+                args.trace,
+                {
+                    **base_event,
+                    "event": "m27.controller_predictive_admission_guard.released",
+                    "actual_delay_ms": round(actual_delay_ms, 3),
+                    "release_offset_ms": round(released_at_ms, 3),
+                },
+            )
+        else:
+            predictive_admission_guard_state["admitted_candidates"] += 1
+        return out
 
     def memory_admission_lookahead_ms() -> float:
         return float(os.environ.get("CONTROLLER_MEMORY_ADMISSION_LOOKAHEAD_MS", "15000") or "15000")
@@ -2764,6 +2956,8 @@ async def main_async() -> None:
                 "offset_ms": round(offset_ms(), 3),
             },
         )
+        if predictive and stage == "tool_wait":
+            register_predictive_admission_guard_replay(meta, replay_due_ms, request_group, stage)
         return fields
 
     def assign_deadline_fair_priority(
@@ -3179,6 +3373,7 @@ async def main_async() -> None:
     )
     async def bounded_request(prompt: str, meta: dict[str, Any]) -> None:
         meta = await apply_memory_admission_if_needed(meta)
+        meta = await apply_predictive_admission_guard_if_needed(meta)
         gate_info = await client_submission_gate.acquire(meta)
         blocker_snapshots = list(gate_info.pop("client_blocker_snapshots", []) or [])
         meta = {

@@ -357,9 +357,29 @@ class CaseTrace:
             merged["request_start_ts_ns"] = start.get("ts_ns")
         if end.get("ts_ns") and "request_end_ts_ns" not in merged:
             merged["request_end_ts_ns"] = end.get("ts_ns")
+        first_content_ts_ns = first_nonempty(end, ("first_content_ts_ns", "first_token_ts_ns"))
+        if first_content_ts_ns and "first_token_ts_ns" not in merged:
+            merged["first_token_ts_ns"] = first_content_ts_ns
+        gateway_received_ns = first_nonempty(end, ("gateway_received_ns", "backend_forward_started_ns"))
+        if gateway_received_ns and "sglang_receive_ts_ns" not in merged:
+            merged["sglang_receive_ts_ns"] = gateway_received_ns
         deadline_offset_ms = as_float(merged.get("deadline_offset_ms"))
         if deadline_offset_ms is not None and self.workload_start_ts_ns is not None and "replay_due_ts_ns" not in merged:
             merged["replay_due_ts_ns"] = self.workload_start_ts_ns + int(deadline_offset_ms * 1_000_000)
+        due_ns = as_float(merged.get("replay_due_ts_ns"))
+        start_ns = as_float(merged.get("request_start_ts_ns"))
+        receive_ns = as_float(merged.get("sglang_receive_ts_ns"))
+        first_ns = as_float(merged.get("first_token_ts_ns"))
+        if due_ns is not None and start_ns is not None and "due_to_request_start_ms" not in merged:
+            merged["due_to_request_start_ms"] = (start_ns - due_ns) / 1_000_000.0
+        if due_ns is not None and receive_ns is not None and "due_to_sglang_receive_ms" not in merged:
+            merged["due_to_sglang_receive_ms"] = (receive_ns - due_ns) / 1_000_000.0
+        if receive_ns is not None and first_ns is not None and "sglang_receive_to_first_token_ms" not in merged:
+            merged["sglang_receive_to_first_token_ms"] = (first_ns - receive_ns) / 1_000_000.0
+        if due_ns is not None and first_ns is not None:
+            lateness_ms = (first_ns - due_ns) / 1_000_000.0
+            merged.setdefault("first_token_lateness_ms", lateness_ms)
+            merged.setdefault("replay_debt_ms", lateness_ms)
         return merged
 
     def nearest_scheduler_snapshot(self, when_ms: float | None) -> dict[str, Any]:
@@ -391,6 +411,55 @@ def derived_replay_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         out.append(row)
     return out
+
+
+def discover_case_dirs(run_root: Path | None) -> dict[str, Path]:
+    if run_root is None or not run_root.exists():
+        return {}
+    return {
+        path.name: path
+        for path in sorted(run_root.iterdir())
+        if path.is_dir() and (path / "m27_trace.jsonl").exists()
+    }
+
+
+def trace_replay_rows(traces: dict[str, CaseTrace]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for case_id, trace in sorted(traces.items()):
+        request_ids = sorted({*trace.harness_inputs.keys(), *trace.request_events.keys()})
+        for request_id in request_ids:
+            row = trace.synthetic_request_row(request_id)
+            deadline_offset_ms = as_float(row.get("deadline_offset_ms"))
+            phase = str(row.get("phase") or "")
+            if deadline_offset_ms is None:
+                continue
+            if phase not in {"replay", "pressure_filler"} and "_replay_" not in request_id:
+                continue
+            row["case_id"] = case_id
+            row["mode"] = row.get("mode") or mode_from_case_id(case_id)
+            row["has_replay_deadline"] = "true"
+            row["phase"] = phase or "replay"
+            rows.append(row)
+    return rows
+
+
+def mode_from_case_id(case_id: str) -> str:
+    known_modes = [
+        "controller_predictive_deadline_queue_admission_guard",
+        "controller_predictive_deadline_queue",
+        "controller_deadline_fair",
+        "controller_proactive_kv_management",
+        "controller_targeted_kv_prefetch",
+        "controller_scheduler_priority",
+        "pre_harness_priority_hints",
+        "oracle_direct_load",
+        "direct_load",
+        "no_prefetch",
+    ]
+    for mode in known_modes:
+        if f"_{mode}_" in case_id or case_id.endswith(f"_{mode}") or case_id.startswith(f"{mode}_"):
+            return mode
+    return ""
 
 
 def count_replay_context(row: dict[str, Any], case_rows: list[dict[str, Any]]) -> dict[str, int]:
@@ -810,7 +879,13 @@ def avg_numeric(rows: list[dict[str, Any]], key: str) -> float | None:
 def preferred_modes(rows: list[dict[str, Any]]) -> tuple[str | None, str | None]:
     modes = sorted({str(row.get("mode") or "") for row in rows if row.get("mode")})
     baseline = "no_prefetch" if "no_prefetch" in modes else (modes[0] if modes else None)
-    controller = next((mode for mode in modes if mode.startswith("controller")), None)
+    controller_preferences = [
+        "controller_predictive_deadline_queue_admission_guard",
+        "controller_predictive_deadline_queue",
+    ]
+    controller = next((mode for mode in controller_preferences if mode in modes), None)
+    if controller is None:
+        controller = next((mode for mode in modes if mode.startswith("controller")), None)
     if controller is None:
         controller = next((mode for mode in modes if mode != baseline), None)
     return baseline, controller
@@ -1116,6 +1191,168 @@ def render_blocker_quality_charts(controller_rows: list[dict[str, Any]]) -> str:
     <h3>Avoidable / Questionable Blocker Fraction</h3>
     {line_svg}
     <p class="chart-caption">0.0 means the captured blockers were all reasonable. Higher values mean a larger share looked avoidable or questionable.</p>
+</div>
+"""
+
+
+def render_occupancy_charts(rows: list[dict[str, Any]], traces: dict[str, CaseTrace]) -> str:
+    rows_by_case: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        rows_by_case[str(row.get("case_id") or "")].append(row)
+    mode_series: dict[str, dict[str, Any]] = {}
+    for case_id, group in rows_by_case.items():
+        if not group:
+            continue
+        mode = str(group[0].get("mode") or case_id)
+        trace = traces.get(case_id)
+        if trace is None:
+            continue
+        series = mode_series.setdefault(
+            mode,
+            {
+                "gpu": [],
+                "batch": [],
+                "gpu_values": [],
+                "batch_values": [],
+            },
+        )
+        if trace.case_dir is not None:
+            gpu_rows = read_csv_rows(trace.case_dir / "gpu_utilization_samples.csv")
+            first_ts = None
+            for sample in gpu_rows:
+                util = as_float(sample.get("utilization_gpu_pct"))
+                if util is None:
+                    continue
+                ts_ns = as_int(sample.get("ts_ns"))
+                if ts_ns is None:
+                    continue
+                if trace.workload_start_ts_ns is not None:
+                    x_ms = (ts_ns - trace.workload_start_ts_ns) / 1_000_000.0
+                else:
+                    first_ts = ts_ns if first_ts is None else first_ts
+                    x_ms = (ts_ns - first_ts) / 1_000_000.0
+                if x_ms < 0:
+                    continue
+                series["gpu"].append((x_ms, max(0.0, min(100.0, util))))
+                series["gpu_values"].append(util)
+        for snap in trace.scheduler_snapshots:
+            x_ms = as_float(snap.get("_offset_ms"))
+            batch = as_float(first_nonempty(snap, ("scheduler_running_batch_batch_size", "request_count")))
+            if x_ms is None or batch is None:
+                continue
+            series["batch"].append((x_ms, max(0.0, batch)))
+            series["batch_values"].append(batch)
+    if not mode_series:
+        return ""
+    max_x = 1.0
+    max_batch = 1.0
+    for data in mode_series.values():
+        for x, _ in data["gpu"]:
+            max_x = max(max_x, x)
+        for x, value in data["batch"]:
+            max_x = max(max_x, x)
+            max_batch = max(max_batch, value)
+    colors = {
+        "no_prefetch": "#2563eb",
+        "controller_predictive_deadline_queue": "#059669",
+        "controller_predictive_deadline_queue_admission_guard": "#16a34a",
+    }
+
+    def downsample(points: list[tuple[float, float]], limit: int = 220) -> list[tuple[float, float]]:
+        points = sorted(points)
+        if len(points) <= limit:
+            return points
+        step = max(1, math.ceil(len(points) / limit))
+        return points[::step]
+
+    def polyline(points: list[tuple[float, float]], *, max_y: float, color: str) -> str:
+        if not points:
+            return ""
+        width = 900
+        height = 220
+        pad_l = 44
+        pad_r = 18
+        pad_t = 16
+        pad_b = 30
+        plot_w = width - pad_l - pad_r
+        plot_h = height - pad_t - pad_b
+        coords = []
+        for x_ms, value in downsample(points):
+            x = pad_l + min(1.0, max(0.0, x_ms / max_x)) * plot_w
+            y = pad_t + (1.0 - min(1.0, max(0.0, value / max_y))) * plot_h
+            coords.append(f"{x:.1f},{y:.1f}")
+        return f'<polyline points="{" ".join(coords)}" style="stroke:{color}" />'
+
+    def base_svg(lines: str, *, aria: str, y_top: str, y_mid: str, y_zero: str) -> str:
+        return f"""
+      <svg class="occupancy-line" viewBox="0 0 900 220" role="img" aria-label="{html.escape(aria)}">
+        <line x1="44" y1="16" x2="44" y2="190" class="axis" />
+        <line x1="44" y1="190" x2="882" y2="190" class="axis" />
+        <line x1="44" y1="16" x2="882" y2="16" class="grid" />
+        <line x1="44" y1="103" x2="882" y2="103" class="grid" />
+        <text x="4" y="20" class="axis-label">{html.escape(y_top)}</text>
+        <text x="4" y="107" class="axis-label">{html.escape(y_mid)}</text>
+        <text x="4" y="194" class="axis-label">{html.escape(y_zero)}</text>
+        {lines}
+      </svg>
+        """
+
+    legend = []
+    gpu_lines = []
+    batch_lines = []
+    summary_tiles = []
+    for mode, data in sorted(mode_series.items()):
+        color = colors.get(mode, "#64748b")
+        label = mode
+        legend.append(f'<span><i class="legend-swatch" style="background:{color}"></i>{html.escape(label)}</span>')
+        gpu_lines.append(polyline(data["gpu"], max_y=100.0, color=color))
+        batch_lines.append(polyline(data["batch"], max_y=max_batch, color=color))
+        gpu_values = [float(value) for value in data["gpu_values"]]
+        batch_values = [float(value) for value in data["batch_values"]]
+        avg_gpu = (sum(gpu_values) / len(gpu_values)) if gpu_values else None
+        active_ratio = (
+            sum(1 for value in gpu_values if value >= 5.0) / len(gpu_values) * 100.0
+            if gpu_values
+            else None
+        )
+        avg_batch = (sum(batch_values) / len(batch_values)) if batch_values else None
+        summary_tiles.append(
+            f"""
+    <div class="metric">
+      <div class="metric-name">{html.escape(label)}</div>
+      <div class="metric-value">{html.escape(fmt(avg_gpu, 1) or 'n/a')}% GPU</div>
+      <p>Active samples: {html.escape(fmt(active_ratio, 1) or 'n/a')}%. Avg running batch: {html.escape(fmt(avg_batch, 1) or 'n/a')}.</p>
+    </div>
+            """
+        )
+    gpu_svg = base_svg(
+        "\n".join(gpu_lines),
+        aria="GPU utilization over time by mode",
+        y_top="100%",
+        y_mid="50%",
+        y_zero="0%",
+    )
+    batch_svg = base_svg(
+        "\n".join(batch_lines),
+        aria="SGLang running batch size over time by mode",
+        y_top=f"{max_batch:.0f}",
+        y_mid=f"{max_batch / 2:.0f}",
+        y_zero="0",
+    )
+    return f"""
+  <h2>Engine Occupancy Balance</h2>
+  <p class="lede">This checks the blocker-quality trade-off: fewer avoidable blockers are only good if the controller does not create large idle gaps. GPU utilization comes from <code>nvidia-smi</code> samples when present. Running batch size comes from scheduler snapshots.</p>
+  <div class="legend">{''.join(legend)}</div>
+  <div class="metric-grid">{''.join(summary_tiles)}</div>
+  <div class="chart-panel">
+    <h3>GPU Utilization Over Time</h3>
+    {gpu_svg}
+    <p class="chart-caption">Higher means the GPU was busier. A sharp drop after adding the guard would mean the controller became too conservative.</p>
+  </div>
+  <div class="chart-panel">
+    <h3>SGLang Running Batch Size Over Time</h3>
+    {batch_svg}
+    <p class="chart-caption">This is an engine-occupancy proxy. It helps distinguish smart admission from simply leaving work idle.</p>
   </div>
 """
 
@@ -1125,6 +1362,7 @@ def render_reader_html(
     summary_rows: list[dict[str, Any]],
     report_label: str,
     full_detail_href: str,
+    traces: dict[str, CaseTrace] | None = None,
 ) -> str:
     baseline_mode, controller_mode = preferred_modes(rows)
     baseline_rows = [row for row in rows if str(row.get("mode") or "") == baseline_mode]
@@ -1172,6 +1410,7 @@ def render_reader_html(
 """
     example_html = "".join(render_example_card(example, baseline_mode, controller_mode) for example in examples)
     blocker_charts_html = render_blocker_quality_charts(controller_rows)
+    occupancy_charts_html = render_occupancy_charts(rows, traces or {})
     style = """
     :root { --text: #172033; --muted: #526174; --line: #dbe3ef; --soft: #f8fafc; --accent: #155eef; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; color: var(--text); background: #ffffff; }
@@ -1207,6 +1446,10 @@ def render_reader_html(
     .fraction-line .grid { stroke: #e5ebf3; stroke-width: 1; }
     .fraction-line polyline { fill: none; stroke: #c24132; stroke-width: 3; }
     .fraction-line circle { fill: #c24132; }
+    .occupancy-line { min-width: 760px; width: 100%; height: 260px; }
+    .occupancy-line .axis { stroke: #94a3b8; stroke-width: 1.2; }
+    .occupancy-line .grid { stroke: #e5ebf3; stroke-width: 1; }
+    .occupancy-line polyline { fill: none; stroke-width: 2.4; }
     .axis-label, .chart-caption { fill: var(--muted); color: var(--muted); font-size: 12px; }
     a { color: var(--accent); font-weight: 750; }
     code { background: #edf2f7; padding: 1px 4px; border-radius: 4px; }
@@ -1244,6 +1487,8 @@ def render_reader_html(
   </div>
 
   {blocker_charts_html}
+
+  {occupancy_charts_html}
 
   <h2>Concrete Request Examples</h2>
   <div class="examples">
@@ -1346,17 +1591,23 @@ def main() -> None:
     report_label = args.report_label or args.report_dir.name
     source_csv = args.report_dir / "global_kv_readiness_by_mode.csv"
     source_rows = read_csv_rows(source_csv)
+    case_dirs = discover_case_dirs(args.run_root)
+    traces: dict[str, CaseTrace] = {case_id: CaseTrace(case_dir) for case_id, case_dir in case_dirs.items()}
     global_rows = derived_replay_rows(source_rows)
+    if not global_rows and traces:
+        global_rows = trace_replay_rows(traces)
     rows_by_case: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in global_rows:
         rows_by_case[str(row.get("case_id") or "")].append(row)
     all_rows_by_case: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in source_rows:
         all_rows_by_case[str(row.get("case_id") or "")].append(row)
-    traces: dict[str, CaseTrace] = {}
     for case_id, group in rows_by_case.items():
-        case_dir = local_case_dir(group[0], args.run_root)
-        traces[case_id] = CaseTrace(case_dir)
+        if case_id not in traces:
+            case_dir = local_case_dir(group[0], args.run_root)
+            traces[case_id] = CaseTrace(case_dir)
+        if not all_rows_by_case.get(case_id):
+            all_rows_by_case[case_id].extend(group)
     friction_rows = [
         build_friction_row(
             row,
@@ -1387,6 +1638,7 @@ def main() -> None:
             summary_rows,
             report_label,
             full_detail_href.replace(os.sep, "/"),
+            traces,
         )
         atomic_write_text(args.top_level_copy_dir / "replay_friction_deep_dive.html", reader_html)
     print(f"replay_friction_rows={len(friction_rows)} summary_rows={len(summary_rows)}")

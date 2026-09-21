@@ -86,6 +86,7 @@ MODE_LABELS = {
     "controller_oracle_exact_runtime_admission": "OEA = Controller priority + demotion + oracle exact-runtime admission",
     "controller_deadline_fair": "CDF = Controller deadline-fair scheduling",
     "controller_predictive_deadline_queue": "PDQ = Controller predictive deadline queue",
+    "controller_predictive_deadline_queue_admission_guard": "PDQ+Guard = Controller predictive deadline queue + admission guard",
     "controller_memory_admission": "CMA = Controller memory admission",
     "controller_admission_control": "CA = Controller admission control",
     "controller_full": "CF = Full controller",
@@ -126,6 +127,7 @@ MODE_COLORS = {
     "controller_oracle_exact_runtime_admission": "#14b8a6",
     "controller_deadline_fair": "#0f766e",
     "controller_predictive_deadline_queue": "#059669",
+    "controller_predictive_deadline_queue_admission_guard": "#16a34a",
     "controller_memory_admission": "#0d9488",
     "controller_admission_control": "#2563eb",
     "controller_full": "#581c87",
@@ -323,6 +325,12 @@ CHART_SIGNAL_BUCKETS = {
         "color": "#059669",
         "modes": {"controller_predictive_deadline_queue"},
     },
+    "controller_predictive_deadline_queue_admission_guard": {
+        "label": "Controller Predictive Deadline Queue + Admission Guard",
+        "description": "Controller assigns replay priority during tool wait and holds flexible work that would likely overlap an earlier replay due time",
+        "color": "#16a34a",
+        "modes": {"controller_predictive_deadline_queue_admission_guard"},
+    },
     "controller_admission": {
         "label": "Controller Admission Control",
         "description": "Portable controller admits or skips speculative KV warmup based on pressure limits, with explicit skip reasons",
@@ -510,6 +518,10 @@ COST_ACCOUNTING_COLORS = {
         "target": "#059669",
         "filler": "#bbf7d0",
     },
+    "controller_predictive_deadline_queue_admission_guard": {
+        "target": "#16a34a",
+        "filler": "#bbf7d0",
+    },
 }
 COST_ACCOUNTING_DELTA_BETTER = "#16a34a"
 COST_ACCOUNTING_DELTA_WORSE = "#dc2626"
@@ -585,6 +597,10 @@ COST_ACCOUNTING_DELTA_COLORS = {
     },
     "controller_predictive_deadline_queue": {
         "better": "#059669",
+        "worse": "#dc2626",
+    },
+    "controller_predictive_deadline_queue_admission_guard": {
+        "better": "#16a34a",
         "worse": "#dc2626",
     },
 }

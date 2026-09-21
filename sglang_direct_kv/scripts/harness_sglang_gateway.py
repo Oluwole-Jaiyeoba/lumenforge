@@ -40,6 +40,7 @@ PRIORITY_ENABLED_MODES = {
     "controller_oracle_exact_runtime_admission",
     "controller_deadline_fair",
     "controller_predictive_deadline_queue",
+    "controller_predictive_deadline_queue_admission_guard",
     "controller_value_aware_eviction",
     "controller_memory_admission",
     "controller_admission_control",
@@ -66,6 +67,7 @@ CONTROLLER_PRIORITY_DEMOTION_CALIBRATED_ADMISSION_MODE = "controller_priority_de
 CONTROLLER_ORACLE_EXACT_RUNTIME_ADMISSION_MODE = "controller_oracle_exact_runtime_admission"
 CONTROLLER_DEADLINE_FAIR_MODE = "controller_deadline_fair"
 CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE = "controller_predictive_deadline_queue"
+CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE = "controller_predictive_deadline_queue_admission_guard"
 CONTROLLER_VALUE_AWARE_EVICTION_MODE = "controller_value_aware_eviction"
 CONTROLLER_MEMORY_ADMISSION_MODE = "controller_memory_admission"
 CONTROLLER_ORACLE_SAFE_SJF_MODES = {
@@ -346,7 +348,10 @@ def sglang_priority(meta: dict[str, Any], payload: dict[str, Any] | None = None)
                 if value_class == "evictable_low_value":
                     return int(meta.get("low_priority") or -100)
                 return None
-        if mode == CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE and meta.get("controller_predictive_deadline_queue"):
+        if (
+            mode in {CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE, CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE}
+            and meta.get("controller_predictive_deadline_queue")
+        ):
             try:
                 return int(float(meta.get("controller_sglang_priority")))
             except (TypeError, ValueError):
