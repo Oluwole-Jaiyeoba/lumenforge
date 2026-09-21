@@ -16,6 +16,15 @@ bash -lc 'source aws/config.sh && ssh $(ssh_opts hintbench) "$EC2_USER@${SERVERS
 cd ~/agentic_hardware
 ```
 
+## Table Of Contents
+
+- [Claude Code](#claude-code)
+- [Qwen Code](#qwen-code)
+- [NeMo Agent Toolkit / NAT](#nemo-agent-toolkit--nat)
+- [Hermes Agent](#hermes-agent)
+- [Missing Or Blocked Today](#missing-or-blocked-today)
+- [Inspect Results](#inspect-results)
+
 ## Where Attached Legend
 
 | Value | Meaning |
