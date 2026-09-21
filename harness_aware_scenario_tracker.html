@@ -752,6 +752,24 @@
       <div class="callout">
         <strong>Simple meaning:</strong> the harness predicts future replay needs, SGLang explains the serving path, and hardware telemetry tells the controller whether the GPU has safe physical room for more work.
       </div>
+      <p class="lede">Why combine all three? Because each layer sees a different part of the truth. The harness knows future workflow intent, SGLang knows the logical serving path, and hardware telemetry knows the physical limits of the GPU. A controller that sees only one layer can make locally reasonable decisions that are globally bad.</p>
+      <div class="evidence-grid">
+        <div class="evidence-item">
+          <div class="evidence-label">Why harness visibility?</div>
+          <div class="evidence-value">tokens alone do not reveal future intent</div>
+          <p class="small">The backend cannot infer from token shape that a tool call is about to return, that a prefix will likely be reused, or that a session is still relevant.</p>
+        </div>
+        <div class="evidence-item">
+          <div class="evidence-label">Why SGLang visibility?</div>
+          <div class="evidence-value">decisions must reach the real serving path</div>
+          <p class="small">SGLang tells us whether work was queued, admitted, cached, evicted, delayed, or actually served with the intended priority.</p>
+        </div>
+        <div class="evidence-item">
+          <div class="evidence-label">Why hardware visibility?</div>
+          <div class="evidence-value">logical state is not physical state</div>
+          <p class="small">The queue can look safe while the GPU is saturated, or conservative while the GPU has idle headroom that could be used safely.</p>
+        </div>
+      </div>
     </section>
 
     <section class="section">
