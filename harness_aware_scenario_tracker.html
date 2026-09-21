@@ -501,6 +501,50 @@
       font-size: 12px;
     }
 
+    .avoidable-compare-panel {
+      margin-top: 14px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .avoidable-compare-line {
+      min-width: 760px;
+      width: 100%;
+      height: 300px;
+    }
+
+    .avoidable-compare-line .axis {
+      stroke: #94a3b8;
+      stroke-width: 1.2;
+    }
+
+    .avoidable-compare-line .grid {
+      stroke: #e5ebf3;
+      stroke-width: 1;
+    }
+
+    .avoidable-compare-line text {
+      fill: var(--muted);
+      font-size: 12px;
+    }
+
+    .avoidable-compare-line .series {
+      fill: none;
+      stroke-width: 3;
+      opacity: 0.95;
+    }
+
+    .avoidable-compare-line .series.baseline {
+      stroke: #64748b;
+    }
+
+    .avoidable-compare-line .series.controller {
+      stroke: #2563eb;
+    }
+
 
     .occupancy-line {
       min-width: 760px;
@@ -941,6 +985,39 @@
             </svg>
             <p class="small">0.0 means the captured blockers were all reasonable. Higher values mean a larger share looked avoidable or questionable.</p>
           </div>
+        </div>
+      </div>
+
+      <div class="chart" aria-label="Scenario 1 avoidable blocker comparison">
+        <h3>Baseline vs Controller Avoidable Blockers</h3>
+        <p class="small">This chart compares the same 32 replay requests in replay-due order. Lower is better. It makes the improvement visible directly: total avoidable blockers dropped from 54 to 45, with 8 requests better, 18 unchanged, and 6 worse.</p>
+        <div class="metric-grid">
+          <div class="metric-tile"><div class="metric-name">Total Avoidable Blockers</div><div class="metric-value">9 fewer</div><p class="small">Baseline had 54; controller had 45.</p></div>
+          <div class="metric-tile"><div class="metric-name">Requests Better</div><div class="metric-value">8 / 32</div><p class="small">These requests had fewer avoidable blockers under the controller.</p></div>
+          <div class="metric-tile"><div class="metric-name">Requests Worse</div><div class="metric-value warn">6 / 32</div><p class="small">These requests had more avoidable blockers, so there is still tuning room.</p></div>
+        </div>
+        <div class="avoidable-compare-panel">
+          <div class="occupancy-legend">
+            <span><i class="occupancy-swatch baseline"></i>Baseline</span>
+            <span><i class="occupancy-swatch controller"></i>Controller</span>
+          </div>
+          <svg class="avoidable-compare-line" viewBox="0 0 900 260" role="img" aria-label="Avoidable blockers per replay request, baseline versus controller">
+            <line x1="42" y1="18" x2="42" y2="210" class="axis" />
+            <line x1="42" y1="210" x2="882" y2="210" class="axis" />
+            <line x1="42" y1="18" x2="882" y2="18" class="grid" />
+            <line x1="42" y1="82.0" x2="882" y2="82.0" class="grid" />
+            <line x1="42" y1="146.0" x2="882" y2="146.0" class="grid" />
+            <text x="8" y="22">9</text>
+            <text x="8" y="86.0">6</text>
+            <text x="8" y="150.0">3</text>
+            <text x="8" y="214">0</text>
+            <text x="42" y="244">#1</text>
+            <text x="448.5" y="244">#16</text>
+            <text x="860" y="244">#32</text>
+            <polyline class="series baseline" points="42.0,18.0 69.1,18.0 96.2,18.0 123.3,18.0 150.4,18.0 177.5,146.0 204.6,146.0 231.7,146.0 258.8,210.0 285.9,210.0 313.0,210.0 340.1,210.0 367.2,210.0 394.3,210.0 421.4,210.0 448.5,210.0 475.5,210.0 502.6,210.0 529.7,210.0 556.8,210.0 583.9,210.0 611.0,210.0 638.1,210.0 665.2,210.0 692.3,210.0 719.4,210.0 746.5,210.0 773.6,210.0 800.7,210.0 827.8,210.0 854.9,210.0 882.0,210.0"><title>Baseline avoidable blockers</title></polyline>
+            <polyline class="series controller" points="42.0,82.0 69.1,82.0 96.2,82.0 123.3,82.0 150.4,82.0 177.5,188.7 204.6,188.7 231.7,188.7 258.8,167.3 285.9,167.3 313.0,167.3 340.1,167.3 367.2,167.3 394.3,167.3 421.4,210.0 448.5,210.0 475.5,210.0 502.6,210.0 529.7,210.0 556.8,210.0 583.9,210.0 611.0,210.0 638.1,210.0 665.2,210.0 692.3,210.0 719.4,210.0 746.5,210.0 773.6,210.0 800.7,210.0 827.8,210.0 854.9,210.0 882.0,210.0"><title>Controller avoidable blockers</title></polyline>
+          </svg>
+          <p class="small">The first several due replays improved strongly, while a few later requests got worse. That is why the total improved, but the red-bar pattern did not disappear.</p>
         </div>
       </div>
 
