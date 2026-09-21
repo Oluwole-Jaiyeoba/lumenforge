@@ -5,9 +5,10 @@ records what each benchmark run taught us about when hints appear, where they
 enter the harness path, what JSON shape they use, and what benchmark knobs can
 expose or hide them.
 
-The current completed harness is NeMo Agent Toolkit / NAT. Claude and other
-harnesses should add rows to this same structure instead of creating separate
-one-off notes.
+The current completed native/request-boundary harnesses are NeMo Agent Toolkit
+/ NAT, Claude Code, and Qwen Code. Hermes Agent has benchmark setup and fixture
+validation, but native Hermes evidence is still pending a host with the Hermes
+CLI installed.
 
 ## Evidence
 
@@ -78,6 +79,21 @@ carry configured provider/body/header/cache fields. They do not prove a real
 provider accepted or acted on those fields, and they do not prove SGLang
 consumed them.
 
+Current Hermes Agent status:
+
+```text
+native capture adapter: implemented
+harness: hermes_agent
+native CLI/client requirement: Hermes Agent CLI must be installed or HARNESS_HERMES_BIN must point to it
+local dry-run run_id: hermes_dry_run_check
+local fixture run_id: hermes_fixture_check
+local evidence status: fixture plumbing only; native request-boundary evidence pending
+```
+
+Important boundary: Hermes rows below are setup/probe recipes until
+`--hermes-native-capture` runs successfully against the real Hermes Agent CLI.
+The fixture run validates the scenario mapping and report plumbing only.
+
 Benchmark outputs include an `evidence_tier` column:
 
 | Evidence Tier | How To Interpret It |
@@ -131,13 +147,22 @@ Benchmark outputs include an `evidence_tier` column:
 | Qwen Code | eviction priority metadata | yes | request level | cache-retention intent / gateway extension | Qwen OpenAI-compatible `extra_body` supplies eviction metadata | `qwen_eviction_priority_passthrough` | `{"agentic_hints":{"eviction_priority":"high"}}` | pass-through preserved by Qwen Code | `qwen_native_full_20260921_local` | No native Qwen eviction-priority policy was observed. |
 | Qwen Code | literal cache key | optional not observed | cache entry level | prompt cache matching | Repeated prefix probe checks for a client-visible cache key field | `qwen_repeated_prefix_cache_probe` | optional expected marker: `{"cache_key_policy":"provider_prefix_hash"}` | provider-automatic behavior probe | `qwen_native_full_20260921_local` | The deck labels this as automatic prefix matching; no literal request cache-key field appeared. |
 | Qwen Code | cache-hit feedback | optional not observed | runtime feedback level | post-execution usage metrics | Requires real provider response or metrics with cache counters | `qwen_cache_feedback_usage` | optional expected marker: `{"usage":{"cached_tokens":...}}` | real provider/metrics required | `qwen_native_full_20260921_local` | Local request-boundary capture cannot prove provider cache-hit feedback. |
+| Hermes Agent | provider QoS / service tier | pending native | provider level | provider/model behavior | Hermes provider config or request overrides supply service-tier metadata | `hermes_provider_qos_request_overrides` | expected: `{"service_tier":"priority","agentic_hints":{"priority_class":"urgent"}}` | provider/config carried by Hermes | `hermes_fixture_check` | Fixture plumbing passes, but no local Hermes CLI was available for native capture. |
+| Hermes Agent | provider/session/model namespace | pending native | session level | cache namespace / isolation | Hermes/provider isolation is scoped by provider, session, and model, with optional gateway header metadata | `hermes_provider_session_model_namespace` | expected optional header `x-hintbench-cache-namespace: hermes_provider_session_model` | provider/config or provider-automatic behavior | `hermes_fixture_check` | A literal namespace field may not exist; native capture is pending. |
+| Hermes Agent | prompt cache TTL/type | pending native | content block level | prompt cache control | Hermes prompt-caching config requests cache breakpoints and 1h TTL where supported | `hermes_prompt_cache_ttl_1h` | expected optional `system.*.cache_control.type="ephemeral"` and `system.*.cache_control.ttl="1h"` | Hermes prompt-builder/provider config | `hermes_fixture_check` | OpenAI-compatible local capture may only reveal provider config; Anthropic-compatible provider behavior needs native/provider run. |
+| Hermes Agent | prompt-tier/model cache key | pending native | cache entry level | prompt cache matching | Repeated-prefix probe checks for a client-visible cache key; model identity is observable | `hermes_prompt_tier_cache_key_probe` | expected optional `{"cache_key_policy":"prompt_tiers_model"}` plus `{"model":"hermes-hint-benchmark-model"}` | provider-automatic behavior probe | `hermes_fixture_check` | The deck frames this as prompt-tier/model/provider behavior, not necessarily a literal cache key. |
+| Hermes Agent | cache-hit feedback | pending real provider | runtime feedback level | post-execution usage metrics | Requires real provider response or prompt-cache metrics | `hermes_cache_feedback_metrics` | expected optional `{"usage":{"cache_read_input_tokens":...}}` | real provider/metrics required | `hermes_fixture_check` | Request-boundary capture cannot prove cache-hit feedback. |
+| Hermes Agent | separate `cache_pinning=true` | pending native negative probe | cache entry level | cache retention behavior | Negative probe checks whether Hermes emits a literal pinning field separate from TTL retention | `hermes_cache_pinning_negative_probe` | expected absence of `cache_pinning`; optional `system.*.cache_control.ttl="1h"` | provider retention behavior | `hermes_fixture_check` | The deck describes 1h retention where supported, not a separate pin flag. |
 
 ## Benchmark Knobs
 
-The executable knob catalog is:
+The executable knob catalogs are:
 
 ```text
 sglang_direct_kv/configs/hint_benchmark/nat_knobs.json
+sglang_direct_kv/configs/hint_benchmark/claude_knobs.json
+sglang_direct_kv/configs/hint_benchmark/qwen_knobs.json
+sglang_direct_kv/configs/hint_benchmark/hermes_knobs.json
 ```
 
 The operational runbook with copy-paste commands is:
@@ -167,6 +192,10 @@ without manually listing scenario IDs.
 | `qwen_custom_headers` | static headers | `x-hintbench-cache-namespace` | Adds Qwen `generationConfig.customHeaders` and verifies request-boundary header preservation. | Qwen Code | no |
 | `qwen_anthropic_cache_control` | enabled, 1h | `cache_control.type`, `cache_control.ttl`, Anthropic cache beta header | Runs Qwen over the Anthropic-compatible path with cache control enabled. | Qwen Code | no |
 | `qwen_cache_feedback` | real provider response | `usage.cached_tokens` or provider-specific cache counters | Requires a real provider/backend response path to observe cache feedback. | Qwen Code | yes |
+| `hermes_provider_qos` | service tier / request overrides | `service_tier`, `agentic_hints.priority_class` | Adds Hermes provider config for QoS/service tier and verifies native request-boundary visibility when the CLI is available. | Hermes Agent | no |
+| `hermes_prompt_cache` | enabled, 1h | `cache_control.type`, `cache_control.ttl`, `prompt_caching.cache_ttl` | Configures Hermes prompt caching and probes whether cache-control markers or config fields appear. | Hermes Agent | no |
+| `hermes_cache_identity` | repeated prefix, model identity | `model`, optional `cache_key_policy` | Repeats a stable prompt to probe provider-derived prompt-tier/model cache identity. | Hermes Agent | no |
+| `hermes_cache_feedback` | real provider response | `usage.cache_read_input_tokens` or provider-specific cache counters | Requires a real provider/backend response path to observe cache feedback. | Hermes Agent | yes |
 
 ## Knob Profiles
 
@@ -196,6 +225,13 @@ without manually listing scenario IDs.
 | Qwen `openai_compatible` | Run Qwen OpenAI-compatible request-boundary probes. | `qwen_openai_compatible_coverage` | OpenAI-compatible provider/config and pass-through fields |
 | Qwen `anthropic_cache` | Run Qwen Anthropic-compatible cache-control probes. | `qwen_anthropic_cache_coverage` | Anthropic-style `cache_control` markers |
 | Qwen `all_request_boundary` | Run every Qwen request-boundary probe. | `full_qwen_coverage` | native Qwen request-boundary probe targets only |
+| Hermes `baseline` | Hide intentional hints. | `hermes_no_hints_baseline` | none |
+| Hermes `qos_only` | Probe Hermes provider QoS/service-tier config. | `hermes_provider_qos_request_overrides` | `service_tier`, optional `agentic_hints.priority_class` |
+| Hermes `cache_only` | Probe Hermes prompt-cache TTL/type and cache identity. | prompt-cache TTL, repeated-prefix cache-key, and pinning-negative scenarios | optional `cache_control`, `prompt_caching.cache_ttl`, `model` |
+| Hermes `namespace_only` | Probe Hermes provider/session/model isolation metadata. | `hermes_provider_session_model_namespace` | optional namespace header or literal provider/session/model marker |
+| Hermes `feedback_only` | Probe whether Hermes/provider can expose cache feedback. | `hermes_cache_feedback_metrics` | cache-read/cached-token usage counters |
+| Hermes `all_request_boundary` | Run every Hermes request-boundary probe. | `hermes_request_boundary_coverage` | native Hermes request-boundary probe targets only |
+| Hermes `full_coverage` | List every Hermes signal recipe. | `full_hermes_coverage` | request-boundary plus provider-automatic recipes |
 
 Example:
 

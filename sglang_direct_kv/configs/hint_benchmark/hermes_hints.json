@@ -1,0 +1,123 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "hermes_agent",
+    "display_name": "Hermes Agent",
+    "initial_status": "native_client_capture_required"
+  },
+  "baseline_scenario_id": "hermes_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [3, 8, 13]
+  },
+  "docs_sources": [
+    "https://hermes-agent.nousresearch.com/docs/user-guide/configuration",
+    "https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation",
+    "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/delegation.md"
+  ],
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole Hermes session or model provider configuration.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or provider cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage or metrics feedback."
+  },
+  "source_classes": {
+    "provider_config": "A Hermes provider, request_overrides, or extra_body setting caused or carried the hint.",
+    "prompt_builder_policy": "Hermes placed cache-control metadata on stable prompt or skill blocks.",
+    "provider_automatic": "The provider derives the behavior without a client-visible field.",
+    "pass_through": "Hermes preserved configured request metadata at the request boundary.",
+    "metrics_feedback": "The value appears after execution as usage or metrics feedback."
+  },
+  "required_smoke_scenarios": [
+    "hermes_no_hints_baseline",
+    "hermes_provider_qos_request_overrides",
+    "hermes_prompt_cache_ttl_1h"
+  ],
+  "hints": [
+    {
+      "id": "provider_qos",
+      "canonical_signal": "Provider speed/QoS tier",
+      "meaning": "Carries provider-specific service tier or speed options through Hermes provider config or request overrides.",
+      "raw_fields": ["service_tier", "speed", "extra_body.service_tier", "agentic_hints.priority_class"],
+      "default_injection_level": "provider_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "OpenAI-compatible provider or gateway",
+      "scenario_ids": ["hermes_provider_qos_request_overrides"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "Hermes/provider cache reuse is based on prompt tiers and model identity, not necessarily a literal request cache key.",
+      "raw_fields": ["cache_key_policy", "prompt_tiers", "model"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["hermes_prompt_tier_cache_key_probe"],
+      "status": "documented_provider_behavior"
+    },
+    {
+      "id": "cache_namespace",
+      "canonical_signal": "Cache namespace/isolation",
+      "meaning": "Hermes cache isolation is provider/session/model scoped; a literal namespace may only appear as configured gateway metadata.",
+      "raw_fields": ["cache_namespace", "provider_session_model", "_capture.headers.x-hintbench-cache-namespace"],
+      "default_injection_level": "session_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "Provider prompt cache or gateway",
+      "scenario_ids": ["hermes_provider_session_model_namespace"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_ttl",
+      "canonical_signal": "Cache TTL",
+      "meaning": "Hermes prompt caching can request default 5m behavior or 1h retention where provider support exists.",
+      "raw_fields": [
+        "cache_control.ttl",
+        "system.*.cache_control.ttl",
+        "messages.*.content.*.cache_control.ttl",
+        "_capture.headers.anthropic-beta",
+        "prompt_caching.cache_ttl"
+      ],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "prompt_builder_policy",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["hermes_prompt_cache_ttl_1h"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_entry_type",
+      "canonical_signal": "Cache entry type",
+      "meaning": "Hermes prompt caching uses Anthropic-style ephemeral cache-control markers where supported.",
+      "raw_fields": ["cache_control.type", "system.*.cache_control.type", "messages.*.content.*.cache_control.type"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "prompt_builder_policy",
+      "supported_consumer": "Anthropic-compatible prompt cache",
+      "scenario_ids": ["hermes_prompt_cache_ttl_1h"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "Cache feedback is expected as provider usage or prompt-cache metrics after execution.",
+      "raw_fields": ["usage.cache_read_input_tokens", "usage.cache_creation_input_tokens", "usage.cached_tokens"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["hermes_cache_feedback_metrics"],
+      "status": "real_provider_response_required"
+    },
+    {
+      "id": "cache_pinning",
+      "canonical_signal": "Cache pinning / retention",
+      "meaning": "Hermes exposes provider retention windows such as 1h where supported, not a separate pin flag.",
+      "raw_fields": ["cache_control.ttl", "system.*.cache_control.ttl", "cache_pinning"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "prompt_builder_policy",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["hermes_prompt_cache_ttl_1h", "hermes_cache_pinning_negative_probe"],
+      "status": "provider_managed_retention_only"
+    }
+  ]
+}

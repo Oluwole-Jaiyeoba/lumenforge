@@ -32,6 +32,9 @@ CLAUDE_KNOBS = ROOT / "configs" / "hint_benchmark" / "claude_knobs.json"
 QWEN_MANIFEST = ROOT / "configs" / "hint_benchmark" / "qwen_hints.json"
 QWEN_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "qwen_scenarios.json"
 QWEN_KNOBS = ROOT / "configs" / "hint_benchmark" / "qwen_knobs.json"
+HERMES_MANIFEST = ROOT / "configs" / "hint_benchmark" / "hermes_hints.json"
+HERMES_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "hermes_scenarios.json"
+HERMES_KNOBS = ROOT / "configs" / "hint_benchmark" / "hermes_knobs.json"
 
 
 class HintBenchmarkRunnerTests(unittest.TestCase):
@@ -226,6 +229,10 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
             "native_client_or_transport_capture",
         )
         self.assertEqual(
+            evidence_tier_for_mode("hermes_native_capture"),
+            "native_client_or_transport_capture",
+        )
+        self.assertEqual(
             evidence_tier_for_mode("claude_real_provider_capture"),
             "native_client_real_provider_response",
         )
@@ -294,6 +301,73 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
         by_scenario = {row["scenario_id"]: row for row in validation["scenario_summaries"]}
         self.assertEqual(by_scenario["qwen_provider_qos_extra_body"]["result"], "pass")
         self.assertEqual(by_scenario["qwen_custom_header_namespace"]["result"], "pass")
+
+    def test_loads_hermes_manifest_and_scenarios(self):
+        manifest, scenarios = load_benchmark_inputs(HERMES_MANIFEST, HERMES_SCENARIOS)
+        self.assertEqual(manifest["harness"]["id"], "hermes_agent")
+        self.assertEqual(len(manifest["hints"]), 7)
+        self.assertEqual(len(scenarios["scenarios"]), 7)
+
+    def test_selects_hermes_knob_profile_scenarios(self):
+        _, scenarios = load_benchmark_inputs(HERMES_MANIFEST, HERMES_SCENARIOS)
+        knobs = load_knob_profiles(HERMES_KNOBS)
+        profile = select_knob_profile(knobs, "cache_only")
+        selected = select_scenarios(scenarios, profile["scenario_selectors"])
+        self.assertEqual(
+            [scenario["id"] for scenario in selected],
+            [
+                "hermes_prompt_cache_ttl_1h",
+                "hermes_prompt_tier_cache_key_probe",
+                "hermes_cache_pinning_negative_probe",
+            ],
+        )
+        self.assertIn("prompt_caching.cache_ttl", profile["expected_signal_visibility"])
+
+    def test_hermes_payload_observations_extract_qos_and_cache_fields(self):
+        manifest, scenarios = load_benchmark_inputs(HERMES_MANIFEST, HERMES_SCENARIOS)
+        selected = select_scenarios(scenarios, "hermes_provider_qos_request_overrides,hermes_prompt_cache_ttl_1h")
+        result = build_dry_run(
+            manifest,
+            selected,
+            run_id="unit_test",
+            created_at=1.0,
+            execution_mode="hermes_native_capture",
+        )
+        observations = build_payload_observations(
+            manifest,
+            result["scenario_records"],
+            {
+                "hermes_provider_qos_request_overrides": [
+                    {
+                        "service_tier": "priority",
+                        "extra_body": {"service_tier": "priority"},
+                        "agentic_hints": {"priority_class": "urgent"},
+                    }
+                ],
+                "hermes_prompt_cache_ttl_1h": [
+                    {
+                        "system": [
+                            {
+                                "type": "text",
+                                "text": "stable system",
+                                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                            }
+                        ],
+                        "prompt_caching": {"cache_ttl": "1h"},
+                    }
+                ],
+            },
+            evidence_source="hermes_native_capture",
+        )
+        validation = validate_hint_evidence(
+            manifest,
+            result["scenario_records"],
+            observations,
+            execution_mode="hermes_native_capture",
+        )
+        by_scenario = {row["scenario_id"]: row for row in validation["scenario_summaries"]}
+        self.assertEqual(by_scenario["hermes_provider_qos_request_overrides"]["result"], "pass")
+        self.assertEqual(by_scenario["hermes_prompt_cache_ttl_1h"]["result"], "pass")
 
     def test_payload_index_expectations_can_check_first_only_cache_control(self):
         manifest, scenarios = load_benchmark_inputs(MANIFEST, SCENARIOS)

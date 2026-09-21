@@ -2,7 +2,9 @@
 
 This document is the source of truth for the hint benchmarking workstream.
 The first implementation target was NeMo Agent Toolkit / NAT. Claude Code was
-the second target. Qwen Code is now the third request-boundary target.
+the second target, Qwen Code was the third request-boundary target, and Hermes
+Agent is now wired as the next request-boundary setup pending native CLI
+evidence.
 
 ## Core Objective
 
@@ -40,15 +42,17 @@ use to answer:
 
 ## Initial Scope
 
-Start with NAT, then Claude Code, then Qwen Code.
+Start with NAT, then Claude Code, then Qwen Code, then Hermes Agent.
 
 Do not start by benchmarking every harness. NAT is the best first target because
 the signal table lists many explicit scheduling and cache-related hints for it.
 Claude Code is the second target because it gives a useful split between native
 CLI-emitted prompt cache markers and lower-level Anthropic API capabilities.
 Qwen Code is the third target because the deck lists provider/config and
-prompt-cache signals that can be captured at the request boundary. Once these
-paths are solid, reuse the same suite structure for the remaining harnesses.
+prompt-cache signals that can be captured at the request boundary. Hermes Agent
+comes next because the deck gives it provider QoS plus prompt-cache TTL/type and
+provider/session/model cache-identity signals. Once these paths are solid, reuse
+the same suite structure for the remaining harnesses.
 
 ## Claude Evidence Lanes
 
@@ -564,6 +568,40 @@ For Claude Code, `fixture_plumbing_only` and adapter-backed all-harness runs are
 not enough. A Claude row should stay `pending native run` until
 `--claude-native-capture` runs successfully against the actual Claude Code CLI.
 
+### Phase 8: Hermes Agent Extension
+
+Hermes Agent now follows the same manifest, scenario, knob-profile, and runner
+structure as NAT, Claude, and Qwen.
+
+Current Hermes implementation:
+
+```text
+manifest: sglang_direct_kv/configs/hint_benchmark/hermes_hints.json
+scenarios: sglang_direct_kv/configs/hint_benchmark/hermes_scenarios.json
+knobs: sglang_direct_kv/configs/hint_benchmark/hermes_knobs.json
+request-boundary runner mode: --hermes-native-capture
+```
+
+Current local status:
+
+```text
+native capture adapter: implemented
+native Hermes CLI/client: not installed on this local machine
+local dry-run check: hermes_dry_run_check
+local fixture check: hermes_fixture_check
+fixture evidence tier: fixture_plumbing_only
+```
+
+Hermes claims should stay pending native capture until the real Hermes CLI runs
+against the local capture endpoint. The fixture run proves the benchmark
+plumbing and scenario mapping only.
+
+The Hermes scenarios target the signal surface identified in
+`presentation/Harness Signal Tables As-Is.pptx`: provider QoS via service tier
+or request overrides, prompt-cache TTL/type, provider/session/model cache
+isolation, prompt-tier/model cache identity, provider cache feedback, and the
+absence of a separate literal cache-pinning flag.
+
 ## Success Criteria
 
 The NAT-first benchmark succeeds when:
@@ -613,6 +651,16 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
   --harness nemo_agent_toolkit \
   --knob-profile all_request_boundary \
   --nat-dynamo-transport-capture
+```
+
+Hermes follows the same shape once a Hermes binary is available:
+
+```bash
+HARNESS_HERMES_BIN="$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes" \
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile all_request_boundary \
+  --hermes-native-capture
 ```
 
 ## Later Work

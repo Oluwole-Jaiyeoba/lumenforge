@@ -54,6 +54,11 @@ DEFAULT_CONFIGS = {
         "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "qwen_scenarios.json",
         "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "qwen_knobs.json",
     },
+    "hermes_agent": {
+        "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "hermes_hints.json",
+        "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "hermes_scenarios.json",
+        "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "hermes_knobs.json",
+    },
 }
 DEFAULT_OUT_ROOT = REPO_ROOT / "artifacts" / "results" / "hint_benchmark"
 
@@ -359,6 +364,25 @@ class QwenCaptureHandler(BaseHTTPRequestHandler):
 class QwenCaptureServer(ThreadingHTTPServer):
     def __init__(self) -> None:
         super().__init__(("127.0.0.1", 0), QwenCaptureHandler)
+        self.payloads: list[dict[str, Any]] = []
+
+
+class HermesCaptureHandler(QwenCaptureHandler):
+    server: "HermesCaptureServer"
+
+    def do_GET(self) -> None:
+        response = {"object": "list", "data": [{"id": "hermes-hint-benchmark-model", "object": "model"}]}
+        encoded = json.dumps(response).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+
+class HermesCaptureServer(ThreadingHTTPServer):
+    def __init__(self) -> None:
+        super().__init__(("127.0.0.1", 0), HermesCaptureHandler)
         self.payloads: list[dict[str, Any]] = []
 
 
@@ -684,6 +708,197 @@ def capture_qwen_native_payloads(
     return captured, client_runs
 
 
+def hermes_yaml_scalar(value: Any) -> str:
+    return json.dumps(value)
+
+
+def append_yaml_block(lines: list[str], value: Any, *, indent: int = 0) -> None:
+    prefix = " " * indent
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(item, (dict, list)):
+                lines.append(f"{prefix}{key}:")
+                append_yaml_block(lines, item, indent=indent + 2)
+            else:
+                lines.append(f"{prefix}{key}: {hermes_yaml_scalar(item)}")
+    elif isinstance(value, list):
+        for item in value:
+            if isinstance(item, (dict, list)):
+                lines.append(f"{prefix}-")
+                append_yaml_block(lines, item, indent=indent + 2)
+            else:
+                lines.append(f"{prefix}- {hermes_yaml_scalar(item)}")
+    else:
+        lines.append(f"{prefix}{hermes_yaml_scalar(value)}")
+
+
+def hermes_config_for_scenario(scenario: dict[str, Any], base_url: str, config_dir: Path) -> tuple[Path, Path, dict[str, str]]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    model = str(setup.get("model") or "hermes-hint-benchmark-model")
+    provider_config = setup.get("provider_config", {})
+    if not isinstance(provider_config, dict):
+        provider_config = {}
+    prompt_caching = setup.get("prompt_caching", {})
+    if not isinstance(prompt_caching, dict):
+        prompt_caching = {}
+    config_path = config_dir / "config.yaml"
+    env_path = config_dir / ".env"
+    lines = [
+        "model:",
+        "  provider: harness",
+        f"  default: {hermes_yaml_scalar(model)}",
+        f"  model: {hermes_yaml_scalar(model)}",
+        f"  base_url: {hermes_yaml_scalar(base_url)}",
+        '  api_key: "$HARNESS_GATEWAY_API_KEY"',
+        "  api_mode: chat_completions",
+        "  context_length: 65536",
+        "providers:",
+        "  harness:",
+        "    name: Harness Hint Benchmark",
+        f"    base_url: {hermes_yaml_scalar(base_url)}",
+        '    api_key: "$HARNESS_GATEWAY_API_KEY"',
+        "    api_mode: chat_completions",
+        f"    model: {hermes_yaml_scalar(model)}",
+    ]
+    append_yaml_block(lines, provider_config, indent=4)
+    lines.extend(
+        [
+            "    models:",
+            f"      {hermes_yaml_scalar(model)}:",
+            "        context_length: 65536",
+            "toolsets: []",
+            "agent:",
+            "  max_turns: 1",
+            "  api_max_retries: 1",
+        ]
+    )
+    if prompt_caching:
+        lines.append("prompt_caching:")
+        append_yaml_block(lines, prompt_caching, indent=2)
+    lines.append("")
+    config_path.write_text("\n".join(lines), encoding="utf-8")
+    env_path.write_text("HARNESS_GATEWAY_API_KEY=dummy\nOPENAI_API_KEY=dummy\n", encoding="utf-8")
+    env = {
+        "HERMES_HOME": str(config_dir),
+        "HERMES_CONFIG": str(config_path),
+        "HERMES_ENV": str(env_path),
+        "HERMES_ACCEPT_HOOKS": "1",
+        "HERMES_YOLO_MODE": "1",
+        "HERMES_INFERENCE_PROVIDER": "harness",
+        "HERMES_INFERENCE_MODEL": model,
+        "HARNESS_GATEWAY_API_KEY": "dummy",
+        "OPENAI_API_KEY": "dummy",
+        "OPENAI_BASE_URL": base_url,
+        "NO_COLOR": "1",
+    }
+    env_overrides = setup.get("env", {}) if isinstance(setup, dict) else {}
+    if isinstance(env_overrides, dict):
+        env.update({str(key): str(value).replace("{base_url}", base_url) for key, value in env_overrides.items()})
+    return config_path, env_path, env
+
+
+def hermes_cli_command(scenario: dict[str, Any], base_command: str, invocation_index: int = 0) -> list[str]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    cli_args = setup.get("cli_args")
+    command = shlex.split(base_command)
+    if isinstance(cli_args, list) and cli_args:
+        command.extend(str(arg).replace("{invocation_index}", str(invocation_index)) for arg in cli_args)
+        return command
+    prompt = setup.get("cli_prompt") or f"Hermes hint benchmark scenario {scenario['id']}. Reply with one short sentence."
+    prompt = str(prompt).replace("{invocation_index}", str(invocation_index))
+    model = str(setup.get("model") or "hermes-hint-benchmark-model")
+    command.extend(
+        [
+            "--ignore-rules",
+            "--accept-hooks",
+            "--yolo",
+            "--provider",
+            "harness",
+            "--model",
+            model,
+            "--toolsets",
+            "",
+            "--oneshot",
+            prompt,
+        ]
+    )
+    return command
+
+
+def capture_hermes_native_payloads(
+    scenarios: list[dict[str, Any]],
+    *,
+    command: str,
+    timeout_seconds: float,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    captured: dict[str, list[dict[str, Any]]] = {}
+    client_runs: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        server = HermesCaptureServer()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}/v1"
+            request_count = max(1, int(scenario.get("workload_shape", {}).get("request_count") or 1))
+            with tempfile.TemporaryDirectory(prefix=f"hermes_hint_{scenario['id']}_") as temp_dir:
+                temp_path = Path(temp_dir)
+                hermes_home = temp_path / "hermes_home"
+                hermes_home.mkdir(parents=True, exist_ok=True)
+                _, _, env_overrides = hermes_config_for_scenario(scenario, base_url, hermes_home)
+                env = os.environ.copy()
+                env.update(env_overrides)
+                for invocation_index in range(request_count):
+                    cmd = hermes_cli_command(scenario, command, invocation_index)
+                    started_at = time.time()
+                    try:
+                        completed = subprocess.run(
+                            cmd,
+                            cwd=temp_dir,
+                            env=env,
+                            text=True,
+                            capture_output=True,
+                            timeout=timeout_seconds,
+                            check=False,
+                        )
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": completed.returncode,
+                                "stdout_tail": completed.stdout[-2000:],
+                                "stderr_tail": completed.stderr[-2000:],
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+                    except FileNotFoundError as exc:
+                        raise HintBenchmarkConfigError(
+                            f"Hermes native capture requires the Hermes CLI command {cmd[0]!r}. "
+                            "Install/configure Hermes Agent or pass --hermes-command."
+                        ) from exc
+                    except subprocess.TimeoutExpired as exc:
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": "timeout",
+                                "stdout_tail": (exc.stdout or "")[-2000:] if isinstance(exc.stdout, str) else "",
+                                "stderr_tail": (exc.stderr or "")[-2000:] if isinstance(exc.stderr, str) else "",
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+        finally:
+            captured[scenario["id"]] = list(server.payloads)
+            server.shutdown()
+            thread.join(timeout=1)
+    return captured, client_runs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--harness", default="nemo_agent_toolkit", choices=tuple(DEFAULT_CONFIGS))
@@ -745,6 +960,11 @@ def main() -> None:
         help="Run the real Qwen Code CLI against a local capture endpoint and validate emitted request fields.",
     )
     parser.add_argument(
+        "--hermes-native-capture",
+        action="store_true",
+        help="Run the real Hermes Agent CLI against a local capture endpoint and validate emitted request fields.",
+    )
+    parser.add_argument(
         "--claude-command",
         default=os.environ.get("CLAUDE_CODE_BIN", "claude"),
         help="Claude CLI command to execute for --claude-native-capture. Default: claude.",
@@ -765,6 +985,17 @@ def main() -> None:
         type=float,
         default=90.0,
         help="Per-scenario timeout for --qwen-native-capture.",
+    )
+    parser.add_argument(
+        "--hermes-command",
+        default=os.environ.get("HARNESS_HERMES_BIN", "hermes"),
+        help="Hermes Agent command to execute for --hermes-native-capture. Default: hermes.",
+    )
+    parser.add_argument(
+        "--hermes-timeout-seconds",
+        type=float,
+        default=90.0,
+        help="Per-scenario timeout for --hermes-native-capture.",
     )
     parser.add_argument(
         "--out-dir",
@@ -791,6 +1022,7 @@ def main() -> None:
             args.claude_real_provider_capture,
             args.anthropic_api_payload_capture,
             args.qwen_native_capture,
+            args.hermes_native_capture,
         )
     )
     if mode_count != 1:
@@ -798,7 +1030,7 @@ def main() -> None:
             "Choose exactly one of --dry-run, --fixture-observations, "
             "--nat-dynamo-transport-capture, --claude-native-capture, "
             "--claude-real-provider-capture, --anthropic-api-payload-capture, "
-            "or --qwen-native-capture."
+            "--qwen-native-capture, or --hermes-native-capture."
         )
     if args.nat_dynamo_transport_capture and args.harness != "nemo_agent_toolkit":
         parser.error("--nat-dynamo-transport-capture requires --harness nemo_agent_toolkit.")
@@ -810,6 +1042,8 @@ def main() -> None:
         parser.error("--anthropic-api-payload-capture requires --harness claude_code.")
     if args.qwen_native_capture and args.harness != "qwen_code":
         parser.error("--qwen-native-capture requires --harness qwen_code.")
+    if args.hermes_native_capture and args.harness != "hermes_agent":
+        parser.error("--hermes-native-capture requires --harness hermes_agent.")
 
     defaults = DEFAULT_CONFIGS[args.harness]
     manifest_path = args.manifest or defaults["manifest"]
@@ -840,6 +1074,8 @@ def main() -> None:
             if args.anthropic_api_payload_capture
             else "qwen_native_capture"
             if args.qwen_native_capture
+            else "hermes_native_capture"
+            if args.hermes_native_capture
             else "fixture_smoke"
             if args.fixture_observations
             else "dry_run"
@@ -856,6 +1092,7 @@ def main() -> None:
             args.claude_real_provider_capture,
             args.anthropic_api_payload_capture,
             args.qwen_native_capture,
+            args.hermes_native_capture,
         ]
         if any(generated_observation_modes) and args.observed_jsonl:
             raise HintBenchmarkConfigError("Generated observation modes cannot be combined with --observed-jsonl")
@@ -921,6 +1158,22 @@ def main() -> None:
                 result["scenario_records"],
                 captured_payloads,
                 evidence_source="qwen_native_capture",
+            )
+            result["client_runs"] = client_runs
+            result["captured_payload_counts"] = {
+                scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
+            }
+        elif args.hermes_native_capture:
+            captured_payloads, client_runs = capture_hermes_native_payloads(
+                selected,
+                command=args.hermes_command,
+                timeout_seconds=args.hermes_timeout_seconds,
+            )
+            observations = build_payload_observations(
+                manifest,
+                result["scenario_records"],
+                captured_payloads,
+                evidence_source="hermes_native_capture",
             )
             result["client_runs"] = client_runs
             result["captured_payload_counts"] = {

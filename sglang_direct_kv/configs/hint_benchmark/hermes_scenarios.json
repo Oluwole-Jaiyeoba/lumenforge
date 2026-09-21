@@ -1,0 +1,237 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "hermes_agent",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/hermes_hints.json",
+  "scenario_groups": {
+    "smoke": [
+      "hermes_no_hints_baseline",
+      "hermes_provider_qos_request_overrides",
+      "hermes_prompt_cache_ttl_1h"
+    ],
+    "full_hermes_coverage": [
+      "hermes_no_hints_baseline",
+      "hermes_provider_qos_request_overrides",
+      "hermes_provider_session_model_namespace",
+      "hermes_prompt_cache_ttl_1h",
+      "hermes_prompt_tier_cache_key_probe",
+      "hermes_cache_feedback_metrics",
+      "hermes_cache_pinning_negative_probe"
+    ],
+    "hermes_request_boundary_coverage": [
+      "hermes_no_hints_baseline",
+      "hermes_provider_qos_request_overrides",
+      "hermes_provider_session_model_namespace",
+      "hermes_prompt_cache_ttl_1h",
+      "hermes_cache_pinning_negative_probe"
+    ],
+    "hermes_provider_automatic_coverage": [
+      "hermes_prompt_tier_cache_key_probe",
+      "hermes_cache_feedback_metrics"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole Hermes session or model provider configuration.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or provider cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage or metrics feedback."
+  },
+  "scenarios": [
+    {
+      "id": "hermes_no_hints_baseline",
+      "display_name": "Hermes baseline",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "request_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What fields appear when Hermes sends a minimal one-turn OpenAI-compatible request?",
+      "workload_shape": {"request_count": 1, "client": "hermes_cli"},
+      "client_setup": {
+        "model": "hermes-hint-benchmark-model",
+        "cli_prompt": "Hermes hint benchmark baseline. Reply with one short sentence."
+      },
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "present"},
+        {"hint_id": "cache_ttl", "raw_field": "system.*.cache_control.ttl", "expected_value": "present"},
+        {"hint_id": "cache_pinning", "raw_field": "cache_pinning", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "hermes_provider_qos_request_overrides",
+      "display_name": "Hermes provider QoS request overrides",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "provider_level",
+      "scope": "provider",
+      "trigger_type": "configured_provider_qos",
+      "target_hint_ids": ["provider_qos"],
+      "benchmark_question": "Does Hermes carry provider QoS metadata from provider config or request overrides into an OpenAI-compatible request?",
+      "workload_shape": {"request_count": 1, "client": "hermes_cli"},
+      "client_setup": {
+        "model": "hermes-hint-benchmark-model",
+        "provider_config": {
+          "service_tier": "priority",
+          "extra_body": {
+            "service_tier": "priority",
+            "agentic_hints": {
+              "priority_class": "urgent"
+            }
+          }
+        },
+        "cli_prompt": "Hermes provider QoS hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "priority", "required": true},
+        {"hint_id": "provider_qos", "raw_field": "agentic_hints.priority_class", "expected_value": "urgent", "required": false},
+        {"hint_id": "provider_qos", "raw_field": "extra_body.service_tier", "expected_value": "priority", "required": false}
+      ],
+      "notes": "The deck maps Hermes QoS to request_overrides/service_tier and /fast layering. The exact wire location depends on Hermes provider normalization."
+    },
+    {
+      "id": "hermes_provider_session_model_namespace",
+      "display_name": "Hermes provider/session/model namespace",
+      "status": "native_client_required",
+      "source_class": "provider_automatic",
+      "injection_level": "session_level",
+      "scope": "cache_namespace",
+      "trigger_type": "session_model_isolation",
+      "target_hint_ids": ["cache_namespace"],
+      "benchmark_question": "Does Hermes expose provider/session/model cache isolation as a literal request field, or only through configured gateway metadata?",
+      "workload_shape": {"request_count": 1, "client": "hermes_cli"},
+      "client_setup": {
+        "model": "hermes-hint-benchmark-model",
+        "provider_config": {
+          "headers": {
+            "X-HintBench-Cache-Namespace": "hermes_provider_session_model"
+          }
+        },
+        "cli_prompt": "Hermes cache namespace hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {
+          "hint_id": "cache_namespace",
+          "raw_field": "_capture.headers.x-hintbench-cache-namespace",
+          "expected_value": "hermes_provider_session_model",
+          "required": false
+        },
+        {
+          "hint_id": "cache_namespace",
+          "raw_field": "provider_session_model",
+          "expected_value": "present",
+          "required": false
+        }
+      ],
+      "notes": "The deck describes provider/session/model isolation. A literal field is optional unless the configured gateway header survives."
+    },
+    {
+      "id": "hermes_prompt_cache_ttl_1h",
+      "display_name": "Hermes prompt cache TTL 1h",
+      "status": "native_client_required",
+      "source_class": "prompt_builder_policy",
+      "injection_level": "content_block_level",
+      "scope": "request_or_cache_entry",
+      "trigger_type": "configured_prompt_caching",
+      "target_hint_ids": ["cache_ttl", "cache_entry_type", "cache_pinning"],
+      "benchmark_question": "Does Hermes emit Anthropic-style cache_control markers with 1h retention when prompt caching is configured?",
+      "workload_shape": {"request_count": 1, "client": "hermes_cli", "stable_prefix": true},
+      "client_setup": {
+        "model": "hermes-hint-benchmark-model",
+        "prompt_caching": {
+          "enabled": true,
+          "cache_ttl": "1h"
+        },
+        "provider_config": {
+          "extra_body": {
+            "prompt_caching": {
+              "cache_ttl": "1h"
+            }
+          }
+        },
+        "cli_prompt": "Hermes prompt-cache TTL hint benchmark. Keep the same stable context and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_entry_type", "raw_field": "system.*.cache_control.type", "expected_value": "ephemeral", "required": false},
+        {"hint_id": "cache_ttl", "raw_field": "system.*.cache_control.ttl", "expected_value": "1h", "required": false},
+        {"hint_id": "cache_ttl", "raw_field": "prompt_caching.cache_ttl", "expected_value": "1h", "required": false}
+      ],
+      "notes": "Hermes docs describe automatic prompt-cache breakpoints with 1h TTL where supported. OpenAI-compatible local capture may only reveal provider extra_body, not Anthropic content-block markers."
+    },
+    {
+      "id": "hermes_prompt_tier_cache_key_probe",
+      "display_name": "Hermes prompt-tier cache key probe",
+      "status": "native_client_required",
+      "source_class": "provider_automatic",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "repeated_identical_prefix",
+      "target_hint_ids": ["cache_key_bucket"],
+      "benchmark_question": "Does a repeated Hermes prompt expose a literal cache key, or is reuse provider automatic by prompt tier and model?",
+      "workload_shape": {"request_count": 2, "client": "hermes_cli", "stable_prefix": true},
+      "client_setup": {
+        "model": "hermes-hint-benchmark-model",
+        "cli_prompt": "Hermes repeated prefix probe turn {invocation_index}. Use the same stable context and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "cache_key_policy", "expected_value": "prompt_tiers_model", "required": false},
+        {"hint_id": "cache_key_bucket", "raw_field": "model", "expected_value": "hermes-hint-benchmark-model", "required": true}
+      ],
+      "notes": "The model field is observable, but the provider-derived cache key usually is not exposed as a literal request field."
+    },
+    {
+      "id": "hermes_cache_feedback_metrics",
+      "display_name": "Hermes cache feedback metrics",
+      "status": "real_provider_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "post_execution_metrics",
+      "trigger_type": "provider_cache_reuse",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Does Hermes or the provider report prompt-cache hit/read counters after repeated cacheable requests?",
+      "workload_shape": {"request_count": 2, "client": "hermes_cli", "stable_prefix": true, "requires_real_provider": true},
+      "client_setup": {
+        "model": "hermes-hint-benchmark-model",
+        "prompt_caching": {
+          "enabled": true,
+          "cache_ttl": "1h"
+        },
+        "cli_prompt": "Hermes cache feedback probe turn {invocation_index}. Keep the stable prefix and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cache_read_input_tokens", "expected_value": {"numeric_range": [1, 1000000]}, "required": false},
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cached_tokens", "expected_value": {"numeric_range": [1, 1000000]}, "required": false}
+      ],
+      "notes": "Request-boundary local capture cannot prove cache-hit feedback. This becomes meaningful only with real provider usage metrics."
+    },
+    {
+      "id": "hermes_cache_pinning_negative_probe",
+      "display_name": "Hermes cache pinning negative probe",
+      "status": "native_client_required",
+      "source_class": "prompt_builder_policy",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "configured_prompt_caching",
+      "target_hint_ids": ["cache_pinning"],
+      "benchmark_question": "Does Hermes expose a separate cache_pinning field, or only provider retention through cache_control TTL?",
+      "workload_shape": {"request_count": 1, "client": "hermes_cli"},
+      "client_setup": {
+        "model": "hermes-hint-benchmark-model",
+        "prompt_caching": {
+          "enabled": true,
+          "cache_ttl": "1h"
+        },
+        "cli_prompt": "Hermes cache pinning negative probe. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_pinning", "raw_field": "system.*.cache_control.ttl", "expected_value": "1h", "required": false}
+      ],
+      "negative_expectations": [
+        {"hint_id": "cache_pinning", "raw_field": "cache_pinning", "expected_value": "present"}
+      ],
+      "notes": "The deck describes 1h retention where supported, not a separate literal pin flag."
+    }
+  ]
+}

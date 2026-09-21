@@ -1,0 +1,53 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "hermes_agent",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["hermes_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "qos_only": {
+      "display_name": "Hermes provider QoS probes",
+      "scenario_selectors": ["hermes_provider_qos_request_overrides"],
+      "expected_signal_visibility": ["service_tier", "agentic_hints.priority_class"]
+    },
+    "cache_only": {
+      "display_name": "Hermes prompt-cache probes",
+      "scenario_selectors": [
+        "hermes_prompt_cache_ttl_1h",
+        "hermes_prompt_tier_cache_key_probe",
+        "hermes_cache_pinning_negative_probe"
+      ],
+      "expected_signal_visibility": [
+        "system.*.cache_control.type",
+        "system.*.cache_control.ttl",
+        "prompt_caching.cache_ttl",
+        "model"
+      ]
+    },
+    "namespace_only": {
+      "display_name": "Hermes namespace/isolation probes",
+      "scenario_selectors": ["hermes_provider_session_model_namespace"],
+      "expected_signal_visibility": [
+        "_capture.headers.x-hintbench-cache-namespace",
+        "provider_session_model"
+      ]
+    },
+    "feedback_only": {
+      "display_name": "Hermes provider cache feedback probe",
+      "scenario_selectors": ["hermes_cache_feedback_metrics"],
+      "expected_signal_visibility": ["usage.cache_read_input_tokens", "usage.cached_tokens"]
+    },
+    "all_request_boundary": {
+      "display_name": "All Hermes Agent request-boundary probes",
+      "scenario_selectors": ["hermes_request_boundary_coverage"],
+      "expected_signal_visibility": ["Hermes Agent native request-boundary probe targets only"]
+    },
+    "full_coverage": {
+      "display_name": "Full Hermes Agent signal coverage",
+      "scenario_selectors": ["full_hermes_coverage"],
+      "expected_signal_visibility": ["Hermes Agent request-boundary plus provider-automatic probes"]
+    }
+  }
+}

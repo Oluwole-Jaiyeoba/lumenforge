@@ -33,6 +33,8 @@ cd ~/agentic_hardware
 | Claude Code + Provider | Claude Code was used, but provider routing/config may have produced the signal. |
 | Native Qwen Code | The real Qwen Code CLI emitted or carried the signal at the request boundary. |
 | Qwen Code + Provider Config | Qwen Code carried provider/model configuration such as `extra_body`, custom headers, or cache-control settings. |
+| Native Hermes Agent | The real Hermes Agent CLI emitted or carried the signal at the request boundary. |
+| Hermes Agent + Provider Config | Hermes carried provider/model configuration such as `service_tier`, `extra_body`, headers, or prompt-cache settings. |
 | Native NAT Workflow | The real NeMo/NAT transport emitted the signal from workflow or transport settings. |
 | NAT Pass-through | The signal was supplied before or around NAT, and NAT preserved it at the boundary. |
 | Mixed NAT | The run intentionally combines NAT workflow signals and NAT pass-through signals. |
@@ -943,6 +945,154 @@ RUN_ID="nat_provider_qos_$(date +%Y%m%d_%H%M%S)"
 </tbody>
 </table>
 
+## Hermes Agent
+
+The current Hermes suite has request-boundary setup and fixture validation. A
+native Hermes run requires a Hermes CLI on the host, for example
+`HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes`.
+Do not count fixture output as native Hermes evidence.
+
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Targeted</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All Hermes request-boundary probes</td>
+<td>Produce every Hermes request-boundary signal recipe in one run.</td>
+<td>Hermes Agent + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="hermes_all_request_boundary_$(date +%Y%m%d_%H%M%S)"
+HARNESS_HERMES_BIN="$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes" \
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile all_request_boundary \
+  --hermes-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>system.*.cache_control.type</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li>absence of literal <code>cache_pinning</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining provider QoS, namespace/isolation, prompt-cache TTL, and cache-pinning negative probes.</td>
+<td>Configuration</td>
+<td>Native Hermes Agent request-boundary capture once the Hermes CLI is installed. Local fixture check: <code>hermes_fixture_check</code>.</td>
+</tr>
+<tr>
+<td>Hermes setup smoke</td>
+<td>Verify the Hermes manifest, scenarios, and validator plumbing without claiming native evidence.</td>
+<td>Hermes Agent + Provider Config</td>
+<td>
+
+```bash
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile all_request_boundary \
+  --fixture-observations \
+  --run-id hermes_fixture_check
+```
+
+</td>
+<td>
+<ul>
+<li>fixture-only validator rows</li>
+<li>no unknown hints</li>
+</ul>
+</td>
+<td>Use before native capture, or on machines without the Hermes CLI.</td>
+<td>Configuration</td>
+<td><code>fixture_plumbing_only</code>; not native harness evidence.</td>
+</tr>
+<tr>
+<td>Hermes provider QoS</td>
+<td>Carry service-tier metadata through Hermes provider config.</td>
+<td>Hermes Agent + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="hermes_qos_only_$(date +%Y%m%d_%H%M%S)"
+HARNESS_HERMES_BIN="$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes" \
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile qos_only \
+  --hermes-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>hermes_provider_qos_request_overrides</code>, whose provider config supplies service-tier metadata.</td>
+<td>Configuration</td>
+<td>Provider/config evidence, not organic urgency inference.</td>
+</tr>
+<tr>
+<td>Hermes cache probes</td>
+<td>Probe prompt-cache TTL/type and provider-derived cache-key behavior.</td>
+<td>Hermes Agent + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="hermes_cache_only_$(date +%Y%m%d_%H%M%S)"
+HARNESS_HERMES_BIN="$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes" \
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile cache_only \
+  --hermes-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>system.*.cache_control.type</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li><code>model</code> as part of provider cache identity</li>
+</ul>
+</td>
+<td>Runs prompt-cache TTL, repeated-prefix cache-key, and cache-pinning negative scenarios.</td>
+<td>Configuration</td>
+<td>Request-boundary cache metadata only; real provider cache-hit feedback is separate.</td>
+</tr>
+</tbody>
+</table>
+
 ## Missing Or Blocked Today
 
 | Harness | Signal | Current State | Needed To See It |
@@ -956,6 +1106,9 @@ RUN_ID="nat_provider_qos_$(date +%Y%m%d_%H%M%S)"
 | Claude Code | real cache-hit usage counters | Implemented runner path, but EC2 Claude CLI is not logged in today. | Use an authenticated Claude/provider run with repeated identical cacheable prefix requests inside the TTL, then capture response usage counters. |
 | Qwen Code | literal cache key | Not observed in request-boundary capture; the deck frames Qwen cache keying as automatic prefix matching. | A provider or future Qwen path would need to expose a literal request cache-key field. |
 | Qwen Code | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider usage counters such as cached tokens. |
+| Hermes Agent | native request-boundary evidence | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. |
+| Hermes Agent | literal cache key | The deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal cache-key field is optional. | A provider or future Hermes path would need to expose a literal request cache-key field. |
+| Hermes Agent | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider prompt-cache metrics. |
 
 ## Inspect Results
 
