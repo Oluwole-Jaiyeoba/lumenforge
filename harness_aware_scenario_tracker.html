@@ -1437,7 +1437,7 @@
     <section class="section scenario">
       <div class="scenario-head">
         <h2>Scenario H1: GPU-Occupancy-Aware Backfill</h2>
-        <span class="status pending">Ready To Run</span>
+        <span class="status pending">Diagnostic Run</span>
       </div>
       <p class="lede">This focused hardware-visibility follow-up asks when GPU telemetry changes the controller's decision. The setup keeps all tasks equal-importance, but gives the controller staggered replay arrivals plus optional candidate work that could fill otherwise idle GPU time.</p>
       <div class="setup">
@@ -1464,18 +1464,34 @@
           <span class="chip">GPU utilization samples</span>
         </div>
       </div>
-      <div class="chart pending" aria-label="Scenario H1 planned manager summary">
-        <h3>Planned Manager Summary</h3>
-        <p class="small">When run, this section should compare baseline, ready-time-only, and ready-time-plus-GPU-backfill modes. The most important chart is whether GPU-idle telemetry changed real admission decisions without hurting replay.</p>
+      <div class="chart" aria-label="Scenario H1 manager summary">
+        <h3>Manager Summary</h3>
+        <p class="small"><strong>Latest diagnostic run:</strong> <code>gpu_occupancy_backfill_h1_20260921_182228</code> compared baseline, ready-time-only, and ready-time-plus-GPU-backfill modes. The run completed and recorded GPU telemetry, but GPU telemetry did not change any admission decisions. This is not a clean hardware-telemetry win yet.</p>
         <div class="metric-grid">
-          <div class="metric-tile"><div class="metric-name">GPU-Decisive Choices</div><div class="metric-value pending">pending</div><p class="small">Count decisions where GPU-idle state admitted safe backfill that ready-time-only would have held.</p></div>
-          <div class="metric-tile"><div class="metric-name">Replay TTFT / Lateness</div><div class="metric-value pending">pending</div><p class="small">Confirm hardware-aware backfill does not make replay worse.</p></div>
-          <div class="metric-tile"><div class="metric-name">GPU Occupancy Balance</div><div class="metric-value pending">pending</div><p class="small">Check whether idle gaps shrink or active-sample rate improves.</p></div>
+          <div class="metric-tile"><div class="metric-name">GPU-Decisive Choices</div><div class="metric-value warn">0 / 12</div><p class="small">All RTG admission decisions had <code>counterfactual_without_gpu_idle_state=same</code>.</p></div>
+          <div class="metric-tile"><div class="metric-name">Total TTFT</div><div class="metric-value">1.1% better</div><p class="small">RTG improved total TTFT from 2.158s to 2.134s across 8 replay requests.</p></div>
+          <div class="metric-tile"><div class="metric-name">Total Lateness</div><div class="metric-value warn">7.6% worse</div><p class="small">RTG increased total lateness from 2.252s to 2.423s.</p></div>
+          <div class="metric-tile"><div class="metric-name">P95 Lateness</div><div class="metric-value">4.5% better</div><p class="small">RTG improved P95 lateness from 572.2ms to 546.3ms.</p></div>
+          <div class="metric-tile"><div class="metric-name">Replay Workload Window</div><div class="metric-value warn">0.4% worse</div><p class="small">Window moved from 4.364s to 4.383s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Avoidable Blockers</div><div class="metric-value">0.0 avg</div><p class="small">Blocker tracing did not show avoidable local blockers in any mode.</p></div>
         </div>
       </div>
-      <div class="evidence" aria-label="Scenario H1 reproducibility settings">
-        <p class="evidence-title">Reproduce This Planned Run</p>
+      <div class="evidence" aria-label="Scenario H1 mechanism evidence">
+        <p class="evidence-title">Mechanism Evidence</p>
         <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Replay rows measured</div><div class="evidence-value">8 per mode</div></div>
+          <div class="evidence-item"><div class="evidence-label">RTG decisions</div><div class="evidence-value">12 admit, 0 hold</div></div>
+          <div class="evidence-item"><div class="evidence-label">Decision reasons</div><div class="evidence-value">8 ready-now, 4 no-near-replay</div></div>
+          <div class="evidence-item"><div class="evidence-label">GPU idle observations</div><div class="evidence-value">sampled, 1 idle decision row</div></div>
+          <div class="evidence-item"><div class="evidence-label">GPU counterfactual</div><div class="evidence-value">12 same</div></div>
+          <div class="evidence-item"><div class="evidence-label">Hardware proof</div><div class="evidence-value">not decisive yet</div></div>
+        </div>
+        <p class="evidence-note">Simple meaning: the controller could see GPU state, but this workload did not create a moment where GPU-idle telemetry changed the decision. Most work was admitted because replay was already due or no near-future replay was protected. The next H1 run needs a stronger optional-work window where ready-time-only would hold work, but GPU-idle telemetry can safely admit it.</p>
+      </div>
+      <div class="evidence" aria-label="Scenario H1 reproducibility settings">
+        <p class="evidence-title">Reproduce This Run</p>
+        <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Run label</div><div class="evidence-value">gpu_occupancy_backfill_h1_20260921_182228</div></div>
           <div class="evidence-item"><div class="evidence-label">Run wrapper</div><div class="evidence-value">scripts/run_gpu_occupancy_backfill_realistic.sh</div></div>
           <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">baseline, ready-time-only, RTG backfill</div></div>
           <div class="evidence-item"><div class="evidence-label">Harness / pressure</div><div class="evidence-value">hatcher / p3_high</div></div>
@@ -1487,6 +1503,9 @@
         </div>
       </div>
       <div class="links">
+        <a href="sglang_direct_kv/artifacts/results/reports/gpu_occupancy_backfill_h1_20260921_182228/master_report.html">H1 diagnostic report</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/gpu_occupancy_backfill_h1_20260921_182228/replay_friction_summary.csv">Replay friction summary CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/gpu_occupancy_backfill_h1_20260921_182228/gpu_utilization_samples.csv">GPU utilization CSV</a>
         <a href="sglang_direct_kv/scripts/run_gpu_occupancy_backfill_realistic.sh">Run wrapper</a>
         <a href="HARNESS_AWARE_SCENARIOS.md">Scenario plan</a>
       </div>
