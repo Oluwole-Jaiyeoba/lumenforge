@@ -14,6 +14,21 @@ current experiments focus on replay-deadline readiness with real SGLang serving,
 HiCache, live timestamped telemetry, SGLang priority scheduling, controlled
 pressure levels, and multiple coding-agent harness shapes.
 
+## Three-Layer Visibility Model
+
+The research direction is that a strong agentic-serving controller should combine
+three different kinds of visibility instead of relying on any one layer alone.
+
+| Layer | What it knows | What the controller uses it for |
+| --- | --- | --- |
+| Harness / front end | Future intent: `session_id`, workflow phase, expected replay-ready time, reusable prefix identity, and user-facing state. | Predicts what work will matter soon, before the replay request arrives. |
+| SGLang / serving runtime | Logical serving state: queued work, running work, prefill/decode phase, prefix/KV state, scheduler priority, and TTFT. | Orders actual model work and verifies whether the intended priority reached the backend. |
+| Hardware telemetry | Physical GPU state: utilization, idle gaps, memory pressure, bandwidth pressure, throttling, and device capacity. | Decides how aggressive admission/backfill should be without wasting GPU headroom or blocking soon-ready replay work. |
+
+In simple words: the harness knows what will matter soon, SGLang knows what is
+queued or running now, and the hardware tells us what the GPU is physically
+experiencing now.
+
 ## Harness-Aware Scenario Realism Roadmap
 
 The harness-aware experiments should start simple, but each run should be clear
@@ -98,6 +113,34 @@ sitting idle when safe work can fit.
 For signal-attribution experiments, compare the full `controller_ready_time_gpu_backfill`
 mode against counterfactual variants later. The first implementation records
 which of these signals was available and used for each admission decision.
+
+### Hardware-Telemetry Follow-Up: GPU-Occupancy-Aware Backfill
+
+The latest Scenario 1 run proved that ready-time scheduling can create a clean
+win, but GPU telemetry did not change any decisions in that workload. The next
+focused hardware-visibility run should intentionally create a situation where
+the controller has optional candidate work available while staggered replay work
+is expected soon.
+
+Run wrapper:
+
+```bash
+cd sglang_direct_kv
+bash scripts/run_gpu_occupancy_backfill_realistic.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The wrapper compares:
+
+| Mode | Purpose |
+| --- | --- |
+| `no_prefetch` | Baseline behavior without harness/controller help. |
+| `controller_predictive_deadline_queue_admission_guard` | Ready-time-only counterfactual: protect near-ready replay, but do not use GPU-idle telemetry to admit optional backfill. |
+| `controller_ready_time_gpu_backfill` | Full V1 controller: protect near-ready replay and use GPU-idle telemetry to admit bounded backfill when the GPU would otherwise sit idle. |
+
+The key proof columns are whether any decisions have
+`reason=gpu_idle_safe_backfill`, whether the counterfactual says the candidate
+would have been held without GPU-idle state, and whether TTFT/lateness improve
+without increasing the replay workload window.
 
 ## What We Mean By Shorthand
 

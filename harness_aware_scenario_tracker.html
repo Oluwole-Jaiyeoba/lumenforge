@@ -737,6 +737,31 @@
     </section>
 
     <section class="section">
+      <h2>Three-Layer Visibility Model</h2>
+      <p class="lede">The next research step is to combine future intent from the harness, logical serving state from SGLang, and physical GPU state from hardware telemetry.</p>
+      <div class="evidence-grid">
+        <div class="evidence-item">
+          <div class="evidence-label">Harness / front end</div>
+          <div class="evidence-value">what will matter soon</div>
+          <p class="small">Examples: session identity, tool-wait phase, expected replay-ready time, prefix identity, and reuse intent.</p>
+        </div>
+        <div class="evidence-item">
+          <div class="evidence-label">SGLang / runtime</div>
+          <div class="evidence-value">what is queued or running now</div>
+          <p class="small">Examples: local gate state, SGLang scheduler priority, prefill/decode state, KV residency, and TTFT.</p>
+        </div>
+        <div class="evidence-item">
+          <div class="evidence-label">Hardware telemetry</div>
+          <div class="evidence-value">what the GPU is physically experiencing</div>
+          <p class="small">Examples: GPU utilization, idle windows, memory pressure, bandwidth pressure, throttling, and device headroom.</p>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Simple meaning:</strong> the harness predicts future replay needs, SGLang explains the serving path, and hardware telemetry tells the controller whether the GPU has safe physical room for more work.
+      </div>
+    </section>
+
+    <section class="section">
       <h2>Selected Manager Chart Template</h2>
       <p class="lede">Each completed scenario should show the main request-facing benefit, the system-level trade-off, and the total workload impact. For all-request scenarios, the main benefit is measured across every replay request rather than one special target request.</p>
       <div class="selected-template">
@@ -771,17 +796,20 @@
         <span class="status">Clear Win</span>
       </div>
       <p class="lede">A group of replay requests becomes ready at different times after tool waits. The harness exposes when each replay is expected to become ready, so the backend can move the soonest-due replay work forward instead of treating the workload as ordinary queue traffic.</p>
-            <div class="setup">
+      <div class="setup">
         <p class="setup-title">How the experiment is set up</p>
         <p>The same 32 replay requests are run in both modes using the same generated timeline. Tool waits are sampled from realistic buckets, so some replays return quickly and others return much later. In baseline mode, replay submissions use ordinary behavior. In RTG controller mode, the harness exposes replay timing during tool wait; the controller assigns ready-time priority before replay, uses that priority in the local submission gate, lowers the same priority into SGLang, and samples GPU idle state to decide whether safe backfill would be allowed.</p>
       </div>
-      <div class="setup">
-        <p class="setup-title">How the experiment is set up</p>
-        <p>The same 32 replay requests are run in both modes using the same generated timeline. Tool waits are sampled from realistic buckets, so some replays return quickly and others return much later. In baseline mode, replay submissions use ordinary FIFO behavior. In controller mode, the harness exposes replay timing during tool wait; the controller assigns due-time priority before replay, uses that priority in the local submission gate, lowers the same priority into SGLang, and evaluates whether local admissions would interfere with near-future replays.</p>
-      </div>
-            <details class="explain-panel">
+      <details class="explain-panel">
         <summary>What the controller does and why this scenario wins</summary>
-              <div class="signals">
+        <div class="explain-body">
+          <p><strong>What this setup tests:</strong> whether the backend can serve equal-importance replay requests more fairly when it learns each request's expected replay-ready time before the replay arrives.</p>
+          <p><strong>What the controller does:</strong> during tool wait, it predicts when each replay will return, assigns earlier-ready requests stronger scheduling position, applies that order at the local submission gate, and also lowers the same ordering into SGLang's scheduler priority path.</p>
+          <p><strong>Why this creates a win:</strong> baseline SGLang sees work only when it arrives. The controller sees the future replay timeline earlier, so it can avoid letting later-ready work sit in front of sooner-ready replay work. In the latest run, that improved TTFT, lateness, max lateness, and the full replay workload window.</p>
+          <p><strong>Hardware-telemetry nuance:</strong> GPU idle state was sampled in this run, but it did not change admission decisions. The clean win came mainly from ready-time ordering across both the local gate and SGLang scheduler path.</p>
+        </div>
+      </details>
+      <div class="signals">
         <p class="signals-title">Core signals exposed to the backend in controller mode</p>
         <div class="chip-row">
           <span class="chip">session_id</span>
@@ -791,21 +819,8 @@
           <span class="chip">gpu_idle_state</span>
         </div>
       </div>
-      </details>
-      <div class="signals">
-        <p class="signals-title">Harness signals exposed to the backend in controller mode</p>
-        <div class="chip-row">
-          <span class="chip">session_id</span>
-          <span class="chip">phase = tool_wait</span>
-          <span class="chip">expected_tool_return_ms</span>
-          <span class="chip">next_ready_eta_ms</span>
-          <span class="chip">deadline_after_ready_ms</span>
-          <span class="chip">tool_wait_class</span>
-          <span class="chip">task_replay_steps</span>
-        </div>
-      </div>
 
-            <div class="chart" aria-label="Scenario 1 manager summary cards">
+      <div class="chart" aria-label="Scenario 1 manager summary cards">
         <h3>Manager Summary</h3>
         <p class="small"><strong>Latest clear-win run:</strong> <code>scenario1_rtg_v1_20260921_172045</code> compared <code>no_prefetch</code> against <code>controller_ready_time_gpu_backfill</code>. The controller improved total TTFT, average TTFT, total lateness, average lateness, P95 lateness, max lateness, and the replay workload window across all 32 replay requests. The GPU-idle signal was measured, but this run's clean win came mainly from ready-time priority being applied before SGLang and inside SGLang.</p>
         <div class="metric-grid">
@@ -1065,11 +1080,11 @@
       </div>
 
       <div class="links">
-        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_admission_guard_all_replays_20260921_160301/master_report.html">Predictive deadline queue + admission guard report</a>
-        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_admission_guard_all_replays_20260921_160301/global_kv_readiness_by_mode.csv">All replay timing CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html">RTG clear-win report</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/global_kv_readiness_by_mode.csv">All replay timing CSV</a>
         <a href="replay_friction_deep_dive.html">Replay friction deep dive</a>
-        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_admission_guard_all_replays_20260921_160301/replay_friction_summary.csv">Replay friction summary CSV</a>
-        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_admission_guard_all_replays_20260921_160301/gpu_utilization_samples.csv">GPU utilization CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/replay_friction_summary.csv">Replay friction summary CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/gpu_utilization_samples.csv">GPU utilization CSV</a>
         <a href="HARNESS_AWARE_SCENARIOS.md">Scenario plan</a>
       </div>
     </section>
@@ -1416,6 +1431,64 @@
         <a href="sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/value_aware_eviction_audit.csv">Value-aware eviction audit CSV</a>
         <a href="sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/value_aware_eviction_audit.html">Value-aware eviction audit HTML</a>
         <a href="sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/priority_radix_eviction_smoke.json">Priority radix smoke JSON</a>
+      </div>
+    </section>
+
+    <section class="section scenario">
+      <div class="scenario-head">
+        <h2>Scenario H1: GPU-Occupancy-Aware Backfill</h2>
+        <span class="status pending">Ready To Run</span>
+      </div>
+      <p class="lede">This focused hardware-visibility follow-up asks when GPU telemetry changes the controller's decision. The setup keeps all tasks equal-importance, but gives the controller staggered replay arrivals plus optional candidate work that could fill otherwise idle GPU time.</p>
+      <div class="setup">
+        <p class="setup-title">How the experiment is set up</p>
+        <p>Replay requests return from tool waits across short, medium, and long ranges. A small constant stream of candidate work is also available. The controller must protect soon-ready replay requests first. If the next replay is not too close and the GPU is physically idle, the full RTG mode may admit bounded candidate work as safe backfill. If the GPU is busy or replay is too close, it should hold the candidate back.</p>
+      </div>
+      <details class="explain-panel">
+        <summary>What this scenario should prove</summary>
+        <div class="explain-body">
+          <p><strong>What this setup tests:</strong> whether hardware telemetry adds value beyond ready-time scheduling alone.</p>
+          <p><strong>What the controller does:</strong> it uses the harness ready-time signal to protect replay, uses SGLang/runtime state to understand candidate work, and uses cached GPU utilization samples to decide whether optional work can safely fill idle GPU time.</p>
+          <p><strong>What would count as proof:</strong> at least one controller decision should show <code>reason=gpu_idle_safe_backfill</code>, with a counterfactual saying the same candidate would have been held without GPU-idle state. The manager metrics should not regress on TTFT, lateness, or workload window.</p>
+        </div>
+      </details>
+      <div class="signals">
+        <p class="signals-title">Core signals exposed or measured for this controller mode</p>
+        <div class="chip-row">
+          <span class="chip">session_id</span>
+          <span class="chip">phase</span>
+          <span class="chip">ready_time_ms</span>
+          <span class="chip">estimated_runtime_ms</span>
+          <span class="chip">gpu_idle_state</span>
+          <span class="chip">SGLang queue/runtime state</span>
+          <span class="chip">GPU utilization samples</span>
+        </div>
+      </div>
+      <div class="chart pending" aria-label="Scenario H1 planned manager summary">
+        <h3>Planned Manager Summary</h3>
+        <p class="small">When run, this section should compare baseline, ready-time-only, and ready-time-plus-GPU-backfill modes. The most important chart is whether GPU-idle telemetry changed real admission decisions without hurting replay.</p>
+        <div class="metric-grid">
+          <div class="metric-tile"><div class="metric-name">GPU-Decisive Choices</div><div class="metric-value pending">pending</div><p class="small">Count decisions where GPU-idle state admitted safe backfill that ready-time-only would have held.</p></div>
+          <div class="metric-tile"><div class="metric-name">Replay TTFT / Lateness</div><div class="metric-value pending">pending</div><p class="small">Confirm hardware-aware backfill does not make replay worse.</p></div>
+          <div class="metric-tile"><div class="metric-name">GPU Occupancy Balance</div><div class="metric-value pending">pending</div><p class="small">Check whether idle gaps shrink or active-sample rate improves.</p></div>
+        </div>
+      </div>
+      <div class="evidence" aria-label="Scenario H1 reproducibility settings">
+        <p class="evidence-title">Reproduce This Planned Run</p>
+        <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Run wrapper</div><div class="evidence-value">scripts/run_gpu_occupancy_backfill_realistic.sh</div></div>
+          <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">baseline, ready-time-only, RTG backfill</div></div>
+          <div class="evidence-item"><div class="evidence-label">Harness / pressure</div><div class="evidence-value">hatcher / p3_high</div></div>
+          <div class="evidence-item"><div class="evidence-label">Tool waits</div><div class="evidence-value">2-6s, 10-25s, 45-90s</div></div>
+          <div class="evidence-item"><div class="evidence-label">Candidate stream</div><div class="evidence-value">constant backlog target 2, total 24</div></div>
+          <div class="evidence-item"><div class="evidence-label">GPU telemetry</div><div class="evidence-value">250ms poll, idle &lt;=5%</div></div>
+          <div class="evidence-item"><div class="evidence-label">Backfill bound</div><div class="evidence-value">max estimated runtime 2.5s</div></div>
+          <div class="evidence-item"><div class="evidence-label">Trace profile</div><div class="evidence-value">full_debug + blocker tracing + GPU sampler</div></div>
+        </div>
+      </div>
+      <div class="links">
+        <a href="sglang_direct_kv/scripts/run_gpu_occupancy_backfill_realistic.sh">Run wrapper</a>
+        <a href="HARNESS_AWARE_SCENARIOS.md">Scenario plan</a>
       </div>
     </section>
 

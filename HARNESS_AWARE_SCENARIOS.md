@@ -34,6 +34,27 @@ What is the current batch state?
 The scenario suite should prove the value of the first category while holding
 the second category constant.
 
+## Three-Layer Visibility Model
+
+For the next phase, keep the controller story explicit:
+
+```text
+Harness/front end tells us what will matter soon.
+SGLang tells us what is queued, running, cached, or being scheduled now.
+Hardware telemetry tells us what the GPU is physically experiencing now.
+```
+
+| Layer | Example signals | Why it matters |
+| --- | --- | --- |
+| Harness / front end | `session_id`, `phase`, `ready_time_ms`, `prefix_id`, reuse hints | Lets the controller reason about future replay needs before replay arrives. |
+| SGLang / runtime | local gate state, SGLang priority, prefill/decode state, KV residency, TTFT | Lets the controller prove that its decisions reached the real serving path. |
+| Hardware | GPU utilization, idle windows, HBM pressure, bandwidth pressure, throttling | Lets the controller decide whether to admit safe optional work or hold it back. |
+
+This model keeps the experiments honest. Harness signals should explain future
+intent, SGLang traces should explain logical serving behavior, and hardware
+telemetry should explain whether the physical GPU had unused headroom or was
+already under pressure.
+
 ## High-Value Harness Signal Core
 
 Start with this contained list before expanding into more speculative signals.
@@ -359,6 +380,44 @@ and low value classes reached SGLang as priorities 100, 0, and -100. Native
 SGLang/HiCache eviction events were observed. The trade-off is that total
 workload window increased from 205.6s to 268.8s.
 ```
+
+## Hardware-Telemetry Follow-Up: GPU-Occupancy-Aware Backfill
+
+This follow-up is designed for the specific question raised by the hardware
+visibility PDF: when does physical GPU state change the controller's decision?
+
+In simple words: the controller already knows when replay work is expected to
+return. The new test gives it optional candidate work as well. If the GPU is
+idle and the candidate is small enough to finish before soon-ready replay needs
+the model, the controller may admit the candidate as safe backfill. If replay is
+near or the GPU is already busy, it should hold that candidate back.
+
+Modes:
+
+```text
+no_prefetch
+controller_predictive_deadline_queue_admission_guard
+controller_ready_time_gpu_backfill
+```
+
+What each mode proves:
+
+| Mode | Simple meaning |
+| --- | --- |
+| `no_prefetch` | What happens without the harness-aware controller. |
+| `controller_predictive_deadline_queue_admission_guard` | What ready-time scheduling alone can do. |
+| `controller_ready_time_gpu_backfill` | Whether adding GPU-idle telemetry admits useful work during otherwise empty GPU windows without hurting replay. |
+
+The proof should show at least one decision where GPU telemetry was decisive:
+
+```text
+reason=gpu_idle_safe_backfill
+counterfactual_without_gpu_idle_state=would_hold_instead_of_backfill
+```
+
+Manager-facing success means TTFT and lateness stay better than baseline, the
+replay workload window does not regress, and the GPU occupancy chart shows less
+wasted idle time or a higher active-sample rate.
 
 ### 4. Just-In-Time GPU Headroom
 
