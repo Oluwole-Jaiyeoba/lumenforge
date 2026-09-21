@@ -1,0 +1,219 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "pi_agent_harness",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/pi_hints.json",
+  "scenario_groups": {
+    "smoke": [
+      "pi_no_hints_baseline",
+      "pi_provider_prompt_cache_config",
+      "pi_cache_retention_long"
+    ],
+    "full_pi_coverage": [
+      "pi_no_hints_baseline",
+      "pi_provider_prompt_cache_config",
+      "pi_provider_account_namespace",
+      "pi_cache_retention_long",
+      "pi_cache_feedback_footer_usage",
+      "pi_cache_pinning_negative_probe"
+    ],
+    "pi_request_boundary_coverage": [
+      "pi_no_hints_baseline",
+      "pi_provider_prompt_cache_config",
+      "pi_provider_account_namespace",
+      "pi_cache_retention_long",
+      "pi_cache_pinning_negative_probe"
+    ],
+    "pi_provider_feedback_coverage": [
+      "pi_cache_feedback_footer_usage"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole Pi session or provider account.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or provider cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage, footer, or metrics feedback."
+  },
+  "scenarios": [
+    {
+      "id": "pi_no_hints_baseline",
+      "display_name": "Pi baseline",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "request_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What fields appear when Pi sends a minimal one-turn OpenAI-compatible request?",
+      "workload_shape": {"request_count": 1, "client": "pi_cli"},
+      "client_setup": {
+        "model": "pi-hint-benchmark-model",
+        "cli_prompt": "Pi hint benchmark baseline. Reply with one short sentence."
+      },
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "cache_ttl", "raw_field": "prompt_cache_retention", "expected_value": "present"},
+        {"hint_id": "cache_entry_type", "raw_field": "system.*.cache_control.type", "expected_value": "present"},
+        {"hint_id": "cache_pinning", "raw_field": "cache_pinning", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "pi_provider_prompt_cache_config",
+      "display_name": "Pi provider prompt cache config",
+      "status": "native_client_required",
+      "source_class": "provider_automatic",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "configured_provider_cache",
+      "target_hint_ids": ["cache_key_bucket"],
+      "benchmark_question": "Does Pi expose a literal provider prompt-cache key, or only the model/provider identity used by automatic prompt caching?",
+      "workload_shape": {"request_count": 1, "client": "pi_cli"},
+      "client_setup": {
+        "model": "pi-hint-benchmark-model",
+        "provider_fields": {
+          "prompt_cache_key": "pi_provider_prompt_cache"
+        },
+        "cli_prompt": "Pi provider prompt cache hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "model", "expected_value": "pi-hint-benchmark-model", "required": true},
+        {"hint_id": "cache_key_bucket", "raw_field": "cache_key_policy", "expected_value": "provider_prompt_cache", "required": false}
+      ],
+      "notes": "Slide 12 labels Pi cache keying as automatic provider prompt caching with no client cache key."
+    },
+    {
+      "id": "pi_provider_account_namespace",
+      "display_name": "Pi provider/account namespace",
+      "status": "native_client_required",
+      "source_class": "provider_automatic",
+      "injection_level": "session_level",
+      "scope": "cache_namespace",
+      "trigger_type": "session_affinity",
+      "target_hint_ids": ["cache_namespace"],
+      "benchmark_question": "Does Pi expose provider/account cache isolation through headers or a literal request field?",
+      "workload_shape": {"request_count": 1, "client": "pi_cli"},
+      "client_setup": {
+        "model": "pi-hint-benchmark-model",
+        "session_id": "pi_hintbench_provider_account",
+        "compat": {
+          "sendSessionAffinityHeaders": true,
+          "sessionAffinityFormat": "openai"
+        },
+        "provider_fields": {
+          "headers": {
+            "X-HintBench-Cache-Namespace": "pi_provider_account"
+          }
+        },
+        "cli_prompt": "Pi cache namespace hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {
+          "hint_id": "cache_namespace",
+          "raw_field": "_capture.headers.x-session-affinity",
+          "expected_value": "pi_hintbench_provider_account",
+          "required": true
+        },
+        {
+          "hint_id": "cache_namespace",
+          "raw_field": "_capture.headers.x-hintbench-cache-namespace",
+          "expected_value": "pi_provider_account",
+          "required": true
+        }
+      ],
+      "notes": "The deck describes provider/account isolation. A literal request field is optional unless the configured gateway header survives."
+    },
+    {
+      "id": "pi_cache_retention_long",
+      "display_name": "Pi cache retention long",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "content_block_level",
+      "scope": "request_or_cache_entry",
+      "trigger_type": "configured_cache_retention",
+      "target_hint_ids": ["cache_key_bucket", "cache_ttl", "cache_entry_type", "cache_pinning"],
+      "benchmark_question": "Does Pi emit provider cache-control markers or retention fields when long prompt-cache retention is configured?",
+      "workload_shape": {"request_count": 1, "client": "pi_cli", "stable_prefix": true},
+      "client_setup": {
+        "model": "pi-hint-benchmark-model",
+        "compat": {
+          "cacheControlFormat": "anthropic",
+          "supportsLongCacheRetention": true,
+          "sendSessionAffinityHeaders": true,
+          "sessionAffinityFormat": "openai"
+        },
+        "provider_fields": {
+          "prompt_cache_retention": "long"
+        },
+        "env": {
+          "PI_CACHE_RETENTION": "long"
+        },
+        "cli_prompt": "Pi long cache-retention hint benchmark. Keep the same stable context and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "prompt_cache_key", "expected_value": "present", "required": true},
+        {"hint_id": "cache_ttl", "raw_field": "prompt_cache_retention", "expected_value": {"one_of": ["long", "24h"]}, "required": true},
+        {"hint_id": "cache_entry_type", "raw_field": "messages.*.content.*.cache_control.type", "expected_value": "ephemeral", "required": true},
+        {"hint_id": "cache_ttl", "raw_field": "messages.*.content.*.cache_control.ttl", "expected_value": "1h", "required": true}
+      ],
+      "notes": "Pi may expose this as provider config, Anthropic-style content-block cache_control, or provider automatic behavior depending on the model path."
+    },
+    {
+      "id": "pi_cache_feedback_footer_usage",
+      "display_name": "Pi cache feedback footer usage",
+      "status": "real_provider_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "post_execution_metrics",
+      "trigger_type": "provider_cache_reuse",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Does Pi report token/cache usage or cost feedback after repeated cacheable requests?",
+      "workload_shape": {"request_count": 2, "client": "pi_cli", "stable_prefix": true, "requires_real_provider": true},
+      "client_setup": {
+        "model": "pi-hint-benchmark-model",
+        "env": {
+          "PI_CACHE_RETENTION": "long"
+        },
+        "cli_prompt": "Pi cache feedback probe turn {invocation_index}. Keep the stable prefix and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cached_tokens", "expected_value": {"numeric_range": [1, 1000000]}, "required": false},
+        {"hint_id": "cache_hit_feedback", "raw_field": "footer.cache_usage", "expected_value": "present", "required": false}
+      ],
+      "notes": "Request-boundary local capture cannot prove footer or provider usage feedback. This becomes meaningful only with a real provider response or captured Pi footer output."
+    },
+    {
+      "id": "pi_cache_pinning_negative_probe",
+      "display_name": "Pi cache pinning negative probe",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "configured_cache_retention",
+      "target_hint_ids": ["cache_pinning"],
+      "benchmark_question": "Does Pi expose a separate cache_pinning field, or only provider retention through cache-control/retention settings?",
+      "workload_shape": {"request_count": 1, "client": "pi_cli"},
+      "client_setup": {
+        "model": "pi-hint-benchmark-model",
+        "compat": {
+          "cacheControlFormat": "anthropic",
+          "supportsLongCacheRetention": true
+        },
+        "provider_fields": {
+          "prompt_cache_retention": "long"
+        },
+        "env": {
+          "PI_CACHE_RETENTION": "long"
+        },
+        "cli_prompt": "Pi cache pinning negative probe. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_pinning", "raw_field": "prompt_cache_retention", "expected_value": {"one_of": ["long", "24h"]}, "required": true}
+      ],
+      "negative_expectations": [
+        {"hint_id": "cache_pinning", "raw_field": "cache_pinning", "expected_value": "present"}
+      ],
+      "notes": "Slide 12 describes long retention where supported, not literal cache pinning."
+    }
+  ]
+}

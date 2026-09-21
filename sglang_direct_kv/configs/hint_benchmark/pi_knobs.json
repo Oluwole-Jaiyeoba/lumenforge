@@ -1,0 +1,49 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "pi_agent_harness",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["pi_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "cache_only": {
+      "display_name": "Pi prompt-cache probes",
+      "scenario_selectors": [
+        "pi_provider_prompt_cache_config",
+        "pi_cache_retention_long",
+        "pi_cache_pinning_negative_probe"
+      ],
+      "expected_signal_visibility": [
+        "model",
+        "prompt_cache_retention",
+        "system.*.cache_control.type",
+        "system.*.cache_control.ttl"
+      ]
+    },
+    "namespace_only": {
+      "display_name": "Pi provider/account namespace probes",
+      "scenario_selectors": ["pi_provider_account_namespace"],
+      "expected_signal_visibility": [
+        "_capture.headers.x-pi-session-id",
+        "_capture.headers.x-hintbench-cache-namespace",
+        "provider_account"
+      ]
+    },
+    "feedback_only": {
+      "display_name": "Pi footer/provider feedback probe",
+      "scenario_selectors": ["pi_cache_feedback_footer_usage"],
+      "expected_signal_visibility": ["usage.cached_tokens", "footer.cache_usage"]
+    },
+    "all_request_boundary": {
+      "display_name": "All Pi Agent Harness request-boundary probes",
+      "scenario_selectors": ["pi_request_boundary_coverage"],
+      "expected_signal_visibility": ["Pi Agent Harness native request-boundary probe targets only"]
+    },
+    "full_coverage": {
+      "display_name": "Full Pi Agent Harness signal coverage",
+      "scenario_selectors": ["full_pi_coverage"],
+      "expected_signal_visibility": ["Pi request-boundary plus provider feedback recipes"]
+    }
+  }
+}

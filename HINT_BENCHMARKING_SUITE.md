@@ -2,9 +2,9 @@
 
 This document is the source of truth for the hint benchmarking workstream.
 The first implementation target was NeMo Agent Toolkit / NAT. Claude Code was
-the second target, Qwen Code was the third request-boundary target, and Hermes
-Agent is now wired as the next request-boundary setup pending native CLI
-evidence.
+the second target, Qwen Code was the third request-boundary target, Hermes
+Agent is wired as a request-boundary setup pending native CLI evidence, and Pi
+Agent Harness now has native request-boundary evidence.
 
 ## Core Objective
 
@@ -42,7 +42,8 @@ use to answer:
 
 ## Initial Scope
 
-Start with NAT, then Claude Code, then Qwen Code, then Hermes Agent.
+Start with NAT, then Claude Code, then Qwen Code, then Hermes Agent, then Pi
+Agent Harness.
 
 Do not start by benchmarking every harness. NAT is the best first target because
 the signal table lists many explicit scheduling and cache-related hints for it.
@@ -51,8 +52,11 @@ CLI-emitted prompt cache markers and lower-level Anthropic API capabilities.
 Qwen Code is the third target because the deck lists provider/config and
 prompt-cache signals that can be captured at the request boundary. Hermes Agent
 comes next because the deck gives it provider QoS plus prompt-cache TTL/type and
-provider/session/model cache-identity signals. Once these paths are solid, reuse
-the same suite structure for the remaining harnesses.
+provider/session/model cache-identity signals. Pi Agent Harness then adds a
+lightweight native CLI path with provider prompt-cache keying, session-affinity
+namespace metadata, long retention, cache-control markers, and pinning-negative
+evidence. Once these paths are solid, reuse the same suite structure for the
+remaining harnesses.
 
 ## Claude Evidence Lanes
 
@@ -662,6 +666,47 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
   --knob-profile all_request_boundary \
   --hermes-native-capture
 ```
+
+### Phase 9: Pi Agent Harness Extension
+
+Pi Agent Harness now follows the same manifest, scenario, knob-profile, and
+runner structure as the earlier harnesses.
+
+Current Pi implementation:
+
+```text
+manifest: sglang_direct_kv/configs/hint_benchmark/pi_hints.json
+scenarios: sglang_direct_kv/configs/hint_benchmark/pi_scenarios.json
+knobs: sglang_direct_kv/configs/hint_benchmark/pi_knobs.json
+request-boundary runner mode: --pi-native-capture
+```
+
+Current local native status:
+
+```text
+native capture adapter: implemented
+native Pi CLI/client: available through npx
+current native run_id: pi_native_request_boundary_rescored_20260921
+scenario_count: 5
+validation_rows: 13
+unknown_hint_rows: 0
+```
+
+Pi signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
+
+```text
+focused serving-control signals for Pi: 16
+supported or conditional in the deck: 6
+observed in native request-boundary capture: 5
+not observed yet: 1 supported/conditional signal, cache-hit feedback
+unsupported in the deck: 10
+```
+
+The observed Pi request-boundary signals are `prompt_cache_key`,
+`x-session-affinity` / namespace headers, `prompt_cache_retention="24h"`,
+Anthropic-style `cache_control` markers with `ttl="1h"`, and the absence of a
+literal `cache_pinning` field while long retention is present. Cache-hit
+feedback still requires a real provider/cache reuse run.
 
 ## Later Work
 

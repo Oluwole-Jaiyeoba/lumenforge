@@ -35,6 +35,9 @@ QWEN_KNOBS = ROOT / "configs" / "hint_benchmark" / "qwen_knobs.json"
 HERMES_MANIFEST = ROOT / "configs" / "hint_benchmark" / "hermes_hints.json"
 HERMES_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "hermes_scenarios.json"
 HERMES_KNOBS = ROOT / "configs" / "hint_benchmark" / "hermes_knobs.json"
+PI_MANIFEST = ROOT / "configs" / "hint_benchmark" / "pi_hints.json"
+PI_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "pi_scenarios.json"
+PI_KNOBS = ROOT / "configs" / "hint_benchmark" / "pi_knobs.json"
 
 
 class HintBenchmarkRunnerTests(unittest.TestCase):
@@ -233,6 +236,10 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
             "native_client_or_transport_capture",
         )
         self.assertEqual(
+            evidence_tier_for_mode("pi_native_capture"),
+            "native_client_or_transport_capture",
+        )
+        self.assertEqual(
             evidence_tier_for_mode("claude_real_provider_capture"),
             "native_client_real_provider_response",
         )
@@ -368,6 +375,92 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
         by_scenario = {row["scenario_id"]: row for row in validation["scenario_summaries"]}
         self.assertEqual(by_scenario["hermes_provider_qos_request_overrides"]["result"], "pass")
         self.assertEqual(by_scenario["hermes_prompt_cache_ttl_1h"]["result"], "pass")
+
+    def test_loads_pi_manifest_and_scenarios(self):
+        manifest, scenarios = load_benchmark_inputs(PI_MANIFEST, PI_SCENARIOS)
+        self.assertEqual(manifest["harness"]["id"], "pi_agent_harness")
+        self.assertEqual(len(manifest["hints"]), 6)
+        self.assertEqual(len(scenarios["scenarios"]), 6)
+        self.assertEqual(manifest["deck_signal_accounting"]["deck_supported_or_conditional_count"], 6)
+
+    def test_selects_pi_knob_profile_scenarios(self):
+        _, scenarios = load_benchmark_inputs(PI_MANIFEST, PI_SCENARIOS)
+        knobs = load_knob_profiles(PI_KNOBS)
+        profile = select_knob_profile(knobs, "cache_only")
+        selected = select_scenarios(scenarios, profile["scenario_selectors"])
+        self.assertEqual(
+            [scenario["id"] for scenario in selected],
+            [
+                "pi_provider_prompt_cache_config",
+                "pi_cache_retention_long",
+                "pi_cache_pinning_negative_probe",
+            ],
+        )
+        self.assertIn("prompt_cache_retention", profile["expected_signal_visibility"])
+
+    def test_pi_payload_observations_extract_cache_and_namespace_fields(self):
+        manifest, scenarios = load_benchmark_inputs(PI_MANIFEST, PI_SCENARIOS)
+        selected = select_scenarios(scenarios, "pi_provider_prompt_cache_config,pi_provider_account_namespace,pi_cache_retention_long")
+        result = build_dry_run(
+            manifest,
+            selected,
+            run_id="unit_test",
+            created_at=1.0,
+            execution_mode="pi_native_capture",
+        )
+        observations = build_payload_observations(
+            manifest,
+            result["scenario_records"],
+            {
+                "pi_provider_prompt_cache_config": [
+                    {
+                        "model": "pi-hint-benchmark-model",
+                        "cache_key_policy": "provider_prompt_cache",
+                    }
+                ],
+                "pi_provider_account_namespace": [
+                    {
+                        "provider_account": "present",
+                        "_capture": {
+                            "headers": {
+                                "x-pi-session-id": "pi_hintbench_provider_account",
+                                "x-session-affinity": "pi_hintbench_provider_account",
+                                "x-hintbench-cache-namespace": "pi_provider_account",
+                            }
+                        }
+                    }
+                ],
+                "pi_cache_retention_long": [
+                    {
+                        "prompt_cache_key": "pi_prompt_cache_key",
+                        "prompt_cache_retention": "24h",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": "stable user",
+                                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            evidence_source="pi_native_capture",
+        )
+        validation = validate_hint_evidence(
+            manifest,
+            result["scenario_records"],
+            observations,
+            execution_mode="pi_native_capture",
+        )
+        by_scenario = {row["scenario_id"]: row for row in validation["scenario_summaries"]}
+        self.assertEqual(by_scenario["pi_provider_prompt_cache_config"]["result"], "pass")
+        self.assertEqual(by_scenario["pi_provider_account_namespace"]["result"], "pass")
+        self.assertEqual(by_scenario["pi_cache_retention_long"]["result"], "pass")
 
     def test_payload_index_expectations_can_check_first_only_cache_control(self):
         manifest, scenarios = load_benchmark_inputs(MANIFEST, SCENARIOS)

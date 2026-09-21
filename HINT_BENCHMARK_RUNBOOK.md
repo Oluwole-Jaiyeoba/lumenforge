@@ -20,6 +20,7 @@ cd ~/agentic_hardware
 
 - [Claude Code](#claude-code)
 - [Qwen Code](#qwen-code)
+- [Pi Agent Harness](#pi-agent-harness)
 - [NeMo Agent Toolkit / NAT](#nemo-agent-toolkit--nat)
 - [Hermes Agent](#hermes-agent)
 - [Missing Or Blocked Today](#missing-or-blocked-today)
@@ -42,6 +43,8 @@ cd ~/agentic_hardware
 | Claude Code + Provider | Claude Code was used, but provider routing/config may have produced the signal. |
 | Native Qwen Code | The real Qwen Code CLI emitted or carried the signal at the request boundary. |
 | Qwen Code + Provider Config | Qwen Code carried provider/model configuration such as `extra_body`, custom headers, or cache-control settings. |
+| Native Pi Agent Harness | The real Pi Agent Harness CLI emitted or carried the signal at the request boundary. |
+| Pi Agent Harness + Provider Config | Pi carried provider/model configuration such as prompt-cache retention, cache-control markers, or session-affinity headers. |
 | Native Hermes Agent | The real Hermes Agent CLI emitted or carried the signal at the request boundary. |
 | Hermes Agent + Provider Config | Hermes carried provider/model configuration such as `service_tier`, `extra_body`, headers, or prompt-cache settings. |
 | Native NAT Workflow | The real NeMo/NAT transport emitted the signal from workflow or transport settings. |
@@ -461,6 +464,155 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
 <td>Runs namespace-header and eviction-metadata scenarios. These fields are supplied by benchmark config and preserved by Qwen.</td>
 <td>Configuration</td>
 <td>Pass-through/config evidence, not native Qwen scheduling or eviction policy.</td>
+</tr>
+</tbody>
+</table>
+
+## Pi Agent Harness
+
+The current Pi suite has native request-boundary evidence from the real Pi CLI
+via `npx -y @earendil-works/pi-coding-agent@latest`. Against
+`presentation/Harness Signal Tables As-Is.pptx`, Pi has 6 supported or
+conditional cache/provider signals and 10 unsupported focused signals. This run
+observed 5 of the 6 supported or conditional signals at the request boundary.
+
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All Pi request-boundary probes</td>
+<td>Produce every Pi request-boundary signal observed today in one run.</td>
+<td>Pi Agent Harness + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="pi_all_request_boundary_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile all_request_boundary \
+  --pi-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>prompt_cache_key</code></li>
+<li><code>x-session-affinity</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>prompt_cache_retention="24h"</code></li>
+<li><code>messages.*.cache_control.type="ephemeral"</code></li>
+<li><code>messages.*.cache_control.ttl="1h"</code></li>
+<li>absence of literal <code>cache_pinning</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining provider prompt-cache, namespace, long-retention, cache-control, and pinning-negative probes.</td>
+<td>Configuration</td>
+<td>Native Pi request-boundary capture. Current artifact: <code>pi_native_request_boundary_rescored_20260921</code>.</td>
+</tr>
+<tr>
+<td>Pi native baseline</td>
+<td>Confirm Pi emits no benchmark cache hints when knobs are off.</td>
+<td>Native Pi Agent Harness</td>
+<td>
+
+```bash
+RUN_ID="pi_baseline_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile baseline \
+  --pi-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No Pi benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native Pi request-boundary control case.</td>
+</tr>
+<tr>
+<td>Pi cache probes</td>
+<td>Produce Pi prompt-cache key, retention, cache-control, and pinning-negative evidence.</td>
+<td>Pi Agent Harness + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="pi_cache_only_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile cache_only \
+  --pi-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>prompt_cache_key</code></li>
+<li><code>prompt_cache_retention="24h"</code></li>
+<li><code>cache_control.type="ephemeral"</code></li>
+<li><code>cache_control.ttl="1h"</code></li>
+</ul>
+</td>
+<td>Runs provider prompt-cache, long-retention, and pinning-negative scenarios.</td>
+<td>Configuration</td>
+<td>Request-boundary cache metadata only; real cache-hit feedback is separate.</td>
+</tr>
+<tr>
+<td>Pi namespace probes</td>
+<td>Show provider/account or session-affinity cache isolation metadata.</td>
+<td>Pi Agent Harness + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="pi_namespace_only_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile namespace_only \
+  --pi-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>x-session-affinity</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>pi_provider_account_namespace</code>, with session affinity enabled in the provider extension.</td>
+<td>Session</td>
+<td>Provider/config carried by Pi and preserved at the request boundary.</td>
 </tr>
 </tbody>
 </table>
@@ -1115,6 +1267,7 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
 | Claude Code | real cache-hit usage counters | Implemented runner path, but EC2 Claude CLI is not logged in today. | Use an authenticated Claude/provider run with repeated identical cacheable prefix requests inside the TTL, then capture response usage counters. |
 | Qwen Code | literal cache key | Not observed in request-boundary capture; the deck frames Qwen cache keying as automatic prefix matching. | A provider or future Qwen path would need to expose a literal request cache-key field. |
 | Qwen Code | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider usage counters such as cached tokens. |
+| Pi Agent Harness | cache-hit feedback | Request-boundary capture saw Pi request fields, but not real provider cache-hit usage. | Use a real provider run with repeated cacheable prefix requests and collect Pi footer/provider usage counters such as cache read/write. |
 | Hermes Agent | native request-boundary evidence | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. |
 | Hermes Agent | literal cache key | The deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal cache-key field is optional. | A provider or future Hermes path would need to expose a literal request cache-key field. |
 | Hermes Agent | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider prompt-cache metrics. |

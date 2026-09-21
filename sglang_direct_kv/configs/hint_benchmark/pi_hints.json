@@ -1,0 +1,131 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "pi_agent_harness",
+    "display_name": "Pi Agent Harness",
+    "initial_status": "native_client_capture_required"
+  },
+  "baseline_scenario_id": "pi_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [3, 7, 12]
+  },
+  "docs_sources": [
+    "https://pi.dev/",
+    "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md",
+    "https://github.com/werg/pi-harness/blob/main/packages/coding-agent/README.md"
+  ],
+  "deck_signal_accounting": {
+    "focused_signal_count": 16,
+    "deck_supported_or_conditional_count": 6,
+    "deck_unsupported_count": 10,
+    "supported_or_conditional_signals": [
+      "cache_key_bucket",
+      "cache_namespace",
+      "cache_ttl",
+      "cache_entry_type",
+      "cache_hit_feedback",
+      "cache_pinning"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole Pi session or provider account.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or provider cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage, footer, or metrics feedback."
+  },
+  "source_classes": {
+    "provider_config": "A Pi provider extension or model compat setting caused or carried the hint.",
+    "provider_automatic": "The provider derives the behavior without a client-visible field.",
+    "pass_through": "Pi preserved configured request metadata at the request boundary.",
+    "metrics_feedback": "The value appears after execution as provider usage, footer, or cost/cache feedback."
+  },
+  "required_smoke_scenarios": [
+    "pi_no_hints_baseline",
+    "pi_provider_prompt_cache_config",
+    "pi_cache_retention_long"
+  ],
+  "hints": [
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "Pi relies on automatic provider prompt caching rather than exposing a portable client cache key.",
+      "raw_fields": ["cache_key_policy", "provider_prompt_cache", "prompt_cache_key", "model"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["pi_provider_prompt_cache_config"],
+      "status": "documented_provider_behavior"
+    },
+    {
+      "id": "cache_namespace",
+      "canonical_signal": "Cache namespace/isolation",
+      "meaning": "Pi cache isolation is provider/account scoped; optional session affinity headers can make this visible to a gateway.",
+      "raw_fields": [
+        "cache_namespace",
+        "provider_account",
+        "_capture.headers.x-pi-session-id",
+        "_capture.headers.x-session-affinity",
+        "_capture.headers.session_id",
+        "_capture.headers.x-hintbench-cache-namespace"
+      ],
+      "default_injection_level": "session_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "Provider prompt cache or gateway",
+      "scenario_ids": ["pi_provider_account_namespace"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_ttl",
+      "canonical_signal": "Cache TTL",
+      "meaning": "Pi model/provider settings can request prompt cache retention or Anthropic-style cache_control TTL where supported.",
+      "raw_fields": [
+        "prompt_cache_retention",
+        "cache_control.ttl",
+        "system.*.cache_control.ttl",
+        "messages.*.content.*.cache_control.ttl",
+        "_capture.headers.anthropic-beta"
+      ],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["pi_cache_retention_long"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_entry_type",
+      "canonical_signal": "Cache entry type",
+      "meaning": "Pi can use provider-specific cache_control formats, including Anthropic-style ephemeral markers where supported.",
+      "raw_fields": ["cache_control.type", "system.*.cache_control.type", "messages.*.content.*.cache_control.type"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["pi_cache_retention_long"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "Pi footer/provider usage can report token/cache usage and cost after execution.",
+      "raw_fields": ["usage.cached_tokens", "usage.cache_read_input_tokens", "usage.cache_creation_input_tokens", "footer.cache_usage", "footer.cost"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["pi_cache_feedback_footer_usage"],
+      "status": "real_provider_response_required"
+    },
+    {
+      "id": "cache_pinning",
+      "canonical_signal": "Cache pinning / retention",
+      "meaning": "Pi can request long provider retention where supported, but the deck does not identify a separate cache pinning field.",
+      "raw_fields": ["prompt_cache_retention", "cache_control.ttl", "cache_pinning"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["pi_cache_retention_long", "pi_cache_pinning_negative_probe"],
+      "status": "provider_managed_retention_only"
+    }
+  ]
+}

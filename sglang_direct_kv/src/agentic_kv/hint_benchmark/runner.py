@@ -241,6 +241,7 @@ def evidence_tier_for_mode(execution_mode: str) -> str:
         "claude_native_capture",
         "qwen_native_capture",
         "hermes_native_capture",
+        "pi_native_capture",
     }:
         return "native_client_or_transport_capture"
     if execution_mode == "claude_real_provider_capture":

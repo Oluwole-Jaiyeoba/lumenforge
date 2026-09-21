@@ -6,9 +6,9 @@ enter the harness path, what JSON shape they use, and what benchmark knobs can
 expose or hide them.
 
 The current completed native/request-boundary harnesses are NeMo Agent Toolkit
-/ NAT, Claude Code, and Qwen Code. Hermes Agent has benchmark setup and fixture
-validation, but native Hermes evidence is still pending a host with the Hermes
-CLI installed.
+/ NAT, Claude Code, Qwen Code, and Pi Agent Harness. Hermes Agent has benchmark
+setup and fixture validation, but native Hermes evidence is still pending a host
+with the Hermes CLI installed.
 
 ## Evidence
 
@@ -94,6 +94,33 @@ Important boundary: Hermes rows below are setup/probe recipes until
 `--hermes-native-capture` runs successfully against the real Hermes Agent CLI.
 The fixture run validates the scenario mapping and report plumbing only.
 
+Current Pi Agent Harness evidence:
+
+```text
+run_id: pi_native_request_boundary_rescored_20260921
+harness: pi_agent_harness
+execution_mode: pi_native_capture
+scenario_count: 5
+validation_rows: 13
+unknown_hint_rows: 0
+artifact_dir: sglang_direct_kv/artifacts/results/hint_benchmark/pi_native_request_boundary_rescored_20260921
+```
+
+Pi signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
+
+```text
+focused serving-control signals for Pi: 16
+deck-supported or conditional signals: 6
+native request-boundary signals observed: 5
+supported/conditional signals not observed yet: 1
+deck-unsupported signals: 10
+```
+
+Important boundary: Pi rows below are native request-boundary captures from the
+real Pi CLI pointed at a local capture endpoint. They prove Pi can carry the
+observed provider/config/cache fields. They do not prove a real provider acted
+on those fields, and they do not prove cache-hit feedback.
+
 Benchmark outputs include an `evidence_tier` column:
 
 | Evidence Tier | How To Interpret It |
@@ -153,6 +180,12 @@ Benchmark outputs include an `evidence_tier` column:
 | Hermes Agent | prompt-tier/model cache key | pending native | cache entry level | prompt cache matching | Repeated-prefix probe checks for a client-visible cache key; model identity is observable | `hermes_prompt_tier_cache_key_probe` | expected optional `{"cache_key_policy":"prompt_tiers_model"}` plus `{"model":"hermes-hint-benchmark-model"}` | provider-automatic behavior probe | `hermes_fixture_check` | The deck frames this as prompt-tier/model/provider behavior, not necessarily a literal cache key. |
 | Hermes Agent | cache-hit feedback | pending real provider | runtime feedback level | post-execution usage metrics | Requires real provider response or prompt-cache metrics | `hermes_cache_feedback_metrics` | expected optional `{"usage":{"cache_read_input_tokens":...}}` | real provider/metrics required | `hermes_fixture_check` | Request-boundary capture cannot prove cache-hit feedback. |
 | Hermes Agent | separate `cache_pinning=true` | pending native negative probe | cache entry level | cache retention behavior | Negative probe checks whether Hermes emits a literal pinning field separate from TTL retention | `hermes_cache_pinning_negative_probe` | expected absence of `cache_pinning`; optional `system.*.cache_control.ttl="1h"` | provider retention behavior | `hermes_fixture_check` | The deck describes 1h retention where supported, not a separate pin flag. |
+| Pi Agent Harness | prompt-cache key | yes | cache entry level | prompt cache matching | Pi provider/model cache configuration emitted a prompt cache key under long-retention cache mode | `pi_cache_retention_long` | `{"prompt_cache_key":"01a0..."}` | provider/config carried by Pi | `pi_native_request_boundary_rescored_20260921` | This is a provider prompt-cache key, not a portable SGLang KV key. |
+| Pi Agent Harness | provider/account namespace | yes | session level | cache namespace / isolation | Pi session-affinity and configured namespace headers survived to the request boundary | `pi_provider_account_namespace` | headers `x-session-affinity: pi_hintbench_provider_account`, `x-hintbench-cache-namespace: pi_provider_account` | provider/config carried by Pi | `pi_native_request_boundary_rescored_20260921` | This proves header preservation/session affinity, not provider-side isolation behavior. |
+| Pi Agent Harness | cache TTL / long retention | yes | cache entry level | provider cache retention | Pi cache-retention config emitted `prompt_cache_retention` and cache-control TTL markers | `pi_cache_retention_long` | `{"prompt_cache_retention":"24h"}` and `messages.*.content.*.cache_control.ttl="1h"` | provider/config carried by Pi | `pi_native_request_boundary_rescored_20260921` | Pi normalized the requested long retention to `24h` on this path. |
+| Pi Agent Harness | cache entry type | yes | content block level | prompt cache control | Pi emitted Anthropic-style ephemeral cache-control markers | `pi_cache_retention_long` | `messages.*.content.*.cache_control.type="ephemeral"` | provider/config carried by Pi | `pi_native_request_boundary_rescored_20260921` | Observed on message content blocks. |
+| Pi Agent Harness | cache pinning / long retention | yes | cache entry level | cache retention behavior | Pinning-negative probe observed long retention and absence of literal `cache_pinning` | `pi_cache_pinning_negative_probe` | `{"prompt_cache_retention":"24h"}` and no `cache_pinning` field | provider retention behavior | `pi_native_request_boundary_rescored_20260921` | Matches the deck wording: long retention where provider supports it, not pinning. |
+| Pi Agent Harness | cache-hit feedback | no | runtime feedback level | post-execution usage metrics | Requires real provider response or Pi footer/provider cache usage counters | `pi_cache_feedback_footer_usage` | expected future shape: `usage.cacheRead`, `footer.cache_usage`, or provider cache counters | real provider/metrics required | not observed in local request-boundary capture | Local capture returns dummy usage, so it cannot prove a cache hit. |
 
 ## Benchmark Knobs
 
@@ -163,6 +196,7 @@ sglang_direct_kv/configs/hint_benchmark/nat_knobs.json
 sglang_direct_kv/configs/hint_benchmark/claude_knobs.json
 sglang_direct_kv/configs/hint_benchmark/qwen_knobs.json
 sglang_direct_kv/configs/hint_benchmark/hermes_knobs.json
+sglang_direct_kv/configs/hint_benchmark/pi_knobs.json
 ```
 
 The operational runbook with copy-paste commands is:
@@ -196,6 +230,9 @@ without manually listing scenario IDs.
 | `hermes_prompt_cache` | enabled, 1h | `cache_control.type`, `cache_control.ttl`, `prompt_caching.cache_ttl` | Configures Hermes prompt caching and probes whether cache-control markers or config fields appear. | Hermes Agent | no |
 | `hermes_cache_identity` | repeated prefix, model identity | `model`, optional `cache_key_policy` | Repeats a stable prompt to probe provider-derived prompt-tier/model cache identity. | Hermes Agent | no |
 | `hermes_cache_feedback` | real provider response | `usage.cache_read_input_tokens` or provider-specific cache counters | Requires a real provider/backend response path to observe cache feedback. | Hermes Agent | yes |
+| `pi_prompt_cache` | provider prompt cache, long retention | `prompt_cache_key`, `prompt_cache_retention`, `cache_control.type`, `cache_control.ttl` | Configures Pi provider cache compatibility and verifies native request-boundary cache fields. | Pi Agent Harness | no |
+| `pi_namespace` | session affinity / provider account | `x-session-affinity`, namespace header | Enables Pi session affinity and verifies namespace metadata at the request boundary. | Pi Agent Harness | no |
+| `pi_cache_feedback` | real provider response | Pi footer/provider usage cache counters | Requires a real provider/backend response path to observe cache feedback. | Pi Agent Harness | yes |
 
 ## Knob Profiles
 
@@ -232,6 +269,12 @@ without manually listing scenario IDs.
 | Hermes `feedback_only` | Probe whether Hermes/provider can expose cache feedback. | `hermes_cache_feedback_metrics` | cache-read/cached-token usage counters |
 | Hermes `all_request_boundary` | Run every Hermes request-boundary probe. | `hermes_request_boundary_coverage` | native Hermes request-boundary probe targets only |
 | Hermes `full_coverage` | List every Hermes signal recipe. | `full_hermes_coverage` | request-boundary plus provider-automatic recipes |
+| Pi `baseline` | Hide intentional hints. | `pi_no_hints_baseline` | none |
+| Pi `cache_only` | Probe Pi prompt-cache key, retention, cache-control, and pinning-negative behavior. | prompt-cache config, long-retention, and pinning-negative scenarios | `prompt_cache_key`, `prompt_cache_retention`, `cache_control` |
+| Pi `namespace_only` | Probe Pi provider/account namespace and session-affinity metadata. | `pi_provider_account_namespace` | `x-session-affinity`, namespace header |
+| Pi `feedback_only` | Probe whether Pi/provider can expose cache feedback. | `pi_cache_feedback_footer_usage` | cache-read/write or footer usage counters |
+| Pi `all_request_boundary` | Run every Pi request-boundary probe. | `pi_request_boundary_coverage` | native Pi request-boundary probe targets only |
+| Pi `full_coverage` | List every Pi signal recipe. | `full_pi_coverage` | request-boundary plus provider-feedback recipes |
 
 Example:
 
