@@ -24,6 +24,7 @@ cd ~/agentic_hardware
 - [OpenClaw](#openclaw)
 - [NeMo Agent Toolkit / NAT](#nemo-agent-toolkit--nat)
 - [Hermes Agent](#hermes-agent)
+- [Harness Scope Accounting](#harness-scope-accounting)
 - [Unobserved Hint Experiment Backlog](#unobserved-hint-experiment-backlog)
 - [Missing Or Blocked Today](#missing-or-blocked-today)
 - [Inspect Results](#inspect-results)
@@ -1400,6 +1401,25 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
 </tbody>
 </table>
 
+## Harness Scope Accounting
+
+This table tracks the deck-level harness universe separately from signal-level
+coverage. Use it when asking "how many harnesses are left?"
+
+| Harness | Deck Status | Benchmark Status | Counted As Left? | Notes |
+| --- | --- | --- | --- | --- |
+| NeMo Agent Toolkit / NAT | In active deck tables | Native/request-boundary evidence complete for current suite | no | Current suite foundation. |
+| Claude Code | In active deck tables | Native/request-boundary evidence complete for current suite; real-provider feedback still blocked | no | Feedback work remains, but the harness pass exists. |
+| Qwen Code | In active deck tables | Native/request-boundary evidence complete for current suite | no | Provider/config signal pass exists. |
+| Pi Agent Harness | Additional harness in deck | Native/request-boundary evidence complete for current suite | no | Current suite has signal accounting. |
+| OpenClaw | Additional harness in deck | Native/request-boundary evidence exists; many signals still unobserved | no | Harness pass exists; omission experiments remain. |
+| Hermes Agent | Additional harness in deck | Manifest/scenarios/fixtures exist; native CLI evidence pending | yes, if counting incomplete native evidence | Needs a host with working Hermes CLI. |
+| OpenCode | Additional harness in deck | Not started | yes | Next not-started harness in the current additional-harness queue. |
+| Deep Agents | In deck; slide 3 says already covered | Not represented as an active benchmark pass here | optional | Re-open only if we want fresh evidence instead of treating it as already covered. |
+| DeepSeek Harness | In deck scheduling/cache tables | Not started in this suite | optional | Needs a scope decision: include as a deferred harness or mark out of scope. |
+| Dynamo | Slide 3 says already covered | Not represented as an active benchmark pass here | optional | Re-open only if we want fresh evidence. |
+| Codex | Slide 3 says already covered | Not represented as an active benchmark pass here | optional | Re-open only if we want fresh evidence. |
+
 ## Unobserved Hint Experiment Backlog
 
 This table is the future experiment queue. A row here means the signal has not
@@ -1429,6 +1449,9 @@ next round of omission-closing experiments.
 | Hermes Agent | native request-boundary evidence | yes | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. | no |
 | Hermes Agent | literal cache key | conditional | Deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal key may not exist. | Run native Hermes repeated-prefix probes and, if needed, a provider trace lane that exposes cache identity. | maybe |
 | Hermes Agent | real cache-hit usage counters | yes | Request-boundary capture cannot prove provider cache hits. | Run repeated cacheable Hermes requests against a real provider and collect prompt-cache metrics or usage counters. | yes |
+| OpenCode | full harness pass | yes | OpenCode has deck rows but no manifest/scenario/knob pass yet. | Build OpenCode manifest, scenarios, knob profiles, native capture path, and signal accounting. | no |
+| Deep Agents | fresh harness pass | optional | Deck says Deep Agents was already covered, so it was omitted from the active queue. | If re-opened, build a Deep Agents manifest and capture path from the deck rows instead of relying on prior coverage. | maybe |
+| DeepSeek Harness | full harness pass | yes | DeepSeek Harness appears in the deck, but this suite has no pass for it yet. | Decide scope, then build manifest, scenarios, knobs, native/provider capture path, and signal accounting. | maybe |
 
 ## Missing Or Blocked Today
 
