@@ -730,15 +730,8 @@
 
   <main>
     <section class="section">
-      <h2>Experiment Rule</h2>
-      <p class="lede">For each scenario, start with two modes only: a baseline where the backend does not receive the harness signal, and a harness-aware controller mode where the backend uses the signal to make the smarter decision. Add diagnostic modes only when the two-mode story does not explain the result.</p>
-      <p class="lede">Before any new real experiment, coordinate with the backend task to reuse the established SGLang scripts, hooks, modes, and proof columns.</p>
-      <p class="lede">After every scenario run finishes, update this tracker with the latest result cards, a short interpretation, and links to the detailed report and proof files.</p>
-    </section>
-
-    <section class="section">
-      <h2>Three-Layer Visibility Model</h2>
-      <p class="lede">The next research step is to combine future intent from the harness, logical serving state from SGLang, and physical GPU state from hardware telemetry.</p>
+      <h2>Core Research Idea</h2>
+      <p class="lede">This research asks whether agentic LLM serving can improve when the backend is not blind to the surrounding workflow or the physical GPU state. The goal is to combine three kinds of visibility: what the harness knows will happen soon, what SGLang knows is happening now, and what the hardware is physically experiencing.</p>
       <div class="evidence-grid">
         <div class="evidence-item">
           <div class="evidence-label">Harness / front end</div>
@@ -759,6 +752,13 @@
       <div class="callout">
         <strong>Simple meaning:</strong> the harness predicts future replay needs, SGLang explains the serving path, and hardware telemetry tells the controller whether the GPU has safe physical room for more work.
       </div>
+    </section>
+
+    <section class="section">
+      <h2>Experiment Rule</h2>
+      <p class="lede">For each scenario, start with two modes only: a baseline where the backend does not receive the harness signal, and a harness-aware controller mode where the backend uses the signal to make the smarter decision. Add diagnostic modes only when the two-mode story does not explain the result.</p>
+      <p class="lede">Before any new real experiment, coordinate with the backend task to reuse the established SGLang scripts, hooks, modes, and proof columns.</p>
+      <p class="lede">After every scenario run finishes, update this tracker with the latest result cards, a short interpretation, and links to the detailed report and proof files.</p>
     </section>
 
     <section class="section">
