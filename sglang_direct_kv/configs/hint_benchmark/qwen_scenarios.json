@@ -1,0 +1,256 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "qwen_code",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/qwen_hints.json",
+  "scenario_groups": {
+    "smoke": [
+      "qwen_no_hints_baseline",
+      "qwen_provider_qos_extra_body",
+      "qwen_anthropic_cache_control_1h"
+    ],
+    "full_qwen_coverage": [
+      "qwen_no_hints_baseline",
+      "qwen_provider_qos_extra_body",
+      "qwen_custom_header_namespace",
+      "qwen_cache_retention_openai_body",
+      "qwen_anthropic_cache_control_1h",
+      "qwen_repeated_prefix_cache_probe",
+      "qwen_eviction_priority_passthrough",
+      "qwen_cache_feedback_usage"
+    ],
+    "qwen_openai_compatible_coverage": [
+      "qwen_no_hints_baseline",
+      "qwen_provider_qos_extra_body",
+      "qwen_custom_header_namespace",
+      "qwen_cache_retention_openai_body",
+      "qwen_eviction_priority_passthrough"
+    ],
+    "qwen_anthropic_cache_coverage": [
+      "qwen_anthropic_cache_control_1h"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole Qwen Code session configuration.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage or metrics feedback."
+  },
+  "scenarios": [
+    {
+      "id": "qwen_no_hints_baseline",
+      "display_name": "Qwen baseline",
+      "status": "native_client_required",
+      "source_class": "client_supplied",
+      "injection_level": "request_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What fields appear when Qwen Code sends a minimal OpenAI-compatible one-turn request?",
+      "workload_shape": {"request_count": 1, "client": "qwen_cli"},
+      "client_setup": {
+        "protocol": "openai",
+        "model": "qwen-hint-benchmark-model",
+        "cli_prompt": "Qwen hint benchmark baseline. Reply with one short sentence."
+      },
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "present"},
+        {"hint_id": "cache_ttl", "raw_field": "cacheRetention", "expected_value": "present"},
+        {"hint_id": "cache_entry_type", "raw_field": "system.*.cache_control.type", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "qwen_provider_qos_extra_body",
+      "display_name": "Qwen provider QoS extra body",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "provider_level",
+      "scope": "provider",
+      "trigger_type": "configured_provider_qos",
+      "target_hint_ids": ["provider_qos"],
+      "benchmark_question": "Does Qwen Code carry provider QoS metadata from generationConfig.extra_body into an OpenAI-compatible request?",
+      "workload_shape": {"request_count": 1, "client": "qwen_cli"},
+      "client_setup": {
+        "protocol": "openai",
+        "model": "qwen-hint-benchmark-model",
+        "generation_config": {
+          "customHeaders": {
+            "X-HintBench-Scenario": "qwen_provider_qos_extra_body"
+          },
+          "extra_body": {
+            "service_tier": "priority",
+            "agentic_hints": {
+              "priority_class": "urgent"
+            }
+          }
+        },
+        "cli_prompt": "Qwen provider QoS hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "priority", "required": true},
+        {"hint_id": "provider_qos", "raw_field": "agentic_hints.priority_class", "expected_value": "urgent", "required": true}
+      ]
+    },
+    {
+      "id": "qwen_custom_header_namespace",
+      "display_name": "Qwen cache namespace header",
+      "status": "native_client_required",
+      "source_class": "pass_through",
+      "injection_level": "session_level",
+      "scope": "cache_namespace",
+      "trigger_type": "configured_custom_header",
+      "target_hint_ids": ["cache_namespace"],
+      "benchmark_question": "Can Qwen Code carry a configured cache namespace header to the request boundary?",
+      "workload_shape": {"request_count": 1, "client": "qwen_cli"},
+      "client_setup": {
+        "protocol": "openai",
+        "model": "qwen-hint-benchmark-model",
+        "generation_config": {
+          "customHeaders": {
+            "X-HintBench-Cache-Namespace": "qwen_bench_tenant_a"
+          }
+        },
+        "cli_prompt": "Qwen cache namespace hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {
+          "hint_id": "cache_namespace",
+          "raw_field": "_capture.headers.x-hintbench-cache-namespace",
+          "expected_value": "qwen_bench_tenant_a",
+          "required": true
+        }
+      ],
+      "notes": "This is pass-through/header preservation, not a Qwen-invented cache namespace."
+    },
+    {
+      "id": "qwen_cache_retention_openai_body",
+      "display_name": "Qwen OpenAI-compatible cache retention",
+      "status": "native_client_required",
+      "source_class": "provider_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "configured_cache_retention",
+      "target_hint_ids": ["cache_ttl", "cache_pinning"],
+      "benchmark_question": "Does Qwen Code carry provider cache retention through OpenAI-compatible extra_body?",
+      "workload_shape": {"request_count": 1, "client": "qwen_cli"},
+      "client_setup": {
+        "protocol": "openai",
+        "model": "qwen-hint-benchmark-model",
+        "generation_config": {
+          "extra_body": {
+            "cacheRetention": "1h"
+          }
+        },
+        "cli_prompt": "Qwen cache retention hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_ttl", "raw_field": "cacheRetention", "expected_value": "1h", "required": true}
+      ],
+      "notes": "This represents provider/config retention, not a literal cache pin flag."
+    },
+    {
+      "id": "qwen_anthropic_cache_control_1h",
+      "display_name": "Qwen Anthropic-style cache control 1h",
+      "status": "native_client_required",
+      "source_class": "prompt_builder_policy",
+      "injection_level": "content_block_level",
+      "scope": "request_or_cache_entry",
+      "trigger_type": "configured_cache_control",
+      "target_hint_ids": ["cache_ttl", "cache_entry_type", "cache_pinning"],
+      "benchmark_question": "Does Qwen Code emit Anthropic-style cache_control markers when cache control and 1h retention are enabled?",
+      "workload_shape": {"request_count": 1, "client": "qwen_cli"},
+      "client_setup": {
+        "protocol": "anthropic",
+        "model": "qwen-hint-benchmark-model",
+        "generation_config": {
+          "enableCacheControl": true,
+          "forceGlobalCacheScope": true,
+          "cacheRetention": "1h"
+        },
+        "cli_prompt": "Qwen Anthropic cache-control hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_entry_type", "raw_field": "system.*.cache_control.type", "expected_value": "ephemeral", "required": true},
+        {"hint_id": "cache_ttl", "raw_field": "system.*.cache_control.ttl", "expected_value": "1h", "required": true},
+        {"hint_id": "cache_ttl", "raw_field": "_capture.headers.anthropic-beta", "expected_value": {"contains": "extended-cache-ttl"}, "required": true}
+      ]
+    },
+    {
+      "id": "qwen_repeated_prefix_cache_probe",
+      "display_name": "Qwen repeated prefix cache probe",
+      "status": "native_client_required",
+      "source_class": "provider_automatic",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "repeated_identical_prefix",
+      "target_hint_ids": ["cache_key_bucket"],
+      "benchmark_question": "Does a repeated Qwen Code prompt expose a literal cache key, or is reuse provider automatic?",
+      "workload_shape": {"request_count": 2, "client": "qwen_cli", "stable_prefix": true},
+      "client_setup": {
+        "protocol": "openai",
+        "model": "qwen-hint-benchmark-model",
+        "cli_prompt": "Qwen repeated prefix probe turn {invocation_index}. Use the same stable context and reply briefly."
+      },
+      "expected_emissions": [
+        {
+          "hint_id": "cache_key_bucket",
+          "raw_field": "cache_key_policy",
+          "expected_value": "provider_prefix_hash",
+          "required": false
+        }
+      ],
+      "notes": "The deck labels Qwen cache keying as automatic prefix matching, so a literal field is optional and not expected in every capture."
+    },
+    {
+      "id": "qwen_eviction_priority_passthrough",
+      "display_name": "Qwen eviction priority pass-through",
+      "status": "native_client_required",
+      "source_class": "pass_through",
+      "injection_level": "request_level",
+      "scope": "cache",
+      "trigger_type": "configured_extra_body",
+      "target_hint_ids": ["eviction_priority"],
+      "benchmark_question": "Can Qwen Code preserve configured eviction-priority metadata in an OpenAI-compatible request body?",
+      "workload_shape": {"request_count": 1, "client": "qwen_cli"},
+      "client_setup": {
+        "protocol": "openai",
+        "model": "qwen-hint-benchmark-model",
+        "generation_config": {
+          "extra_body": {
+            "agentic_hints": {
+              "eviction_priority": "high"
+            }
+          }
+        },
+        "cli_prompt": "Qwen eviction priority pass-through hint benchmark. Reply with one short sentence."
+      },
+      "expected_emissions": [
+        {"hint_id": "eviction_priority", "raw_field": "agentic_hints.eviction_priority", "expected_value": "high", "required": true}
+      ],
+      "notes": "This is pass-through of configured metadata, not native Qwen eviction policy."
+    },
+    {
+      "id": "qwen_cache_feedback_usage",
+      "display_name": "Qwen cache feedback usage",
+      "status": "real_provider_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "runtime_feedback",
+      "trigger_type": "provider_usage_response",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Does a real Qwen/provider execution return cache-hit usage counters?",
+      "workload_shape": {"request_count": 2, "client": "qwen_cli", "stable_prefix": true},
+      "client_setup": {
+        "protocol": "openai",
+        "model": "qwen-hint-benchmark-model",
+        "cli_prompt": "Qwen cache feedback usage probe turn {invocation_index}. Reuse the same stable context and reply briefly."
+      },
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cached_tokens", "expected_value": "present", "required": false}
+      ],
+      "notes": "Request-boundary capture usually cannot prove cache-hit feedback. Treat this as real-provider/metrics follow-up."
+    }
+  ]
+}

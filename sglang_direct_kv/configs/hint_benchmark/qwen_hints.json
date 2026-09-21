@@ -1,0 +1,135 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "qwen_code",
+    "display_name": "Qwen Code",
+    "initial_status": "native_client_capture_required"
+  },
+  "baseline_scenario_id": "qwen_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [6, 11]
+  },
+  "docs_sources": [
+    "https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/settings.md",
+    "https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/model-providers.md",
+    "https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/auth.md"
+  ],
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a whole Qwen Code session configuration.",
+    "request_level": "Attached to one model request body.",
+    "content_block_level": "Attached to a system, message, tool, or content block.",
+    "cache_entry_level": "Attached to a cache-control breakpoint or cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage or metrics feedback."
+  },
+  "source_classes": {
+    "provider_config": "A provider or Qwen Code generationConfig setting caused or carried the hint.",
+    "client_supplied": "The benchmark client supplied the field before the request boundary.",
+    "prompt_builder_policy": "Qwen Code placed cache-control metadata on stable prompt blocks.",
+    "provider_automatic": "The provider derives the behavior without a client-visible field.",
+    "pass_through": "Qwen Code preserved a configured header or body field at the request boundary.",
+    "metrics_feedback": "The value appears after execution as usage or metrics feedback."
+  },
+  "required_smoke_scenarios": [
+    "qwen_no_hints_baseline",
+    "qwen_provider_qos_extra_body",
+    "qwen_anthropic_cache_control_1h"
+  ],
+  "hints": [
+    {
+      "id": "provider_qos",
+      "canonical_signal": "Provider speed/QoS tier",
+      "meaning": "Carries provider-specific service tier or QoS options through Qwen Code generationConfig.extra_body.",
+      "raw_fields": ["service_tier", "qos_tier", "agentic_hints.priority_class"],
+      "default_injection_level": "provider_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "OpenAI-compatible provider or gateway",
+      "scenario_ids": ["qwen_provider_qos_extra_body"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "Qwen/provider cache reuse is usually automatic prefix matching, not a literal client cache key.",
+      "raw_fields": ["cache_key_policy"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["qwen_repeated_prefix_cache_probe"],
+      "status": "documented_provider_behavior"
+    },
+    {
+      "id": "cache_namespace",
+      "canonical_signal": "Cache namespace/isolation",
+      "meaning": "Carries a static namespace or tenant marker through Qwen Code customHeaders.",
+      "raw_fields": ["_capture.headers.x-hintbench-cache-namespace"],
+      "default_injection_level": "session_level",
+      "expected_source_class": "pass_through",
+      "supported_consumer": "Provider gateway or benchmark capture endpoint",
+      "scenario_ids": ["qwen_custom_header_namespace"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_ttl",
+      "canonical_signal": "Cache TTL",
+      "meaning": "Carries cache retention through OpenAI-compatible extra_body or Anthropic-style cache_control TTL.",
+      "raw_fields": [
+        "cacheRetention",
+        "cache_control.ttl",
+        "system.*.cache_control.ttl",
+        "messages.*.content.*.cache_control.ttl",
+        "_capture.headers.anthropic-beta"
+      ],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["qwen_cache_retention_openai_body", "qwen_anthropic_cache_control_1h"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "cache_entry_type",
+      "canonical_signal": "Cache entry type",
+      "meaning": "Qwen can emit Anthropic-style ephemeral cache-control markers when cache control is enabled.",
+      "raw_fields": ["cache_control.type", "system.*.cache_control.type", "messages.*.content.*.cache_control.type"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "prompt_builder_policy",
+      "supported_consumer": "Anthropic-compatible prompt cache",
+      "scenario_ids": ["qwen_anthropic_cache_control_1h"],
+      "status": "targeted_native_capture"
+    },
+    {
+      "id": "eviction_priority",
+      "canonical_signal": "Eviction priority",
+      "meaning": "Qwen has no native eviction-priority field, but configured body metadata can pass through to a gateway.",
+      "raw_fields": ["eviction_priority", "agentic_hints.eviction_priority"],
+      "default_injection_level": "request_level",
+      "expected_source_class": "pass_through",
+      "supported_consumer": "Gateway or provider-specific extension",
+      "scenario_ids": ["qwen_eviction_priority_passthrough"],
+      "status": "pass_through_only"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "Cache feedback is expected as provider usage or metrics, not request-boundary metadata.",
+      "raw_fields": ["usage.cached_tokens", "usage.cache_read_input_tokens", "usage.cache_creation_input_tokens"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["qwen_cache_feedback_usage"],
+      "status": "real_provider_response_required"
+    },
+    {
+      "id": "cache_pinning",
+      "canonical_signal": "Cache pinning / retention",
+      "meaning": "Qwen/provider paths expose retention or cache control, not a literal pin flag.",
+      "raw_fields": ["cacheRetention", "cache_control.ttl", "system.*.cache_control.ttl"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["qwen_cache_retention_openai_body", "qwen_anthropic_cache_control_1h"],
+      "status": "provider_managed_retention_only"
+    }
+  ]
+}

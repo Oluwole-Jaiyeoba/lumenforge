@@ -29,6 +29,9 @@ KNOBS = ROOT / "configs" / "hint_benchmark" / "nat_knobs.json"
 CLAUDE_MANIFEST = ROOT / "configs" / "hint_benchmark" / "claude_hints.json"
 CLAUDE_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "claude_scenarios.json"
 CLAUDE_KNOBS = ROOT / "configs" / "hint_benchmark" / "claude_knobs.json"
+QWEN_MANIFEST = ROOT / "configs" / "hint_benchmark" / "qwen_hints.json"
+QWEN_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "qwen_scenarios.json"
+QWEN_KNOBS = ROOT / "configs" / "hint_benchmark" / "qwen_knobs.json"
 
 
 class HintBenchmarkRunnerTests(unittest.TestCase):
@@ -219,9 +222,78 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
             "documented_direct_api_payload",
         )
         self.assertEqual(
+            evidence_tier_for_mode("qwen_native_capture"),
+            "native_client_or_transport_capture",
+        )
+        self.assertEqual(
             evidence_tier_for_mode("claude_real_provider_capture"),
             "native_client_real_provider_response",
         )
+
+    def test_loads_qwen_manifest_and_scenarios(self):
+        manifest, scenarios = load_benchmark_inputs(QWEN_MANIFEST, QWEN_SCENARIOS)
+        self.assertEqual(manifest["harness"]["id"], "qwen_code")
+        self.assertEqual(len(manifest["hints"]), 8)
+        self.assertEqual(len(scenarios["scenarios"]), 8)
+
+    def test_selects_qwen_knob_profile_scenarios(self):
+        _, scenarios = load_benchmark_inputs(QWEN_MANIFEST, QWEN_SCENARIOS)
+        knobs = load_knob_profiles(QWEN_KNOBS)
+        profile = select_knob_profile(knobs, "openai_compatible")
+        selected = select_scenarios(scenarios, profile["scenario_selectors"])
+        self.assertEqual(
+            [scenario["id"] for scenario in selected],
+            [
+                "qwen_no_hints_baseline",
+                "qwen_provider_qos_extra_body",
+                "qwen_custom_header_namespace",
+                "qwen_cache_retention_openai_body",
+                "qwen_eviction_priority_passthrough",
+            ],
+        )
+        self.assertIn("cacheRetention", profile["expected_signal_visibility"])
+
+    def test_qwen_payload_observations_extract_extra_body_and_headers(self):
+        manifest, scenarios = load_benchmark_inputs(QWEN_MANIFEST, QWEN_SCENARIOS)
+        selected = select_scenarios(scenarios, "qwen_provider_qos_extra_body,qwen_custom_header_namespace")
+        result = build_dry_run(
+            manifest,
+            selected,
+            run_id="unit_test",
+            created_at=1.0,
+            execution_mode="qwen_native_capture",
+        )
+        observations = build_payload_observations(
+            manifest,
+            result["scenario_records"],
+            {
+                "qwen_provider_qos_extra_body": [
+                    {
+                        "service_tier": "priority",
+                        "agentic_hints": {"priority_class": "urgent"},
+                    }
+                ],
+                "qwen_custom_header_namespace": [
+                    {
+                        "_capture": {
+                            "headers": {
+                                "x-hintbench-cache-namespace": "qwen_bench_tenant_a",
+                            }
+                        }
+                    }
+                ],
+            },
+            evidence_source="qwen_native_capture",
+        )
+        validation = validate_hint_evidence(
+            manifest,
+            result["scenario_records"],
+            observations,
+            execution_mode="qwen_native_capture",
+        )
+        by_scenario = {row["scenario_id"]: row for row in validation["scenario_summaries"]}
+        self.assertEqual(by_scenario["qwen_provider_qos_extra_body"]["result"], "pass")
+        self.assertEqual(by_scenario["qwen_custom_header_namespace"]["result"], "pass")
 
     def test_payload_index_expectations_can_check_first_only_cache_control(self):
         manifest, scenarios = load_benchmark_inputs(MANIFEST, SCENARIOS)

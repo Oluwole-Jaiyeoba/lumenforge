@@ -60,6 +60,24 @@ valuable adapter/glue evidence. They show that Claude-shaped request metadata
 can travel through our gateway/backend path. They do not, by themselves, prove
 that the official Claude Code CLI emitted those fields organically.
 
+Current Qwen Code evidence:
+
+```text
+run_id: qwen_native_full_20260921_local
+harness: qwen_code
+execution_mode: qwen_native_capture
+scenario_count: 8
+validation_rows: 13
+unknown_hint_rows: 0
+artifact_dir: sglang_direct_kv/artifacts/results/hint_benchmark/qwen_native_full_20260921_local
+```
+
+Important boundary: Qwen rows below are request-boundary captures from the real
+Qwen Code CLI pointed at a local capture endpoint. They prove Qwen Code can
+carry configured provider/body/header/cache fields. They do not prove a real
+provider accepted or acted on those fields, and they do not prove SGLang
+consumed them.
+
 Benchmark outputs include an `evidence_tier` column:
 
 | Evidence Tier | How To Interpret It |
@@ -106,6 +124,13 @@ Benchmark outputs include an `evidence_tier` column:
 | Claude Code | cache-hit feedback | blocked | runtime feedback level | post-execution usage metrics | Real provider/backend response must include cache counters | `claude_provider_cache_feedback_probe` | expected: `{"usage":{"cache_creation_input_tokens":...,"cache_read_input_tokens":...}}` | real provider response required | `claude_signal_coverage_20260914_212511_real_provider_feedback` | EC2 Claude CLI returned `Not logged in`, so the usage counters were zero and this cannot prove cache-hit feedback yet. |
 | Claude direct API | cache-hit feedback shape | yes | runtime feedback level | post-execution usage metrics | Direct API response fixture includes documented cache usage counters | `claude_api_cache_feedback_fixture` | `{"usage":{"cache_creation_input_tokens":248,"cache_read_input_tokens":1800}}` | documented response payload | `anthropic_api_payload_capture` | Validates reporting/validation path. Real cache proof still requires real provider execution. |
 | Claude Code | separate `cache_pinning=true` | no | cache entry level | cache retention behavior | Negative probe checks whether the real client emits literal pinning | `claude_cache_pinning_negative_probe` | no `cache_pinning` field observed | native Claude client negative probe | `claude_native_full_coverage_20260914_203812` | Negative probe passed; Claude documents TTL/cache-control behavior, not a separate pin flag. |
+| Qwen Code | provider QoS / service tier | yes | provider level | provider/model behavior | Qwen `generationConfig.extra_body` supplies provider QoS metadata | `qwen_provider_qos_extra_body` | `{"service_tier":"priority","agentic_hints":{"priority_class":"urgent"}}` | provider/config carried by Qwen Code | `qwen_native_full_20260921_local` | This is configured provider metadata, not organic urgency inference. |
+| Qwen Code | cache namespace header | yes | session level | cache namespace / gateway routing | Qwen `generationConfig.customHeaders` supplies a namespace header | `qwen_custom_header_namespace` | header `x-hintbench-cache-namespace: qwen_bench_tenant_a` | pass-through preserved by Qwen Code | `qwen_native_full_20260921_local` | This proves header preservation only; Qwen does not invent the namespace. |
+| Qwen Code | cache retention body field | yes | cache entry level | provider cache retention | Qwen OpenAI-compatible `extra_body` supplies `cacheRetention` | `qwen_cache_retention_openai_body` | `{"cacheRetention":"1h"}` | provider/config carried by Qwen Code | `qwen_native_full_20260921_local` | Provider must define the meaning of this field. |
+| Qwen Code | Anthropic-style cache control | yes | content block level | prompt cache control | Qwen Anthropic-compatible path enables cache control with 1h retention | `qwen_anthropic_cache_control_1h` | `system.*.cache_control.type="ephemeral"` and `system.*.cache_control.ttl="1h"` | Qwen prompt-builder/cache config emitted request markers | `qwen_native_full_20260921_local` | Also emitted Anthropic beta header containing `extended-cache-ttl`. |
+| Qwen Code | eviction priority metadata | yes | request level | cache-retention intent / gateway extension | Qwen OpenAI-compatible `extra_body` supplies eviction metadata | `qwen_eviction_priority_passthrough` | `{"agentic_hints":{"eviction_priority":"high"}}` | pass-through preserved by Qwen Code | `qwen_native_full_20260921_local` | No native Qwen eviction-priority policy was observed. |
+| Qwen Code | literal cache key | optional not observed | cache entry level | prompt cache matching | Repeated prefix probe checks for a client-visible cache key field | `qwen_repeated_prefix_cache_probe` | optional expected marker: `{"cache_key_policy":"provider_prefix_hash"}` | provider-automatic behavior probe | `qwen_native_full_20260921_local` | The deck labels this as automatic prefix matching; no literal request cache-key field appeared. |
+| Qwen Code | cache-hit feedback | optional not observed | runtime feedback level | post-execution usage metrics | Requires real provider response or metrics with cache counters | `qwen_cache_feedback_usage` | optional expected marker: `{"usage":{"cached_tokens":...}}` | real provider/metrics required | `qwen_native_full_20260921_local` | Local request-boundary capture cannot prove provider cache-hit feedback. |
 
 ## Benchmark Knobs
 
@@ -138,6 +163,10 @@ without manually listing scenario IDs.
 | `claude_cache_control_location` | tools, system, messages, long-running context | Claude `cache_control` | Runs native Claude client scenarios that may cause prompt-builder cache markers. | Claude | no |
 | `claude_cache_ttl` | default/provider-managed, explicit `1h` | Claude `cache_control.ttl` | Runs native Claude client long-retention probes and direct API TTL probes. | Claude | no |
 | `claude_cache_feedback` | real provider response | `usage.cache_creation_input_tokens`, `usage.cache_read_input_tokens` | Requires a real provider/backend response path to observe cache feedback. | Claude | yes |
+| `qwen_extra_body` | provider-config fields | `service_tier`, `agentic_hints.priority_class`, `cacheRetention`, `agentic_hints.eviction_priority` | Adds OpenAI-compatible `generationConfig.extra_body` fields and verifies Qwen carries them. | Qwen Code | no |
+| `qwen_custom_headers` | static headers | `x-hintbench-cache-namespace` | Adds Qwen `generationConfig.customHeaders` and verifies request-boundary header preservation. | Qwen Code | no |
+| `qwen_anthropic_cache_control` | enabled, 1h | `cache_control.type`, `cache_control.ttl`, Anthropic cache beta header | Runs Qwen over the Anthropic-compatible path with cache control enabled. | Qwen Code | no |
+| `qwen_cache_feedback` | real provider response | `usage.cached_tokens` or provider-specific cache counters | Requires a real provider/backend response path to observe cache feedback. | Qwen Code | yes |
 
 ## Knob Profiles
 
@@ -160,6 +189,13 @@ without manually listing scenario IDs.
 | Claude `bedrock_provider_config` | Run Bedrock provider-config probes. | `bedrock_config_coverage` | Bedrock service-tier header |
 | Claude `all_request_boundary` | Run every Claude Code native-client boundary probe. | `full_claude_coverage` | native Claude Code probe targets only |
 | Claude `all_signal_recipes` | List every Claude signal recipe. | `all_claude_signal_recipes` | native CLI, direct API, and provider-config recipes |
+| Qwen `baseline` | Hide intentional hints. | `qwen_no_hints_baseline` | none |
+| Qwen `qos_only` | Probe Qwen OpenAI-compatible provider QoS extra body. | `qwen_provider_qos_extra_body` | `service_tier`, `agentic_hints.priority_class` |
+| Qwen `cache_only` | Probe Qwen cache retention and cache-control markers. | OpenAI retention, Anthropic cache-control, repeated-prefix probe | `cacheRetention`, `cache_control.type`, `cache_control.ttl` |
+| Qwen `passthrough_only` | Probe Qwen configured pass-through fields. | namespace header and eviction metadata scenarios | custom namespace header, `agentic_hints.eviction_priority` |
+| Qwen `openai_compatible` | Run Qwen OpenAI-compatible request-boundary probes. | `qwen_openai_compatible_coverage` | OpenAI-compatible provider/config and pass-through fields |
+| Qwen `anthropic_cache` | Run Qwen Anthropic-compatible cache-control probes. | `qwen_anthropic_cache_coverage` | Anthropic-style `cache_control` markers |
+| Qwen `all_request_boundary` | Run every Qwen request-boundary probe. | `full_qwen_coverage` | native Qwen request-boundary probe targets only |
 
 Example:
 

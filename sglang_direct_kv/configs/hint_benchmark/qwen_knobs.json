@@ -1,0 +1,68 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "qwen_code",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["qwen_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "qos_only": {
+      "display_name": "Qwen provider QoS extra-body probes",
+      "scenario_selectors": ["qwen_provider_qos_extra_body"],
+      "expected_signal_visibility": ["service_tier", "agentic_hints.priority_class"]
+    },
+    "cache_only": {
+      "display_name": "Qwen cache-control and retention probes",
+      "scenario_selectors": [
+        "qwen_cache_retention_openai_body",
+        "qwen_anthropic_cache_control_1h",
+        "qwen_repeated_prefix_cache_probe"
+      ],
+      "expected_signal_visibility": [
+        "cacheRetention",
+        "system.*.cache_control.type",
+        "system.*.cache_control.ttl",
+        "_capture.headers.anthropic-beta"
+      ]
+    },
+    "passthrough_only": {
+      "display_name": "Qwen pass-through probes",
+      "scenario_selectors": ["qwen_custom_header_namespace", "qwen_eviction_priority_passthrough"],
+      "expected_signal_visibility": [
+        "_capture.headers.x-hintbench-cache-namespace",
+        "agentic_hints.eviction_priority"
+      ]
+    },
+    "feedback_only": {
+      "display_name": "Qwen provider usage feedback probe",
+      "scenario_selectors": ["qwen_cache_feedback_usage"],
+      "expected_signal_visibility": ["usage.cached_tokens"]
+    },
+    "openai_compatible": {
+      "display_name": "Qwen OpenAI-compatible request-boundary probes",
+      "scenario_selectors": ["qwen_openai_compatible_coverage"],
+      "expected_signal_visibility": [
+        "service_tier",
+        "agentic_hints.priority_class",
+        "_capture.headers.x-hintbench-cache-namespace",
+        "cacheRetention",
+        "agentic_hints.eviction_priority"
+      ]
+    },
+    "anthropic_cache": {
+      "display_name": "Qwen Anthropic-compatible cache-control probes",
+      "scenario_selectors": ["qwen_anthropic_cache_coverage"],
+      "expected_signal_visibility": [
+        "system.*.cache_control.type",
+        "system.*.cache_control.ttl",
+        "_capture.headers.anthropic-beta"
+      ]
+    },
+    "all_request_boundary": {
+      "display_name": "All Qwen Code request-boundary probes",
+      "scenario_selectors": ["full_qwen_coverage"],
+      "expected_signal_visibility": ["Qwen Code native request-boundary probe targets only"]
+    }
+  }
+}

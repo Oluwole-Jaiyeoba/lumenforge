@@ -236,7 +236,7 @@ def build_dry_run(
 
 
 def evidence_tier_for_mode(execution_mode: str) -> str:
-    if execution_mode in {"nat_dynamo_transport_capture", "claude_native_capture"}:
+    if execution_mode in {"nat_dynamo_transport_capture", "claude_native_capture", "qwen_native_capture"}:
         return "native_client_or_transport_capture"
     if execution_mode == "claude_real_provider_capture":
         return "native_client_real_provider_response"

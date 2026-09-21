@@ -1,8 +1,8 @@
 # Hint Benchmarking Suite
 
 This document is the source of truth for the hint benchmarking workstream.
-The first implementation target was NeMo Agent Toolkit / NAT. Claude Code is
-now the second target.
+The first implementation target was NeMo Agent Toolkit / NAT. Claude Code was
+the second target. Qwen Code is now the third request-boundary target.
 
 ## Core Objective
 
@@ -40,14 +40,15 @@ use to answer:
 
 ## Initial Scope
 
-Start with NAT, then Claude Code.
+Start with NAT, then Claude Code, then Qwen Code.
 
 Do not start by benchmarking every harness. NAT is the best first target because
 the signal table lists many explicit scheduling and cache-related hints for it.
 Claude Code is the second target because it gives a useful split between native
 CLI-emitted prompt cache markers and lower-level Anthropic API capabilities.
-Once NAT and Claude are solid, reuse the same suite structure for the remaining
-harnesses.
+Qwen Code is the third target because the deck lists provider/config and
+prompt-cache signals that can be captured at the request boundary. Once these
+paths are solid, reuse the same suite structure for the remaining harnesses.
 
 ## Claude Evidence Lanes
 

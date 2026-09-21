@@ -12,6 +12,7 @@ from pathlib import Path
 import shlex
 import sys
 import subprocess
+import tempfile
 import threading
 import time
 from typing import Any
@@ -47,6 +48,11 @@ DEFAULT_CONFIGS = {
         "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "claude_hints.json",
         "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "claude_scenarios.json",
         "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "claude_knobs.json",
+    },
+    "qwen_code": {
+        "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "qwen_hints.json",
+        "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "qwen_scenarios.json",
+        "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "qwen_knobs.json",
     },
 }
 DEFAULT_OUT_ROOT = REPO_ROOT / "artifacts" / "results" / "hint_benchmark"
@@ -248,6 +254,114 @@ class ClaudeCaptureServer(ThreadingHTTPServer):
         self.payloads: list[dict[str, Any]] = []
 
 
+class QwenCaptureHandler(BaseHTTPRequestHandler):
+    server: "QwenCaptureServer"
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
+
+    def do_GET(self) -> None:
+        response = {"object": "list", "data": [{"id": "qwen-hint-benchmark-model", "object": "model"}]}
+        encoded = json.dumps(response).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def do_POST(self) -> None:
+        content_length = int(self.headers.get("content-length", "0") or "0")
+        raw_body = self.rfile.read(content_length) if content_length else b""
+        try:
+            body = json.loads(raw_body.decode() or "{}")
+        except json.JSONDecodeError:
+            body = {"_raw_body": raw_body.decode(errors="replace")}
+        payload = dict(body) if isinstance(body, dict) else {"body": body}
+        payload["_capture"] = {
+            "method": "POST",
+            "path": self.path,
+            "headers": {key.lower(): value for key, value in self.headers.items()},
+            "received_at_unix": time.time(),
+        }
+        self.server.payloads.append(payload)
+
+        if "/chat/completions" in self.path:
+            if isinstance(body, dict) and body.get("stream"):
+                self.send_response(200)
+                self.send_header("content-type", "text/event-stream")
+                self.send_header("cache-control", "no-cache")
+                self.end_headers()
+                chunk = {
+                    "id": "chatcmpl_qwen_hint_benchmark",
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": body.get("model", "qwen-hint-benchmark-model") if isinstance(body, dict) else "qwen-hint-benchmark-model",
+                    "choices": [
+                        {"index": 0, "delta": {"role": "assistant", "content": "capture ok"}, "finish_reason": None}
+                    ],
+                }
+                final_chunk = {
+                    **chunk,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                }
+                usage_chunk = {
+                    **chunk,
+                    "choices": [],
+                    "usage": {
+                        "prompt_tokens": 1,
+                        "completion_tokens": 1,
+                        "total_tokens": 2,
+                        "cached_tokens": 0,
+                    },
+                }
+                for item in (chunk, final_chunk, usage_chunk):
+                    self.wfile.write(f"data: {json.dumps(item)}\n\n".encode())
+                self.wfile.write(b"data: [DONE]\n\n")
+                return
+            response = {
+                "id": "chatcmpl_qwen_hint_benchmark",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": body.get("model", "qwen-hint-benchmark-model") if isinstance(body, dict) else "qwen-hint-benchmark-model",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "capture ok"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2, "cached_tokens": 0},
+            }
+        else:
+            response = {
+                "id": "msg_qwen_hint_benchmark",
+                "type": "message",
+                "role": "assistant",
+                "model": body.get("model", "qwen-hint-benchmark-model") if isinstance(body, dict) else "qwen-hint-benchmark-model",
+                "content": [{"type": "text", "text": "capture ok"}],
+                "stop_reason": "end_turn",
+                "stop_sequence": None,
+                "usage": {
+                    "input_tokens": 1,
+                    "cache_creation_input_tokens": 0,
+                    "cache_read_input_tokens": 0,
+                    "output_tokens": 1,
+                },
+            }
+        encoded = json.dumps(response).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+
+class QwenCaptureServer(ThreadingHTTPServer):
+    def __init__(self) -> None:
+        super().__init__(("127.0.0.1", 0), QwenCaptureHandler)
+        self.payloads: list[dict[str, Any]] = []
+
+
 def claude_cli_command(scenario: dict[str, Any], base_command: str, invocation_index: int = 0) -> list[str]:
     setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
     cli_args = setup.get("cli_args")
@@ -431,6 +545,145 @@ def capture_claude_real_provider_payloads(
     return captured, client_runs
 
 
+def qwen_cli_command(scenario: dict[str, Any], base_command: str, invocation_index: int = 0) -> list[str]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    cli_args = setup.get("cli_args")
+    command = shlex.split(base_command)
+    if isinstance(cli_args, list) and cli_args:
+        command.extend(str(arg).replace("{invocation_index}", str(invocation_index)) for arg in cli_args)
+        return command
+    prompt = setup.get("cli_prompt") or f"Qwen hint benchmark scenario {scenario['id']}. Reply with one short sentence."
+    prompt = str(prompt).replace("{invocation_index}", str(invocation_index))
+    model = str(setup.get("model") or "qwen-hint-benchmark-model")
+    command.extend(["--model", model, "--output-format", "json", "--prompt", prompt])
+    return command
+
+
+def qwen_settings_for_scenario(scenario: dict[str, Any], base_url: str) -> tuple[dict[str, Any], dict[str, str]]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    protocol = str(setup.get("protocol") or "openai")
+    if protocol not in {"openai", "anthropic"}:
+        raise HintBenchmarkConfigError(f"Qwen scenario {scenario['id']} has unsupported protocol {protocol!r}")
+    model = str(setup.get("model") or "qwen-hint-benchmark-model")
+    env_key = "ANTHROPIC_API_KEY" if protocol == "anthropic" else "OPENAI_API_KEY"
+    generation_config = setup.get("generation_config", {})
+    if not isinstance(generation_config, dict):
+        generation_config = {}
+    settings = {
+        "$version": 3,
+        "model": {"name": model, "maxSessionTurns": 1},
+        "modelProviders": {
+            protocol: [
+                {
+                    "id": model,
+                    "name": model,
+                    "baseUrl": base_url,
+                    "envKey": env_key,
+                    **({"generationConfig": generation_config} if generation_config else {}),
+                }
+            ]
+        },
+        "security": {"auth": {"selectedType": protocol}},
+        "tools": {"approvalMode": "default", "exclude": ["shell", "write_file", "edit"]},
+        "privacy": {"usageStatisticsEnabled": False},
+        "telemetry": {"enabled": False},
+    }
+    env = {
+        "OPENAI_API_KEY": "dummy",
+        "OPENAI_BASE_URL": base_url,
+        "OPENAI_MODEL": model,
+        "ANTHROPIC_API_KEY": "dummy",
+        "ANTHROPIC_BASE_URL": base_url,
+        "ANTHROPIC_MODEL": model,
+        "QWEN_MODEL": model,
+        "QWEN_USAGE_STATISTICS_ENABLED": "false",
+        "QWEN_TELEMETRY_ENABLED": "false",
+        "NO_COLOR": "1",
+    }
+    env_overrides = setup.get("env", {}) if isinstance(setup, dict) else {}
+    if isinstance(env_overrides, dict):
+        env.update({str(key): str(value).replace("{base_url}", base_url) for key, value in env_overrides.items()})
+    return settings, env
+
+
+def capture_qwen_native_payloads(
+    scenarios: list[dict[str, Any]],
+    *,
+    command: str,
+    timeout_seconds: float,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    captured: dict[str, list[dict[str, Any]]] = {}
+    client_runs: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        server = QwenCaptureServer()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}/v1"
+            request_count = max(1, int(scenario.get("workload_shape", {}).get("request_count") or 1))
+            with tempfile.TemporaryDirectory(prefix=f"qwen_hint_{scenario['id']}_") as temp_dir:
+                temp_path = Path(temp_dir)
+                qwen_home = temp_path / "qwen_home"
+                qwen_runtime = temp_path / "qwen_runtime"
+                qwen_home.mkdir(parents=True, exist_ok=True)
+                settings, env_overrides = qwen_settings_for_scenario(scenario, base_url)
+                (qwen_home / "settings.json").write_text(json.dumps(settings, indent=2, sort_keys=True), encoding="utf-8")
+                env = os.environ.copy()
+                env.update(env_overrides)
+                env["QWEN_HOME"] = str(qwen_home)
+                env["QWEN_RUNTIME_DIR"] = str(qwen_runtime)
+                for invocation_index in range(request_count):
+                    cmd = qwen_cli_command(scenario, command, invocation_index)
+                    started_at = time.time()
+                    try:
+                        completed = subprocess.run(
+                            cmd,
+                            cwd=temp_dir,
+                            env=env,
+                            text=True,
+                            capture_output=True,
+                            timeout=timeout_seconds,
+                            check=False,
+                        )
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": completed.returncode,
+                                "stdout_tail": completed.stdout[-2000:],
+                                "stderr_tail": completed.stderr[-2000:],
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+                    except FileNotFoundError as exc:
+                        raise HintBenchmarkConfigError(
+                            f"Qwen native capture requires the Qwen CLI command {cmd[0]!r}. "
+                            "Install/configure Qwen Code or pass --qwen-command."
+                        ) from exc
+                    except subprocess.TimeoutExpired as exc:
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": "timeout",
+                                "stdout_tail": (exc.stdout or "")[-2000:] if isinstance(exc.stdout, str) else "",
+                                "stderr_tail": (exc.stderr or "")[-2000:] if isinstance(exc.stderr, str) else "",
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+        finally:
+            captured[scenario["id"]] = list(server.payloads)
+            server.shutdown()
+            thread.join(timeout=1)
+    return captured, client_runs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--harness", default="nemo_agent_toolkit", choices=tuple(DEFAULT_CONFIGS))
@@ -487,6 +740,11 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--qwen-native-capture",
+        action="store_true",
+        help="Run the real Qwen Code CLI against a local capture endpoint and validate emitted request fields.",
+    )
+    parser.add_argument(
         "--claude-command",
         default=os.environ.get("CLAUDE_CODE_BIN", "claude"),
         help="Claude CLI command to execute for --claude-native-capture. Default: claude.",
@@ -496,6 +754,17 @@ def main() -> None:
         type=float,
         default=60.0,
         help="Per-scenario timeout for --claude-native-capture.",
+    )
+    parser.add_argument(
+        "--qwen-command",
+        default=os.environ.get("QWEN_CODE_BIN", "npx -y @qwen-code/qwen-code@latest"),
+        help="Qwen Code command to execute for --qwen-native-capture. Default: npx -y @qwen-code/qwen-code@latest.",
+    )
+    parser.add_argument(
+        "--qwen-timeout-seconds",
+        type=float,
+        default=90.0,
+        help="Per-scenario timeout for --qwen-native-capture.",
     )
     parser.add_argument(
         "--out-dir",
@@ -521,13 +790,15 @@ def main() -> None:
             args.claude_native_capture,
             args.claude_real_provider_capture,
             args.anthropic_api_payload_capture,
+            args.qwen_native_capture,
         )
     )
     if mode_count != 1:
         parser.error(
             "Choose exactly one of --dry-run, --fixture-observations, "
             "--nat-dynamo-transport-capture, --claude-native-capture, "
-            "--claude-real-provider-capture, or --anthropic-api-payload-capture."
+            "--claude-real-provider-capture, --anthropic-api-payload-capture, "
+            "or --qwen-native-capture."
         )
     if args.nat_dynamo_transport_capture and args.harness != "nemo_agent_toolkit":
         parser.error("--nat-dynamo-transport-capture requires --harness nemo_agent_toolkit.")
@@ -537,6 +808,8 @@ def main() -> None:
         parser.error("--claude-real-provider-capture requires --harness claude_code.")
     if args.anthropic_api_payload_capture and args.harness != "claude_code":
         parser.error("--anthropic-api-payload-capture requires --harness claude_code.")
+    if args.qwen_native_capture and args.harness != "qwen_code":
+        parser.error("--qwen-native-capture requires --harness qwen_code.")
 
     defaults = DEFAULT_CONFIGS[args.harness]
     manifest_path = args.manifest or defaults["manifest"]
@@ -565,6 +838,8 @@ def main() -> None:
             if args.claude_real_provider_capture
             else "anthropic_api_payload_capture"
             if args.anthropic_api_payload_capture
+            else "qwen_native_capture"
+            if args.qwen_native_capture
             else "fixture_smoke"
             if args.fixture_observations
             else "dry_run"
@@ -580,6 +855,7 @@ def main() -> None:
             args.claude_native_capture,
             args.claude_real_provider_capture,
             args.anthropic_api_payload_capture,
+            args.qwen_native_capture,
         ]
         if any(generated_observation_modes) and args.observed_jsonl:
             raise HintBenchmarkConfigError("Generated observation modes cannot be combined with --observed-jsonl")
@@ -631,6 +907,22 @@ def main() -> None:
                 captured_payloads,
                 evidence_source="anthropic_api_payload_capture",
             )
+            result["captured_payload_counts"] = {
+                scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
+            }
+        elif args.qwen_native_capture:
+            captured_payloads, client_runs = capture_qwen_native_payloads(
+                selected,
+                command=args.qwen_command,
+                timeout_seconds=args.qwen_timeout_seconds,
+            )
+            observations = build_payload_observations(
+                manifest,
+                result["scenario_records"],
+                captured_payloads,
+                evidence_source="qwen_native_capture",
+            )
+            result["client_runs"] = client_runs
             result["captured_payload_counts"] = {
                 scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
             }

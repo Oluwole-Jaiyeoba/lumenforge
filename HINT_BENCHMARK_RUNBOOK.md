@@ -31,6 +31,8 @@ cd ~/agentic_hardware
 | --- | --- |
 | Native Claude Code | The real Claude Code CLI emitted the signal. |
 | Claude Code + Provider | Claude Code was used, but provider routing/config may have produced the signal. |
+| Native Qwen Code | The real Qwen Code CLI emitted or carried the signal at the request boundary. |
+| Qwen Code + Provider Config | Qwen Code carried provider/model configuration such as `extra_body`, custom headers, or cache-control settings. |
 | Native NAT Workflow | The real NeMo/NAT transport emitted the signal from workflow or transport settings. |
 | NAT Pass-through | The signal was supplied before or around NAT, and NAT preserved it at the boundary. |
 | Mixed NAT | The run intentionally combines NAT workflow signals and NAT pass-through signals. |
@@ -274,6 +276,180 @@ python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
 <td>Runs scenario <code>claude_provider_retention_5m</code> with <code>FORCE_PROMPT_CACHING_5M=1</code>.</td>
 <td>Configuration</td>
 <td>Native Claude Code request-boundary capture using `FORCE_PROMPT_CACHING_5M=1`.</td>
+</tr>
+</tbody>
+</table>
+
+## Qwen Code
+
+The current Qwen suite is request-boundary only. It proves Qwen Code can carry
+configured provider/body/header/cache fields. It does not prove a real provider
+or SGLang consumed them.
+
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All Qwen request-boundary probes</td>
+<td>Produce every Qwen signal we can observe today in one run.</td>
+<td>Qwen Code + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="qwen_all_request_boundary_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile all_request_boundary \
+  --qwen-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>cacheRetention="1h"</code></li>
+<li><code>system.*.cache_control.type="ephemeral"</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li><code>agentic_hints.eviction_priority="high"</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining OpenAI-compatible extra-body/header probes and the Anthropic-compatible cache-control probe.</td>
+<td>Configuration</td>
+<td>Native Qwen Code request-boundary capture. Current artifact: <code>qwen_native_full_20260921_local</code>.</td>
+</tr>
+<tr>
+<td>Qwen native baseline</td>
+<td>Confirm Qwen emits no benchmark hints when knobs are off.</td>
+<td>Native Qwen Code</td>
+<td>
+
+```bash
+RUN_ID="qwen_baseline_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile baseline \
+  --qwen-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No Qwen benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native Qwen Code request-boundary control case.</td>
+</tr>
+<tr>
+<td>Qwen provider QoS extra body</td>
+<td>Carry provider QoS metadata through Qwen's OpenAI-compatible request body.</td>
+<td>Qwen Code + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="qwen_qos_only_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile qos_only \
+  --qwen-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>qwen_provider_qos_extra_body</code>, whose Qwen <code>generationConfig.extra_body</code> supplies provider metadata.</td>
+<td>Configuration</td>
+<td>Provider/config carried by Qwen Code, not organic priority inference.</td>
+</tr>
+<tr>
+<td>Qwen cache signals</td>
+<td>Produce Qwen cache-retention and cache-control markers.</td>
+<td>Qwen Code + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="qwen_cache_only_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile cache_only \
+  --qwen-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>cacheRetention="1h"</code></li>
+<li><code>system.*.cache_control.type="ephemeral"</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li><code>anthropic-beta</code> cache TTL marker</li>
+</ul>
+</td>
+<td>Runs OpenAI-compatible retention and Anthropic-compatible cache-control scenarios. The repeated-prefix cache-key probe is optional and did not expose a literal cache-key field today.</td>
+<td>Configuration</td>
+<td>Request-boundary cache metadata only; real provider cache-hit feedback is separate.</td>
+</tr>
+<tr>
+<td>Qwen pass-through probes</td>
+<td>Carry namespace and eviction metadata through Qwen configuration.</td>
+<td>Qwen Code + Provider Config</td>
+<td>
+
+```bash
+RUN_ID="qwen_passthrough_only_$(date +%Y%m%d_%H%M%S)"
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile passthrough_only \
+  --qwen-native-capture \
+  --run-id "$RUN_ID" \
+  --out-dir "sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID"
+```
+
+</td>
+<td>
+<ul>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>agentic_hints.eviction_priority="high"</code></li>
+</ul>
+</td>
+<td>Runs namespace-header and eviction-metadata scenarios. These fields are supplied by benchmark config and preserved by Qwen.</td>
+<td>Configuration</td>
+<td>Pass-through/config evidence, not native Qwen scheduling or eviction policy.</td>
 </tr>
 </tbody>
 </table>
@@ -778,6 +954,8 @@ RUN_ID="nat_provider_qos_$(date +%Y%m%d_%H%M%S)"
 | Claude Code | tool-level `cache_control` | Not observed in the tested tool-heavy request. | Run a Claude Code setup with stable tool definitions that the CLI/provider marks directly as <code>tools.*.cache_control</code>; our observed path cached system/message blocks instead. |
 | Claude Code | native `max_tokens=0` prewarm | Not observed from Claude Code CLI in our capture. | Claude Code would need a native zero-token request path; direct API can represent this, but the native CLI path has not emitted it. |
 | Claude Code | real cache-hit usage counters | Implemented runner path, but EC2 Claude CLI is not logged in today. | Use an authenticated Claude/provider run with repeated identical cacheable prefix requests inside the TTL, then capture response usage counters. |
+| Qwen Code | literal cache key | Not observed in request-boundary capture; the deck frames Qwen cache keying as automatic prefix matching. | A provider or future Qwen path would need to expose a literal request cache-key field. |
+| Qwen Code | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider usage counters such as cached tokens. |
 
 ## Inspect Results
 
