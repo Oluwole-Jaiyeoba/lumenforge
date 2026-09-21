@@ -142,6 +142,20 @@ The key proof columns are whether any decisions have
 would have been held without GPU-idle state, and whether TTFT/lateness improve
 without increasing the replay workload window.
 
+### Timing Metrics Guardrail
+
+Use both timing windows when judging harness-aware experiments:
+
+| Metric | Definition | Use |
+| --- | --- | --- |
+| Replay workload window | First replay request starts to final replay request completes. | Shows whether replay work was compressed. |
+| Measured workload time | First workload request is submitted to final workload request completes. | Shows the fair workload-level cost or benefit, excluding fixed startup/reporting time. |
+
+A replay win is meaningful when TTFT, lateness, or the replay workload window
+improve. A clean system win should also avoid regressing measured workload time,
+because that metric includes initial turns, pressure work, tool waits, replay,
+and controller overhead inside the measured workload.
+
 ## What We Mean By Shorthand
 
 In this project, **shorthand means representing a relationship with a reusable

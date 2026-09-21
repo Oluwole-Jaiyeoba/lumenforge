@@ -84,6 +84,11 @@ SUMMARY_COLUMNS = [
     "requests",
     "avg_ttft_ms",
     "avg_lateness_ms",
+    "replay_workload_window_ms",
+    "measured_workload_time_ms",
+    "measured_workload_start_ms",
+    "measured_workload_end_ms",
+    "measured_workload_time_source",
     "avg_scheduler_friction_score",
     "avg_memory_friction_score",
     "requests_with_local_queue",
@@ -281,6 +286,8 @@ class CaseTrace:
         self.request_events: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
         self.harness_inputs: dict[str, dict[str, Any]] = {}
         self.scheduler_snapshots: list[dict[str, Any]] = []
+        self.workload_request_start_times: list[float] = []
+        self.workload_request_end_times: list[float] = []
         self.load_back_times: list[float] = []
         self.h2d_times: list[float] = []
         self.evict_times: list[float] = []
@@ -305,6 +312,10 @@ class CaseTrace:
                 self.request_events[request_id][event] = row
             elif event == "m27.harness.request_input" and request_id:
                 self.harness_inputs[request_id] = row
+                if when is not None:
+                    self.workload_request_start_times.append(when)
+            elif event == "m27.harness.request_done" and when is not None:
+                self.workload_request_end_times.append(when)
             elif event in SCHEDULER_SNAPSHOT_EVENTS and when is not None:
                 self.scheduler_snapshots.append({**row, "_offset_ms": when})
             elif event in LOAD_BACK_EVENTS and when is not None:
@@ -398,6 +409,46 @@ class CaseTrace:
         hi = max(start_ms, end_ms)
         return sum(1 for value in times if lo <= value <= hi)
 
+    def measured_workload_window(self) -> dict[str, Any]:
+        """Return first actual workload request input to final workload request done.
+
+        This intentionally excludes SGLang startup and report generation, but
+        includes all measured workload phases inside the driver: initial turns,
+        pressure/filler work, tool waits, replay requests, and controller work
+        that occurs while those requests are being handled.
+        """
+
+        if self.workload_request_start_times and self.workload_request_end_times:
+            start_ms = min(self.workload_request_start_times)
+            end_ms = max(self.workload_request_end_times)
+            return {
+                "start_ms": start_ms,
+                "end_ms": end_ms,
+                "duration_ms": max(0.0, end_ms - start_ms),
+                "source": "harness_request_input_to_done",
+            }
+        request_starts: list[float] = []
+        request_ends: list[float] = []
+        for events in self.request_events.values():
+            start = events.get("m27.request.start")
+            end = events.get("m27.request.end")
+            start_ms = event_time_ms(start, self.workload_start_ts_ns) if start else None
+            end_ms = event_time_ms(end, self.workload_start_ts_ns) if end else None
+            if start_ms is not None:
+                request_starts.append(start_ms)
+            if end_ms is not None:
+                request_ends.append(end_ms)
+        if request_starts and request_ends:
+            start_ms = min(request_starts)
+            end_ms = max(request_ends)
+            return {
+                "start_ms": start_ms,
+                "end_ms": end_ms,
+                "duration_ms": max(0.0, end_ms - start_ms),
+                "source": "request_start_to_end_fallback",
+            }
+        return {"start_ms": None, "end_ms": None, "duration_ms": None, "source": ""}
+
 
 def derived_replay_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
@@ -445,6 +496,10 @@ def trace_replay_rows(traces: dict[str, CaseTrace]) -> list[dict[str, Any]]:
 
 def mode_from_case_id(case_id: str) -> str:
     known_modes = [
+        "controller_harness_aware_sched_evict",
+        "controller_harness_aware_sched_kv",
+        "controller_harness_aware_sched",
+        "controller_harness_aware_full",
         "controller_ready_time_gpu_backfill",
         "controller_predictive_deadline_queue_admission_guard",
         "controller_predictive_deadline_queue",
@@ -790,7 +845,25 @@ def build_friction_row(
     }
 
 
-def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def replay_window_ms(group: list[dict[str, Any]]) -> float | None:
+    starts: list[float] = []
+    ends: list[float] = []
+    for row in group:
+        due_abs = as_float(row.get("replay_due_abs_ms"))
+        request_start = as_float(row.get("request_start_ms"))
+        request_end = as_float(row.get("request_end_ms"))
+        if due_abs is None:
+            continue
+        if request_start is not None:
+            starts.append(due_abs + request_start)
+        if request_end is not None:
+            ends.append(due_abs + request_end)
+    if not starts or not ends:
+        return None
+    return max(0.0, max(ends) - min(starts))
+
+
+def summarize(rows: list[dict[str, Any]], traces: dict[str, CaseTrace] | None = None) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         grouped[(str(row.get("case_id") or ""), str(row.get("mode") or ""))].append(row)
@@ -798,6 +871,8 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for (case_id, mode), group in sorted(grouped.items()):
         count = len(group)
         dom = Counter(str(row.get("dominant_friction") or "unknown") for row in group)
+        trace = (traces or {}).get(case_id)
+        measured_window = trace.measured_workload_window() if trace is not None else {}
 
         def avg(key: str) -> str:
             vals = [value for value in (as_float(row.get(key)) for row in group) if value is not None]
@@ -814,6 +889,11 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "requests": count,
                 "avg_ttft_ms": avg("ttft_ms"),
                 "avg_lateness_ms": avg("lateness_ms"),
+                "replay_workload_window_ms": fmt(replay_window_ms(group)),
+                "measured_workload_time_ms": fmt(measured_window.get("duration_ms")),
+                "measured_workload_start_ms": fmt(measured_window.get("start_ms")),
+                "measured_workload_end_ms": fmt(measured_window.get("end_ms")),
+                "measured_workload_time_source": measured_window.get("source", ""),
                 "avg_scheduler_friction_score": avg("scheduler_friction_score"),
                 "avg_memory_friction_score": avg("memory_friction_score"),
                 "requests_with_local_queue": sum(
@@ -1620,7 +1700,7 @@ def main() -> None:
         )
         for row in global_rows
     ]
-    summary_rows = summarize(friction_rows)
+    summary_rows = summarize(friction_rows, traces)
     write_csv(out_dir / "replay_friction_deep_dive.csv", friction_rows, REPLAY_FRICTION_COLUMNS)
     write_csv(out_dir / "replay_friction_summary.csv", summary_rows, SUMMARY_COLUMNS)
     payload_json = json.dumps({"summary": summary_rows, "requests": friction_rows}, indent=2, sort_keys=True)

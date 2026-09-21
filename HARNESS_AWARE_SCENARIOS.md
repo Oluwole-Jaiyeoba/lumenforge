@@ -203,6 +203,17 @@ not pay extra reporting cost. The analyzer uses
 attribution when the run root still has `m27_trace.jsonl` and
 `harness_gateway_events.jsonl`.
 
+Standard timing metrics:
+
+| Metric | Definition | Why it matters |
+| --- | --- | --- |
+| Replay workload window | First replay request starts to final replay request completes. | Shows whether the replay phase was compressed. |
+| Measured workload time | First workload request is submitted to final workload request completes. | Shows fair workload-level cost or benefit while excluding fixed server startup and report generation. |
+
+For manager-facing conclusions, treat replay-only wins and clean system wins
+separately. A clean system win should improve the main replay-facing metrics
+without making measured workload time worse.
+
 Optional blocker snapshots:
 
 ```text
