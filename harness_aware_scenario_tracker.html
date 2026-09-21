@@ -891,6 +891,197 @@
   </header>
 
   <main>
+    <section class="section scenario">
+      <div class="scenario-head">
+        <h2>Controller Mode Comparison</h2>
+        <span class="status pending">Mode Comparison</span>
+      </div>
+      <p class="lede">This section compares the baseline, the individual controller modes, and the full combined controller across the three controller directions: ready-time scheduling, direct KV preparation, and value-aware eviction. The goal is to see whether the benefits stack when the controller can schedule better, prepare useful KV, and help SGLang protect valuable prefixes from eviction.</p>
+      <div class="setup">
+        <p class="setup-title">How the experiment is set up</p>
+        <p>The run used the same realistic replay timeline for every mode: 32 replay requests per mode, two replay steps per session, 15 pressure sessions, 4k-token target prompts, 4k-token pressure prompts, and tool waits spread across 100-500ms, 1-5s, 10-30s, and 60-120s. Each controller mode turned on a different combination of the three knobs so we could see which combination helped.</p>
+      </div>
+      <div class="signals">
+        <p class="signals-title">Composable controller knobs</p>
+        <div class="chip-row">
+          <span class="chip">ready_time_scheduling</span>
+          <span class="chip">direct_kv_prepare</span>
+          <span class="chip">value_aware_eviction</span>
+          <span class="chip">gpu_idle_state</span>
+          <span class="chip">reuse_probability</span>
+          <span class="chip">recompute_cost_tokens</span>
+        </div>
+      </div>
+      <div class="chart" aria-label="Controller comparison manager summary">
+        <h3>Manager Summary</h3>
+        <p class="small"><strong>Latest run:</strong> <code>harness_aware_combined_20260921_191502</code>. The controller modes strongly improved replay-facing metrics, including TTFT, lateness, and replay workload window. However, the fair measured workload time from first workload request to final workload completion was longer than baseline, so this is now a replay win with an end-to-end workload tradeoff, not a clean all-metric system win.</p>
+        <div class="metric-grid">
+          <div class="metric-tile"><div class="metric-name">Full Total TTFT</div><div class="metric-value">12.6% better</div><p class="small">Baseline 455.5s; full controller 398.1s across 32 requests.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Avg TTFT</div><div class="metric-value">12.4s</div><p class="small">Baseline average was 14.2s per request.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Total Lateness</div><div class="metric-value">48.4% better</div><p class="small">Baseline 969.5s; full controller 500.5s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Avg Lateness</div><div class="metric-value">15.6s</div><p class="small">Baseline average was 30.3s per request.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full P95 Lateness</div><div class="metric-value">61.7% better</div><p class="small">Baseline 88.3s; full controller 33.8s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Replay Window</div><div class="metric-value">59.9% better</div><p class="small">Replay-only window: baseline 95.6s; full controller 38.4s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Full Measured Workload Time</div><div class="metric-value bad">15.4% worse</div><p class="small">Baseline 224.5s; full controller 259.1s from first workload request to final workload completion.</p></div>
+          <div class="metric-tile"><div class="metric-name">Best Lateness Variant</div><div class="metric-value">sched + evict</div><p class="small">Average lateness 14.9s, total lateness 477.0s, workload window 34.4s.</p></div>
+          <div class="metric-tile"><div class="metric-name">Direct KV Prepare</div><div class="metric-value">106 events</div><p class="small">Observed in sched+KV and full modes through <code>prepare_prefix_control</code>.</p></div>
+          <div class="metric-tile"><div class="metric-name">Eviction Smoke</div><div class="metric-value">passed</div><p class="small">SGLang exposed <code>priority</code> radix eviction and selected <code>PriorityStrategy</code>.</p></div>
+        </div>
+      </div>
+      <div class="chart" aria-label="Controller comparison mode comparison">
+        <h3>Mode Comparison</h3>
+        <div class="bar-row"><div class="label">Baseline avg lateness</div><div class="track"><div class="fill baseline" style="width:100%"></div></div><div class="value">30.3s</div></div>
+        <div class="bar-row"><div class="label">Sched avg lateness</div><div class="track"><div class="fill aware" style="width:52%"></div></div><div class="value">15.8s</div></div>
+        <div class="bar-row"><div class="label">Sched + KV avg lateness</div><div class="track"><div class="fill aware" style="width:59%"></div></div><div class="value">17.9s</div></div>
+        <div class="bar-row"><div class="label">Sched + evict avg lateness</div><div class="track"><div class="fill aware" style="width:49%"></div></div><div class="value">14.9s</div></div>
+        <div class="bar-row"><div class="label">Full avg lateness</div><div class="track"><div class="fill aware" style="width:52%"></div></div><div class="value">15.6s</div></div>
+        <p class="evidence-note">Simple meaning: the controller moved replay work much closer to its replay-ready times. Direct KV preparation was active, but in this particular run it was not the strongest additive knob by itself; scheduling plus value-aware eviction gave the best replay-facing result. The measured workload-time column below shows the remaining tradeoff.</p>
+      </div>
+      <div class="chart" aria-label="Controller comparison detailed mode metrics">
+        <h3>Detailed Mode Metrics</h3>
+        <p class="small"><strong>Replay workload window</strong> measures only the replay phase: first replay request start to final replay request completion. <strong>Measured workload time</strong> is fairer for end-to-end comparison: first workload request submitted to final workload request completed. It includes initial turns, pressure work, tool waits, replay, and controller overhead, but excludes server startup and report generation.</p>
+        <div class="table-legend" aria-label="Detailed mode metrics legend">
+          <span class="legend-chip"><span class="legend-swatch win"></span>Better than baseline</span>
+          <span class="legend-chip"><span class="legend-swatch loss"></span>Worse than baseline</span>
+          <span class="legend-chip"><span class="legend-swatch neutral"></span>Baseline / neutral</span>
+        </div>
+        <div class="table-panel">
+          <table class="metric-table">
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Active knobs</th>
+                <th class="num">Requests</th>
+                <th class="num">Total TTFT</th>
+                <th class="num">Avg TTFT</th>
+                <th class="num">Total lateness</th>
+                <th class="num">Avg lateness</th>
+                <th class="num">P95 lateness</th>
+                <th class="num">Max lateness</th>
+                <th class="num">Replay workload window</th>
+                <th class="num">Measured workload time</th>
+                <th>Verdict</th>
+                <th>Takeaway</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mode-name">no_prefetch</td>
+                <td>None; baseline behavior</td>
+                <td class="num">32</td>
+                <td class="num metric-neutral">455.5s</td>
+                <td class="num metric-neutral">14.2s</td>
+                <td class="num metric-neutral">969.5s</td>
+                <td class="num metric-neutral">30.3s</td>
+                <td class="num metric-neutral">88.3s</td>
+                <td class="num metric-neutral">94.6s</td>
+                <td class="num metric-neutral">95.6s</td>
+                <td class="num metric-neutral">224.5s</td>
+                <td class="verdict neutral">Baseline</td>
+                <td class="takeaway">Replay work stretched out badly.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_sched</td>
+                <td>Ready-time scheduling</td>
+                <td class="num">32</td>
+                <td class="num metric-win">443.5s</td>
+                <td class="num metric-win">13.9s</td>
+                <td class="num metric-win">504.9s</td>
+                <td class="num metric-win">15.8s</td>
+                <td class="num metric-win">35.2s</td>
+                <td class="num metric-win">36.6s</td>
+                <td class="num metric-win">37.2s</td>
+                <td class="num metric-loss">267.2s</td>
+                <td class="verdict mixed">Replay win</td>
+                <td class="takeaway">Large replay win, but the total measured workload took longer.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_sched_kv</td>
+                <td>Ready-time scheduling + direct KV prepare</td>
+                <td class="num">32</td>
+                <td class="num metric-loss">478.1s</td>
+                <td class="num metric-loss">14.9s</td>
+                <td class="num metric-win">573.6s</td>
+                <td class="num metric-win">17.9s</td>
+                <td class="num metric-win">34.5s</td>
+                <td class="num metric-win">38.0s</td>
+                <td class="num metric-win">38.5s</td>
+                <td class="num metric-loss">263.5s</td>
+                <td class="verdict mixed">Mixed</td>
+                <td class="takeaway">KV prepare was active, but TTFT and measured workload time were worse than baseline.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_sched_evict</td>
+                <td>Ready-time scheduling + value-aware eviction</td>
+                <td class="num">32</td>
+                <td class="num metric-win">415.5s</td>
+                <td class="num metric-win">13.0s</td>
+                <td class="num metric-win">477.0s</td>
+                <td class="num metric-win">14.9s</td>
+                <td class="num metric-win">31.6s</td>
+                <td class="num metric-win">33.8s</td>
+                <td class="num metric-win">34.4s</td>
+                <td class="num metric-loss">260.3s</td>
+                <td class="verdict mixed">Best replay win</td>
+                <td class="takeaway">Best replay-facing mode in this run, but still paid total measured workload time.</td>
+              </tr>
+              <tr>
+                <td class="mode-name">controller_harness_aware_full</td>
+                <td>Scheduling + direct KV prepare + value-aware eviction</td>
+                <td class="num">32</td>
+                <td class="num metric-win">398.1s</td>
+                <td class="num metric-win">12.4s</td>
+                <td class="num metric-win">500.5s</td>
+                <td class="num metric-win">15.6s</td>
+                <td class="num metric-win">33.8s</td>
+                <td class="num metric-win">37.8s</td>
+                <td class="num metric-win">38.4s</td>
+                <td class="num metric-loss">259.1s</td>
+                <td class="verdict mixed">Replay win</td>
+                <td class="takeaway">Best TTFT and strong replay win, but not an end-to-end clean win yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="evidence" aria-label="Controller comparison mechanism evidence">
+        <p class="evidence-title">Mechanism Evidence</p>
+        <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Replay rows measured</div><div class="evidence-value">32 per mode</div></div>
+          <div class="evidence-item"><div class="evidence-label">Ready-time decisions</div><div class="evidence-value">32 / 32 in each controller mode</div></div>
+          <div class="evidence-item"><div class="evidence-label">Direct KV path</div><div class="evidence-value">prepared_prefix_control only</div></div>
+          <div class="evidence-item"><div class="evidence-label">Direct KV evidence</div><div class="evidence-value">106 prepare events in KV modes</div></div>
+          <div class="evidence-item"><div class="evidence-label">Priority eviction path</div><div class="evidence-value">SGLang priority radix eviction</div></div>
+          <div class="evidence-item"><div class="evidence-label">Priority smoke</div><div class="evidence-value">low-priority evicted, high-priority kept</div></div>
+          <div class="evidence-item"><div class="evidence-label">Blocker tracing</div><div class="evidence-value">32 / 32 requests covered</div></div>
+          <div class="evidence-item"><div class="evidence-label">Audit caveat</div><div class="evidence-value">eviction audit needs controller rows</div></div>
+        </div>
+        <p class="evidence-note">Simple meaning: the combined controller was not using fake warmup requests. It assigned replay-aware priority, used SGLang's prepared-prefix control path for direct KV preparation, and launched eviction modes with SGLang's priority radix eviction policy. The generated value-aware eviction audit only summarized the baseline row in this run, so the tracker records the passed smoke test and launch evidence while leaving the deeper per-mode eviction audit as follow-up.</p>
+      </div>
+      <div class="evidence" aria-label="Controller comparison reproducibility settings">
+        <p class="evidence-title">Reproduce This Run</p>
+        <div class="evidence-grid">
+          <div class="evidence-item"><div class="evidence-label">Run label</div><div class="evidence-value">harness_aware_combined_20260921_191502</div></div>
+          <div class="evidence-item"><div class="evidence-label">Run wrapper</div><div class="evidence-value">scripts/run_harness_aware_combined_realistic.sh</div></div>
+          <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">baseline, sched, sched+KV, sched+evict, full</div></div>
+          <div class="evidence-item"><div class="evidence-label">Harness / pressure</div><div class="evidence-value">hatcher / p3_high</div></div>
+          <div class="evidence-item"><div class="evidence-label">Replay requests</div><div class="evidence-value">32 per mode</div></div>
+          <div class="evidence-item"><div class="evidence-label">Wait ranges</div><div class="evidence-value">100-500ms, 1-5s, 10-30s, 60-120s</div></div>
+          <div class="evidence-item"><div class="evidence-label">Direct KV path</div><div class="evidence-value">prepared_prefix_control only</div></div>
+          <div class="evidence-item"><div class="evidence-label">Eviction path</div><div class="evidence-value">SGLang priority radix eviction</div></div>
+          <div class="evidence-item"><div class="evidence-label">Trace profile</div><div class="evidence-value">rich + blocker tracing + GPU sampler</div></div>
+        </div>
+      </div>
+      <div class="links">
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/master_report.html">Mode comparison report</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/replay_friction_summary.csv">Replay friction summary CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/replay_friction_deep_dive.csv">Replay friction deep-dive CSV</a>
+        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/value_aware_eviction_audit.html">Value-aware eviction audit</a>
+        <a href="sglang_direct_kv/scripts/run_harness_aware_combined_realistic.sh">Run wrapper</a>
+        <a href="README.md">Mode definitions</a>
+      </div>
+    </section>
+
     <section class="section">
       <h2>Core Research Idea</h2>
       <p class="lede">This research asks whether agentic LLM serving can improve when the backend is not blind to the surrounding workflow or the physical GPU state. The goal is to combine three kinds of visibility: what the harness knows will happen soon, what SGLang knows is happening now, and what the hardware is physically experiencing.</p>
@@ -1691,196 +1882,7 @@
       </div>
     </section>
 
-    <section class="section scenario">
-      <div class="scenario-head">
-        <h2>Combined Controller: Scenarios 1 + 2 + 3</h2>
-        <span class="status pending">Replay Win / Workload Cost</span>
-      </div>
-      <p class="lede">This experiment combines the three controller directions behind independent knobs: ready-time scheduling, direct KV preparation, and value-aware eviction. The goal is to see whether the benefits stack when the controller can schedule better, prepare useful KV, and help SGLang protect valuable prefixes from eviction.</p>
-      <div class="setup">
-        <p class="setup-title">How the experiment is set up</p>
-        <p>The run used the same realistic replay timeline for every mode: 32 replay requests per mode, two replay steps per session, 15 pressure sessions, 4k-token target prompts, 4k-token pressure prompts, and tool waits spread across 100-500ms, 1-5s, 10-30s, and 60-120s. Each controller mode turned on a different combination of the three knobs so we could see which combination helped.</p>
-      </div>
-      <div class="signals">
-        <p class="signals-title">Composable controller knobs</p>
-        <div class="chip-row">
-          <span class="chip">ready_time_scheduling</span>
-          <span class="chip">direct_kv_prepare</span>
-          <span class="chip">value_aware_eviction</span>
-          <span class="chip">gpu_idle_state</span>
-          <span class="chip">reuse_probability</span>
-          <span class="chip">recompute_cost_tokens</span>
-        </div>
-      </div>
-      <div class="chart" aria-label="Combined controller manager summary">
-        <h3>Manager Summary</h3>
-        <p class="small"><strong>Latest run:</strong> <code>harness_aware_combined_20260921_191502</code>. The controller modes strongly improved replay-facing metrics, including TTFT, lateness, and replay workload window. However, the fair measured workload time from first workload request to final workload completion was longer than baseline, so this is now a replay win with an end-to-end workload tradeoff, not a clean all-metric system win.</p>
-        <div class="metric-grid">
-          <div class="metric-tile"><div class="metric-name">Full Total TTFT</div><div class="metric-value">12.6% better</div><p class="small">Baseline 455.5s; full controller 398.1s across 32 requests.</p></div>
-          <div class="metric-tile"><div class="metric-name">Full Avg TTFT</div><div class="metric-value">12.4s</div><p class="small">Baseline average was 14.2s per request.</p></div>
-          <div class="metric-tile"><div class="metric-name">Full Total Lateness</div><div class="metric-value">48.4% better</div><p class="small">Baseline 969.5s; full controller 500.5s.</p></div>
-          <div class="metric-tile"><div class="metric-name">Full Avg Lateness</div><div class="metric-value">15.6s</div><p class="small">Baseline average was 30.3s per request.</p></div>
-          <div class="metric-tile"><div class="metric-name">Full P95 Lateness</div><div class="metric-value">61.7% better</div><p class="small">Baseline 88.3s; full controller 33.8s.</p></div>
-          <div class="metric-tile"><div class="metric-name">Full Replay Window</div><div class="metric-value">59.9% better</div><p class="small">Replay-only window: baseline 95.6s; full controller 38.4s.</p></div>
-          <div class="metric-tile"><div class="metric-name">Full Measured Workload Time</div><div class="metric-value bad">15.4% worse</div><p class="small">Baseline 224.5s; full controller 259.1s from first workload request to final workload completion.</p></div>
-          <div class="metric-tile"><div class="metric-name">Best Lateness Variant</div><div class="metric-value">sched + evict</div><p class="small">Average lateness 14.9s, total lateness 477.0s, workload window 34.4s.</p></div>
-          <div class="metric-tile"><div class="metric-name">Direct KV Prepare</div><div class="metric-value">106 events</div><p class="small">Observed in sched+KV and full modes through <code>prepare_prefix_control</code>.</p></div>
-          <div class="metric-tile"><div class="metric-name">Eviction Smoke</div><div class="metric-value">passed</div><p class="small">SGLang exposed <code>priority</code> radix eviction and selected <code>PriorityStrategy</code>.</p></div>
-        </div>
-      </div>
-      <div class="chart" aria-label="Combined controller mode comparison">
-        <h3>Mode Comparison</h3>
-        <div class="bar-row"><div class="label">Baseline avg lateness</div><div class="track"><div class="fill baseline" style="width:100%"></div></div><div class="value">30.3s</div></div>
-        <div class="bar-row"><div class="label">Sched avg lateness</div><div class="track"><div class="fill aware" style="width:52%"></div></div><div class="value">15.8s</div></div>
-        <div class="bar-row"><div class="label">Sched + KV avg lateness</div><div class="track"><div class="fill aware" style="width:59%"></div></div><div class="value">17.9s</div></div>
-        <div class="bar-row"><div class="label">Sched + evict avg lateness</div><div class="track"><div class="fill aware" style="width:49%"></div></div><div class="value">14.9s</div></div>
-        <div class="bar-row"><div class="label">Full avg lateness</div><div class="track"><div class="fill aware" style="width:52%"></div></div><div class="value">15.6s</div></div>
-        <p class="evidence-note">Simple meaning: the controller moved replay work much closer to its replay-ready times. Direct KV preparation was active, but in this particular run it was not the strongest additive knob by itself; scheduling plus value-aware eviction gave the best replay-facing result. The measured workload-time column below shows the remaining tradeoff.</p>
-      </div>
-      <div class="chart" aria-label="Combined controller detailed mode metrics">
-        <h3>Detailed Mode Metrics</h3>
-        <p class="small"><strong>Replay workload window</strong> measures only the replay phase: first replay request start to final replay request completion. <strong>Measured workload time</strong> is fairer for end-to-end comparison: first workload request submitted to final workload request completed. It includes initial turns, pressure work, tool waits, replay, and controller overhead, but excludes server startup and report generation.</p>
-        <div class="table-legend" aria-label="Detailed mode metrics legend">
-          <span class="legend-chip"><span class="legend-swatch win"></span>Better than baseline</span>
-          <span class="legend-chip"><span class="legend-swatch loss"></span>Worse than baseline</span>
-          <span class="legend-chip"><span class="legend-swatch neutral"></span>Baseline / neutral</span>
-        </div>
-        <div class="table-panel">
-          <table class="metric-table">
-            <thead>
-              <tr>
-                <th>Mode</th>
-                <th>Active knobs</th>
-                <th class="num">Requests</th>
-                <th class="num">Total TTFT</th>
-                <th class="num">Avg TTFT</th>
-                <th class="num">Total lateness</th>
-                <th class="num">Avg lateness</th>
-                <th class="num">P95 lateness</th>
-                <th class="num">Max lateness</th>
-                <th class="num">Replay workload window</th>
-                <th class="num">Measured workload time</th>
-                <th>Verdict</th>
-                <th>Takeaway</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="mode-name">no_prefetch</td>
-                <td>None; baseline behavior</td>
-                <td class="num">32</td>
-                <td class="num metric-neutral">455.5s</td>
-                <td class="num metric-neutral">14.2s</td>
-                <td class="num metric-neutral">969.5s</td>
-                <td class="num metric-neutral">30.3s</td>
-                <td class="num metric-neutral">88.3s</td>
-                <td class="num metric-neutral">94.6s</td>
-                <td class="num metric-neutral">95.6s</td>
-                <td class="num metric-neutral">224.5s</td>
-                <td class="verdict neutral">Baseline</td>
-                <td class="takeaway">Replay work stretched out badly.</td>
-              </tr>
-              <tr>
-                <td class="mode-name">controller_harness_aware_sched</td>
-                <td>Ready-time scheduling</td>
-                <td class="num">32</td>
-                <td class="num metric-win">443.5s</td>
-                <td class="num metric-win">13.9s</td>
-                <td class="num metric-win">504.9s</td>
-                <td class="num metric-win">15.8s</td>
-                <td class="num metric-win">35.2s</td>
-                <td class="num metric-win">36.6s</td>
-                <td class="num metric-win">37.2s</td>
-                <td class="num metric-loss">267.2s</td>
-                <td class="verdict mixed">Replay win</td>
-                <td class="takeaway">Large replay win, but the total measured workload took longer.</td>
-              </tr>
-              <tr>
-                <td class="mode-name">controller_harness_aware_sched_kv</td>
-                <td>Ready-time scheduling + direct KV prepare</td>
-                <td class="num">32</td>
-                <td class="num metric-loss">478.1s</td>
-                <td class="num metric-loss">14.9s</td>
-                <td class="num metric-win">573.6s</td>
-                <td class="num metric-win">17.9s</td>
-                <td class="num metric-win">34.5s</td>
-                <td class="num metric-win">38.0s</td>
-                <td class="num metric-win">38.5s</td>
-                <td class="num metric-loss">263.5s</td>
-                <td class="verdict mixed">Mixed</td>
-                <td class="takeaway">KV prepare was active, but TTFT and measured workload time were worse than baseline.</td>
-              </tr>
-              <tr>
-                <td class="mode-name">controller_harness_aware_sched_evict</td>
-                <td>Ready-time scheduling + value-aware eviction</td>
-                <td class="num">32</td>
-                <td class="num metric-win">415.5s</td>
-                <td class="num metric-win">13.0s</td>
-                <td class="num metric-win">477.0s</td>
-                <td class="num metric-win">14.9s</td>
-                <td class="num metric-win">31.6s</td>
-                <td class="num metric-win">33.8s</td>
-                <td class="num metric-win">34.4s</td>
-                <td class="num metric-loss">260.3s</td>
-                <td class="verdict mixed">Best replay win</td>
-                <td class="takeaway">Best replay-facing mode in this run, but still paid total measured workload time.</td>
-              </tr>
-              <tr>
-                <td class="mode-name">controller_harness_aware_full</td>
-                <td>Scheduling + direct KV prepare + value-aware eviction</td>
-                <td class="num">32</td>
-                <td class="num metric-win">398.1s</td>
-                <td class="num metric-win">12.4s</td>
-                <td class="num metric-win">500.5s</td>
-                <td class="num metric-win">15.6s</td>
-                <td class="num metric-win">33.8s</td>
-                <td class="num metric-win">37.8s</td>
-                <td class="num metric-win">38.4s</td>
-                <td class="num metric-loss">259.1s</td>
-                <td class="verdict mixed">Replay win</td>
-                <td class="takeaway">Best TTFT and strong replay win, but not an end-to-end clean win yet.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="evidence" aria-label="Combined controller mechanism evidence">
-        <p class="evidence-title">Mechanism Evidence</p>
-        <div class="evidence-grid">
-          <div class="evidence-item"><div class="evidence-label">Replay rows measured</div><div class="evidence-value">32 per mode</div></div>
-          <div class="evidence-item"><div class="evidence-label">Ready-time decisions</div><div class="evidence-value">32 / 32 in each controller mode</div></div>
-          <div class="evidence-item"><div class="evidence-label">Direct KV path</div><div class="evidence-value">prepared_prefix_control only</div></div>
-          <div class="evidence-item"><div class="evidence-label">Direct KV evidence</div><div class="evidence-value">106 prepare events in KV modes</div></div>
-          <div class="evidence-item"><div class="evidence-label">Priority eviction path</div><div class="evidence-value">SGLang priority radix eviction</div></div>
-          <div class="evidence-item"><div class="evidence-label">Priority smoke</div><div class="evidence-value">low-priority evicted, high-priority kept</div></div>
-          <div class="evidence-item"><div class="evidence-label">Blocker tracing</div><div class="evidence-value">32 / 32 requests covered</div></div>
-          <div class="evidence-item"><div class="evidence-label">Audit caveat</div><div class="evidence-value">eviction audit needs controller rows</div></div>
-        </div>
-        <p class="evidence-note">Simple meaning: the combined controller was not using fake warmup requests. It assigned replay-aware priority, used SGLang's prepared-prefix control path for direct KV preparation, and launched eviction modes with SGLang's priority radix eviction policy. The generated value-aware eviction audit only summarized the baseline row in this run, so the tracker records the passed smoke test and launch evidence while leaving the deeper per-mode eviction audit as follow-up.</p>
-      </div>
-      <div class="evidence" aria-label="Combined controller reproducibility settings">
-        <p class="evidence-title">Reproduce This Run</p>
-        <div class="evidence-grid">
-          <div class="evidence-item"><div class="evidence-label">Run label</div><div class="evidence-value">harness_aware_combined_20260921_191502</div></div>
-          <div class="evidence-item"><div class="evidence-label">Run wrapper</div><div class="evidence-value">scripts/run_harness_aware_combined_realistic.sh</div></div>
-          <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">baseline, sched, sched+KV, sched+evict, full</div></div>
-          <div class="evidence-item"><div class="evidence-label">Harness / pressure</div><div class="evidence-value">hatcher / p3_high</div></div>
-          <div class="evidence-item"><div class="evidence-label">Replay requests</div><div class="evidence-value">32 per mode</div></div>
-          <div class="evidence-item"><div class="evidence-label">Wait ranges</div><div class="evidence-value">100-500ms, 1-5s, 10-30s, 60-120s</div></div>
-          <div class="evidence-item"><div class="evidence-label">Direct KV path</div><div class="evidence-value">prepared_prefix_control only</div></div>
-          <div class="evidence-item"><div class="evidence-label">Eviction path</div><div class="evidence-value">SGLang priority radix eviction</div></div>
-          <div class="evidence-item"><div class="evidence-label">Trace profile</div><div class="evidence-value">rich + blocker tracing + GPU sampler</div></div>
-        </div>
-      </div>
-      <div class="links">
-        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/master_report.html">Combined run report</a>
-        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/replay_friction_summary.csv">Replay friction summary CSV</a>
-        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/replay_friction_deep_dive.csv">Replay friction deep-dive CSV</a>
-        <a href="sglang_direct_kv/artifacts/results/reports/harness_aware_combined_20260921_191502/value_aware_eviction_audit.html">Value-aware eviction audit</a>
-        <a href="sglang_direct_kv/scripts/run_harness_aware_combined_realistic.sh">Run wrapper</a>
-        <a href="README.md">Mode definitions</a>
-      </div>
-    </section>
+
 
     <section class="section">
       <h2>Upcoming Scenarios</h2>
@@ -2039,7 +2041,7 @@
         }
         section.appendChild(body);
 
-        const startsOpen = /Scenario H1: GPU-Occupancy-Aware Backfill/.test(heading.textContent || "");
+        const startsOpen = /Controller Mode Comparison/.test(heading.textContent || "");
         section.classList.add("collapsible");
         body.hidden = !startsOpen;
 
