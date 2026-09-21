@@ -76,6 +76,29 @@ cd sglang_direct_kv
 bash scripts/run_deadline_fair_realistic.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
+### Scenario 1 V1 Controller Signals
+
+The contained V1 controller idea is:
+
+> predicted-ready-time scheduler + GPU-occupancy-aware backfill.
+
+All requests are treated as equal importance. The controller is not told that one
+request is more valuable than another. It only tries to avoid bad ordering among
+requests that will become ready at different times, while keeping the GPU from
+sitting idle when safe work can fit.
+
+| Signal | Source | Why the controller needs it |
+| --- | --- | --- |
+| `session_id` | Harness/front end | Keeps decisions tied to the correct session and lets traces explain which session was affected. |
+| `phase` | Harness/front end | Distinguishes tool-wait, replay-ready, and ordinary work so the controller does not treat every request the same. |
+| `ready_time_ms` | Harness/front end | Tells the controller when each request is expected to need replay service, so it can order equal-importance work by who becomes ready next. |
+| `estimated_runtime_ms` | Controller/runtime estimate | Lets the controller decide whether candidate work can likely finish before the next replay becomes ready. |
+| `gpu_idle_state` | Hardware telemetry, sampled from GPU utilization | Lets the controller admit safe backfill when the GPU would otherwise be idle, without using idle time as permission to block soon-ready replay work. |
+
+For signal-attribution experiments, compare the full `controller_ready_time_gpu_backfill`
+mode against counterfactual variants later. The first implementation records
+which of these signals was available and used for each admission decision.
+
 ## What We Mean By Shorthand
 
 In this project, **shorthand means representing a relationship with a reusable
@@ -407,6 +430,7 @@ The current manager-facing comparisons use these modes:
 | `controller_priority_demotion_admission_earlyprepare` | Same priority + demotion + admission path, but it opens the background hold/demotion window before the replay returns. Configure the lead time with `CONTROLLER_EARLYPREPARE_LEAD_MS`; default is `500`. |
 | `controller_priority_demotion_admission_shorthand` | Same priority + demotion + admission path, plus request-local relational shorthand. Configure with `CONTROLLER_SHORTHAND_CODEC_CONFIG`; default is `configs/prompt_codecs/agent_trace_relations_v1.json`. |
 | `controller_admission_control` | Portable controller phase 6. The controller admits or skips speculative warmup based on pressure limits, so overload cases get explicit skip reasons instead of unbounded background work. |
+| `controller_ready_time_gpu_backfill` | Scenario 1 V1 controller. It orders equal-importance requests by predicted replay-ready time, carries that priority through the local gate and SGLang priority path, and uses cached GPU-idle telemetry only to admit safe backfill work. |
 
 The lightweight master report also includes a **System Cost Accounting** section.
 It sums TTFT and positive replay-deadline debt separately for target replay

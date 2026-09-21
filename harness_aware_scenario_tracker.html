@@ -771,21 +771,26 @@
         <span class="status">Clear Win</span>
       </div>
       <p class="lede">A group of replay requests becomes ready at different times after tool waits. The harness exposes when each replay is expected to become ready, so the backend can move the soonest-due replay work forward instead of treating the workload as ordinary queue traffic.</p>
-      <div class="callout">
-        <strong>In simple words:</strong> this scenario checks whether the backend can improve the whole replay workload when the harness tells it, "these tool calls will return at these times, and every replay wants its next token as soon as possible."
+            <div class="setup">
+        <p class="setup-title">How the experiment is set up</p>
+        <p>The same 32 replay requests are run in both modes using the same generated timeline. Tool waits are sampled from realistic buckets, so some replays return quickly and others return much later. In baseline mode, replay submissions use ordinary behavior. In RTG controller mode, the harness exposes replay timing during tool wait; the controller assigns ready-time priority before replay, uses that priority in the local submission gate, lowers the same priority into SGLang, and samples GPU idle state to decide whether safe backfill would be allowed.</p>
       </div>
       <div class="setup">
         <p class="setup-title">How the experiment is set up</p>
         <p>The same 32 replay requests are run in both modes using the same generated timeline. Tool waits are sampled from realistic buckets, so some replays return quickly and others return much later. In baseline mode, replay submissions use ordinary FIFO behavior. In controller mode, the harness exposes replay timing during tool wait; the controller assigns due-time priority before replay, uses that priority in the local submission gate, lowers the same priority into SGLang, and evaluates whether local admissions would interfere with near-future replays.</p>
       </div>
-      <details class="explain-panel">
+            <details class="explain-panel">
         <summary>What the controller does and why this scenario wins</summary>
-        <div class="explain-body">
-          <p><strong>What this setup tests:</strong> whether the backend can serve replay requests in a better order when the harness tells it when each tool call is expected to return.</p>
-          <p><strong>What the controller does:</strong> it looks at the expected replay-ready time for every request and gives the soonest-due replay the highest scheduling priority. It applies that ordering before the request enters SGLang through the local submission gate, then lowers the same priority into SGLang so the backend scheduler sees the same intent.</p>
-          <p><strong>Admission guard status:</strong> this run also enabled the predictive admission guard. The guard evaluated 48 admission candidates, but it did not hold any work because the candidates were either not near a protected replay or were themselves due no later than the protected replay. So the clean win here should be credited mainly to predictive replay priority, not to guard-induced idle holding.</p>
-          <p><strong>Why this creates a win:</strong> without these timing signals, ready replay requests can wait behind work that is less time-sensitive. With the controller, replay work that is due soon moves forward in both queues, so the group spends less time waiting after tool return. That is why total TTFT, average TTFT, total lateness, average lateness, tail lateness, and workload window improved in the tracker.</p>
+              <div class="signals">
+        <p class="signals-title">Core signals exposed to the backend in controller mode</p>
+        <div class="chip-row">
+          <span class="chip">session_id</span>
+          <span class="chip">phase</span>
+          <span class="chip">ready_time_ms</span>
+          <span class="chip">estimated_runtime_ms</span>
+          <span class="chip">gpu_idle_state</span>
         </div>
+      </div>
       </details>
       <div class="signals">
         <p class="signals-title">Harness signals exposed to the backend in controller mode</p>
@@ -800,99 +805,102 @@
         </div>
       </div>
 
-      <div class="chart" aria-label="Scenario 1 manager summary cards">
+            <div class="chart" aria-label="Scenario 1 manager summary cards">
         <h3>Manager Summary</h3>
-        <p class="small"><strong>Latest clear-win run:</strong> <code>scenario1_admission_guard_all_replays_20260921_160301</code> compared <code>no_prefetch</code> against <code>controller_predictive_deadline_queue_admission_guard</code>. The controller improved total TTFT, average TTFT, total lateness, average lateness, P95 lateness, max lateness, and the workload window across all 32 replay requests. This is now a cleaner manager story: better service quality and a slightly shorter full workload.</p>
+        <p class="small"><strong>Latest clear-win run:</strong> <code>scenario1_rtg_v1_20260921_172045</code> compared <code>no_prefetch</code> against <code>controller_ready_time_gpu_backfill</code>. The controller improved total TTFT, average TTFT, total lateness, average lateness, P95 lateness, max lateness, and the replay workload window across all 32 replay requests. The GPU-idle signal was measured, but this run's clean win came mainly from ready-time priority being applied before SGLang and inside SGLang.</p>
         <div class="metric-grid">
           <div class="metric-tile">
             <div class="metric-name">Total TTFT</div>
-            <div class="metric-value">15.8% better</div>
-            <p class="small">Improved from 82.1 s to 69.1 s across all replay requests.</p>
+            <div class="metric-value">24.1% better</div>
+            <p class="small">Improved from 79.0 s to 60.0 s across all replay requests.</p>
           </div>
           <div class="metric-tile">
             <div class="metric-name">Avg TTFT / Request</div>
-            <div class="metric-value">0.4 s faster</div>
-            <p class="small">Average replay TTFT improved from 2.6 s to 2.2 s.</p>
+            <div class="metric-value">0.6 s faster</div>
+            <p class="small">Average replay TTFT improved from 2.5 s to 1.9 s.</p>
           </div>
           <div class="metric-tile">
             <div class="metric-name">Total Lateness</div>
-            <div class="metric-value">20.5% better</div>
-            <p class="small">Improved from 206.2 s to 164.0 s.</p>
+            <div class="metric-value">25.4% better</div>
+            <p class="small">Improved from 202.1 s to 150.7 s.</p>
           </div>
           <div class="metric-tile">
             <div class="metric-name">Avg Lateness / Request</div>
-            <div class="metric-value">1.3 s less late</div>
-            <p class="small">Average replay lateness improved from 6.4 s to 5.1 s.</p>
+            <div class="metric-value">1.6 s less late</div>
+            <p class="small">Average replay lateness improved from 6.3 s to 4.7 s.</p>
           </div>
           <div class="metric-tile">
             <div class="metric-name">P95 Lateness</div>
-            <div class="metric-value">34.7% better</div>
-            <p class="small">Improved from 26.6 s to 17.4 s.</p>
+            <div class="metric-value">26.5% better</div>
+            <p class="small">Improved from 22.8 s to 16.7 s.</p>
           </div>
           <div class="metric-tile">
             <div class="metric-name">Max Lateness</div>
-            <div class="metric-value">34.1% better</div>
-            <p class="small">Improved from 27.3 s to 18.0 s.</p>
+            <div class="metric-value">38.6% better</div>
+            <p class="small">Improved from 27.7 s to 17.0 s.</p>
           </div>
           <div class="metric-tile">
-            <div class="metric-name">Workload Window</div>
-            <div class="metric-value">2.2% better</div>
-            <p class="small">Full workload window improved from 171.8 s to 168.1 s.</p>
+            <div class="metric-name">Replay Workload Window</div>
+            <div class="metric-value">1.3% better</div>
+            <p class="small">Replay workload window improved from 152.2 s to 150.2 s.</p>
           </div>
         </div>
       </div>
 
-      <div class="evidence" aria-label="Scenario 1 controller ingredients">
+            <div class="evidence" aria-label="Scenario 1 controller ingredients">
         <p class="evidence-title">What The Controller Used</p>
         <div class="evidence-grid">
-          <div class="evidence-item"><div class="evidence-label">Timing signal</div><div class="evidence-value">tool return ETA</div></div>
-          <div class="evidence-item"><div class="evidence-label">Priority rule</div><div class="evidence-value">earliest due first</div></div>
+          <div class="evidence-item"><div class="evidence-label">Ready-time signal</div><div class="evidence-value">ready_time_ms</div></div>
+          <div class="evidence-item"><div class="evidence-label">Priority rule</div><div class="evidence-value">earliest ready first</div></div>
           <div class="evidence-item"><div class="evidence-label">Decision timing</div><div class="evidence-value">during tool_wait</div></div>
           <div class="evidence-item"><div class="evidence-label">Before SGLang</div><div class="evidence-value">local submission gate</div></div>
           <div class="evidence-item"><div class="evidence-label">Inside SGLang</div><div class="evidence-value">scheduler priority lowering</div></div>
-          <div class="evidence-item"><div class="evidence-label">Admission guard</div><div class="evidence-value">evaluated, no holds needed</div></div>
-          <div class="evidence-item"><div class="evidence-label">Coverage</div><div class="evidence-value">all replay requests</div></div>
+          <div class="evidence-item"><div class="evidence-label">GPU telemetry</div><div class="evidence-value">sampled, no decision change</div></div>
+          <div class="evidence-item"><div class="evidence-label">Admission decisions</div><div class="evidence-value">48 admit, 0 hold</div></div>
+          <div class="evidence-item"><div class="evidence-label">Coverage</div><div class="evidence-value">all 32 replay requests</div></div>
         </div>
-        <p class="evidence-note">The clear win came from using the harness timing signal early and in both scheduling stages. The controller did not only tell SGLang about priority; it also used that priority before requests entered SGLang.</p>
+        <p class="evidence-note">The clear win came from using the harness ready-time signal early and in both scheduling stages. GPU telemetry is now part of the controller interface, but this particular workload did not need it to change admission behavior.</p>
       </div>
 
-      <div class="evidence" aria-label="Scenario 1 predictive deadline queue mechanism evidence">
+            <div class="evidence" aria-label="Scenario 1 predictive deadline queue mechanism evidence">
         <p class="evidence-title">Mechanism Evidence</p>
         <div class="evidence-grid">
-          <div class="evidence-item"><div class="evidence-label">Controller mode</div><div class="evidence-value">controller_predictive_deadline_queue_admission_guard</div></div>
+          <div class="evidence-item"><div class="evidence-label">Controller mode</div><div class="evidence-value">controller_ready_time_gpu_backfill</div></div>
           <div class="evidence-item"><div class="evidence-label">Early priorities assigned</div><div class="evidence-value">32 / 32 replay requests</div></div>
           <div class="evidence-item"><div class="evidence-label">Tool-wait buckets</div><div class="evidence-value">4 very short, 14 short, 9 medium, 5 long</div></div>
           <div class="evidence-item"><div class="evidence-label">SGLang priority rows</div><div class="evidence-value">32 / 32 replay requests</div></div>
           <div class="evidence-item"><div class="evidence-label">Local submission priority</div><div class="evidence-value">32 / 32 replay requests</div></div>
-          <div class="evidence-item"><div class="evidence-label">Admission decisions</div><div class="evidence-value">48 admit, 0 hold</div></div>
+          <div class="evidence-item"><div class="evidence-label">RTG admission decisions</div><div class="evidence-value">48 admit, 0 hold</div></div>
+          <div class="evidence-item"><div class="evidence-label">GPU-state samples</div><div class="evidence-value">34 idle, 14 active</div></div>
+          <div class="evidence-item"><div class="evidence-label">GPU-state decision changes</div><div class="evidence-value">0 in this run</div></div>
           <div class="evidence-item"><div class="evidence-label">Same timeline</div><div class="evidence-value">mode-independent seed</div></div>
         </div>
-        <p class="evidence-note">This proves the all-replay predictive path is wired through both queues we care about: the harness exposed replay timing during tool wait, the controller assigned due-time priorities before replay, the local submission gate used those priorities before SGLang, and the gateway lowered those priorities into SGLang. In this run, the controller improved TTFT, deadline lateness, and the full workload window.</p>
+        <p class="evidence-note">This proves the all-replay ready-time path is wired through both queues we care about: the harness exposed replay timing during tool wait, the controller assigned priorities before replay, the local submission gate used those priorities before SGLang, and the gateway lowered those priorities into SGLang.</p>
       </div>
 
-      <div class="evidence" aria-label="Scenario 1 replay friction deep dive">
+            <div class="evidence" aria-label="Scenario 1 replay friction deep dive">
         <p class="evidence-title">Replay Friction Deep Dive</p>
         <div class="evidence-grid">
           <div class="evidence-item"><div class="evidence-label">Observation level</div><div class="evidence-value">trace_rich for 64 / 64 rows</div></div>
           <div class="evidence-item"><div class="evidence-label">Controller avg scheduler friction</div><div class="evidence-value">2.4</div></div>
-          <div class="evidence-item"><div class="evidence-label">Baseline avg scheduler friction</div><div class="evidence-value">2.3</div></div>
-          <div class="evidence-item"><div class="evidence-label">Controller avg memory friction</div><div class="evidence-value">1.7</div></div>
+          <div class="evidence-item"><div class="evidence-label">Baseline avg scheduler friction</div><div class="evidence-value">2.5</div></div>
+          <div class="evidence-item"><div class="evidence-label">Controller avg memory friction</div><div class="evidence-value">1.6</div></div>
           <div class="evidence-item"><div class="evidence-label">Baseline avg memory friction</div><div class="evidence-value">1.7</div></div>
           <div class="evidence-item"><div class="evidence-label">Main remaining problem</div><div class="evidence-value">scheduler friction</div></div>
           <div class="evidence-item"><div class="evidence-label">Blocker snapshots</div><div class="evidence-value">32 / 32 controller rows</div></div>
-          <div class="evidence-item"><div class="evidence-label">Avg blockers classified</div><div class="evidence-value">2.1 reasonable, 1.4 avoidable</div></div>
-          <div class="evidence-item"><div class="evidence-label">Snapshot overhead</div><div class="evidence-value">0.031 ms avg</div></div>
+          <div class="evidence-item"><div class="evidence-label">Avg blockers classified</div><div class="evidence-value">2.2 reasonable, 1.5 avoidable</div></div>
+          <div class="evidence-item"><div class="evidence-label">Snapshot overhead</div><div class="evidence-value">0.033 ms avg</div></div>
         </div>
-        <p class="evidence-note">The deep dive identifies exact blockers. Example: the worst controller replay, <code>hatcher_p3_high_session_000_pressure_001_replay_01</code>, had TTFT 5.1 s and lateness 18.0 s. It still saw 3 pending request(s), 6 in-flight request(s), 6 avoidable blocker(s), 150 load-back/H2D event(s), and 8 recent eviction event(s). So the controller helped, but the traces still show room to reduce avoidable blockers further.</p>
+        <p class="evidence-note">The worst remaining controller replay, <code>hatcher_p3_high_session_000_pressure_003_replay_01</code>, had TTFT 3.1 s and lateness 17.0 s. It still saw 0 pending request(s), 6 in-flight request(s), 6 avoidable blocker(s), 88 load-back/H2D event(s), and 20 recent eviction event(s). So the controller helped, but the traces still show room to reduce avoidable blockers further.</p>
       </div>
 
-      <div class="chart" aria-label="Scenario 1 blocker quality chart summary">
+            <div class="chart" aria-label="Scenario 1 blocker quality chart summary">
         <h3>Blocker Quality Across Requests</h3>
         <p class="small">These generated charts show controller-mode replay requests in replay-due order. The stacked bar chart shows how many blockers were reasonable, questionable, avoidable, or unknown. The line chart shows the avoidable/questionable blocker fraction; when it drops to zero, the captured blockers were all reasonable.</p>
         <div class="metric-grid">
           <div class="metric-tile"><div class="metric-name">Controller Rows Charted</div><div class="metric-value">32 / 32</div><p class="small">Every controller replay request had a blocker snapshot.</p></div>
-          <div class="metric-tile"><div class="metric-name">Avg Reasonable Blockers</div><div class="metric-value">2.1</div><p class="small">These blockers were already due, equally due, or reasonably in flight.</p></div>
-          <div class="metric-tile"><div class="metric-name">Avg Avoidable Blockers</div><div class="metric-value warn">1.4</div><p class="small">This improved from 1.7 in baseline, but the red bars show further room to optimize.</p></div>
+          <div class="metric-tile"><div class="metric-name">Avg Reasonable Blockers</div><div class="metric-value">2.2</div><p class="small">These blockers were already due, equally due, or reasonably in flight.</p></div>
+          <div class="metric-tile"><div class="metric-name">Avg Avoidable Blockers</div><div class="metric-value warn">1.5</div><p class="small">Baseline averaged 1.8; the red bars show further room to optimize.</p></div>
         </div>
         <div class="blocker-quality" aria-label="Scenario 1 blocker quality across controller requests">
           <div class="blocker-legend">
@@ -904,37 +912,37 @@
           <div class="blocker-chart-panel">
             <h3>Per-Request Blocker Quality</h3>
             <div class="blocker-bars">
-              <div class="blocker-bar" title="#1 hatcher_p3_high_session_000_pressure_003_replay_01: 0 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 17.1s" aria-label="#1 hatcher_p3_high_session_000_pressure_003_replay_01: 0 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 17.1s"><span class="blocker-seg avoidable" style="height:60.00%"></span></div>
-              <div class="blocker-bar" title="#2 hatcher_p3_high_session_000_pressure_005_replay_01: 1 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 17.0s" aria-label="#2 hatcher_p3_high_session_000_pressure_005_replay_01: 1 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 17.0s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:10.00%"></span></div>
-              <div class="blocker-bar" title="#3 hatcher_p3_high_session_000_replay_01: 2 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.5s" aria-label="#3 hatcher_p3_high_session_000_replay_01: 2 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.5s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:20.00%"></span></div>
-              <div class="blocker-bar" title="#4 hatcher_p3_high_session_000_pressure_001_replay_01: 3 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 18.0s" aria-label="#4 hatcher_p3_high_session_000_pressure_001_replay_01: 3 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 18.0s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:30.00%"></span></div>
-              <div class="blocker-bar" title="#5 hatcher_p3_high_session_000_pressure_004_replay_01: 4 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 14.9s" aria-label="#5 hatcher_p3_high_session_000_pressure_004_replay_01: 4 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 14.9s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:40.00%"></span></div>
-              <div class="blocker-bar" title="#6 hatcher_p3_high_session_000_pressure_006_replay_01: 5 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 8.9s" aria-label="#6 hatcher_p3_high_session_000_pressure_006_replay_01: 5 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 8.9s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
-              <div class="blocker-bar" title="#7 hatcher_p3_high_session_000_pressure_011_replay_01: 6 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 7.6s" aria-label="#7 hatcher_p3_high_session_000_pressure_011_replay_01: 6 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 7.6s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:60.00%"></span></div>
-              <div class="blocker-bar" title="#8 hatcher_p3_high_session_000_pressure_010_replay_01: 7 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 5.7s" aria-label="#8 hatcher_p3_high_session_000_pressure_010_replay_01: 7 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 5.7s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:70.00%"></span></div>
-              <div class="blocker-bar" title="#9 hatcher_p3_high_session_000_pressure_005_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 8.9s" aria-label="#9 hatcher_p3_high_session_000_pressure_005_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 8.9s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:40.00%"></span></div>
-              <div class="blocker-bar" title="#10 hatcher_p3_high_session_000_pressure_003_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 7.4s" aria-label="#10 hatcher_p3_high_session_000_pressure_003_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 7.4s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
-              <div class="blocker-bar" title="#11 hatcher_p3_high_session_000_pressure_012_replay_01: 3 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 9.0s" aria-label="#11 hatcher_p3_high_session_000_pressure_012_replay_01: 3 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 9.0s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:30.00%"></span></div>
-              <div class="blocker-bar" title="#12 hatcher_p3_high_session_000_pressure_010_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 8.0s" aria-label="#12 hatcher_p3_high_session_000_pressure_010_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 8.0s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:40.00%"></span></div>
-              <div class="blocker-bar" title="#13 hatcher_p3_high_session_000_pressure_006_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 6.6s" aria-label="#13 hatcher_p3_high_session_000_pressure_006_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 6.6s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
-              <div class="blocker-bar" title="#14 hatcher_p3_high_session_000_pressure_011_replay_02: 6 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 5.0s" aria-label="#14 hatcher_p3_high_session_000_pressure_011_replay_02: 6 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 5.0s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:60.00%"></span></div>
-              <div class="blocker-bar" title="#15 hatcher_p3_high_session_000_pressure_009_replay_01: 5 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 3.7s" aria-label="#15 hatcher_p3_high_session_000_pressure_009_replay_01: 5 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 3.7s"><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
-              <div class="blocker-bar" title="#16 hatcher_p3_high_session_000_pressure_008_replay_01: 2 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 2.0s" aria-label="#16 hatcher_p3_high_session_000_pressure_008_replay_01: 2 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 2.0s"><span class="blocker-seg reasonable" style="height:20.00%"></span></div>
-              <div class="blocker-bar" title="#17 hatcher_p3_high_session_000_pressure_013_replay_01: 3 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 1.5s" aria-label="#17 hatcher_p3_high_session_000_pressure_013_replay_01: 3 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 1.5s"><span class="blocker-seg reasonable" style="height:30.00%"></span></div>
+              <div class="blocker-bar" title="#1 hatcher_p3_high_session_000_pressure_003_replay_01: 0 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 17.0s" aria-label="#1 hatcher_p3_high_session_000_pressure_003_replay_01: 0 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 17.0s"><span class="blocker-seg avoidable" style="height:60.00%"></span></div>
+              <div class="blocker-bar" title="#2 hatcher_p3_high_session_000_pressure_005_replay_01: 1 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.9s" aria-label="#2 hatcher_p3_high_session_000_pressure_005_replay_01: 1 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.9s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:10.00%"></span></div>
+              <div class="blocker-bar" title="#3 hatcher_p3_high_session_000_replay_01: 2 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.4s" aria-label="#3 hatcher_p3_high_session_000_replay_01: 2 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.4s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:20.00%"></span></div>
+              <div class="blocker-bar" title="#4 hatcher_p3_high_session_000_pressure_001_replay_01: 3 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.0s" aria-label="#4 hatcher_p3_high_session_000_pressure_001_replay_01: 3 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.0s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:30.00%"></span></div>
+              <div class="blocker-bar" title="#5 hatcher_p3_high_session_000_pressure_004_replay_01: 4 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.6s" aria-label="#5 hatcher_p3_high_session_000_pressure_004_replay_01: 4 reasonable, 0 questionable, 6 avoidable, 0 unknown; lateness 16.6s"><span class="blocker-seg avoidable" style="height:60.00%"></span><span class="blocker-seg reasonable" style="height:40.00%"></span></div>
+              <div class="blocker-bar" title="#6 hatcher_p3_high_session_000_pressure_006_replay_01: 5 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 7.9s" aria-label="#6 hatcher_p3_high_session_000_pressure_006_replay_01: 5 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 7.9s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
+              <div class="blocker-bar" title="#7 hatcher_p3_high_session_000_pressure_011_replay_01: 6 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 6.5s" aria-label="#7 hatcher_p3_high_session_000_pressure_011_replay_01: 6 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 6.5s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:60.00%"></span></div>
+              <div class="blocker-bar" title="#8 hatcher_p3_high_session_000_pressure_010_replay_01: 7 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 4.7s" aria-label="#8 hatcher_p3_high_session_000_pressure_010_replay_01: 7 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 4.7s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:70.00%"></span></div>
+              <div class="blocker-bar" title="#9 hatcher_p3_high_session_000_pressure_005_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 7.8s" aria-label="#9 hatcher_p3_high_session_000_pressure_005_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 7.8s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:40.00%"></span></div>
+              <div class="blocker-bar" title="#10 hatcher_p3_high_session_000_pressure_003_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 6.3s" aria-label="#10 hatcher_p3_high_session_000_pressure_003_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 6.3s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
+              <div class="blocker-bar" title="#11 hatcher_p3_high_session_000_pressure_012_replay_01: 3 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 3.9s" aria-label="#11 hatcher_p3_high_session_000_pressure_012_replay_01: 3 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 3.9s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:30.00%"></span></div>
+              <div class="blocker-bar" title="#12 hatcher_p3_high_session_000_pressure_010_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 6.8s" aria-label="#12 hatcher_p3_high_session_000_pressure_010_replay_02: 4 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 6.8s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:40.00%"></span></div>
+              <div class="blocker-bar" title="#13 hatcher_p3_high_session_000_pressure_006_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 5.4s" aria-label="#13 hatcher_p3_high_session_000_pressure_006_replay_02: 5 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 5.4s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
+              <div class="blocker-bar" title="#14 hatcher_p3_high_session_000_pressure_011_replay_02: 6 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 3.9s" aria-label="#14 hatcher_p3_high_session_000_pressure_011_replay_02: 6 reasonable, 0 questionable, 2 avoidable, 0 unknown; lateness 3.9s"><span class="blocker-seg avoidable" style="height:20.00%"></span><span class="blocker-seg reasonable" style="height:60.00%"></span></div>
+              <div class="blocker-bar" title="#15 hatcher_p3_high_session_000_pressure_009_replay_01: 4 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 3.9s" aria-label="#15 hatcher_p3_high_session_000_pressure_009_replay_01: 4 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 3.9s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:40.00%"></span></div>
+              <div class="blocker-bar" title="#16 hatcher_p3_high_session_000_pressure_013_replay_01: 5 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 2.0s" aria-label="#16 hatcher_p3_high_session_000_pressure_013_replay_01: 5 reasonable, 0 questionable, 1 avoidable, 0 unknown; lateness 2.0s"><span class="blocker-seg avoidable" style="height:10.00%"></span><span class="blocker-seg reasonable" style="height:50.00%"></span></div>
+              <div class="blocker-bar" title="#17 hatcher_p3_high_session_000_pressure_008_replay_01: 3 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 2.0s" aria-label="#17 hatcher_p3_high_session_000_pressure_008_replay_01: 3 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 2.0s"><span class="blocker-seg reasonable" style="height:30.00%"></span></div>
               <div class="blocker-bar" title="#18 hatcher_p3_high_session_000_pressure_013_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s" aria-label="#18 hatcher_p3_high_session_000_pressure_013_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s"></div>
               <div class="blocker-bar" title="#19 hatcher_p3_high_session_000_pressure_008_replay_02: 1 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s" aria-label="#19 hatcher_p3_high_session_000_pressure_008_replay_02: 1 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s"><span class="blocker-seg reasonable" style="height:10.00%"></span></div>
               <div class="blocker-bar" title="#20 hatcher_p3_high_session_000_pressure_001_replay_02: 2 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.7s" aria-label="#20 hatcher_p3_high_session_000_pressure_001_replay_02: 2 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.7s"><span class="blocker-seg reasonable" style="height:20.00%"></span></div>
-              <div class="blocker-bar" title="#21 hatcher_p3_high_session_000_pressure_014_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#21 hatcher_p3_high_session_000_pressure_014_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
-              <div class="blocker-bar" title="#22 hatcher_p3_high_session_000_pressure_004_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#22 hatcher_p3_high_session_000_pressure_004_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
-              <div class="blocker-bar" title="#23 hatcher_p3_high_session_000_pressure_012_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#23 hatcher_p3_high_session_000_pressure_012_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
+              <div class="blocker-bar" title="#21 hatcher_p3_high_session_000_pressure_012_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s" aria-label="#21 hatcher_p3_high_session_000_pressure_012_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s"></div>
+              <div class="blocker-bar" title="#22 hatcher_p3_high_session_000_pressure_004_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s" aria-label="#22 hatcher_p3_high_session_000_pressure_004_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s"></div>
+              <div class="blocker-bar" title="#23 hatcher_p3_high_session_000_pressure_014_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#23 hatcher_p3_high_session_000_pressure_014_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
               <div class="blocker-bar" title="#24 hatcher_p3_high_session_000_pressure_009_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#24 hatcher_p3_high_session_000_pressure_009_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
-              <div class="blocker-bar" title="#25 hatcher_p3_high_session_000_pressure_002_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#25 hatcher_p3_high_session_000_pressure_002_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
+              <div class="blocker-bar" title="#25 hatcher_p3_high_session_000_pressure_002_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s" aria-label="#25 hatcher_p3_high_session_000_pressure_002_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s"></div>
               <div class="blocker-bar" title="#26 hatcher_p3_high_session_000_pressure_002_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s" aria-label="#26 hatcher_p3_high_session_000_pressure_002_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s"></div>
-              <div class="blocker-bar" title="#27 hatcher_p3_high_session_000_pressure_000_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#27 hatcher_p3_high_session_000_pressure_000_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
+              <div class="blocker-bar" title="#27 hatcher_p3_high_session_000_pressure_000_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s" aria-label="#27 hatcher_p3_high_session_000_pressure_000_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s"></div>
               <div class="blocker-bar" title="#28 hatcher_p3_high_session_000_pressure_000_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s" aria-label="#28 hatcher_p3_high_session_000_pressure_000_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s"></div>
-              <div class="blocker-bar" title="#29 hatcher_p3_high_session_000_pressure_007_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#29 hatcher_p3_high_session_000_pressure_007_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
-              <div class="blocker-bar" title="#30 hatcher_p3_high_session_000_pressure_007_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.2s" aria-label="#30 hatcher_p3_high_session_000_pressure_007_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.2s"></div>
-              <div class="blocker-bar" title="#31 hatcher_p3_high_session_000_pressure_014_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s" aria-label="#31 hatcher_p3_high_session_000_pressure_014_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.4s"></div>
+              <div class="blocker-bar" title="#29 hatcher_p3_high_session_000_pressure_007_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s" aria-label="#29 hatcher_p3_high_session_000_pressure_007_replay_01: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.5s"></div>
+              <div class="blocker-bar" title="#30 hatcher_p3_high_session_000_pressure_007_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s" aria-label="#30 hatcher_p3_high_session_000_pressure_007_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s"></div>
+              <div class="blocker-bar" title="#31 hatcher_p3_high_session_000_pressure_014_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s" aria-label="#31 hatcher_p3_high_session_000_pressure_014_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.3s"></div>
               <div class="blocker-bar" title="#32 hatcher_p3_high_session_000_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.7s" aria-label="#32 hatcher_p3_high_session_000_replay_02: 0 reasonable, 0 questionable, 0 avoidable, 0 unknown; lateness 0.7s"></div>
             </div>
             <p class="small">Each bar is one replay request. Bar height is blocker count; color shows blocker quality.</p>
@@ -946,10 +954,8 @@
               <line x1="36" y1="190" x2="882" y2="190" class="axis" />
               <line x1="36" y1="16" x2="882" y2="16" class="grid" />
               <line x1="36" y1="103" x2="882" y2="103" class="grid" />
-              <text x="4" y="20">1.0</text>
-              <text x="4" y="107">0.5</text>
-              <text x="4" y="194">0.0</text>
-              <polyline points="36.0,16.0 63.3,40.9 90.6,59.5 117.9,74.0 145.2,85.6 172.5,161.0 199.7,165.1 227.0,168.2 254.3,132.0 281.6,140.3 308.9,120.4 336.2,132.0 363.5,140.3 390.8,146.5 418.1,190.0 445.4,190.0 472.6,190.0 499.9,190.0 527.2,190.0 554.5,190.0 581.8,190.0 609.1,190.0 636.4,190.0 663.7,190.0 691.0,190.0 718.3,190.0 745.5,190.0 772.8,190.0 800.1,190.0 827.4,190.0 854.7,190.0 882.0,190.0" />
+              <text x="4" y="20">1.0</text><text x="4" y="107">0.5</text><text x="4" y="194">0.0</text>
+              <polyline points="36.0,16.0 63.3,40.9 90.6,59.5 117.9,74.0 145.2,85.6 172.5,161.0 199.7,165.1 227.0,168.2 254.3,132.0 281.6,140.3 308.9,120.4 336.2,132.0 363.5,140.3 390.8,146.5 418.1,155.2 445.4,161.0 472.6,190.0 499.9,190.0 527.2,190.0 554.5,190.0 581.8,190.0 609.1,190.0 636.4,190.0 663.7,190.0 691.0,190.0 718.3,190.0 745.5,190.0 772.8,190.0 800.1,190.0 827.4,190.0 854.7,190.0 882.0,190.0" />
               <circle cx="36.0" cy="16.0" r="3.2"><title>Request 1: avoidable/questionable fraction 1.00</title></circle>
               <circle cx="63.3" cy="40.9" r="3.2"><title>Request 2: avoidable/questionable fraction 0.86</title></circle>
               <circle cx="90.6" cy="59.5" r="3.2"><title>Request 3: avoidable/questionable fraction 0.75</title></circle>
@@ -964,8 +970,8 @@
               <circle cx="336.2" cy="132.0" r="3.2"><title>Request 12: avoidable/questionable fraction 0.33</title></circle>
               <circle cx="363.5" cy="140.3" r="3.2"><title>Request 13: avoidable/questionable fraction 0.29</title></circle>
               <circle cx="390.8" cy="146.5" r="3.2"><title>Request 14: avoidable/questionable fraction 0.25</title></circle>
-              <circle cx="418.1" cy="190.0" r="3.2"><title>Request 15: avoidable/questionable fraction 0.00</title></circle>
-              <circle cx="445.4" cy="190.0" r="3.2"><title>Request 16: avoidable/questionable fraction 0.00</title></circle>
+              <circle cx="418.1" cy="155.2" r="3.2"><title>Request 15: avoidable/questionable fraction 0.20</title></circle>
+              <circle cx="445.4" cy="161.0" r="3.2"><title>Request 16: avoidable/questionable fraction 0.17</title></circle>
               <circle cx="472.6" cy="190.0" r="3.2"><title>Request 17: avoidable/questionable fraction 0.00</title></circle>
               <circle cx="499.9" cy="190.0" r="3.2"><title>Request 18: avoidable/questionable fraction 0.00</title></circle>
               <circle cx="527.2" cy="190.0" r="3.2"><title>Request 19: avoidable/questionable fraction 0.00</title></circle>
@@ -988,81 +994,60 @@
         </div>
       </div>
 
-      <div class="chart" aria-label="Scenario 1 avoidable blocker comparison">
+            <div class="chart" aria-label="Scenario 1 avoidable blocker comparison">
         <h3>Baseline vs Controller Avoidable Blockers</h3>
-        <p class="small">This chart compares the same 32 replay requests in replay-due order. Lower is better. It makes the improvement visible directly: total avoidable blockers dropped from 54 to 45, with 8 requests better, 18 unchanged, and 6 worse.</p>
+        <p class="small">This chart compares the same 32 replay requests in replay-due order. Lower is better. Total avoidable blockers dropped from 58 to 47, with 8 requests better, 17 unchanged, and 7 worse.</p>
         <div class="metric-grid">
-          <div class="metric-tile"><div class="metric-name">Total Avoidable Blockers</div><div class="metric-value">9 fewer</div><p class="small">Baseline had 54; controller had 45.</p></div>
+          <div class="metric-tile"><div class="metric-name">Total Avoidable Blockers</div><div class="metric-value">11 fewer</div><p class="small">Baseline had 58; controller had 47.</p></div>
           <div class="metric-tile"><div class="metric-name">Requests Better</div><div class="metric-value">8 / 32</div><p class="small">These requests had fewer avoidable blockers under the controller.</p></div>
-          <div class="metric-tile"><div class="metric-name">Requests Worse</div><div class="metric-value warn">6 / 32</div><p class="small">These requests had more avoidable blockers, so there is still tuning room.</p></div>
+          <div class="metric-tile"><div class="metric-name">Requests Worse</div><div class="metric-value warn">7 / 32</div><p class="small">These requests had more avoidable blockers, so there is still tuning room.</p></div>
         </div>
         <div class="avoidable-compare-panel">
+          <div class="occupancy-legend"><span><i class="occupancy-swatch baseline"></i>Baseline</span><span><i class="occupancy-swatch controller"></i>Controller</span></div>
+          <svg class="avoidable-compare-line" viewBox="0 0 900 260" role="img" aria-label="Avoidable blockers per replay request, baseline versus controller">
+            <line x1="42" y1="18" x2="42" y2="210" class="axis" /><line x1="42" y1="210" x2="882" y2="210" class="axis" />
+            <line x1="42" y1="18" x2="882" y2="18" class="grid" /><line x1="42" y1="114" x2="882" y2="114" class="grid" />
+            <text x="8" y="22">9</text><text x="8" y="118">4</text><text x="8" y="214">0</text><text x="42" y="244">#1</text><text x="448.5" y="244">#16</text><text x="860" y="244">#32</text>
+            <polyline class="series baseline" points="42.0,18.0 69.1,18.0 96.2,18.0 123.3,18.0 150.4,18.0 177.5,146.0 204.6,146.0 231.7,146.0 258.8,188.7 285.9,188.7 313.0,188.7 340.1,210.0 367.2,210.0 394.3,210.0 421.4,210.0 448.5,188.7 475.5,210.0 502.6,210.0 529.7,210.0 556.8,210.0 583.9,210.0 611.0,210.0 638.1,210.0 665.2,210.0 692.3,210.0 719.4,210.0 746.5,210.0 773.6,210.0 800.7,210.0 827.8,210.0 854.9,210.0 882.0,210.0"><title>Baseline avoidable blockers</title></polyline>
+            <polyline class="series controller" points="42.0,82.0 69.1,82.0 96.2,82.0 123.3,82.0 150.4,82.0 177.5,188.7 204.6,188.7 231.7,188.7 258.8,167.3 285.9,167.3 313.0,167.3 340.1,167.3 367.2,167.3 394.3,167.3 421.4,188.7 448.5,188.7 475.5,210.0 502.6,210.0 529.7,210.0 556.8,210.0 583.9,210.0 611.0,210.0 638.1,210.0 665.2,210.0 692.3,210.0 719.4,210.0 746.5,210.0 773.6,210.0 800.7,210.0 827.8,210.0 854.9,210.0 882.0,210.0"><title>Controller avoidable blockers</title></polyline>
+          </svg>
+          <p class="small">RTG reduced total avoidable blockers, but the red-bar pattern did not disappear. That means the controller is better, while still leaving optimization room.</p>
+        </div>
+      </div>
+
+            <div class="chart" aria-label="Scenario 1 occupancy balance">
+        <h3>GPU Occupancy Balance</h3>
+        <p class="small">This checks the caveat we discussed: fewer red bars are only valuable if we do not create empty GPU time. In this run, RTG improved replay TTFT and lateness while keeping average GPU utilization and active-sample rate slightly higher.</p>
+        <div class="metric-grid">
+          <div class="metric-tile"><div class="metric-name">Avg GPU Utilization</div><div class="metric-value">12.7%</div><p class="small">Baseline was 12.4% across the case sampler.</p></div>
+          <div class="metric-tile"><div class="metric-name">GPU Active Samples</div><div class="metric-value">58.1%</div><p class="small">Baseline was 57.9% using &gt;5% utilization as active.</p></div>
+          <div class="metric-tile"><div class="metric-name">Replay Workload Window</div><div class="metric-value">150.2 s</div><p class="small">Baseline was 152.2 s; RTG was 2.0s shorter.</p></div>
+        </div>
+        <div class="occupancy-chart-panel">
           <div class="occupancy-legend">
             <span><i class="occupancy-swatch baseline"></i>Baseline</span>
             <span><i class="occupancy-swatch controller"></i>Controller</span>
+            <span><i class="occupancy-swatch baseline-end"></i>Baseline end: 152.2s</span>
+            <span><i class="occupancy-swatch controller-end"></i>RTG end: 150.2s</span>
           </div>
-          <svg class="avoidable-compare-line" viewBox="0 0 900 260" role="img" aria-label="Avoidable blockers per replay request, baseline versus controller">
-            <line x1="42" y1="18" x2="42" y2="210" class="axis" />
-            <line x1="42" y1="210" x2="882" y2="210" class="axis" />
-            <line x1="42" y1="18" x2="882" y2="18" class="grid" />
-            <line x1="42" y1="82.0" x2="882" y2="82.0" class="grid" />
-            <line x1="42" y1="146.0" x2="882" y2="146.0" class="grid" />
-            <text x="8" y="22">9</text>
-            <text x="8" y="86.0">6</text>
-            <text x="8" y="150.0">3</text>
-            <text x="8" y="214">0</text>
-            <text x="42" y="244">#1</text>
-            <text x="448.5" y="244">#16</text>
-            <text x="860" y="244">#32</text>
-            <polyline class="series baseline" points="42.0,18.0 69.1,18.0 96.2,18.0 123.3,18.0 150.4,18.0 177.5,146.0 204.6,146.0 231.7,146.0 258.8,210.0 285.9,210.0 313.0,210.0 340.1,210.0 367.2,210.0 394.3,210.0 421.4,210.0 448.5,210.0 475.5,210.0 502.6,210.0 529.7,210.0 556.8,210.0 583.9,210.0 611.0,210.0 638.1,210.0 665.2,210.0 692.3,210.0 719.4,210.0 746.5,210.0 773.6,210.0 800.7,210.0 827.8,210.0 854.9,210.0 882.0,210.0"><title>Baseline avoidable blockers</title></polyline>
-            <polyline class="series controller" points="42.0,82.0 69.1,82.0 96.2,82.0 123.3,82.0 150.4,82.0 177.5,188.7 204.6,188.7 231.7,188.7 258.8,167.3 285.9,167.3 313.0,167.3 340.1,167.3 367.2,167.3 394.3,167.3 421.4,210.0 448.5,210.0 475.5,210.0 502.6,210.0 529.7,210.0 556.8,210.0 583.9,210.0 611.0,210.0 638.1,210.0 665.2,210.0 692.3,210.0 719.4,210.0 746.5,210.0 773.6,210.0 800.7,210.0 827.8,210.0 854.9,210.0 882.0,210.0"><title>Controller avoidable blockers</title></polyline>
+          <svg class="occupancy-line" viewBox="0 0 900 275" role="img" aria-label="GPU utilization over raw elapsed workload seconds for baseline and RTG controller">
+            <line x1="54" y1="18" x2="54" y2="214" class="axis" /><line x1="54" y1="214" x2="876" y2="214" class="axis" />
+            <line x1="54" y1="18" x2="876" y2="18" class="grid" /><line x1="54" y1="116" x2="876" y2="116" class="grid" />
+            <line x1="865.3" y1="18" x2="865.3" y2="214" class="end-marker controller" />
+            <line x1="876.0" y1="18" x2="876.0" y2="214" class="end-marker baseline" />
+            <text x="10" y="22">100%</text><text x="22" y="120">50%</text><text x="30" y="218">0%</text><text x="54" y="248">0s</text><text x="341" y="248">60s</text><text x="628" y="248">120s</text>
+            <polyline class="occupancy-series baseline" points="54.0,214.0 67.0,214.0 80.1,214.0 93.1,214.0 106.2,214.0 119.2,171.7 132.3,202.1 145.3,212.0 158.4,212.0 171.4,209.8 184.5,213.2 197.5,194.7 210.6,202.4 223.6,202.6 236.7,203.0 249.7,202.7 262.8,132.9 275.8,134.3 288.9,140.0 301.9,89.8 315.0,106.6 328.0,184.1 341.0,124.9 354.1,108.8 367.1,135.3 380.2,184.1 393.2,120.2 406.3,184.7 419.3,169.6 432.4,201.9 445.4,197.7 458.5,199.5 471.5,197.5 484.6,202.2 497.6,198.3 510.7,195.1 523.7,198.2 536.8,202.5 549.8,198.5 562.9,198.9 575.9,202.5 589.0,202.6 602.0,203.0 615.0,203.0 628.1,202.9 641.1,202.7 654.2,202.6 667.2,198.9 680.3,202.8 693.3,202.6 706.4,202.2 719.4,199.3 732.5,202.5 745.5,202.8 758.6,202.4 771.6,198.7 784.7,195.0 797.7,202.8 810.8,202.2 823.8,202.3 836.9,202.4 849.9,202.6 863.0,191.2 876.0,203.4"><title>Baseline GPU utilization over raw workload seconds</title></polyline>
+            <polyline class="occupancy-series controller" points="54.0,214.0 66.9,214.0 79.8,213.8 92.6,211.7 105.5,212.0 118.4,212.0 131.3,200.0 144.1,190.4 157.0,204.1 169.9,202.6 182.8,213.1 195.7,196.1 208.5,202.7 221.4,202.7 234.3,202.6 247.2,195.1 260.0,110.3 272.9,161.7 285.8,118.6 298.7,94.8 311.6,118.2 324.4,182.9 337.3,105.8 350.2,123.0 363.1,137.4 375.9,199.5 388.8,205.3 401.7,139.0 414.6,173.9 427.5,179.0 440.3,142.9 453.2,198.5 466.1,194.6 479.0,194.3 491.9,198.7 504.7,198.7 517.6,202.2 530.5,202.5 543.4,198.4 556.2,198.1 569.1,202.3 582.0,202.6 594.9,202.9 607.8,202.7 620.6,202.8 633.5,202.9 646.4,202.5 659.3,202.6 672.1,198.7 685.0,202.4 697.9,202.6 710.8,199.0 723.7,202.4 736.5,202.3 749.4,202.5 762.3,202.6 775.2,195.2 788.0,202.6 800.9,202.4 813.8,199.3 826.7,202.4 839.6,202.5 852.4,191.0 865.3,203.8"><title>RTG GPU utilization over raw workload seconds</title></polyline>
           </svg>
-          <p class="small">The first several due replays improved strongly, while a few later requests got worse. That is why the total improved, but the red-bar pattern did not disappear.</p>
+          <p class="small">X-axis is raw elapsed replay workload time. The RTG line stops at 150.2s, while the baseline continues to 152.2s.</p>
         </div>
       </div>
 
-      <div class="chart" aria-label="Scenario 1 occupancy balance">
-        <h3>GPU Occupancy Balance</h3>
-        <p class="small">This checks the caveat we discussed: fewer red bars are only valuable if we do not create empty GPU time. In this run, the controller improved blocker count and kept occupancy slightly higher.</p>
-        <div class="metric-grid">
-          <div class="metric-tile"><div class="metric-name">Avg GPU Utilization</div><div class="metric-value">15.7%</div><p class="small">Baseline was 15.4% during the workload window.</p></div>
-          <div class="metric-tile"><div class="metric-name">GPU Active Samples</div><div class="metric-value">99.8%</div><p class="small">Baseline was 99.9% during the workload window.</p></div>
-          <div class="metric-tile"><div class="metric-name">Workload Window</div><div class="metric-value">168.1 s</div><p class="small">Baseline was 171.8 s; controller was 3.7 s shorter.</p></div>
-        </div>
-          <div class="occupancy-chart-panel">
-            <div class="occupancy-legend">
-              <span><i class="occupancy-swatch baseline"></i>Baseline</span>
-              <span><i class="occupancy-swatch controller"></i>Controller</span>
-              <span><i class="occupancy-swatch baseline-end"></i>Baseline end: 171.8s</span>
-              <span><i class="occupancy-swatch controller-end"></i>Controller end: 168.1s</span>
-            </div>
-            <svg class="occupancy-line" viewBox="0 0 900 275" role="img" aria-label="GPU utilization over raw elapsed workload seconds for baseline and controller">
-              <line x1="54" y1="18" x2="54" y2="214" class="axis" />
-              <line x1="54" y1="214" x2="876" y2="214" class="axis" />
-              <line x1="54" y1="18" x2="876" y2="18" class="grid" />
-              <line x1="54" y1="116.0" x2="876" y2="116.0" class="grid" />
-              <line x1="858.1" y1="18" x2="858.1" y2="214" class="end-marker controller" />
-              <line x1="876.0" y1="18" x2="876.0" y2="214" class="end-marker baseline" />
-              <text x="10" y="22">100%</text>
-              <text x="22" y="120.0">50%</text>
-              <text x="30" y="218">0%</text>
-              <text x="54" y="248">0s</text>
-              <text x="341.1" y="248">60s</text>
-              <text x="628.1" y="248">120s</text>
-              <text x="816.1" y="232">controller end</text>
-              <text x="838.0" y="266">baseline end</text>
-              <polyline class="occupancy-series baseline" points="54.0,95.2 67.0,123.8 80.1,171.0 93.1,95.8 106.2,95.4 119.2,97.6 132.3,184.1 145.3,144.9 158.4,124.8 171.4,109.0 184.5,126.9 197.5,150.6 210.6,169.2 223.6,136.0 236.7,123.3 249.7,187.2 262.8,200.8 275.8,204.2 288.9,199.6 301.9,200.0 315.0,198.9 328.0,201.0 341.0,197.0 354.1,204.1 367.1,194.3 380.2,197.2 393.2,199.0 406.3,200.4 419.3,202.3 432.4,202.2 445.4,197.3 458.5,197.9 471.5,202.2 484.6,202.2 497.6,202.2 510.7,202.2 523.7,202.2 536.8,202.2 549.8,202.2 562.9,202.3 575.9,202.3 589.0,202.2 602.0,197.5 615.0,202.2 628.1,202.2 641.1,202.2 654.2,202.8 667.2,198.0 680.3,202.2 693.3,202.2 706.4,202.2 719.4,202.2 732.5,202.4 745.5,197.6 758.6,195.7 771.6,202.2 784.7,202.2 797.7,202.2 810.8,202.2 823.8,202.2 836.9,202.2 849.9,202.2 863.0,198.8 876.0,189.7"><title>Baseline GPU utilization over raw workload seconds</title></polyline>
-              <polyline class="occupancy-series controller" points="54.0,95.9 67.0,122.8 80.1,166.7 93.1,94.1 106.2,98.2 119.2,103.7 132.3,184.0 145.3,141.3 158.4,121.4 171.4,112.7 184.5,124.6 197.5,157.2 210.6,195.9 223.6,202.2 236.7,178.1 249.7,152.9 262.8,176.8 275.8,123.2 288.9,187.4 301.9,197.4 315.0,196.7 328.0,190.8 341.0,202.2 354.1,192.7 367.1,203.5 380.2,193.0 393.2,202.4 406.3,202.2 419.3,202.3 432.4,202.2 445.4,197.4 458.5,197.8 471.5,202.6 484.6,202.4 497.6,202.4 510.7,202.5 523.7,202.7 536.8,202.6 549.8,202.8 562.9,202.5 575.9,202.5 589.0,203.0 602.0,197.2 615.0,202.4 628.1,202.5 641.1,202.2 654.2,202.3 667.2,197.7 680.3,202.2 693.3,202.2 706.4,202.2 719.4,202.3 732.5,202.3 745.5,197.3 758.6,198.2 771.6,202.5 784.7,197.1 797.7,202.2 810.8,202.2 823.8,202.2 836.9,202.6 849.9,194.0 863.0,190.6"><title>Controller GPU utilization over raw workload seconds</title></polyline>
-            </svg>
-            <p class="small">X-axis is raw elapsed workload time. The controller line stops at 168.1s, while the baseline continues to 171.8s. This shows the controller improved TTFT and lateness without creating visible empty-GPU time during the workload window.</p>
-          </div>
-      </div>
-
-      <div class="evidence" aria-label="Scenario 1 reproducibility settings">
+            <div class="evidence" aria-label="Scenario 1 reproducibility settings">
         <p class="evidence-title">Reproduce This Run</p>
         <div class="evidence-grid">
-          <div class="evidence-item"><div class="evidence-label">Run label</div><div class="evidence-value">scenario1_admission_guard_all_replays_20260921_160301</div></div>
-          <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">no_prefetch vs controller_predictive_deadline_queue_admission_guard</div></div>
+          <div class="evidence-item"><div class="evidence-label">Run label</div><div class="evidence-value">scenario1_rtg_v1_20260921_172045</div></div>
+          <div class="evidence-item"><div class="evidence-label">Modes</div><div class="evidence-value">no_prefetch vs controller_ready_time_gpu_backfill</div></div>
           <div class="evidence-item"><div class="evidence-label">Harness / model</div><div class="evidence-value">hatcher / Qwen2.5-Coder-7B</div></div>
           <div class="evidence-item"><div class="evidence-label">Pressure level</div><div class="evidence-value">p3_high with explicit knob override</div></div>
           <div class="evidence-item"><div class="evidence-label">Replay requests</div><div class="evidence-value">32 measured, 48 submitted per mode</div></div>
@@ -1073,11 +1058,9 @@
           <div class="evidence-item"><div class="evidence-label">Timeline control</div><div class="evidence-value">WORKLOAD_SHAPE_MODE_INDEPENDENT=1</div></div>
           <div class="evidence-item"><div class="evidence-label">Wait ranges</div><div class="evidence-value">100-500 ms, 1-5 s, 10-30 s, 60-120 s</div></div>
           <div class="evidence-item"><div class="evidence-label">Wait weights</div><div class="evidence-value">20%, 35%, 30%, 15%</div></div>
-          <div class="evidence-item"><div class="evidence-label">Workload profile</div><div class="evidence-value">synthetic_pressure</div></div>
-          <div class="evidence-item"><div class="evidence-label">Tool wait profile</div><div class="evidence-value">custom realistic buckets</div></div>
-          <div class="evidence-item"><div class="evidence-label">Trace profile</div><div class="evidence-value">full_debug</div></div>
-          <div class="evidence-item"><div class="evidence-label">Deep dive knob</div><div class="evidence-value">TRACE_REPLAY_FRICTION_DEEP_DIVE=1</div></div>
-          <div class="evidence-item"><div class="evidence-label">Blocker tracing</div><div class="evidence-value">TRACE_REPLAY_BLOCKERS=1, max IDs 16</div></div>
+          <div class="evidence-item"><div class="evidence-label">RTG guard knobs</div><div class="evidence-value">5s lookahead, 500ms safety margin</div></div>
+          <div class="evidence-item"><div class="evidence-label">GPU telemetry knobs</div><div class="evidence-value">250ms poll, idle &lt;=5%, 1s backfill runtime cap</div></div>
+          <div class="evidence-item"><div class="evidence-label">Trace profile</div><div class="evidence-value">full_debug + blocker tracing</div></div>
         </div>
       </div>
 

@@ -135,12 +135,20 @@ CONTROLLER_REPLAY_LOOKAHEAD_MS="${CONTROLLER_REPLAY_LOOKAHEAD_MS:-5000}"
 CONTROLLER_REPLAY_SAFETY_MARGIN_MS="${CONTROLLER_REPLAY_SAFETY_MARGIN_MS:-500}"
 CONTROLLER_MAX_HOLD_MS="${CONTROLLER_MAX_HOLD_MS:-10000}"
 CONTROLLER_ALLOW_SMALL_WORK_TOKENS="${CONTROLLER_ALLOW_SMALL_WORK_TOKENS:-256}"
+CONTROLLER_GPU_TELEMETRY_POLL_MS="${CONTROLLER_GPU_TELEMETRY_POLL_MS:-250}"
+CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT="${CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT:-5}"
+CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS="${CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS:-500}"
+CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS="${CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS:-1000}"
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   PYTHON_BIN="python3"
 fi
 export PYTHON_BIN
 export PYTHONPATH="${DIRECT_ROOT}/src:${PYTHONPATH:-}"
+export CONTROLLER_REPLAY_ADMISSION_GUARD CONTROLLER_REPLAY_LOOKAHEAD_MS CONTROLLER_REPLAY_SAFETY_MARGIN_MS
+export CONTROLLER_MAX_HOLD_MS CONTROLLER_ALLOW_SMALL_WORK_TOKENS
+export CONTROLLER_GPU_TELEMETRY_POLL_MS CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT
+export CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS
 
 RESULTS_ROOT="$(mkdir -p "${RESULTS_ROOT}" && cd "${RESULTS_ROOT}" && pwd)"
 RUN_ROOT="$(mkdir -p "${RUN_ROOT}" && cd "${RUN_ROOT}" && pwd)"
@@ -344,6 +352,10 @@ write_run_config() {
     echo "CONTROLLER_REPLAY_SAFETY_MARGIN_MS=${CONTROLLER_REPLAY_SAFETY_MARGIN_MS}"
     echo "CONTROLLER_MAX_HOLD_MS=${CONTROLLER_MAX_HOLD_MS}"
     echo "CONTROLLER_ALLOW_SMALL_WORK_TOKENS=${CONTROLLER_ALLOW_SMALL_WORK_TOKENS}"
+    echo "CONTROLLER_GPU_TELEMETRY_POLL_MS=${CONTROLLER_GPU_TELEMETRY_POLL_MS}"
+    echo "CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT=${CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT}"
+    echo "CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS=${CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS}"
+    echo "CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS=${CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS}"
     echo "AGENTIC_KV_TRACE_SCHEDULER=${AGENTIC_KV_TRACE_SCHEDULER}"
     echo "AGENTIC_KV_TRACE_KV_POOL=${AGENTIC_KV_TRACE_KV_POOL}"
     echo "AGENTIC_KV_COPY_TELEMETRY_ENABLE=${AGENTIC_KV_COPY_TELEMETRY_ENABLE}"
@@ -468,7 +480,7 @@ run_case() {
   export HICACHE_STORAGE_PATH="${case_hicache_storage_path}"
   export MEM_FRACTION_STATIC
   export EXTRA_SERVER_ARGS="${BASE_EXTRA_SERVER_ARGS} --max-total-tokens ${MAX_TOTAL_TOKENS}"
-  if [[ "${mode}" == "e2e_priority_hints" || "${mode}" == "pre_harness_priority_hints" || "${mode}" == "nat_inferred_priority_hints" || "${mode}" == "e2e_priority_hints_speculative_prefill" || "${mode}" == "harness_emitted_signals" || "${mode}" == "controller_scheduler_priority" || "${mode}" == "controller_demote_restore" || "${mode}" == "controller_priority_demote" || "${mode}" == "controller_priority_demotion_admission" || "${mode}" == "controller_priority_demotion_admission_soft" || "${mode}" == "controller_priority_demotion_admission_medium" || "${mode}" == "controller_priority_demotion_admission_hard" || "${mode}" == "controller_priority_demotion_admission_earlyprepare" || "${mode}" == "controller_priority_demotion_admission_shorthand" || "${mode}" == "controller_oracle_timeline" || "${mode}" == "controller_oracle_safe_sjf" || "${mode}" == "controller_oracle_safe_sjf_balanced" || "${mode}" == "controller_oracle_safe_sjf_aggressive" || "${mode}" == "controller_oracle_safe_sjf_maxfill" || "${mode}" == "controller_priority_demotion_calibrated_admission" || "${mode}" == "controller_oracle_exact_runtime_admission" || "${mode}" == "controller_deadline_fair" || "${mode}" == "controller_predictive_deadline_queue" || "${mode}" == "controller_predictive_deadline_queue_admission_guard" || "${mode}" == "controller_memory_admission" || "${mode}" == "controller_admission_control" || "${mode}" == "controller_full" || "${mode}" == "controller_full_chunked_prefill" || "${mode}" == "controller_value_aware_eviction" ]]; then
+  if [[ "${mode}" == "e2e_priority_hints" || "${mode}" == "pre_harness_priority_hints" || "${mode}" == "nat_inferred_priority_hints" || "${mode}" == "e2e_priority_hints_speculative_prefill" || "${mode}" == "harness_emitted_signals" || "${mode}" == "controller_scheduler_priority" || "${mode}" == "controller_demote_restore" || "${mode}" == "controller_priority_demote" || "${mode}" == "controller_priority_demotion_admission" || "${mode}" == "controller_priority_demotion_admission_soft" || "${mode}" == "controller_priority_demotion_admission_medium" || "${mode}" == "controller_priority_demotion_admission_hard" || "${mode}" == "controller_priority_demotion_admission_earlyprepare" || "${mode}" == "controller_priority_demotion_admission_shorthand" || "${mode}" == "controller_oracle_timeline" || "${mode}" == "controller_oracle_safe_sjf" || "${mode}" == "controller_oracle_safe_sjf_balanced" || "${mode}" == "controller_oracle_safe_sjf_aggressive" || "${mode}" == "controller_oracle_safe_sjf_maxfill" || "${mode}" == "controller_priority_demotion_calibrated_admission" || "${mode}" == "controller_oracle_exact_runtime_admission" || "${mode}" == "controller_deadline_fair" || "${mode}" == "controller_predictive_deadline_queue" || "${mode}" == "controller_predictive_deadline_queue_admission_guard" || "${mode}" == "controller_ready_time_gpu_backfill" || "${mode}" == "controller_memory_admission" || "${mode}" == "controller_admission_control" || "${mode}" == "controller_full" || "${mode}" == "controller_full_chunked_prefill" || "${mode}" == "controller_value_aware_eviction" ]]; then
     export EXTRA_SERVER_ARGS="${EXTRA_SERVER_ARGS} --enable-cache-report --enable-priority-scheduling --default-priority-value 0 --schedule-policy fcfs"
   elif [[ "${mode}" == "no_cache_signal" || "${mode}" == "harness_native_cache_lowered" || "${mode}" == "controller_speculative_preload" || "${mode}" == "controller_targeted_kv_prefetch" || "${mode}" == "controller_proactive_kv_management" || "${mode}" == "storage_hicache_baseline" || "${mode}" == "storage_hicache_controller_prefetch" ]]; then
     export EXTRA_SERVER_ARGS="${EXTRA_SERVER_ARGS} --enable-cache-report"

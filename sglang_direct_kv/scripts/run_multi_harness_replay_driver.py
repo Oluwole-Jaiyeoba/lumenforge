@@ -48,6 +48,7 @@ from agentic_kv.controller.modes import (
     CONTROLLER_ORACLE_TIMELINE_MODE,
     CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
     CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
+    CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
     CONTROLLER_PROACTIVE_KV_MANAGEMENT_MODE,
     CONTROLLER_PRIORITY_DEMOTION_CALIBRATED_ADMISSION_MODE,
     CONTROLLER_PRIORITY_DEMOTE_MODE,
@@ -2239,9 +2240,14 @@ async def main_async() -> None:
     controller_active_predictive_deadline_queue = args.mode in {
         CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
         CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
+        CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
     }
+    controller_active_ready_time_gpu_backfill = args.mode == CONTROLLER_READY_TIME_GPU_BACKFILL_MODE
     controller_active_predictive_admission_guard = (
-        args.mode == CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE
+        args.mode in {
+            CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
+            CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
+        }
         and os.environ.get("CONTROLLER_REPLAY_ADMISSION_GUARD", "1").strip().lower()
         in {"1", "true", "yes", "on"}
     )
@@ -2469,6 +2475,87 @@ async def main_async() -> None:
     def replay_guard_allow_small_work_tokens() -> int:
         return int(float(os.environ.get("CONTROLLER_ALLOW_SMALL_WORK_TOKENS", "256") or "256"))
 
+    def gpu_backfill_poll_interval_ms() -> float:
+        return float(os.environ.get("CONTROLLER_GPU_TELEMETRY_POLL_MS", "250") or "250")
+
+    def gpu_idle_util_threshold_pct() -> float:
+        return float(os.environ.get("CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT", "5") or "5")
+
+    def gpu_idle_recent_window_ms() -> float:
+        return float(os.environ.get("CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS", "500") or "500")
+
+    def gpu_backfill_max_runtime_ms() -> float:
+        return float(os.environ.get("CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS", "1000") or "1000")
+
+    gpu_telemetry_state: dict[str, Any] = {
+        "last_poll_perf": 0.0,
+        "last_poll_offset_ms": "",
+        "gpu_utilization_pct": "",
+        "gpu_idle_state": "unknown",
+        "gpu_idle_for_ms": "",
+        "gpu_active_recent_pct": "",
+        "idle_since_offset_ms": None,
+        "samples": [],
+        "error": "",
+    }
+
+    def sample_gpu_idle_state() -> dict[str, Any]:
+        now_perf = time.perf_counter()
+        now_offset = offset_ms()
+        if (
+            gpu_telemetry_state["last_poll_perf"]
+            and (now_perf - float(gpu_telemetry_state["last_poll_perf"])) * 1000.0
+            < gpu_backfill_poll_interval_ms()
+        ):
+            return dict(gpu_telemetry_state)
+        gpu_telemetry_state["last_poll_perf"] = now_perf
+        gpu_telemetry_state["last_poll_offset_ms"] = round(now_offset, 3)
+        try:
+            proc = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=utilization.gpu",
+                    "--format=csv,noheader,nounits",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=1.0,
+            )
+            first = (proc.stdout.strip().splitlines() or [""])[0].strip()
+            util = float(first)
+            gpu_telemetry_state["gpu_utilization_pct"] = round(util, 3)
+            gpu_telemetry_state["error"] = ""
+            samples = list(gpu_telemetry_state.get("samples") or [])
+            samples.append((now_offset, util))
+            cutoff = now_offset - max(gpu_idle_recent_window_ms(), gpu_backfill_poll_interval_ms())
+            samples = [(ts, value) for ts, value in samples if ts >= cutoff]
+            gpu_telemetry_state["samples"] = samples
+            active_samples = sum(1 for _ts, value in samples if value > gpu_idle_util_threshold_pct())
+            gpu_telemetry_state["gpu_active_recent_pct"] = (
+                round(100.0 * active_samples / len(samples), 3) if samples else ""
+            )
+            idle_now = util <= gpu_idle_util_threshold_pct()
+            if idle_now:
+                if gpu_telemetry_state.get("idle_since_offset_ms") is None:
+                    gpu_telemetry_state["idle_since_offset_ms"] = now_offset
+                gpu_telemetry_state["gpu_idle_state"] = "idle"
+                gpu_telemetry_state["gpu_idle_for_ms"] = round(
+                    now_offset - float(gpu_telemetry_state["idle_since_offset_ms"]),
+                    3,
+                )
+            else:
+                gpu_telemetry_state["idle_since_offset_ms"] = None
+                gpu_telemetry_state["gpu_idle_state"] = "active"
+                gpu_telemetry_state["gpu_idle_for_ms"] = 0.0
+        except Exception as exc:  # noqa: BLE001
+            gpu_telemetry_state["gpu_idle_state"] = "unknown"
+            gpu_telemetry_state["gpu_utilization_pct"] = ""
+            gpu_telemetry_state["gpu_active_recent_pct"] = ""
+            gpu_telemetry_state["gpu_idle_for_ms"] = ""
+            gpu_telemetry_state["error"] = f"{type(exc).__name__}: {exc}"
+        return dict(gpu_telemetry_state)
+
     def replay_guard_candidate_runtime_ms(meta: dict[str, Any]) -> float:
         configured = optional_float(meta.get("estimated_runtime_ms"))
         if configured is not None:
@@ -2554,13 +2641,26 @@ async def main_async() -> None:
         flexible_or_later_due = kind == "flexible_work" or (
             candidate_due_ms is not None and active_replays and candidate_due_ms > earliest_due_ms
         )
+        gpu_state = sample_gpu_idle_state() if controller_active_ready_time_gpu_backfill else {}
+        gpu_idle_state = str(gpu_state.get("gpu_idle_state") or "not_used")
+        gpu_runtime_fit = estimated_runtime_ms <= gpu_backfill_max_runtime_ms()
+        gpu_idle_backfill_allowed = bool(
+            controller_active_ready_time_gpu_backfill
+            and risky_overlap
+            and flexible_or_later_due
+            and gpu_idle_state == "idle"
+            and (small_work or gpu_runtime_fit)
+        )
         decision = "admit"
         reason = "no_near_future_replay"
         delay_ms = 0.0
         if kind == "deadline_work" and not flexible_or_later_due:
-            reason = "candidate_due_not_later_than_protected_replay"
+            reason = "candidate_ready_now_or_before_next_ready"
         elif small_work:
             reason = "small_work_safe_backfill"
+            predictive_admission_guard_state["safe_backfills"] += 1
+        elif gpu_idle_backfill_allowed:
+            reason = "gpu_idle_safe_backfill"
             predictive_admission_guard_state["safe_backfills"] += 1
         elif risky_overlap and flexible_or_later_due:
             decision = "delay"
@@ -2569,27 +2669,64 @@ async def main_async() -> None:
                 now_ms + replay_guard_max_hold_ms(),
             )
             delay_ms = max(0.0, delay_until_ms - now_ms)
-            reason = "candidate_would_overlap_earlier_replay_due_time"
+            reason = "hold_would_overlap_next_ready_request"
         elif active_replays:
-            reason = "candidate_predicted_to_finish_before_replay_due"
+            reason = "candidate_predicted_to_finish_before_next_ready"
         if delay_ms <= 1:
             decision = "admit"
         predictive_admission_guard_state["decision_seq"] += 1
         decision_seq = int(predictive_admission_guard_state["decision_seq"])
+        event_name = (
+            "m27.controller_ready_time_gpu_backfill.decision"
+            if controller_active_ready_time_gpu_backfill
+            else "m27.controller_predictive_admission_guard.decision"
+        )
+        release_event_name = (
+            "m27.controller_ready_time_gpu_backfill.released"
+            if controller_active_ready_time_gpu_backfill
+            else "m27.controller_predictive_admission_guard.released"
+        )
+        signals_available = ["session_id", "phase", "ready_time_ms", "estimated_runtime_ms"]
+        if controller_active_ready_time_gpu_backfill:
+            signals_available.append("gpu_idle_state")
+        signals_used = ["session_id", "phase"]
+        if active_replays or candidate_due_ms is not None:
+            signals_used.append("ready_time_ms")
+        if active_replays:
+            signals_used.append("estimated_runtime_ms")
+        if reason == "gpu_idle_safe_backfill":
+            signals_used.append("gpu_idle_state")
+        counterfactual_without_ready_time = (
+            "would_not_know_which_request_becomes_ready_next" if active_replays else "same"
+        )
+        counterfactual_without_estimated_runtime = (
+            "would_not_know_if_candidate_fits_before_next_ready" if active_replays else "same"
+        )
+        counterfactual_without_gpu_idle_state = (
+            "would_hold_instead_of_backfill" if reason == "gpu_idle_safe_backfill" else "same"
+        )
         base_event = {
-            "event": "m27.controller_predictive_admission_guard.decision",
+            "event": event_name,
             "mode": args.mode,
             "harness": args.harness,
             "pressure_level": args.pressure_level,
             "decision_seq": decision_seq,
             "decision": decision,
             "reason": reason,
+            "primary_reason": reason,
+            "signals_available": ",".join(signals_available),
+            "signals_used": ",".join(signals_used),
+            "counterfactual_without_ready_time": counterfactual_without_ready_time,
+            "counterfactual_without_estimated_runtime": counterfactual_without_estimated_runtime,
+            "counterfactual_without_gpu_idle_state": counterfactual_without_gpu_idle_state,
             "session_id": meta.get("session_id", ""),
             "prefix_id": meta.get("prefix_id", ""),
             "phase": meta.get("phase", ""),
             "request_id": meta.get("label", ""),
             "label": meta.get("label", ""),
             "candidate_kind": kind,
+            "ready_time_ms": round(candidate_due_ms, 3) if candidate_due_ms is not None else "",
+            "next_ready_eta_ms": round(max(0.0, earliest_due_ms - now_ms), 3) if active_replays else "",
             "candidate_due_offset_ms": round(candidate_due_ms, 3) if candidate_due_ms is not None else "",
             "candidate_prompt_tokens": prompt_tokens,
             "candidate_max_tokens": meta.get("max_tokens", ""),
@@ -2603,6 +2740,14 @@ async def main_async() -> None:
             "safety_margin_ms": replay_guard_safety_margin_ms(),
             "max_hold_ms": replay_guard_max_hold_ms(),
             "allow_small_work_tokens": replay_guard_allow_small_work_tokens(),
+            "gpu_idle_state": gpu_idle_state,
+            "gpu_utilization_pct": gpu_state.get("gpu_utilization_pct", ""),
+            "gpu_active_recent_pct": gpu_state.get("gpu_active_recent_pct", ""),
+            "gpu_idle_for_ms": gpu_state.get("gpu_idle_for_ms", ""),
+            "gpu_telemetry_error": gpu_state.get("error", ""),
+            "gpu_backfill_max_runtime_ms": gpu_backfill_max_runtime_ms()
+            if controller_active_ready_time_gpu_backfill
+            else "",
             "offset_ms": round(now_ms, 3),
         }
         write_trace(args.trace, base_event)
@@ -2613,6 +2758,17 @@ async def main_async() -> None:
             "controller_replay_admission_guard_reason": reason,
             "controller_replay_admission_guard_predicted_replay_count": len(active_replays),
             "controller_replay_admission_guard_estimated_runtime_ms": round(estimated_runtime_ms, 3),
+            "controller_ready_time_gpu_backfill": controller_active_ready_time_gpu_backfill,
+            "controller_ready_time_gpu_backfill_decision": decision
+            if controller_active_ready_time_gpu_backfill
+            else "",
+            "controller_ready_time_gpu_backfill_reason": reason
+            if controller_active_ready_time_gpu_backfill
+            else "",
+            "controller_gpu_idle_state": gpu_idle_state
+            if controller_active_ready_time_gpu_backfill
+            else "",
+            "controller_signals_used": ",".join(signals_used),
         }
         if decision == "delay":
             predictive_admission_guard_state["delayed_candidates"] += 1
@@ -2624,7 +2780,7 @@ async def main_async() -> None:
                 args.trace,
                 {
                     **base_event,
-                    "event": "m27.controller_predictive_admission_guard.released",
+                    "event": release_event_name,
                     "actual_delay_ms": round(actual_delay_ms, 3),
                     "release_offset_ms": round(released_at_ms, 3),
                 },
@@ -2905,19 +3061,30 @@ async def main_async() -> None:
         predictive: bool = False,
     ) -> dict[str, Any]:
         priority = deadline_fair_priority_for_due(replay_due_ms)
-        policy_label = "predictive_deadline_queue" if predictive else "deadline_fair"
+        ready_time_gpu_backfill = predictive and controller_active_ready_time_gpu_backfill
+        policy_label = (
+            "ready_time_gpu_backfill"
+            if ready_time_gpu_backfill
+            else ("predictive_deadline_queue" if predictive else "deadline_fair")
+        )
         event_name = (
-            "m27.controller_predictive_deadline_queue.priority_assigned"
+            "m27.controller_ready_time_gpu_backfill.priority_assigned"
+            if ready_time_gpu_backfill
+            else "m27.controller_predictive_deadline_queue.priority_assigned"
             if predictive
             else "m27.controller_deadline_fair.priority_assigned"
         )
         translation_source = (
-            "controller_predictive_deadline_queue_tool_wait_eta"
+            "controller_ready_time_gpu_backfill_ready_time"
+            if ready_time_gpu_backfill
+            else "controller_predictive_deadline_queue_tool_wait_eta"
             if predictive
             else "controller_deadline_fair_due_time"
         )
         reason = (
-            "predictive_deadline_queue_orders_replay_requests_by_due_time_from_tool_wait_eta"
+            "ready_time_gpu_backfill_orders_equal_importance_requests_by_predicted_ready_time"
+            if ready_time_gpu_backfill
+            else "predictive_deadline_queue_orders_replay_requests_by_due_time_from_tool_wait_eta"
             if predictive
             else "deadline_fair_mode_orders_all_replays_by_due_time_without_semantic_high_priority"
         )
@@ -2925,6 +3092,7 @@ async def main_async() -> None:
             "priority_label": policy_label,
             "controller_deadline_fair": not predictive,
             "controller_predictive_deadline_queue": predictive,
+            "controller_ready_time_gpu_backfill": ready_time_gpu_backfill,
             "controller_sglang_priority": priority,
             "controller_deadline_due_offset_ms": round(replay_due_ms, 3),
             "controller_priority_translation": f"controller.{policy_label}.due_priority={priority}",

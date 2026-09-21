@@ -445,6 +445,7 @@ def trace_replay_rows(traces: dict[str, CaseTrace]) -> list[dict[str, Any]]:
 
 def mode_from_case_id(case_id: str) -> str:
     known_modes = [
+        "controller_ready_time_gpu_backfill",
         "controller_predictive_deadline_queue_admission_guard",
         "controller_predictive_deadline_queue",
         "controller_deadline_fair",
@@ -880,6 +881,7 @@ def preferred_modes(rows: list[dict[str, Any]]) -> tuple[str | None, str | None]
     modes = sorted({str(row.get("mode") or "") for row in rows if row.get("mode")})
     baseline = "no_prefetch" if "no_prefetch" in modes else (modes[0] if modes else None)
     controller_preferences = [
+        "controller_ready_time_gpu_backfill",
         "controller_predictive_deadline_queue_admission_guard",
         "controller_predictive_deadline_queue",
     ]
@@ -1256,6 +1258,7 @@ def render_occupancy_charts(rows: list[dict[str, Any]], traces: dict[str, CaseTr
         "no_prefetch": "#2563eb",
         "controller_predictive_deadline_queue": "#059669",
         "controller_predictive_deadline_queue_admission_guard": "#16a34a",
+        "controller_ready_time_gpu_backfill": "#22c55e",
     }
 
     def downsample(points: list[tuple[float, float]], limit: int = 220) -> list[tuple[float, float]]:

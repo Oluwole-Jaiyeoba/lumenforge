@@ -41,6 +41,7 @@ PRIORITY_ENABLED_MODES = {
     "controller_deadline_fair",
     "controller_predictive_deadline_queue",
     "controller_predictive_deadline_queue_admission_guard",
+    "controller_ready_time_gpu_backfill",
     "controller_value_aware_eviction",
     "controller_memory_admission",
     "controller_admission_control",
@@ -68,6 +69,7 @@ CONTROLLER_ORACLE_EXACT_RUNTIME_ADMISSION_MODE = "controller_oracle_exact_runtim
 CONTROLLER_DEADLINE_FAIR_MODE = "controller_deadline_fair"
 CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE = "controller_predictive_deadline_queue"
 CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE = "controller_predictive_deadline_queue_admission_guard"
+CONTROLLER_READY_TIME_GPU_BACKFILL_MODE = "controller_ready_time_gpu_backfill"
 CONTROLLER_VALUE_AWARE_EVICTION_MODE = "controller_value_aware_eviction"
 CONTROLLER_MEMORY_ADMISSION_MODE = "controller_memory_admission"
 CONTROLLER_ORACLE_SAFE_SJF_MODES = {
@@ -96,6 +98,8 @@ CONTROLLER_PRIORITY_MODES = {
     *CONTROLLER_PRIORITY_DEMOTION_ADMISSION_MODES,
     CONTROLLER_DEADLINE_FAIR_MODE,
     CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
+    CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
+    CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
     CONTROLLER_VALUE_AWARE_EVICTION_MODE,
     CONTROLLER_MEMORY_ADMISSION_MODE,
     CONTROLLER_ADMISSION_CONTROL_MODE,
@@ -349,7 +353,12 @@ def sglang_priority(meta: dict[str, Any], payload: dict[str, Any] | None = None)
                     return int(meta.get("low_priority") or -100)
                 return None
         if (
-            mode in {CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE, CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE}
+            mode
+            in {
+                CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
+                CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
+                CONTROLLER_READY_TIME_GPU_BACKFILL_MODE,
+            }
             and meta.get("controller_predictive_deadline_queue")
         ):
             try:

@@ -87,6 +87,7 @@ MODE_LABELS = {
     "controller_deadline_fair": "CDF = Controller deadline-fair scheduling",
     "controller_predictive_deadline_queue": "PDQ = Controller predictive deadline queue",
     "controller_predictive_deadline_queue_admission_guard": "PDQ+Guard = Controller predictive deadline queue + admission guard",
+    "controller_ready_time_gpu_backfill": "RTG = Controller ready-time + GPU backfill",
     "controller_memory_admission": "CMA = Controller memory admission",
     "controller_admission_control": "CA = Controller admission control",
     "controller_full": "CF = Full controller",
@@ -128,6 +129,7 @@ MODE_COLORS = {
     "controller_deadline_fair": "#0f766e",
     "controller_predictive_deadline_queue": "#059669",
     "controller_predictive_deadline_queue_admission_guard": "#16a34a",
+    "controller_ready_time_gpu_backfill": "#22c55e",
     "controller_memory_admission": "#0d9488",
     "controller_admission_control": "#2563eb",
     "controller_full": "#581c87",
@@ -331,6 +333,12 @@ CHART_SIGNAL_BUCKETS = {
         "color": "#16a34a",
         "modes": {"controller_predictive_deadline_queue_admission_guard"},
     },
+    "controller_ready_time_gpu_backfill": {
+        "label": "Controller Ready-Time + GPU Backfill",
+        "description": "Controller orders equal-importance requests by predicted ready time, uses runtime estimates to avoid overlap, and uses GPU idle telemetry only for safe backfill",
+        "color": "#22c55e",
+        "modes": {"controller_ready_time_gpu_backfill"},
+    },
     "controller_admission": {
         "label": "Controller Admission Control",
         "description": "Portable controller admits or skips speculative KV warmup based on pressure limits, with explicit skip reasons",
@@ -522,6 +530,10 @@ COST_ACCOUNTING_COLORS = {
         "target": "#16a34a",
         "filler": "#bbf7d0",
     },
+    "controller_ready_time_gpu_backfill": {
+        "target": "#22c55e",
+        "filler": "#dcfce7",
+    },
 }
 COST_ACCOUNTING_DELTA_BETTER = "#16a34a"
 COST_ACCOUNTING_DELTA_WORSE = "#dc2626"
@@ -601,6 +613,10 @@ COST_ACCOUNTING_DELTA_COLORS = {
     },
     "controller_predictive_deadline_queue_admission_guard": {
         "better": "#16a34a",
+        "worse": "#dc2626",
+    },
+    "controller_ready_time_gpu_backfill": {
+        "better": "#22c55e",
         "worse": "#dc2626",
     },
 }
