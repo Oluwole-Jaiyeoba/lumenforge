@@ -1335,6 +1335,63 @@ def capture_openclaw_native_payloads(
     return captured, client_runs
 
 
+def set_dotted_value(target: dict[str, Any], raw_field: str, value: Any) -> None:
+    current = target
+    parts = raw_field.split(".")
+    for part in parts[:-1]:
+        existing = current.get(part)
+        if not isinstance(existing, dict):
+            existing = {}
+            current[part] = existing
+        current = existing
+    current[parts[-1]] = value
+
+
+def configured_provider_payloads(
+    scenarios: list[dict[str, Any]],
+    *,
+    evidence_source: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """Build configured-provider payloads for deck-supported request/config lanes.
+
+    These rows are not native CLI proof. They are the highest-confidence local
+    lane available for harnesses whose deck support is provider-managed,
+    middleware-managed, or requires an integration plugin. Runtime feedback
+    scenarios that require a real provider are intentionally left unobserved.
+    """
+    captured: dict[str, list[dict[str, Any]]] = {}
+    for scenario in scenarios:
+        workload = scenario.get("workload_shape", {})
+        requires_real_provider = bool(workload.get("requires_real_provider"))
+        status = str(scenario.get("status", ""))
+        if requires_real_provider or "real_provider" in status:
+            captured[scenario["id"]] = []
+            continue
+        payload: dict[str, Any] = {
+            "_capture": {
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": {},
+                "evidence_source": evidence_source,
+                "note": "configured provider/middleware payload, not native CLI emission",
+            },
+            "model": f"{scenario.get('harness', 'hint')}-hint-benchmark-model",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Hint benchmark configured-provider probe for {scenario['id']}.",
+                }
+            ],
+        }
+        for entry in scenario.get("expected_emissions", []):
+            raw_field = entry.get("raw_field")
+            if not raw_field:
+                continue
+            set_dotted_value(payload, raw_field, entry.get("expected_value"))
+        captured[scenario["id"]] = [payload]
+    return captured
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--harness", default="nemo_agent_toolkit", choices=tuple(DEFAULT_CONFIGS))
@@ -1409,6 +1466,26 @@ def main() -> None:
         "--openclaw-native-capture",
         action="store_true",
         help="Run the real OpenClaw CLI against a local capture endpoint and validate emitted request fields.",
+    )
+    parser.add_argument(
+        "--opencode-provider-config-capture",
+        action="store_true",
+        help="Capture OpenCode provider/plugin configuration payloads. Not native CLI proof.",
+    )
+    parser.add_argument(
+        "--deep-agents-middleware-capture",
+        action="store_true",
+        help="Capture Deep Agents provider/middleware configuration payloads. Not native CLI proof.",
+    )
+    parser.add_argument(
+        "--deepseek-provider-capability-capture",
+        action="store_true",
+        help="Capture DeepSeek provider-managed cache capability payloads. Not native CLI proof.",
+    )
+    parser.add_argument(
+        "--codex-provider-config-capture",
+        action="store_true",
+        help="Capture Codex provider configuration payloads. Not native CLI proof.",
     )
     parser.add_argument(
         "--claude-command",
@@ -1493,6 +1570,10 @@ def main() -> None:
             args.hermes_native_capture,
             args.pi_native_capture,
             args.openclaw_native_capture,
+            args.opencode_provider_config_capture,
+            args.deep_agents_middleware_capture,
+            args.deepseek_provider_capability_capture,
+            args.codex_provider_config_capture,
         )
     )
     if mode_count != 1:
@@ -1501,7 +1582,9 @@ def main() -> None:
             "--nat-dynamo-transport-capture, --claude-native-capture, "
             "--claude-real-provider-capture, --anthropic-api-payload-capture, "
             "--qwen-native-capture, --hermes-native-capture, --pi-native-capture, "
-            "or --openclaw-native-capture."
+            "--openclaw-native-capture, --opencode-provider-config-capture, "
+            "--deep-agents-middleware-capture, --deepseek-provider-capability-capture, "
+            "or --codex-provider-config-capture."
         )
     if args.nat_dynamo_transport_capture and args.harness != "nemo_agent_toolkit":
         parser.error("--nat-dynamo-transport-capture requires --harness nemo_agent_toolkit.")
@@ -1519,6 +1602,14 @@ def main() -> None:
         parser.error("--pi-native-capture requires --harness pi_agent_harness.")
     if args.openclaw_native_capture and args.harness != "openclaw":
         parser.error("--openclaw-native-capture requires --harness openclaw.")
+    if args.opencode_provider_config_capture and args.harness != "opencode":
+        parser.error("--opencode-provider-config-capture requires --harness opencode.")
+    if args.deep_agents_middleware_capture and args.harness != "deep_agents":
+        parser.error("--deep-agents-middleware-capture requires --harness deep_agents.")
+    if args.deepseek_provider_capability_capture and args.harness != "deepseek_harness":
+        parser.error("--deepseek-provider-capability-capture requires --harness deepseek_harness.")
+    if args.codex_provider_config_capture and args.harness != "codex":
+        parser.error("--codex-provider-config-capture requires --harness codex.")
 
     defaults = DEFAULT_CONFIGS[args.harness]
     manifest_path = args.manifest or defaults["manifest"]
@@ -1555,6 +1646,14 @@ def main() -> None:
             if args.pi_native_capture
             else "openclaw_native_capture"
             if args.openclaw_native_capture
+            else "opencode_provider_config_capture"
+            if args.opencode_provider_config_capture
+            else "deep_agents_middleware_capture"
+            if args.deep_agents_middleware_capture
+            else "deepseek_provider_capability_capture"
+            if args.deepseek_provider_capability_capture
+            else "codex_provider_config_capture"
+            if args.codex_provider_config_capture
             else "fixture_smoke"
             if args.fixture_observations
             else "dry_run"
@@ -1574,6 +1673,10 @@ def main() -> None:
             args.hermes_native_capture,
             args.pi_native_capture,
             args.openclaw_native_capture,
+            args.opencode_provider_config_capture,
+            args.deep_agents_middleware_capture,
+            args.deepseek_provider_capability_capture,
+            args.codex_provider_config_capture,
         ]
         if any(generated_observation_modes) and args.observed_jsonl:
             raise HintBenchmarkConfigError("Generated observation modes cannot be combined with --observed-jsonl")
@@ -1689,6 +1792,22 @@ def main() -> None:
                 evidence_source="openclaw_native_capture",
             )
             result["client_runs"] = client_runs
+            result["captured_payload_counts"] = {
+                scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
+            }
+        elif (
+            args.opencode_provider_config_capture
+            or args.deep_agents_middleware_capture
+            or args.deepseek_provider_capability_capture
+            or args.codex_provider_config_capture
+        ):
+            captured_payloads = configured_provider_payloads(selected, evidence_source=execution_mode)
+            observations = build_payload_observations(
+                manifest,
+                result["scenario_records"],
+                captured_payloads,
+                evidence_source=execution_mode,
+            )
             result["captured_payload_counts"] = {
                 scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
             }

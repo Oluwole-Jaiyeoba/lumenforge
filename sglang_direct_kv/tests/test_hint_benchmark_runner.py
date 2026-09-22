@@ -259,6 +259,22 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
             "native_client_or_transport_capture",
         )
         self.assertEqual(
+            evidence_tier_for_mode("opencode_provider_config_capture"),
+            "provider_config_or_middleware_capture",
+        )
+        self.assertEqual(
+            evidence_tier_for_mode("deep_agents_middleware_capture"),
+            "provider_config_or_middleware_capture",
+        )
+        self.assertEqual(
+            evidence_tier_for_mode("deepseek_provider_capability_capture"),
+            "provider_config_or_middleware_capture",
+        )
+        self.assertEqual(
+            evidence_tier_for_mode("codex_provider_config_capture"),
+            "provider_config_or_middleware_capture",
+        )
+        self.assertEqual(
             evidence_tier_for_mode("claude_real_provider_capture"),
             "native_client_real_provider_response",
         )

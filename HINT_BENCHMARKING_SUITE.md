@@ -65,10 +65,13 @@ remaining harnesses.
 Deck scope note: `presentation/Harness Signal Tables As-Is.pptx` also includes
 OpenCode, Deep Agents, DeepSeek Harness, Codex, and Dynamo. The runbook now
 represents OpenCode, Deep Agents, DeepSeek Harness, and Codex explicitly, and
-those four now have manifests, scenarios, knobs, and fixture validation runs.
-They still need native/provider capture adapters before we can claim real
-harness evidence. Dynamo remains intentionally deferred for now because it is
-more memory-heavy than the current GPU setup can comfortably handle.
+those four now have manifests, scenarios, knobs, fixture validation runs, and
+provider/config or middleware capture lanes. Those lanes cover 2 of 3 OpenCode
+signals, 7 of 8 Deep Agents signals, 3 of 4 DeepSeek Harness signals, and 4 of
+5 Codex signals from the deck. The remaining gaps are real-provider feedback
+or native CLI/client proof, depending on the harness. Dynamo remains
+intentionally deferred for now because it is more memory-heavy than the current
+GPU setup can comfortably handle.
 
 ## Claude Evidence Lanes
 

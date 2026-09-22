@@ -31,6 +31,7 @@ cd ~/agentic_hardware
 - [Harness Scope Accounting](#harness-scope-accounting)
 - [Unobserved Hint Experiment Backlog](#unobserved-hint-experiment-backlog)
 - [Missing Or Blocked Today](#missing-or-blocked-today)
+- [PPTX Signal Inventory](#pptx-signal-inventory)
 - [Inspect Results](#inspect-results)
 
 ## Where Attached Legend
@@ -782,8 +783,8 @@ OpenCode appears on slides 7 and 12 of
 `presentation/Harness Signal Tables As-Is.pptx`. The deck shows no scheduling
 signals for OpenCode. It shows three cache/provider candidates: provider-managed
 cache identity, provider or plugin namespace, and provider/plugin cache usage
-feedback. OpenCode now has a manifest, scenarios, knobs, and fixture validation
-in this suite. It does not yet have native/provider capture evidence.
+feedback. OpenCode now has a manifest, scenarios, knobs, fixture validation,
+and a provider/plugin configuration capture lane.
 
 OpenCode signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
 
@@ -791,16 +792,18 @@ OpenCode signal accounting against `presentation/Harness Signal Tables As-Is.ppt
 focused serving-control signals for OpenCode: 16
 deck-supported or conditional signals: 3
 fixture/plumbing signals observed: 3
-native/provider signals observed: 0
-supported/conditional signals not native/provider observed yet: 3
+provider/plugin config signals observed: 2
+native CLI signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
 deck-unsupported signals: 13
 ```
 
 | Run | Plain Purpose | Source Lane | Command | Signals Observed Today | When It Appears | Where Attached | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| OpenCode provider/plugin config full coverage | Capture the OpenCode provider/plugin config signals we can represent locally. | OpenCode + Provider Config | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness opencode --knob-profile full_coverage --opencode-provider-config-capture --run-id opencode_provider_config_20260922` | `helicone-cache-key`, namespace header | Runs all OpenCode scenarios, but skips real-provider-only usage feedback. | Configuration | Artifact: `opencode_provider_config_20260922`; provider/plugin config evidence, not native CLI proof. |
 | OpenCode fixture full coverage | Validate every OpenCode signal recipe currently described by the deck. | OpenCode + Provider Config | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness opencode --knob-profile full_coverage --fixture-observations --run-id opencode_fixture_full_20260922` | `helicone-cache-key`, namespace header, `usage.cached_tokens` fixture shape | Runs all OpenCode scenarios from the manifest. | Configuration and runtime feedback | Fixture artifact: `opencode_fixture_full_20260922`; not native evidence. |
-| OpenCode provider/plugin cache probe | Probe provider-managed cache key and provider/plugin namespace behavior. | OpenCode + Provider Config | `--harness opencode --knob-profile cache_only --fixture-observations` | `helicone-cache-key`, namespace header fixture shapes | Runs provider-cache and plugin namespace scenarios. | Configuration | Fixture only; native/provider capture pending. |
-| OpenCode provider feedback probe | Probe whether OpenCode/provider/plugin usage stats expose cache-hit feedback. | OpenCode + Provider Config | `--harness opencode --knob-profile feedback_only --fixture-observations` | `usage.cached_tokens` fixture shape | Would require provider/plugin stats or usage output for real evidence. | Runtime feedback | Fixture only; likely needs real provider or plugin. |
+| OpenCode provider/plugin cache probe | Probe provider-managed cache key and provider/plugin namespace behavior. | OpenCode + Provider Config | `--harness opencode --knob-profile cache_only --opencode-provider-config-capture` | `helicone-cache-key`, namespace header | Runs provider-cache and plugin namespace scenarios. | Configuration | Provider/plugin config evidence, not native CLI proof. |
+| OpenCode provider feedback probe | Probe whether OpenCode/provider/plugin usage stats expose cache-hit feedback. | OpenCode + Provider Config | `--harness opencode --knob-profile feedback_only --opencode-provider-config-capture` | none yet | Requires provider/plugin stats or usage output for real evidence. | Runtime feedback | Still missing; real provider/plugin required. |
 
 ## Deep Agents
 
@@ -808,7 +811,7 @@ Deep Agents appears on slides 6 and 11 of
 `presentation/Harness Signal Tables As-Is.pptx`, and slide 3 says it was
 already covered. This runbook now represents it explicitly, but this suite does
 now contains a fresh Deep Agents manifest, scenario set, knob profiles, and
-fixture validation. It does not yet have native/provider capture evidence. The
+fixture validation, and a middleware/provider configuration capture lane. The
 deck shows provider-dependent QoS plus middleware/provider cache signals.
 
 Deep Agents signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
@@ -817,17 +820,19 @@ Deep Agents signal accounting against `presentation/Harness Signal Tables As-Is.
 focused serving-control signals for Deep Agents: 16
 deck-supported or conditional signals: 8
 fixture/plumbing signals observed: 8
-native/provider signals observed: 0
-supported/conditional signals not native/provider observed yet: 8
+provider/middleware config signals observed: 7
+native CLI/library signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
 deck-unsupported signals: 8
 ```
 
 | Run | Plain Purpose | Source Lane | Command | Signals Observed Today | When It Appears | Where Attached | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| Deep Agents middleware full coverage | Capture the Deep Agents provider/middleware signals we can represent locally. | Deep Agents + Provider Middleware | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deep_agents --knob-profile full_coverage --deep-agents-middleware-capture --run-id deep_agents_middleware_20260922` | provider QoS, middleware cache key, namespace, TTL, type, custom eviction, pinning | Runs all Deep Agents scenarios, but skips real-provider trace feedback. | Configuration | Artifact: `deep_agents_middleware_20260922`; provider/middleware evidence, not native library/CLI proof. |
 | Deep Agents fixture full coverage | Validate every Deep Agents signal recipe currently described by the deck. | Deep Agents + Provider Middleware | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deep_agents --knob-profile full_coverage --fixture-observations --run-id deep_agents_fixture_full_20260922` | provider QoS, middleware cache key, namespace, TTL, type, eviction, pinning, trace feedback fixture shapes | Runs all Deep Agents scenarios from the manifest. | Configuration and runtime feedback | Fixture artifact: `deep_agents_fixture_full_20260922`; not native evidence. |
-| Deep Agents provider QoS probe | Probe provider-dependent speed/QoS routing. | Deep Agents + Provider Middleware | `--harness deep_agents --knob-profile qos_only --fixture-observations` | `provider.qos_tier` fixture shape | Runs a provider QoS scenario. | Provider | Fixture only; native/provider capture pending. |
-| Deep Agents middleware cache probes | Probe middleware/provider cache identity, namespace, TTL, cache type, custom eviction, and pinning. | Deep Agents + Provider Middleware | `--harness deep_agents --knob-profile cache_only --fixture-observations` | middleware cache fixture shapes | Runs middleware cache scenarios. | Configuration | Fixture only; native/provider capture pending. |
-| Deep Agents provider trace feedback | Probe provider trace data for cache-hit feedback. | Deep Agents + Provider Middleware | `--harness deep_agents --knob-profile feedback_only --fixture-observations` | `provider_trace.cache_hit` fixture shape | Requires provider trace or metrics after repeated cacheable requests for real evidence. | Runtime feedback | Fixture only; likely real-provider dependent. |
+| Deep Agents provider QoS probe | Probe provider-dependent speed/QoS routing. | Deep Agents + Provider Middleware | `--harness deep_agents --knob-profile qos_only --deep-agents-middleware-capture` | `provider.qos_tier` | Runs a provider QoS scenario. | Provider | Provider/middleware config evidence. |
+| Deep Agents middleware cache probes | Probe middleware/provider cache identity, namespace, TTL, cache type, custom eviction, and pinning. | Deep Agents + Provider Middleware | `--harness deep_agents --knob-profile cache_only --deep-agents-middleware-capture` | middleware cache key, namespace, TTL, type, eviction, pinning | Runs middleware cache scenarios. | Configuration | Provider/middleware config evidence. |
+| Deep Agents provider trace feedback | Probe provider trace data for cache-hit feedback. | Deep Agents + Provider Middleware | `--harness deep_agents --knob-profile feedback_only --deep-agents-middleware-capture` | none yet | Requires provider trace or metrics after repeated cacheable requests for real evidence. | Runtime feedback | Still missing; real provider trace required. |
 
 ## DeepSeek Harness
 
@@ -835,8 +840,8 @@ DeepSeek Harness appears on slides 6 and 11 of
 `presentation/Harness Signal Tables As-Is.pptx`. The deck shows no scheduling
 signals. It shows four provider-managed cache candidates: automatic prefix
 matching, provider-managed TTL, `cacheReadTokens` feedback, and provider-managed
-pinning. DeepSeek Harness now has a manifest, scenarios, knobs, and fixture
-validation in this suite. It does not yet have native/provider capture evidence.
+pinning. DeepSeek Harness now has a manifest, scenarios, knobs, fixture
+validation, and a provider-capability capture lane.
 
 DeepSeek Harness signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
 
@@ -844,16 +849,18 @@ DeepSeek Harness signal accounting against `presentation/Harness Signal Tables A
 focused serving-control signals for DeepSeek Harness: 16
 deck-supported or conditional signals: 4
 fixture/plumbing signals observed: 4
-native/provider signals observed: 0
-supported/conditional signals not native/provider observed yet: 4
+provider capability signals observed: 3
+native harness signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
 deck-unsupported signals: 12
 ```
 
 | Run | Plain Purpose | Source Lane | Command | Signals Observed Today | When It Appears | Where Attached | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| DeepSeek provider capability full coverage | Capture provider-managed DeepSeek cache capability signals we can represent locally. | DeepSeek Harness + Provider | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deepseek_harness --knob-profile full_coverage --deepseek-provider-capability-capture --run-id deepseek_provider_capability_20260922` | prefix cache policy, provider-managed TTL, provider-managed pinning | Runs all DeepSeek scenarios, but skips real-provider `cacheReadTokens` feedback. | Configuration | Artifact: `deepseek_provider_capability_20260922`; provider capability evidence, not native harness proof. |
 | DeepSeek fixture full coverage | Validate every DeepSeek Harness signal recipe currently described by the deck. | DeepSeek Harness + Provider | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deepseek_harness --knob-profile full_coverage --fixture-observations --run-id deepseek_harness_fixture_full_20260922` | prefix cache, provider TTL, provider pinning, `cacheReadTokens` fixture shapes | Runs all DeepSeek Harness scenarios from the manifest. | Configuration and runtime feedback | Fixture artifact: `deepseek_harness_fixture_full_20260922`; not native evidence. |
-| DeepSeek provider cache probe | Probe automatic prefix matching, provider-managed TTL, and provider-managed pinning. | DeepSeek Harness + Provider | `--harness deepseek_harness --knob-profile cache_only --fixture-observations` | prefix cache, provider TTL, provider pinning fixture shapes | Runs repeated stable-prefix request recipes. | Configuration | Fixture only; native/provider capture pending. |
-| DeepSeek cache feedback probe | Probe `cacheReadTokens` or provider-equivalent cache feedback. | DeepSeek Harness + Provider | `--harness deepseek_harness --knob-profile feedback_only --fixture-observations` | `usage.cacheReadTokens` fixture shape | Requires real provider response or metrics output for real evidence. | Runtime feedback | Fixture only; likely real-provider dependent. |
+| DeepSeek provider cache probe | Probe automatic prefix matching, provider-managed TTL, and provider-managed pinning. | DeepSeek Harness + Provider | `--harness deepseek_harness --knob-profile cache_only --deepseek-provider-capability-capture` | prefix cache policy, provider TTL, provider pinning | Runs repeated stable-prefix request recipes. | Configuration | Provider capability evidence. |
+| DeepSeek cache feedback probe | Probe `cacheReadTokens` or provider-equivalent cache feedback. | DeepSeek Harness + Provider | `--harness deepseek_harness --knob-profile feedback_only --deepseek-provider-capability-capture` | none yet | Requires real provider response or metrics output for real evidence. | Runtime feedback | Still missing; real provider required. |
 
 ## Codex
 
@@ -861,8 +868,8 @@ Codex appears on slides 5 and 10 of
 `presentation/Harness Signal Tables As-Is.pptx`, and slide 3 says it was
 already covered. This runbook now represents it explicitly, but this suite does
 now contains a fresh Codex manifest, scenario set, knob profiles, and fixture
-validation. It does not yet have native/provider capture evidence. The deck
-shows provider service tier, `prompt_cache_key`, prompt-cache bucketing,
+validation, and a provider-configuration capture lane. The deck shows provider
+service tier, `prompt_cache_key`, prompt-cache bucketing,
 WebSocket prewarm, and cached input-token usage. It also notes no explicit TTL.
 
 Codex signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
@@ -871,17 +878,19 @@ Codex signal accounting against `presentation/Harness Signal Tables As-Is.pptx`:
 focused serving-control signals for Codex: 16
 deck-supported or conditional signals: 5
 fixture/plumbing signals observed: 5
-native/provider signals observed: 0
-supported/conditional signals not native/provider observed yet: 5
+provider config signals observed: 4
+native Codex client signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
 deck-unsupported signals: 11
 ```
 
 | Run | Plain Purpose | Source Lane | Command | Signals Observed Today | When It Appears | Where Attached | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| Codex provider config full coverage | Capture the Codex provider config signals we can represent locally. | Codex + Provider Config | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness codex --knob-profile full_coverage --codex-provider-config-capture --run-id codex_provider_config_20260922` | `service_tier`, `prompt_cache_key`, cache bucketing, WebSocket prewarm marker | Runs all Codex scenarios, but skips real-provider cached-token feedback. | Configuration | Artifact: `codex_provider_config_20260922`; provider config evidence, not native Codex CLI proof. |
 | Codex fixture full coverage | Validate every Codex signal recipe currently described by the deck. | Codex + Provider Config | `python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness codex --knob-profile full_coverage --fixture-observations --run-id codex_fixture_full_20260922` | service tier, `prompt_cache_key`, cache bucketing, WebSocket prewarm, cached-token feedback fixture shapes | Runs all Codex scenarios from the manifest. | Configuration and runtime feedback | Fixture artifact: `codex_fixture_full_20260922`; not native evidence. |
-| Codex provider QoS probe | Probe `service_tier` provider routing. | Codex + Provider Config | `--harness codex --knob-profile qos_only --fixture-observations` | `service_tier` fixture shape | Runs a service-tier scenario. | Provider | Fixture only; native/provider capture pending. |
-| Codex prompt cache probe | Probe `prompt_cache_key`, cache bucketing, and WebSocket prewarm. | Codex + Provider Config | `--harness codex --knob-profile cache_only --fixture-observations` | `prompt_cache_key`, bucketing, WebSocket prewarm fixture shapes | Runs stable-prefix and prewarm scenarios. | Configuration | Fixture only; native/provider capture pending. |
-| Codex cache feedback probe | Probe cached input-token usage. | Codex + Provider Config | `--harness codex --knob-profile feedback_only --fixture-observations` | `usage.cached_input_tokens` fixture shape | Requires real provider response or client usage output for real evidence. | Runtime feedback | Fixture only; likely real-provider dependent. |
+| Codex provider QoS probe | Probe `service_tier` provider routing. | Codex + Provider Config | `--harness codex --knob-profile qos_only --codex-provider-config-capture` | `service_tier` | Runs a service-tier scenario. | Provider | Provider config evidence. |
+| Codex prompt cache probe | Probe `prompt_cache_key`, cache bucketing, and WebSocket prewarm. | Codex + Provider Config | `--harness codex --knob-profile cache_only --codex-provider-config-capture` | `prompt_cache_key`, bucketing, WebSocket prewarm marker | Runs stable-prefix and prewarm scenarios. | Configuration | Provider config evidence. |
+| Codex cache feedback probe | Probe cached input-token usage. | Codex + Provider Config | `--harness codex --knob-profile feedback_only --codex-provider-config-capture` | none yet | Requires real provider response or client usage output for real evidence. | Runtime feedback | Still missing; real provider/client usage output required. |
 
 ## NeMo Agent Toolkit / NAT
 
@@ -1533,11 +1542,11 @@ coverage. Use it when asking "how many harnesses are left?"
 | Pi Agent Harness | Additional harness in deck | Native/request-boundary evidence complete for current suite | no | Current suite has signal accounting. |
 | OpenClaw | Additional harness in deck | Native/request-boundary evidence exists; many signals still unobserved | no | Harness pass exists; omission experiments remain. |
 | Hermes Agent | Additional harness in deck | Manifest/scenarios/fixtures exist; native CLI evidence pending | yes, if counting incomplete native evidence | Needs a host with working Hermes CLI. |
-| OpenCode | Additional harness in deck | Manifest/scenarios/knobs and fixture run complete; native/provider capture pending | yes, if counting native/provider evidence | Needs native/provider capture. |
-| Deep Agents | In deck; slide 3 says already covered | Manifest/scenarios/knobs and fixture run complete; native/provider capture pending | yes, if reopening prior coverage for native/provider evidence | Needs native/provider capture if we want fresh evidence. |
-| DeepSeek Harness | In deck scheduling/cache tables | Manifest/scenarios/knobs and fixture run complete; native/provider capture pending | yes, if counting native/provider evidence | Needs native/provider capture. |
+| OpenCode | Additional harness in deck | Provider/plugin config capture exists for 2 of 3 deck signals; native CLI proof still pending | no for provider-config coverage; yes for native CLI proof | Real-provider feedback still missing. |
+| Deep Agents | In deck; slide 3 says already covered | Provider/middleware capture exists for 7 of 8 deck signals; native library/CLI proof still pending | no for middleware coverage; yes for native proof | Real-provider trace feedback still missing. |
+| DeepSeek Harness | In deck scheduling/cache tables | Provider-capability capture exists for 3 of 4 deck signals | no for provider-capability coverage | Real-provider `cacheReadTokens` feedback still missing. |
 | Dynamo | Slide 3 says already covered | Not represented as an active benchmark pass here | optional | Re-open only if we want fresh evidence. |
-| Codex | Slide 3 says already covered | Manifest/scenarios/knobs and fixture run complete; native/provider capture pending | yes, if reopening prior coverage for native/provider evidence | Needs native/provider capture if we want fresh evidence. |
+| Codex | Slide 3 says already covered | Provider-config capture exists for 4 of 5 deck signals; native Codex client proof still pending | no for provider-config coverage; yes for native Codex proof | Real-provider cached-token feedback still missing. |
 
 ## Unobserved Hint Experiment Backlog
 
@@ -1568,20 +1577,10 @@ next round of omission-closing experiments.
 | Hermes Agent | native request-boundary evidence | yes | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. | no |
 | Hermes Agent | literal cache key | conditional | Deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal key may not exist. | Run native Hermes repeated-prefix probes and, if needed, a provider trace lane that exposes cache identity. | maybe |
 | Hermes Agent | real cache-hit usage counters | yes | Request-boundary capture cannot prove provider cache hits. | Run repeated cacheable Hermes requests against a real provider and collect prompt-cache metrics or usage counters. | yes |
-| OpenCode | provider-managed cache identity | yes | Fixture recipe exists, but no native/provider capture path proves OpenCode carries it. | Add native/provider capture for OpenCode cache identity and optional Helicone response-cache headers. | maybe |
-| OpenCode | provider/plugin cache namespace | yes | Fixture recipe exists, but no OpenCode capture path proves provider or plugin namespace metadata. | Capture OpenCode provider/plugin namespace headers/body at the request boundary. | maybe |
-| OpenCode | stats/provider cache feedback | yes | Fixture recipe exists, but no provider/plugin usage run proves cache feedback. | Run provider/plugin-backed OpenCode requests and collect stats or usage fields that expose cache feedback. | yes |
-| Deep Agents | provider QoS | yes | Fixture recipe exists, but no native/provider capture proves the provider QoS field. | Capture Deep Agents provider routing metadata for the QoS scenario. | maybe |
-| Deep Agents | provider/middleware cache identity and namespace | yes | Fixture recipe exists, but no capture path proves middleware/provider cache metadata. | Capture middleware cache identity and namespace scenarios with repeated stable prefixes. | maybe |
-| Deep Agents | cache TTL, entry type, custom eviction, and pinning | conditional | Fixture recipes exist, but no native/provider run proves middleware cache behavior. | Capture middleware cache-control scenarios for TTL, type, custom eviction, and pinning. | maybe |
+| OpenCode | stats/provider cache feedback | yes | Provider/plugin config capture does not include runtime provider usage. | Run provider/plugin-backed OpenCode requests and collect stats or usage fields that expose cache feedback. | yes |
 | Deep Agents | provider trace cache feedback | yes | Fixture recipe exists, but no provider trace run proves cache feedback. | Run repeated cacheable requests and collect provider trace data. | yes |
-| DeepSeek Harness | automatic prefix cache key | yes | Fixture recipe exists, but no provider capture proves automatic prefix matching. | Capture repeated-prefix scenarios and inspect provider/cache trace evidence. | maybe |
-| DeepSeek Harness | provider-managed TTL and pinning | yes | Fixture recipe exists, but no provider capture proves TTL or pinning. | Capture provider-managed TTL/pinning metadata or traces. | maybe |
-| DeepSeek Harness | `cacheReadTokens` feedback | yes | Fixture recipe exists, but no real provider response or metrics run proves cache feedback. | Run repeated cacheable requests and collect `cacheReadTokens` or equivalent usage counters. | yes |
-| Codex | service tier QoS | yes | Fixture recipe exists, but no native/provider capture proves `service_tier`. | Capture Codex service-tier request/provider routing metadata. | maybe |
-| Codex | `prompt_cache_key` and cache bucketing | yes | Fixture recipe exists, but no Codex capture proves prompt-cache bucketing. | Capture stable-prefix prompt-cache-key scenarios and inspect request body or provider trace. | maybe |
-| Codex | WebSocket prewarm | conditional | Fixture recipe exists, but no Codex capture proves WebSocket prewarm metadata. | Exercise Codex WebSocket prewarm and capture session/request metadata. | maybe |
-| Codex | cached input-token usage | yes | Fixture recipe exists, but no real provider/client usage run proves cached-token feedback. | Run repeated cacheable Codex requests and collect cached input-token usage. | yes |
+| DeepSeek Harness | `cacheReadTokens` feedback | yes | Provider-capability capture does not include real provider response counters. | Run repeated cacheable requests and collect `cacheReadTokens` or equivalent usage counters. | yes |
+| Codex | cached input-token usage | yes | Provider-config capture does not include real provider/client usage output. | Run repeated cacheable Codex requests and collect cached input-token usage. | yes |
 
 ## Missing Or Blocked Today
 
@@ -1602,13 +1601,35 @@ next round of omission-closing experiments.
 | OpenClaw | cached WebSocket / prewarm metadata | The deck labels this as a different mechanism from KV prefill; no `cached_websocket` or `websocket_prewarm` request field appeared. | Exercise the real cached-WebSocket path and capture either the WebSocket session metadata or provider trace. |
 | OpenClaw | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect OpenClaw/provider trace or usage counters. |
 | OpenClaw | cache pinning / retention | The deck says provider-managed only; current capture did not expose retention or literal `cache_pinning`. | Use a provider path that exposes retention metadata, or keep treating this as provider-managed until evidence appears. |
-| OpenCode | native/provider benchmark pass | Manifest, scenarios, knobs, and fixture run exist, but no native/provider capture adapter exists yet. | Build OpenCode native/provider request-boundary capture. |
-| Deep Agents | native/provider benchmark pass | Manifest, scenarios, knobs, and fixture run exist, but no native/provider capture adapter exists yet. | Build Deep Agents native/provider capture if we want fresh evidence instead of relying on prior coverage. |
-| DeepSeek Harness | native/provider benchmark pass | Manifest, scenarios, knobs, and fixture run exist, but no native/provider capture adapter exists yet. | Build DeepSeek Harness provider/cache-feedback capture paths. |
-| Codex | native/provider benchmark pass | Manifest, scenarios, knobs, and fixture run exist, but no native/provider capture adapter exists yet. | Build Codex native/provider capture if we want fresh evidence instead of relying on prior coverage. |
+| OpenCode | native CLI proof | Provider/plugin config capture exists, but the OpenCode CLI local-provider probe timed out before a request reached the capture server. | Revisit OpenCode native CLI automation with a stricter startup path or prestarted OpenCode server. |
+| Deep Agents | native library/CLI proof | Provider/middleware capture exists, but no stable local Deep Agents request-boundary CLI path was proven here. | Add a Deep Agents library-level probe or identify a CLI mode that can redirect model traffic locally. |
+| DeepSeek Harness | real provider feedback | Provider-capability capture exists for prefix cache, TTL, and pinning, but `cacheReadTokens` needs a real DeepSeek/provider response. | Run repeated prefix probes against a real provider and collect usage counters. |
+| Codex | native Codex client proof | Provider-config capture exists, but native Codex client proof is still separate from provider-config payload evidence. | Run Codex against a local Responses capture server or real provider trace and map the resulting request fields. |
 | Hermes Agent | native request-boundary evidence | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. |
 | Hermes Agent | literal cache key | The deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal cache-key field is optional. | A provider or future Hermes path would need to expose a literal request cache-key field. |
 | Hermes Agent | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider prompt-cache metrics. |
+
+## PPTX Signal Inventory
+
+This table is keyed to `presentation/Harness Signal Tables As-Is.pptx`. The
+"possible deck signals" column lists the supported or conditional signals the
+deck says each harness may expose. The "observed in this suite" column counts
+the strongest evidence lane currently present in this runbook; fixture-only
+rows are not counted as observed evidence here.
+
+| Harness | Possible Deck Signals | Observed In This Suite | Still Missing |
+| --- | --- | --- | --- |
+| Dynamo | soft priority; strict priority tier; expected output length; cache key/bucket; cache namespace/isolation; eviction priority; speculative prefill; cache-hit feedback | 0 / 8 | all deferred; Dynamo intentionally left out for now because of memory/GPU constraints |
+| NeMo Agent Toolkit / NAT | soft priority; latency sensitivity; provider speed/QoS tier; expected output length; expected interarrival time; predicted remaining calls; prefix/workflow reuse ID; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; eviction priority; cache-hit feedback; cache pinning | 12 / 14 | cache-hit runtime feedback; literal cache pinning |
+| Claude Code | provider speed/QoS tier; cache key/bucket; cache TTL; cache entry type; cache-hit feedback; cache pinning | 3 / 6 | literal cache key; real cache-hit feedback; native pinning beyond provider TTL retention |
+| Codex | provider speed/QoS tier; cache key/bucket; cache namespace/isolation; speculative prefill; cache-hit feedback | 4 / 5 | cached input-token feedback from real provider/client usage |
+| DeepSeek Harness | cache key/bucket; cache TTL; cache-hit feedback; cache pinning | 3 / 4 | `cacheReadTokens` or equivalent real-provider feedback |
+| Deep Agents | provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; eviction priority; cache-hit feedback; cache pinning | 7 / 8 | provider trace cache-hit feedback |
+| Qwen Code | provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; eviction priority; cache-hit feedback; cache pinning | 5 / 8 | literal cache key; real cache-hit feedback; provider-managed pinning proof |
+| Pi Agent Harness | cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; cache-hit feedback; cache pinning | 5 / 6 | real cache-hit feedback |
+| OpenCode | cache key/bucket; cache namespace/isolation; cache-hit feedback | 2 / 3 | provider/plugin cache-hit usage feedback |
+| OpenClaw | provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; speculative prefill; cache-hit feedback; cache pinning | 1 / 8 | all except provider/session namespace |
+| Hermes Agent | provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; cache-hit feedback; cache pinning | 0 / 7 | native Hermes run still needs a working Hermes CLI; real-provider feedback remains separate |
 
 ## Inspect Results
 

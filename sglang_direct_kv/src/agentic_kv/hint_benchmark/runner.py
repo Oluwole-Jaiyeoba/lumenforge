@@ -245,6 +245,13 @@ def evidence_tier_for_mode(execution_mode: str) -> str:
         "openclaw_native_capture",
     }:
         return "native_client_or_transport_capture"
+    if execution_mode in {
+        "opencode_provider_config_capture",
+        "deep_agents_middleware_capture",
+        "deepseek_provider_capability_capture",
+        "codex_provider_config_capture",
+    }:
+        return "provider_config_or_middleware_capture"
     if execution_mode == "claude_real_provider_capture":
         return "native_client_real_provider_response"
     if execution_mode == "anthropic_api_payload_capture":
