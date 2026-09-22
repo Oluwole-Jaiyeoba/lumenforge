@@ -69,6 +69,26 @@ DEFAULT_CONFIGS = {
         "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "openclaw_scenarios.json",
         "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "openclaw_knobs.json",
     },
+    "opencode": {
+        "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "opencode_hints.json",
+        "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "opencode_scenarios.json",
+        "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "opencode_knobs.json",
+    },
+    "deep_agents": {
+        "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "deep_agents_hints.json",
+        "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "deep_agents_scenarios.json",
+        "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "deep_agents_knobs.json",
+    },
+    "deepseek_harness": {
+        "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "deepseek_hints.json",
+        "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "deepseek_scenarios.json",
+        "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "deepseek_knobs.json",
+    },
+    "codex": {
+        "manifest": REPO_ROOT / "configs" / "hint_benchmark" / "codex_hints.json",
+        "scenarios": REPO_ROOT / "configs" / "hint_benchmark" / "codex_scenarios.json",
+        "knobs": REPO_ROOT / "configs" / "hint_benchmark" / "codex_knobs.json",
+    },
 }
 DEFAULT_OUT_ROOT = REPO_ROOT / "artifacts" / "results" / "hint_benchmark"
 

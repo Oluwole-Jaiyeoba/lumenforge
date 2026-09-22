@@ -1,0 +1,113 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "codex",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/codex_hints.json",
+  "scenario_groups": {
+    "smoke": ["codex_no_hints_baseline", "codex_service_tier", "codex_prompt_cache_key"],
+    "codex_request_boundary_coverage": [
+      "codex_no_hints_baseline",
+      "codex_service_tier",
+      "codex_prompt_cache_key",
+      "codex_websocket_prewarm"
+    ],
+    "codex_provider_feedback_coverage": ["codex_cached_input_token_feedback"],
+    "full_codex_coverage": [
+      "codex_no_hints_baseline",
+      "codex_service_tier",
+      "codex_prompt_cache_key",
+      "codex_websocket_prewarm",
+      "codex_cached_input_token_feedback"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a Codex session or prompt-cache configuration.",
+    "request_level": "Attached to one model request or WebSocket/prewarm operation.",
+    "cache_entry_level": "Attached to a provider prompt-cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage feedback."
+  },
+  "scenarios": [
+    {
+      "id": "codex_no_hints_baseline",
+      "display_name": "Codex baseline",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_config",
+      "injection_level": "provider_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What appears when no Codex provider cache or QoS knobs are enabled?",
+      "workload_shape": {"request_count": 1, "client": "codex"},
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "present"},
+        {"hint_id": "cache_key_bucket", "raw_field": "prompt_cache_key", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "codex_service_tier",
+      "display_name": "Codex provider service tier",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_config",
+      "injection_level": "provider_level",
+      "scope": "provider",
+      "trigger_type": "configured_provider_qos",
+      "target_hint_ids": ["provider_qos"],
+      "benchmark_question": "Can Codex carry provider service_tier metadata?",
+      "workload_shape": {"request_count": 1, "client": "codex"},
+      "expected_emissions": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "priority"}
+      ]
+    },
+    {
+      "id": "codex_prompt_cache_key",
+      "display_name": "Codex prompt_cache_key bucket",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "configured_prompt_cache_key",
+      "target_hint_ids": ["cache_key_bucket", "cache_namespace"],
+      "benchmark_question": "Can Codex carry prompt_cache_key for cache bucketing?",
+      "workload_shape": {"request_count": 1, "client": "codex", "stable_prefix": true},
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "prompt_cache_key", "expected_value": "codex_prompt_cache_bucket"},
+        {"hint_id": "cache_namespace", "raw_field": "cache_namespace", "expected_value": "prompt_cache_key_bucket"}
+      ],
+      "notes": "Slide 10 says this is bucketing, not tenant isolation."
+    },
+    {
+      "id": "codex_websocket_prewarm",
+      "display_name": "Codex WebSocket prewarm",
+      "status": "fixture_plumbing_only",
+      "source_class": "different_mechanism",
+      "injection_level": "request_level",
+      "scope": "cache_or_prewarm",
+      "trigger_type": "websocket_prewarm",
+      "target_hint_ids": ["speculative_prefill"],
+      "benchmark_question": "Can Codex expose WebSocket prewarm metadata distinct from KV prefill?",
+      "workload_shape": {"request_count": 1, "client": "codex"},
+      "expected_emissions": [
+        {"hint_id": "speculative_prefill", "raw_field": "websocket_prewarm", "expected_value": true}
+      ],
+      "negative_expectations": [
+        {"hint_id": "speculative_prefill", "raw_field": "speculative_prefill", "expected_value": true}
+      ]
+    },
+    {
+      "id": "codex_cached_input_token_feedback",
+      "display_name": "Codex cached input-token feedback",
+      "status": "real_provider_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "post_execution_metrics",
+      "trigger_type": "provider_usage_feedback",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Can Codex expose cached input-token usage after repeated cacheable requests?",
+      "workload_shape": {"request_count": 2, "client": "codex", "stable_prefix": true, "requires_real_provider": true},
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cached_input_tokens", "expected_value": {"numeric_range": [1, 1000000]}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "opencode",
+    "display_name": "OpenCode",
+    "initial_status": "fixture_plumbing_only"
+  },
+  "baseline_scenario_id": "opencode_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [3, 7, 12]
+  },
+  "deck_signal_accounting": {
+    "focused_signal_count": 16,
+    "deck_supported_or_conditional_count": 3,
+    "fixture_observed_count": 3,
+    "native_request_boundary_observed_count": 0,
+    "supported_or_conditional_not_native_observed_count": 3,
+    "deck_unsupported_count": 13,
+    "supported_or_conditional_signals": [
+      "cache_key_bucket",
+      "cache_namespace",
+      "cache_hit_feedback"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a session, provider profile, or plugin configuration.",
+    "cache_entry_level": "Attached to a provider cache entry or response-cache rule.",
+    "runtime_feedback_level": "Reported after provider execution as usage, stats, or plugin feedback."
+  },
+  "source_classes": {
+    "provider_config": "Provider configuration caused or carried the hint.",
+    "plugin_config": "An OpenCode plugin caused or carried the hint.",
+    "metrics_feedback": "The value appears after execution as provider/plugin usage feedback."
+  },
+  "required_smoke_scenarios": [
+    "opencode_no_hints_baseline",
+    "opencode_provider_cache_identity"
+  ],
+  "hints": [
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "OpenCode cache identity is provider-managed, with optional plugin response-cache headers.",
+      "raw_fields": ["provider_cache_key", "helicone-cache-key", "_capture.headers.helicone-cache-key"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache or response-cache plugin",
+      "scenario_ids": ["opencode_provider_cache_identity"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_namespace",
+      "canonical_signal": "Cache namespace/isolation",
+      "meaning": "OpenCode namespace behavior is provider or plugin dependent.",
+      "raw_fields": ["cache_namespace", "_capture.headers.x-hintbench-cache-namespace", "_capture.headers.helicone-cache-bucket"],
+      "default_injection_level": "session_level",
+      "expected_source_class": "plugin_config",
+      "supported_consumer": "Provider or response-cache plugin",
+      "scenario_ids": ["opencode_plugin_namespace"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "OpenCode cache feedback depends on provider stats or plugin usage output.",
+      "raw_fields": ["usage.cached_tokens", "stats.cache_hit", "provider_usage.cache"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["opencode_provider_usage_feedback"],
+      "status": "real_provider_or_plugin_required"
+    }
+  ]
+}

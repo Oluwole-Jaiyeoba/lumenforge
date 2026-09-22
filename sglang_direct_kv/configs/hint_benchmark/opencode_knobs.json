@@ -1,0 +1,31 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "opencode",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["opencode_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "cache_only": {
+      "display_name": "OpenCode provider/plugin cache probes",
+      "scenario_selectors": ["opencode_provider_cache_identity", "opencode_plugin_namespace"],
+      "expected_signal_visibility": ["helicone-cache-key", "x-hintbench-cache-namespace"]
+    },
+    "feedback_only": {
+      "display_name": "OpenCode provider/plugin feedback probe",
+      "scenario_selectors": ["opencode_provider_usage_feedback"],
+      "expected_signal_visibility": ["usage.cached_tokens", "stats.cache_hit"]
+    },
+    "all_request_boundary": {
+      "display_name": "All OpenCode request-boundary candidates",
+      "scenario_selectors": ["opencode_request_boundary_coverage"],
+      "expected_signal_visibility": ["provider/plugin cache candidates"]
+    },
+    "full_coverage": {
+      "display_name": "Full OpenCode signal coverage",
+      "scenario_selectors": ["full_opencode_coverage"],
+      "expected_signal_visibility": ["request-boundary plus provider-feedback recipes"]
+    }
+  }
+}

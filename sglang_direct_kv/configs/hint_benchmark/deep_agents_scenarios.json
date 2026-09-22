@@ -1,0 +1,112 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "deep_agents",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/deep_agents_hints.json",
+  "scenario_groups": {
+    "smoke": ["deep_agents_no_hints_baseline", "deep_agents_provider_qos", "deep_agents_middleware_cache"],
+    "deep_agents_request_boundary_coverage": [
+      "deep_agents_no_hints_baseline",
+      "deep_agents_provider_qos",
+      "deep_agents_middleware_cache",
+      "deep_agents_custom_eviction"
+    ],
+    "deep_agents_provider_feedback_coverage": ["deep_agents_provider_trace_feedback"],
+    "full_deep_agents_coverage": [
+      "deep_agents_no_hints_baseline",
+      "deep_agents_provider_qos",
+      "deep_agents_middleware_cache",
+      "deep_agents_custom_eviction",
+      "deep_agents_provider_trace_feedback"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a Deep Agents session or middleware configuration.",
+    "cache_entry_level": "Attached to a provider or middleware cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as trace or usage feedback."
+  },
+  "scenarios": [
+    {
+      "id": "deep_agents_no_hints_baseline",
+      "display_name": "Deep Agents baseline",
+      "status": "fixture_plumbing_only",
+      "source_class": "middleware_config",
+      "injection_level": "provider_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What appears when no Deep Agents provider or middleware hint knobs are enabled?",
+      "workload_shape": {"request_count": 1, "client": "deep_agents"},
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "provider_qos", "raw_field": "service_tier", "expected_value": "present"},
+        {"hint_id": "cache_key_bucket", "raw_field": "middleware.cache_key", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "deep_agents_provider_qos",
+      "display_name": "Deep Agents provider QoS",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_config",
+      "injection_level": "provider_level",
+      "scope": "provider",
+      "trigger_type": "provider_dependent_qos",
+      "target_hint_ids": ["provider_qos"],
+      "benchmark_question": "Can Deep Agents carry provider-dependent QoS metadata?",
+      "workload_shape": {"request_count": 1, "client": "deep_agents"},
+      "expected_emissions": [
+        {"hint_id": "provider_qos", "raw_field": "provider.qos_tier", "expected_value": "provider_priority"}
+      ]
+    },
+    {
+      "id": "deep_agents_middleware_cache",
+      "display_name": "Deep Agents middleware cache controls",
+      "status": "fixture_plumbing_only",
+      "source_class": "middleware_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "middleware_cache_config",
+      "target_hint_ids": ["cache_key_bucket", "cache_namespace", "cache_ttl", "cache_entry_type", "cache_pinning"],
+      "benchmark_question": "Can Deep Agents middleware carry cache identity, namespace, TTL/type, and retention metadata?",
+      "workload_shape": {"request_count": 1, "client": "deep_agents", "stable_prefix": true},
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "middleware.cache_key", "expected_value": "deep_agents_middleware_prefix"},
+        {"hint_id": "cache_namespace", "raw_field": "middleware.cache_namespace", "expected_value": "deep_agents_provider_session"},
+        {"hint_id": "cache_ttl", "raw_field": "middleware.cache_control.ttl", "expected_value": "1h"},
+        {"hint_id": "cache_entry_type", "raw_field": "middleware.cache_control.type", "expected_value": "ephemeral"},
+        {"hint_id": "cache_pinning", "raw_field": "middleware.prompt_cache_retention", "expected_value": "1h"}
+      ]
+    },
+    {
+      "id": "deep_agents_custom_eviction",
+      "display_name": "Deep Agents custom eviction metadata",
+      "status": "fixture_plumbing_only",
+      "source_class": "middleware_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "custom_middleware_eviction",
+      "target_hint_ids": ["eviction_priority"],
+      "benchmark_question": "Can custom Deep Agents middleware carry eviction priority metadata?",
+      "workload_shape": {"request_count": 1, "client": "deep_agents"},
+      "expected_emissions": [
+        {"hint_id": "eviction_priority", "raw_field": "middleware.eviction_priority", "expected_value": "custom_high"}
+      ],
+      "notes": "Slide 11 says none unless custom; this scenario represents that custom lane."
+    },
+    {
+      "id": "deep_agents_provider_trace_feedback",
+      "display_name": "Deep Agents provider trace feedback",
+      "status": "real_provider_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "post_execution_metrics",
+      "trigger_type": "provider_trace_data",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Can provider trace data expose Deep Agents cache-hit feedback?",
+      "workload_shape": {"request_count": 2, "client": "deep_agents", "stable_prefix": true, "requires_real_provider": true},
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "provider_trace.cache_hit", "expected_value": true}
+      ]
+    }
+  ]
+}

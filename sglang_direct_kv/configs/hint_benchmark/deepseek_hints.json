@@ -1,0 +1,87 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "deepseek_harness",
+    "display_name": "DeepSeek Harness",
+    "initial_status": "fixture_plumbing_only"
+  },
+  "baseline_scenario_id": "deepseek_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [6, 11]
+  },
+  "deck_signal_accounting": {
+    "focused_signal_count": 16,
+    "deck_supported_or_conditional_count": 4,
+    "fixture_observed_count": 4,
+    "native_request_boundary_observed_count": 0,
+    "supported_or_conditional_not_native_observed_count": 4,
+    "deck_unsupported_count": 12,
+    "supported_or_conditional_signals": [
+      "cache_key_bucket",
+      "cache_ttl",
+      "cache_hit_feedback",
+      "cache_pinning"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "cache_entry_level": "Attached to a provider-managed cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage or metrics feedback."
+  },
+  "source_classes": {
+    "provider_automatic": "The provider derives the behavior without a client-visible field.",
+    "provider_config": "Provider configuration caused or carried the hint.",
+    "metrics_feedback": "The value appears after execution as provider usage feedback."
+  },
+  "required_smoke_scenarios": [
+    "deepseek_no_hints_baseline",
+    "deepseek_provider_prefix_cache"
+  ],
+  "hints": [
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "DeepSeek Harness uses automatic prefix matching.",
+      "raw_fields": ["cache_key_policy", "provider.prefix_hash", "prompt_prefix_hash"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "DeepSeek provider prompt cache",
+      "scenario_ids": ["deepseek_provider_prefix_cache"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_ttl",
+      "canonical_signal": "Cache TTL",
+      "meaning": "DeepSeek cache TTL is provider-managed and automatic.",
+      "raw_fields": ["provider.cache_ttl", "cache_ttl_policy"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "DeepSeek provider prompt cache",
+      "scenario_ids": ["deepseek_provider_prefix_cache"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "DeepSeek can report cache feedback through cacheReadTokens.",
+      "raw_fields": ["usage.cacheReadTokens", "cacheReadTokens"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["deepseek_cache_read_tokens_feedback"],
+      "status": "real_provider_response_required"
+    },
+    {
+      "id": "cache_pinning",
+      "canonical_signal": "Cache pinning / retention",
+      "meaning": "DeepSeek cache pinning or retention is provider-managed.",
+      "raw_fields": ["provider.cache_pinning", "provider.prompt_cache_retention"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_automatic",
+      "supported_consumer": "DeepSeek provider prompt cache",
+      "scenario_ids": ["deepseek_provider_prefix_cache"],
+      "status": "fixture_supported_native_pending"
+    }
+  ]
+}

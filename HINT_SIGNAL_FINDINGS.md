@@ -8,7 +8,10 @@ expose or hide them.
 The current completed native/request-boundary harnesses are NeMo Agent Toolkit
 / NAT, Claude Code, Qwen Code, Pi Agent Harness, and OpenClaw. Hermes Agent has
 benchmark setup and fixture validation, but native Hermes evidence is still
-pending a host with the Hermes CLI installed.
+pending a host with the Hermes CLI installed. OpenCode, Deep Agents, DeepSeek
+Harness, and Codex now have manifest/scenario/knob setup plus fixture
+validation; they still need native/provider capture before we can claim real
+harness evidence.
 
 ## Evidence
 
@@ -149,6 +152,47 @@ proves OpenClaw can preserve configured namespace headers. It did not expose
 literal service-tier, provider cache, cached-WebSocket, cache-retention, or
 cache-feedback fields in the local request body.
 
+Current fixture-only setup for remaining deck harnesses:
+
+```text
+run_id: opencode_fixture_full_20260922
+harness: opencode
+execution_mode: fixture_smoke
+scenario_count: 4
+validation_rows: 5
+unknown_hint_rows: 0
+fixture-supported deck signals: 3
+
+run_id: deep_agents_fixture_full_20260922
+harness: deep_agents
+execution_mode: fixture_smoke
+scenario_count: 5
+validation_rows: 10
+unknown_hint_rows: 0
+fixture-supported deck signals: 8
+
+run_id: deepseek_harness_fixture_full_20260922
+harness: deepseek_harness
+execution_mode: fixture_smoke
+scenario_count: 3
+validation_rows: 6
+unknown_hint_rows: 0
+fixture-supported deck signals: 4
+
+run_id: codex_fixture_full_20260922
+harness: codex
+execution_mode: fixture_smoke
+scenario_count: 5
+validation_rows: 8
+unknown_hint_rows: 0
+fixture-supported deck signals: 5
+```
+
+Important boundary: these four runs validate benchmark plumbing and expected
+field shapes only. They do not prove that OpenCode, Deep Agents, DeepSeek
+Harness, or Codex organically emitted the signals. Native/provider capture
+adapters are still required for real evidence.
+
 Benchmark outputs include an `evidence_tier` column:
 
 | Evidence Tier | How To Interpret It |
@@ -234,6 +278,10 @@ sglang_direct_kv/configs/hint_benchmark/qwen_knobs.json
 sglang_direct_kv/configs/hint_benchmark/hermes_knobs.json
 sglang_direct_kv/configs/hint_benchmark/pi_knobs.json
 sglang_direct_kv/configs/hint_benchmark/openclaw_knobs.json
+sglang_direct_kv/configs/hint_benchmark/opencode_knobs.json
+sglang_direct_kv/configs/hint_benchmark/deep_agents_knobs.json
+sglang_direct_kv/configs/hint_benchmark/deepseek_knobs.json
+sglang_direct_kv/configs/hint_benchmark/codex_knobs.json
 ```
 
 The operational runbook with copy-paste commands is:
@@ -274,6 +322,16 @@ without manually listing scenario IDs.
 | `openclaw_namespace` | provider/session namespace | `x-hintbench-cache-namespace` | Adds OpenClaw provider header metadata and verifies request-boundary preservation. | OpenClaw | no |
 | `openclaw_provider_cache` | provider-managed cache config | optional `prompt_cache_key`, `prompt_cache_retention`, `cache_control.type` | Configures provider cache candidates; current native request-boundary run did not expose literal cache fields. | OpenClaw | no |
 | `openclaw_cache_feedback` | real provider trace/usage | `usage.cached_tokens`, `trace.cache_hit` | Requires a real provider/backend response path to observe cache feedback. | OpenClaw | yes |
+| `opencode_provider_cache` | provider/plugin cache config | `helicone-cache-key`, namespace header | Adds OpenCode provider/plugin cache recipes; fixture-only until native/provider capture exists. | OpenCode | maybe |
+| `opencode_cache_feedback` | provider/plugin usage | `usage.cached_tokens` | Requires provider/plugin usage output for real evidence. | OpenCode | yes |
+| `deep_agents_provider_qos` | provider QoS | `provider.qos_tier` | Adds Deep Agents provider QoS recipe; fixture-only until native/provider capture exists. | Deep Agents | maybe |
+| `deep_agents_middleware_cache` | middleware cache config | cache key, namespace, TTL, type, eviction, retention | Adds Deep Agents middleware cache recipes; fixture-only until capture exists. | Deep Agents | maybe |
+| `deep_agents_cache_feedback` | provider trace | `provider_trace.cache_hit` | Requires provider trace output for real evidence. | Deep Agents | yes |
+| `deepseek_provider_cache` | provider-managed cache | prefix hash, provider TTL, provider retention | Adds DeepSeek provider cache recipes; fixture-only until native/provider capture exists. | DeepSeek Harness | maybe |
+| `deepseek_cache_feedback` | provider usage | `usage.cacheReadTokens` | Requires provider usage output for real evidence. | DeepSeek Harness | yes |
+| `codex_provider_qos` | service tier | `service_tier` | Adds Codex service-tier recipe; fixture-only until native/provider capture exists. | Codex | maybe |
+| `codex_prompt_cache` | prompt cache and prewarm | `prompt_cache_key`, cache bucketing, `websocket_prewarm` | Adds Codex prompt-cache and WebSocket prewarm recipes; fixture-only until capture exists. | Codex | maybe |
+| `codex_cache_feedback` | provider usage | `usage.cached_input_tokens` | Requires provider/client usage output for real evidence. | Codex | yes |
 
 ## Knob Profiles
 
@@ -323,6 +381,10 @@ without manually listing scenario IDs.
 | OpenClaw `feedback_only` | Probe whether OpenClaw/provider can expose cache feedback. | `openclaw_provider_trace_feedback` | cache-read/cached-token usage counters or trace fields |
 | OpenClaw `all_request_boundary` | Run every OpenClaw request-boundary probe. | `openclaw_request_boundary_coverage` | native OpenClaw request-boundary probe targets only |
 | OpenClaw `full_coverage` | List every OpenClaw signal recipe. | `full_openclaw_coverage` | request-boundary plus provider-feedback recipes |
+| OpenCode `full_coverage` | Run every OpenCode fixture recipe. | `full_opencode_coverage` | fixture-only provider/plugin cache recipes |
+| Deep Agents `full_coverage` | Run every Deep Agents fixture recipe. | `full_deep_agents_coverage` | fixture-only provider/middleware recipes |
+| DeepSeek `full_coverage` | Run every DeepSeek Harness fixture recipe. | `full_deepseek_coverage` | fixture-only provider-managed cache recipes |
+| Codex `full_coverage` | Run every Codex fixture recipe. | `full_codex_coverage` | fixture-only provider/cache/prewarm recipes |
 
 Example:
 

@@ -1,0 +1,93 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "opencode",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/opencode_hints.json",
+  "scenario_groups": {
+    "smoke": ["opencode_no_hints_baseline", "opencode_provider_cache_identity"],
+    "opencode_request_boundary_coverage": [
+      "opencode_no_hints_baseline",
+      "opencode_provider_cache_identity",
+      "opencode_plugin_namespace"
+    ],
+    "opencode_provider_feedback_coverage": ["opencode_provider_usage_feedback"],
+    "full_opencode_coverage": [
+      "opencode_no_hints_baseline",
+      "opencode_provider_cache_identity",
+      "opencode_plugin_namespace",
+      "opencode_provider_usage_feedback"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a session, provider profile, or plugin configuration.",
+    "cache_entry_level": "Attached to a provider cache entry or response-cache rule.",
+    "runtime_feedback_level": "Reported after provider execution as usage, stats, or plugin feedback."
+  },
+  "scenarios": [
+    {
+      "id": "opencode_no_hints_baseline",
+      "display_name": "OpenCode baseline",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_config",
+      "injection_level": "provider_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What appears when no OpenCode provider/plugin cache knobs are enabled?",
+      "workload_shape": {"request_count": 1, "client": "opencode_cli"},
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "cache_key_bucket", "raw_field": "provider_cache_key", "expected_value": "present"},
+        {"hint_id": "cache_namespace", "raw_field": "cache_namespace", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "opencode_provider_cache_identity",
+      "display_name": "OpenCode provider/plugin cache identity",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_config",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "provider_cache_config",
+      "target_hint_ids": ["cache_key_bucket"],
+      "benchmark_question": "Can OpenCode carry provider-managed cache identity or response-cache plugin headers?",
+      "workload_shape": {"request_count": 1, "client": "opencode_cli", "stable_prefix": true},
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "_capture.headers.helicone-cache-key", "expected_value": "opencode_provider_prompt_cache"}
+      ],
+      "notes": "Slide 12 frames this as provider-managed, optionally through Helicone response-cache headers."
+    },
+    {
+      "id": "opencode_plugin_namespace",
+      "display_name": "OpenCode provider/plugin namespace",
+      "status": "fixture_plumbing_only",
+      "source_class": "plugin_config",
+      "injection_level": "session_level",
+      "scope": "cache_namespace",
+      "trigger_type": "plugin_namespace_config",
+      "target_hint_ids": ["cache_namespace"],
+      "benchmark_question": "Can OpenCode carry provider or plugin namespace metadata?",
+      "workload_shape": {"request_count": 1, "client": "opencode_cli"},
+      "expected_emissions": [
+        {"hint_id": "cache_namespace", "raw_field": "_capture.headers.x-hintbench-cache-namespace", "expected_value": "opencode_provider_or_plugin"}
+      ],
+      "notes": "Slide 12 marks OpenCode namespace as provider/plugin dependent."
+    },
+    {
+      "id": "opencode_provider_usage_feedback",
+      "display_name": "OpenCode provider/plugin usage feedback",
+      "status": "real_provider_or_plugin_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "post_execution_metrics",
+      "trigger_type": "provider_usage_stats",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Can OpenCode expose cache feedback through provider stats or plugin usage output?",
+      "workload_shape": {"request_count": 2, "client": "opencode_cli", "stable_prefix": true, "requires_real_provider": true},
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cached_tokens", "expected_value": {"numeric_range": [1, 1000000]}}
+      ],
+      "notes": "Fixture validates reporting shape only; real evidence needs provider or plugin usage output."
+    }
+  ]
+}

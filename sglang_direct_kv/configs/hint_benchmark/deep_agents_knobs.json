@@ -1,0 +1,43 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "deep_agents",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["deep_agents_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "qos_only": {
+      "display_name": "Deep Agents provider QoS",
+      "scenario_selectors": ["deep_agents_provider_qos"],
+      "expected_signal_visibility": ["provider.qos_tier"]
+    },
+    "cache_only": {
+      "display_name": "Deep Agents middleware cache probes",
+      "scenario_selectors": ["deep_agents_middleware_cache", "deep_agents_custom_eviction"],
+      "expected_signal_visibility": [
+        "middleware.cache_key",
+        "middleware.cache_namespace",
+        "middleware.cache_control.ttl",
+        "middleware.cache_control.type",
+        "middleware.eviction_priority",
+        "middleware.prompt_cache_retention"
+      ]
+    },
+    "feedback_only": {
+      "display_name": "Deep Agents provider trace feedback",
+      "scenario_selectors": ["deep_agents_provider_trace_feedback"],
+      "expected_signal_visibility": ["provider_trace.cache_hit"]
+    },
+    "all_request_boundary": {
+      "display_name": "All Deep Agents request-boundary candidates",
+      "scenario_selectors": ["deep_agents_request_boundary_coverage"],
+      "expected_signal_visibility": ["provider and middleware cache candidates"]
+    },
+    "full_coverage": {
+      "display_name": "Full Deep Agents signal coverage",
+      "scenario_selectors": ["full_deep_agents_coverage"],
+      "expected_signal_visibility": ["request-boundary plus provider-feedback recipes"]
+    }
+  }
+}

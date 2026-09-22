@@ -41,6 +41,18 @@ PI_KNOBS = ROOT / "configs" / "hint_benchmark" / "pi_knobs.json"
 OPENCLAW_MANIFEST = ROOT / "configs" / "hint_benchmark" / "openclaw_hints.json"
 OPENCLAW_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "openclaw_scenarios.json"
 OPENCLAW_KNOBS = ROOT / "configs" / "hint_benchmark" / "openclaw_knobs.json"
+OPENCODE_MANIFEST = ROOT / "configs" / "hint_benchmark" / "opencode_hints.json"
+OPENCODE_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "opencode_scenarios.json"
+OPENCODE_KNOBS = ROOT / "configs" / "hint_benchmark" / "opencode_knobs.json"
+DEEP_AGENTS_MANIFEST = ROOT / "configs" / "hint_benchmark" / "deep_agents_hints.json"
+DEEP_AGENTS_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "deep_agents_scenarios.json"
+DEEP_AGENTS_KNOBS = ROOT / "configs" / "hint_benchmark" / "deep_agents_knobs.json"
+DEEPSEEK_MANIFEST = ROOT / "configs" / "hint_benchmark" / "deepseek_hints.json"
+DEEPSEEK_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "deepseek_scenarios.json"
+DEEPSEEK_KNOBS = ROOT / "configs" / "hint_benchmark" / "deepseek_knobs.json"
+CODEX_MANIFEST = ROOT / "configs" / "hint_benchmark" / "codex_hints.json"
+CODEX_SCENARIOS = ROOT / "configs" / "hint_benchmark" / "codex_scenarios.json"
+CODEX_KNOBS = ROOT / "configs" / "hint_benchmark" / "codex_knobs.json"
 
 
 class HintBenchmarkRunnerTests(unittest.TestCase):
@@ -548,6 +560,44 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
         self.assertEqual(by_scenario["openclaw_provider_qos_fast_mode"]["result"], "pass")
         self.assertEqual(by_scenario["openclaw_provider_session_namespace"]["result"], "pass")
         self.assertEqual(by_scenario["openclaw_provider_cache_config"]["result"], "pass")
+
+    def test_loads_and_fixture_validates_remaining_deck_harnesses(self):
+        cases = [
+            ("opencode", OPENCODE_MANIFEST, OPENCODE_SCENARIOS, OPENCODE_KNOBS, 3),
+            ("deep_agents", DEEP_AGENTS_MANIFEST, DEEP_AGENTS_SCENARIOS, DEEP_AGENTS_KNOBS, 8),
+            ("deepseek_harness", DEEPSEEK_MANIFEST, DEEPSEEK_SCENARIOS, DEEPSEEK_KNOBS, 4),
+            ("codex", CODEX_MANIFEST, CODEX_SCENARIOS, CODEX_KNOBS, 5),
+        ]
+        for harness_id, manifest_path, scenarios_path, knobs_path, supported_count in cases:
+            with self.subTest(harness=harness_id):
+                manifest, scenarios = load_benchmark_inputs(manifest_path, scenarios_path)
+                self.assertEqual(manifest["harness"]["id"], harness_id)
+                self.assertEqual(
+                    manifest["deck_signal_accounting"]["deck_supported_or_conditional_count"],
+                    supported_count,
+                )
+                knobs = load_knob_profiles(knobs_path)
+                profile = select_knob_profile(knobs, "full_coverage")
+                selected = select_scenarios(scenarios, profile["scenario_selectors"])
+                result = build_dry_run(
+                    manifest,
+                    selected,
+                    run_id=f"{harness_id}_unit_test",
+                    created_at=1.0,
+                    execution_mode="fixture_smoke",
+                )
+                observations = build_fixture_observations(result["scenario_records"])
+                validation = validate_hint_evidence(
+                    manifest,
+                    result["scenario_records"],
+                    observations,
+                    execution_mode="fixture_smoke",
+                )
+                self.assertEqual(validation["unknown_hint_rows"], [])
+                self.assertGreaterEqual(
+                    sum(1 for row in validation["validation_rows"] if row["result"] == "pass"),
+                    supported_count,
+                )
 
     def test_payload_index_expectations_can_check_first_only_cache_control(self):
         manifest, scenarios = load_benchmark_inputs(MANIFEST, SCENARIOS)

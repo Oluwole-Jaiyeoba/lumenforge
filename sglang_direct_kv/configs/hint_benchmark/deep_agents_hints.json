@@ -1,0 +1,137 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "deep_agents",
+    "display_name": "Deep Agents",
+    "initial_status": "fixture_plumbing_only"
+  },
+  "baseline_scenario_id": "deep_agents_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [3, 6, 11]
+  },
+  "deck_signal_accounting": {
+    "focused_signal_count": 16,
+    "deck_supported_or_conditional_count": 8,
+    "fixture_observed_count": 8,
+    "native_request_boundary_observed_count": 0,
+    "supported_or_conditional_not_native_observed_count": 8,
+    "deck_unsupported_count": 8,
+    "supported_or_conditional_signals": [
+      "provider_qos",
+      "cache_key_bucket",
+      "cache_namespace",
+      "cache_ttl",
+      "cache_entry_type",
+      "eviction_priority",
+      "cache_hit_feedback",
+      "cache_pinning"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a Deep Agents session or middleware configuration.",
+    "cache_entry_level": "Attached to a provider or middleware cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as trace or usage feedback."
+  },
+  "source_classes": {
+    "provider_config": "Provider configuration caused or carried the hint.",
+    "middleware_config": "Deep Agents middleware caused or carried the hint.",
+    "metrics_feedback": "The value appears after execution as provider trace or usage feedback."
+  },
+  "required_smoke_scenarios": [
+    "deep_agents_no_hints_baseline",
+    "deep_agents_provider_qos",
+    "deep_agents_middleware_cache"
+  ],
+  "hints": [
+    {
+      "id": "provider_qos",
+      "canonical_signal": "Provider speed/QoS tier",
+      "meaning": "Deep Agents QoS is provider dependent.",
+      "raw_fields": ["provider.qos_tier", "service_tier", "extra_body.service_tier"],
+      "default_injection_level": "provider_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider or gateway",
+      "scenario_ids": ["deep_agents_provider_qos"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "Deep Agents cache identity can be mediated through provider middleware.",
+      "raw_fields": ["middleware.cache_key", "cache_key_policy", "provider_cache_key"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "middleware_config",
+      "supported_consumer": "Provider middleware",
+      "scenario_ids": ["deep_agents_middleware_cache"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_namespace",
+      "canonical_signal": "Cache namespace/isolation",
+      "meaning": "Deep Agents cache isolation is provider dependent.",
+      "raw_fields": ["middleware.cache_namespace", "provider.cache_namespace", "_capture.headers.x-hintbench-cache-namespace"],
+      "default_injection_level": "session_level",
+      "expected_source_class": "middleware_config",
+      "supported_consumer": "Provider middleware",
+      "scenario_ids": ["deep_agents_middleware_cache"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_ttl",
+      "canonical_signal": "Cache TTL",
+      "meaning": "Deep Agents can use Anthropic/Bedrock middleware with 5-minute or 1-hour cache TTL.",
+      "raw_fields": ["middleware.cache_control.ttl", "cache_control.ttl", "system.*.cache_control.ttl"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "middleware_config",
+      "supported_consumer": "Provider middleware",
+      "scenario_ids": ["deep_agents_middleware_cache"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_entry_type",
+      "canonical_signal": "Cache entry type",
+      "meaning": "Deep Agents cache entry type is provider dependent.",
+      "raw_fields": ["middleware.cache_control.type", "cache_control.type", "system.*.cache_control.type"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "middleware_config",
+      "supported_consumer": "Provider middleware",
+      "scenario_ids": ["deep_agents_middleware_cache"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "eviction_priority",
+      "canonical_signal": "Eviction priority",
+      "meaning": "Deep Agents has no eviction priority unless custom middleware supplies one.",
+      "raw_fields": ["middleware.eviction_priority", "agentic_hints.eviction_priority"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "middleware_config",
+      "supported_consumer": "Custom middleware or gateway",
+      "scenario_ids": ["deep_agents_custom_eviction"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "Deep Agents cache feedback is expected through provider trace data.",
+      "raw_fields": ["provider_trace.cache_hit", "trace.cache_hit", "usage.cache_read_input_tokens"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["deep_agents_provider_trace_feedback"],
+      "status": "real_provider_response_required"
+    },
+    {
+      "id": "cache_pinning",
+      "canonical_signal": "Cache pinning / retention",
+      "meaning": "Deep Agents pinning behavior is provider middleware dependent.",
+      "raw_fields": ["middleware.cache_pinning", "middleware.prompt_cache_retention"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "middleware_config",
+      "supported_consumer": "Provider middleware",
+      "scenario_ids": ["deep_agents_middleware_cache"],
+      "status": "fixture_supported_native_pending"
+    }
+  ]
+}

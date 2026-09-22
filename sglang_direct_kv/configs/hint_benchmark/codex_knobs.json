@@ -1,0 +1,36 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "codex",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["codex_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "qos_only": {
+      "display_name": "Codex provider service-tier probe",
+      "scenario_selectors": ["codex_service_tier"],
+      "expected_signal_visibility": ["service_tier"]
+    },
+    "cache_only": {
+      "display_name": "Codex prompt-cache and prewarm probes",
+      "scenario_selectors": ["codex_prompt_cache_key", "codex_websocket_prewarm"],
+      "expected_signal_visibility": ["prompt_cache_key", "cache_namespace", "websocket_prewarm"]
+    },
+    "feedback_only": {
+      "display_name": "Codex cached input-token feedback",
+      "scenario_selectors": ["codex_cached_input_token_feedback"],
+      "expected_signal_visibility": ["usage.cached_input_tokens"]
+    },
+    "all_request_boundary": {
+      "display_name": "All Codex request-boundary candidates",
+      "scenario_selectors": ["codex_request_boundary_coverage"],
+      "expected_signal_visibility": ["service_tier", "prompt_cache_key", "websocket_prewarm"]
+    },
+    "full_coverage": {
+      "display_name": "Full Codex signal coverage",
+      "scenario_selectors": ["full_codex_coverage"],
+      "expected_signal_visibility": ["request-boundary plus provider-feedback recipes"]
+    }
+  }
+}

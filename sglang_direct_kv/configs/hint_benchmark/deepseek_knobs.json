@@ -1,0 +1,31 @@
+{
+  "schema_version": "hint_benchmark_knobs_v1",
+  "harness": "deepseek_harness",
+  "profiles": {
+    "baseline": {
+      "display_name": "Baseline",
+      "scenario_selectors": ["deepseek_no_hints_baseline"],
+      "expected_signal_visibility": []
+    },
+    "cache_only": {
+      "display_name": "DeepSeek provider cache probes",
+      "scenario_selectors": ["deepseek_provider_prefix_cache"],
+      "expected_signal_visibility": ["cache_key_policy", "provider.cache_ttl", "provider.prompt_cache_retention"]
+    },
+    "feedback_only": {
+      "display_name": "DeepSeek cacheReadTokens feedback",
+      "scenario_selectors": ["deepseek_cache_read_tokens_feedback"],
+      "expected_signal_visibility": ["usage.cacheReadTokens"]
+    },
+    "all_request_boundary": {
+      "display_name": "All DeepSeek request-boundary candidates",
+      "scenario_selectors": ["deepseek_request_boundary_coverage"],
+      "expected_signal_visibility": ["provider-managed cache candidates"]
+    },
+    "full_coverage": {
+      "display_name": "Full DeepSeek Harness signal coverage",
+      "scenario_selectors": ["full_deepseek_coverage"],
+      "expected_signal_visibility": ["request-boundary plus provider-feedback recipes"]
+    }
+  }
+}

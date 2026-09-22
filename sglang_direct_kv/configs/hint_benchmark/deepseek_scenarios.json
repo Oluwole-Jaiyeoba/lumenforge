@@ -1,0 +1,72 @@
+{
+  "schema_version": "hint_benchmark_scenarios_v1",
+  "harness": "deepseek_harness",
+  "manifest_path": "sglang_direct_kv/configs/hint_benchmark/deepseek_hints.json",
+  "scenario_groups": {
+    "smoke": ["deepseek_no_hints_baseline", "deepseek_provider_prefix_cache"],
+    "deepseek_request_boundary_coverage": ["deepseek_no_hints_baseline", "deepseek_provider_prefix_cache"],
+    "deepseek_provider_feedback_coverage": ["deepseek_cache_read_tokens_feedback"],
+    "full_deepseek_coverage": [
+      "deepseek_no_hints_baseline",
+      "deepseek_provider_prefix_cache",
+      "deepseek_cache_read_tokens_feedback"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "cache_entry_level": "Attached to a provider-managed cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage or metrics feedback."
+  },
+  "scenarios": [
+    {
+      "id": "deepseek_no_hints_baseline",
+      "display_name": "DeepSeek Harness baseline",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_automatic",
+      "injection_level": "provider_level",
+      "scope": "request",
+      "trigger_type": "control",
+      "target_hint_ids": [],
+      "benchmark_question": "What appears when no DeepSeek provider cache probes are enabled?",
+      "workload_shape": {"request_count": 1, "client": "deepseek_harness"},
+      "expected_emissions": [],
+      "negative_expectations": [
+        {"hint_id": "cache_key_bucket", "raw_field": "cache_key_policy", "expected_value": "present"},
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cacheReadTokens", "expected_value": "present"}
+      ]
+    },
+    {
+      "id": "deepseek_provider_prefix_cache",
+      "display_name": "DeepSeek provider prefix cache",
+      "status": "fixture_plumbing_only",
+      "source_class": "provider_automatic",
+      "injection_level": "cache_entry_level",
+      "scope": "cache",
+      "trigger_type": "provider_prefix_cache",
+      "target_hint_ids": ["cache_key_bucket", "cache_ttl", "cache_pinning"],
+      "benchmark_question": "Can DeepSeek Harness expose provider-managed prefix cache identity, TTL, and retention behavior?",
+      "workload_shape": {"request_count": 2, "client": "deepseek_harness", "stable_prefix": true},
+      "expected_emissions": [
+        {"hint_id": "cache_key_bucket", "raw_field": "cache_key_policy", "expected_value": "provider_prefix_hash"},
+        {"hint_id": "cache_ttl", "raw_field": "provider.cache_ttl", "expected_value": "provider_managed"},
+        {"hint_id": "cache_pinning", "raw_field": "provider.prompt_cache_retention", "expected_value": "provider_managed"}
+      ],
+      "notes": "Slide 11 frames these as provider-managed/automatic signals."
+    },
+    {
+      "id": "deepseek_cache_read_tokens_feedback",
+      "display_name": "DeepSeek cacheReadTokens feedback",
+      "status": "real_provider_required",
+      "source_class": "metrics_feedback",
+      "injection_level": "runtime_feedback_level",
+      "scope": "post_execution_metrics",
+      "trigger_type": "provider_cache_usage",
+      "target_hint_ids": ["cache_hit_feedback"],
+      "benchmark_question": "Can DeepSeek Harness expose cacheReadTokens after repeated cacheable requests?",
+      "workload_shape": {"request_count": 2, "client": "deepseek_harness", "stable_prefix": true, "requires_real_provider": true},
+      "expected_emissions": [
+        {"hint_id": "cache_hit_feedback", "raw_field": "usage.cacheReadTokens", "expected_value": {"numeric_range": [1, 1000000]}}
+      ]
+    }
+  ]
+}

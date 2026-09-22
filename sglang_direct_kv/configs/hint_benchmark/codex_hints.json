@@ -1,0 +1,103 @@
+{
+  "schema_version": "hint_benchmark_manifest_v1",
+  "harness": {
+    "id": "codex",
+    "display_name": "Codex",
+    "initial_status": "fixture_plumbing_only"
+  },
+  "baseline_scenario_id": "codex_no_hints_baseline",
+  "source_deck": {
+    "path": "presentation/Harness Signal Tables As-Is.pptx",
+    "slides": [3, 5, 10]
+  },
+  "deck_signal_accounting": {
+    "focused_signal_count": 16,
+    "deck_supported_or_conditional_count": 5,
+    "fixture_observed_count": 5,
+    "native_request_boundary_observed_count": 0,
+    "supported_or_conditional_not_native_observed_count": 5,
+    "deck_unsupported_count": 11,
+    "supported_or_conditional_signals": [
+      "provider_qos",
+      "cache_key_bucket",
+      "cache_namespace",
+      "speculative_prefill",
+      "cache_hit_feedback"
+    ]
+  },
+  "injection_levels": {
+    "provider_level": "Provider or model configuration attached outside the task body.",
+    "session_level": "Attached to a Codex session or prompt-cache configuration.",
+    "request_level": "Attached to one model request or WebSocket/prewarm operation.",
+    "cache_entry_level": "Attached to a provider prompt-cache entry.",
+    "runtime_feedback_level": "Reported after provider execution as usage feedback."
+  },
+  "source_classes": {
+    "provider_config": "Provider configuration caused or carried the hint.",
+    "provider_automatic": "The provider derives the behavior without a client-visible field.",
+    "different_mechanism": "Codex has an adjacent mechanism that is not a portable KV prefill hint.",
+    "metrics_feedback": "The value appears after execution as provider usage feedback."
+  },
+  "required_smoke_scenarios": [
+    "codex_no_hints_baseline",
+    "codex_service_tier",
+    "codex_prompt_cache_key"
+  ],
+  "hints": [
+    {
+      "id": "provider_qos",
+      "canonical_signal": "Provider speed/QoS tier",
+      "meaning": "Codex can use provider service_tier metadata.",
+      "raw_fields": ["service_tier", "extra_body.service_tier", "qos_tier"],
+      "default_injection_level": "provider_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider or gateway",
+      "scenario_ids": ["codex_service_tier"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_key_bucket",
+      "canonical_signal": "Cache key/bucket",
+      "meaning": "Codex can use prompt_cache_key for provider prompt-cache bucketing.",
+      "raw_fields": ["prompt_cache_key", "cache_key_policy"],
+      "default_injection_level": "cache_entry_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["codex_prompt_cache_key"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_namespace",
+      "canonical_signal": "Cache namespace/isolation",
+      "meaning": "Codex prompt_cache_key provides bucketing but not tenant isolation.",
+      "raw_fields": ["cache_namespace", "prompt_cache_key"],
+      "default_injection_level": "session_level",
+      "expected_source_class": "provider_config",
+      "supported_consumer": "Provider prompt cache",
+      "scenario_ids": ["codex_prompt_cache_key"],
+      "status": "bucket_only_not_tenant_isolation"
+    },
+    {
+      "id": "speculative_prefill",
+      "canonical_signal": "Speculative prefill",
+      "meaning": "Codex WebSocket prewarm is a different mechanism from portable KV prefill.",
+      "raw_fields": ["websocket_prewarm", "prewarm_session_id", "speculative_prefill"],
+      "default_injection_level": "request_level",
+      "expected_source_class": "different_mechanism",
+      "supported_consumer": "Codex provider/session runtime",
+      "scenario_ids": ["codex_websocket_prewarm"],
+      "status": "fixture_supported_native_pending"
+    },
+    {
+      "id": "cache_hit_feedback",
+      "canonical_signal": "Cache-hit feedback",
+      "meaning": "Codex can expose cached input-token usage.",
+      "raw_fields": ["usage.cached_input_tokens", "usage.cached_tokens"],
+      "default_injection_level": "runtime_feedback_level",
+      "expected_source_class": "metrics_feedback",
+      "supported_consumer": "Benchmark report and cache validation tooling",
+      "scenario_ids": ["codex_cached_input_token_feedback"],
+      "status": "real_provider_response_required"
+    }
+  ]
+}
