@@ -63,12 +63,12 @@ fields yet. Once these paths are solid, reuse the same suite structure for the
 remaining harnesses.
 
 Deck scope note: `presentation/Harness Signal Tables As-Is.pptx` also includes
-DeepSeek Harness, Deep Agents, and OpenCode rows. OpenCode has not been started
-yet. Deep Agents is explicitly called out on slide 3 as already covered, so it
-was not counted in the active next-harness queue; if we decide to re-open it,
-it should get its own manifest/scenario/knob pass like the others. DeepSeek
-Harness is also visible in the deck and should be treated as a deferred
-not-started harness unless we decide it is out of scope.
+OpenCode, Deep Agents, DeepSeek Harness, Codex, and Dynamo. The runbook now
+represents OpenCode, Deep Agents, DeepSeek Harness, and Codex explicitly, but
+those four still need manifests, scenarios, knobs, and capture adapters before
+they can produce benchmark evidence. Dynamo remains intentionally deferred for
+now because it is more memory-heavy than the current GPU setup can comfortably
+handle.
 
 ## Claude Evidence Lanes
 
