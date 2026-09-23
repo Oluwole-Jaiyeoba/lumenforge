@@ -9,8 +9,10 @@ description = "Direct SGLang KV instrumentation testbed for hint-guided KV prefe
 requires-python = ">=3.10"
 dependencies = [
   "agentic-backend-api>=0.1.0",
+  "agentic-backend-sglang>=0.1.0",
   "agentic-controller>=0.1.0",
   "agentic-core>=0.1.0",
+  "agentic-gateway>=0.1.0",
   "agentic-harnesses>=0.1.0",
   "agentic-prompt-codec>=0.1.0",
   "aiohttp>=3.9",

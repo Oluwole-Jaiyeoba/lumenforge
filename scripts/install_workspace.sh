@@ -12,6 +12,9 @@ package_paths=(
   "packages/agentic-controller"
   "packages/agentic-harnesses"
   "packages/agentic-prompt-codec"
+  "packages/agentic-gateway"
+  "packages/agentic-backend-sglang"
+  "agentic_harness_scenarios"
 )
 
 for package_path in "${package_paths[@]}"; do
