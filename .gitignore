@@ -11,3 +11,4 @@ node_modules/
 presentation/~$*.pptx
 artifacts/
 sglang_direct_kv/artifacts/
+.pytest_cache/
