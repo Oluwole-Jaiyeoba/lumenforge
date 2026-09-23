@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-gateway"
+version = "0.1.0"
+description = "Backend-neutral request translation for the harness gateway."
+requires-python = ">=3.10"
+readme = {text = "Turns harness requests + experiment mode into agentic_core.BackendRequest.", content-type = "text/markdown"}
+dependencies = [
+  "agentic-core>=0.1.0",
+  "agentic-harnesses>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

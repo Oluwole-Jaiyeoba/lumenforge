@@ -109,8 +109,27 @@ from agentic_kv.controller.workload import (
 )
 from run_real_prompt_controlled_replay import make_pressure_filler_prompt, make_shared_prefix, prompt_hash
 
+# --- Moved during the SGLang-portability refactor (README_RESTRUCTURING.md) ---
+# Controller timing policy -> agentic_controller.lead_times
+# Value-aware eviction     -> agentic_controller.eviction_value
+# Harness hint emulation   -> agentic_harnesses.emission_emulation
+from agentic_controller.lead_times import (  # noqa: F401
+    controller_prepare_lead_ms,
+    controller_targeted_prefetch_lead_ms,
+    controller_direct_load_estimate_ms,
+    controller_direct_load_allowed_wait_classes,
+    controller_direct_load_contract,
+    controller_direct_load_safety_margin_ms,
+    controller_direct_load_latest_finish_ms,
+    controller_direct_load_mechanism,
+    controller_direct_load_window,
+    deadline_fair_priority_for_due,
+)
+from agentic_controller.eviction_value import _float_meta, _stable_percent, value_aware_eviction_metadata  # noqa: F401
+from agentic_harnesses.emission_emulation import outbound_priority_fields, pre_harness_priority_enabled  # noqa: F401
+
 MARKER = "HARNESS_REPLAY_EXPERIMENT_JSON:"
-AUTHORIZED_DIRECT_LOAD_MECHANISM = "prepared_prefix_control"
+from agentic_controller.lead_times import AUTHORIZED_DIRECT_LOAD_MECHANISM  # noqa: E402  (single source of truth)
 SUPPORTED_HARNESSES = (
     "hatcher",
     "codex",
@@ -260,142 +279,6 @@ def warmup_label_for(session_id: str, step_index: int, total_steps: int) -> str:
     return f"{session_id}_speculative_prefill_{step_index:02d}"
 
 
-def controller_prepare_lead_ms(wait_ms: int) -> int:
-    if wait_ms < 500:
-        return 0
-    if wait_ms <= 3_000:
-        return min(wait_ms, 500)
-    if wait_ms <= 10_000:
-        return min(wait_ms, 1_000)
-    return min(wait_ms, 1_500)
-
-
-def controller_targeted_prefetch_lead_ms(wait_ms: int) -> int:
-    override = os.environ.get("CONTROLLER_TARGETED_PREFETCH_LEAD_MS")
-    if override not in (None, ""):
-        try:
-            return max(0, int(float(override)))
-        except ValueError:
-            pass
-    return controller_prepare_lead_ms(wait_ms)
-
-
-def controller_direct_load_estimate_ms(prompt_tokens: int) -> int:
-    fixed_ms = float(os.environ.get("CONTROLLER_DIRECT_LOAD_FIXED_MS", "1000") or "1000")
-    ms_per_token = float(os.environ.get("CONTROLLER_DIRECT_LOAD_MS_PER_TOKEN", "2.0") or "2.0")
-    multiplier = float(os.environ.get("CONTROLLER_DIRECT_LOAD_ESTIMATE_MULTIPLIER", "1.0") or "1.0")
-    base_estimate_ms = fixed_ms + (max(0, prompt_tokens) * ms_per_token)
-    return max(0, int(round(base_estimate_ms * max(0.0, multiplier))))
-
-
-def controller_direct_load_allowed_wait_classes() -> set[str]:
-    raw = os.environ.get("CONTROLLER_DIRECT_LOAD_ALLOWED_WAIT_CLASSES", "all")
-    classes = {part.strip().lower() for part in raw.split(",") if part.strip()}
-    if not classes or "all" in classes or "*" in classes:
-        return set()
-    return classes
-
-
-def controller_direct_load_contract() -> str:
-    if env_truthy("CONTROLLER_DIRECT_LOAD_REQUIRE_COMPLETION", default=False):
-        return "requires_direct_load_completion_before_replay"
-    return "best_effort_direct_load_before_replay"
-
-
-def controller_direct_load_safety_margin_ms() -> int:
-    return max(0, int(float(os.environ.get("CONTROLLER_DIRECT_LOAD_SAFETY_MARGIN_MS", "750") or "750")))
-
-
-def controller_direct_load_latest_finish_ms(replay_due_ms: float) -> float:
-    return replay_due_ms - controller_direct_load_safety_margin_ms()
-
-
-def controller_direct_load_mechanism() -> str:
-    mechanism = os.environ.get("CONTROLLER_DIRECT_LOAD_MECHANISM", AUTHORIZED_DIRECT_LOAD_MECHANISM).strip()
-    mechanism = mechanism or AUTHORIZED_DIRECT_LOAD_MECHANISM
-    if mechanism != AUTHORIZED_DIRECT_LOAD_MECHANISM:
-        raise ValueError(
-            "Unsupported controller direct-load mechanism "
-            f"{mechanism!r}. The legacy synthetic-request KV warmup path has been removed; "
-            f"use {AUTHORIZED_DIRECT_LOAD_MECHANISM!r}, which calls SGLang/HiCache prepare-prefix control."
-        )
-    return mechanism
-
-
-def controller_direct_load_window(
-    *,
-    tool_start_ms: float,
-    replay_due_ms: float,
-    prompt_tokens: int,
-    wait_class: str | None = None,
-) -> dict[str, Any]:
-    estimated_ms = controller_direct_load_estimate_ms(prompt_tokens)
-    safety_margin_ms = controller_direct_load_safety_margin_ms()
-    latest_finish_ms = replay_due_ms - safety_margin_ms
-    available_slack_ms = latest_finish_ms - tool_start_ms
-    allowed_wait_classes = controller_direct_load_allowed_wait_classes()
-    normalized_wait_class = (wait_class or "").strip().lower()
-    contract = controller_direct_load_contract()
-    if allowed_wait_classes and normalized_wait_class not in allowed_wait_classes:
-        return {
-            "admitted": False,
-            "reason": "skip_prefetch_wait_class_not_allowed_by_guarantee_contract",
-            "contract": contract,
-            "allowed_wait_classes": ",".join(sorted(allowed_wait_classes)),
-            "estimated_ms": estimated_ms,
-            "safety_margin_ms": safety_margin_ms,
-            "available_slack_ms": available_slack_ms,
-            "start_ms": tool_start_ms,
-            "latest_finish_ms": latest_finish_ms,
-        }
-    if latest_finish_ms <= tool_start_ms:
-        return {
-            "admitted": False,
-            "reason": "skip_prefetch_no_safe_window_before_replay",
-            "contract": contract,
-            "allowed_wait_classes": ",".join(sorted(allowed_wait_classes)) if allowed_wait_classes else "all",
-            "estimated_ms": estimated_ms,
-            "safety_margin_ms": safety_margin_ms,
-            "available_slack_ms": available_slack_ms,
-            "start_ms": tool_start_ms,
-            "latest_finish_ms": latest_finish_ms,
-        }
-    if estimated_ms > available_slack_ms:
-        return {
-            "admitted": False,
-            "reason": "skip_prefetch_not_enough_eta_slack",
-            "contract": contract,
-            "allowed_wait_classes": ",".join(sorted(allowed_wait_classes)) if allowed_wait_classes else "all",
-            "estimated_ms": estimated_ms,
-            "safety_margin_ms": safety_margin_ms,
-            "available_slack_ms": available_slack_ms,
-            "start_ms": tool_start_ms,
-            "latest_finish_ms": latest_finish_ms,
-        }
-    # Start at the latest safe point that still leaves the estimated load time
-    # plus the replay safety margin. Starting too early can observe the prefix
-    # before pressure evicts it, then falsely conclude no H2D work is needed.
-    start_ms = max(tool_start_ms, latest_finish_ms - estimated_ms)
-    return {
-        "admitted": True,
-        "reason": "admit_prefetch_latest_safe_start_before_replay",
-        "contract": contract,
-        "allowed_wait_classes": ",".join(sorted(allowed_wait_classes)) if allowed_wait_classes else "all",
-        "estimated_ms": estimated_ms,
-        "safety_margin_ms": safety_margin_ms,
-        "available_slack_ms": available_slack_ms,
-        "start_ms": start_ms,
-        "latest_finish_ms": latest_finish_ms,
-    }
-
-
-def deadline_fair_priority_for_due(replay_due_ms: float) -> int:
-    base = int(os.environ.get("CONTROLLER_DEADLINE_FAIR_BASE_PRIORITY", "100000") or "100000")
-    bucket_ms = max(1, int(os.environ.get("CONTROLLER_DEADLINE_FAIR_BUCKET_MS", "10") or "10"))
-    due_bucket = int(max(0.0, replay_due_ms) // bucket_ms)
-    return max(1, base - due_bucket)
-
-
 def trace_has_event(path: Path, label: str, event: str) -> bool:
     if not path.exists():
         return False
@@ -433,10 +316,6 @@ def trace_event_row(path: Path, label: str, event: str) -> dict[str, Any]:
 def marker(meta: dict[str, Any]) -> str:
     raw = json.dumps(meta, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return MARKER + base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
-
-
-def pre_harness_priority_enabled(mode: str) -> bool:
-    return mode == "pre_harness_priority_hints"
 
 
 def nat_inferred_priority_enabled(mode: str) -> bool:
@@ -535,98 +414,6 @@ def attach_harness_priority_metadata(meta: dict[str, Any]) -> dict[str, Any]:
     return attach_nat_inferred_priority_profile(meta)
 
 
-def _stable_percent(seed: str) -> int:
-    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
-    return int(digest[:8], 16) % 100
-
-
-def _float_meta(meta: dict[str, Any], key: str, default: float) -> float:
-    try:
-        value = meta.get(key)
-        if value in (None, ""):
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def value_aware_eviction_metadata(meta: dict[str, Any]) -> dict[str, Any]:
-    if not controller_value_aware_eviction_mode(str(meta.get("mode") or "")):
-        return {}
-
-    session_id = str(meta.get("session_id") or "")
-    prefix_id = str(meta.get("prefix_id") or f"{session_id}:prefix")
-    phase = str(meta.get("phase") or "")
-    step = str(meta.get("tool_wait_step") or "0")
-    bucket = _stable_percent(f"{session_id}|{prefix_id}|{step}")
-    prompt_tokens = int(_float_meta(meta, "prompt_tokens", 0.0))
-
-    if bucket < 40:
-        value_class = "protected_high_value"
-        reuse_probability = _float_meta(meta, "reuse_probability", 0.95)
-        recompute_cost_tokens = int(_float_meta(meta, "recompute_cost_tokens", float(max(prompt_tokens, 2048))))
-        priority = int(float(meta.get("high_priority") or 100))
-        work_value = "critical_path"
-        criticality = "high"
-        cancelable = False
-    elif bucket < 75:
-        value_class = "normal_value"
-        reuse_probability = _float_meta(meta, "reuse_probability", 0.65)
-        recompute_cost_tokens = int(_float_meta(meta, "recompute_cost_tokens", float(max(prompt_tokens // 2, 1024))))
-        priority = int(float(os.environ.get("CONTROLLER_EVICTION_NORMAL_PRIORITY", "0") or "0"))
-        work_value = "normal"
-        criticality = "normal"
-        cancelable = False
-    else:
-        value_class = "evictable_low_value"
-        reuse_probability = _float_meta(
-            meta,
-            "reuse_probability",
-            float(os.environ.get("CONTROLLER_EVICTION_LOW_REUSE_PROBABILITY", "0.15") or "0.15"),
-        )
-        recompute_cost_tokens = int(
-            _float_meta(
-                meta,
-                "recompute_cost_tokens",
-                float(os.environ.get("CONTROLLER_EVICTION_LOW_RECOMPUTE_TOKENS", "256") or "256"),
-            )
-        )
-        priority = int(float(meta.get("low_priority") or -100))
-        work_value = "low_value_replay"
-        criticality = "low"
-        cancelable = True
-
-    urgency_factor = 1.0
-    try:
-        eta_ms = float(meta.get("expected_tool_return_ms") or meta.get("next_ready_eta_ms") or meta.get("tool_wait_ms") or 0)
-        if eta_ms > 0:
-            urgency_factor = max(0.25, min(4.0, 60_000.0 / eta_ms))
-    except (TypeError, ValueError):
-        urgency_factor = 1.0
-    value_score = int(round(reuse_probability * max(1, recompute_cost_tokens) * urgency_factor))
-    return {
-        "reuse_probability": reuse_probability,
-        "recompute_cost_tokens": recompute_cost_tokens,
-        "work_value": work_value,
-        "criticality": criticality,
-        "cancelable": cancelable,
-        "priority_label": "low"
-        if value_class == "evictable_low_value"
-        else "normal"
-        if value_class == "normal_value"
-        else "high",
-        "controller_sglang_priority": priority,
-        "controller_eviction_policy": "sglang_radix_priority_eviction",
-        "controller_eviction_value_class": value_class,
-        "controller_eviction_value_score": value_score,
-        "controller_eviction_bucket": bucket,
-        "controller_eviction_signal_source": "session_id,prefix_id,phase,expected_tool_return_ms,reuse_probability,recompute_cost_tokens,deadline_after_ready_ms",
-        "controller_eviction_translation": f"sglang.priority={priority};radix_eviction_policy=priority",
-        "controller_eviction_scope": "all_replay_capable_requests",
-        "controller_eviction_phase_seen": phase,
-    }
-
-
 def controller_event_from_meta(
     event_id: str,
     event_type: EventType,
@@ -675,34 +462,6 @@ def harness_native_cache_enabled(meta: dict[str, Any]) -> bool:
 def native_cache_label(meta: dict[str, Any]) -> str:
     raw = f"{meta.get('harness', 'harness')}:{meta.get('pressure_level', 'pressure')}:{meta.get('session_id', 'session')}"
     return hashlib.sha256(str(raw).encode("utf-8")).hexdigest()[:24]
-
-
-def outbound_priority_fields(meta: dict[str, Any], api_kind: str) -> dict[str, Any]:
-    if not pre_harness_priority_enabled(str(meta.get("mode") or "")):
-        return {}
-    intent = meta.get("priority_intent")
-    if not isinstance(intent, dict):
-        return {}
-    priority_class = str(intent.get("class") or "")
-    if priority_class != "urgent":
-        return {
-            "metadata": {
-                "priority_class": priority_class,
-                "priority_reason": str(intent.get("reason") or ""),
-            }
-        }
-    metadata = {
-        "priority_class": "urgent",
-        "priority_reason": str(intent.get("reason") or "tool_replay_deadline"),
-        "priority_deadline_ms": str(intent.get("deadline_ms") or ""),
-    }
-    if api_kind == "anthropic":
-        return {"service_tier": "auto", "metadata": metadata}
-    return {
-        "service_tier": "priority",
-        "metadata": metadata,
-        "extra_body": {"agentic_hints": {"priority_class": "urgent", "reason": metadata["priority_reason"]}},
-    }
 
 
 def estimate_tokens(prompt: str) -> int:
