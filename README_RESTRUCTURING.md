@@ -5,7 +5,7 @@ independent of any single SGLang release. It is written for an engineer or AI
 agent who was not part of the work. Read it before changing anything under
 `packages/`, `sglang_direct_kv/src/`, the gateway, or the launch scripts.
 
-- Branch: `refactor/sglang-portability` (not merged, not pushed)
+- Branch: `refactor/sglang-portability`, fast-forward merged into `main` on 2026-09-23 (push to origin pending from the owner's machine; the session had no GitHub credentials)
 - Base: `317b9a1` (main) + `491aea5` (checkpoint of the uncommitted Phase 3.5 work that was in the tree)
 - Backup of the pre-refactor tree (code only, no artifacts):
   `~/Documents/GitHub/backup/agentic_hardware_pre_refactor_20260923/`
@@ -323,8 +323,10 @@ violated.
    run-to-run noise.
 4. In each case's `kv_movement_trace.jsonl`, check `trace.install.summary`:
    `missing_required_hooks` must be `[]`.
-5. Only then merge to main (HANDOFF says main is pushed after every commit;
-   this branch deliberately was not).
+5. The branch is already merged into `main` (the owner asked for every change
+   to go to main). If the EC2 run shows a regression, fix forward on main or
+   revert the range `491aea5..HEAD`; the pre-refactor code is also in
+   `~/Documents/GitHub/backup/agentic_hardware_pre_refactor_20260923/`.
 
 ---
 
