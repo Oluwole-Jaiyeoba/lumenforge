@@ -128,7 +128,8 @@ class SelectionTest(unittest.TestCase):
             "0.5.13": "v0513",
             "0.5.15.post1": "v0513",
             "0.5.16": "v0516",
-            "0.5.20": "v0516",
+            "0.5.19": "v0516",
+            "0.5.20": "v0520",
         }
         for version, name in expected.items():
             self.assertEqual(selection.adapter_for_version(version).name, name, version)

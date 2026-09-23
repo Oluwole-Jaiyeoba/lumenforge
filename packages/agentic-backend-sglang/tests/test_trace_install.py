@@ -94,11 +94,11 @@ class TraceInstallTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
 
     def test_newer_version_uses_moved_hook_locations(self) -> None:
-        root = build_fake_sglang(self.tmp / "site", get_adapter("v0516"), "0.5.20")
+        root = build_fake_sglang(self.tmp / "site", get_adapter("v0520"), "0.5.20")
         proc = run_install(root, self.tmp / "trace.jsonl")
         self.assertEqual(proc.returncode, 0, proc.stderr)
         rows = {row["event"]: row for row in json.loads(proc.stdout.strip().splitlines()[-1])["rows"]}
-        self.assertEqual(rows["trace.adapter.selected"]["adapter"], "v0516")
+        self.assertEqual(rows["trace.adapter.selected"]["adapter"], "v0520")
         self.assertEqual(rows["trace.install.summary"]["missing_required_hooks"], [])
         self.assertIn("static", proc.stderr)  # warns that 0.5.20 support is static-verified only
 

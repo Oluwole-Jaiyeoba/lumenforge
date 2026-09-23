@@ -1,4 +1,4 @@
-"""Adapter for SGLang 0.5.16 - 0.5.20 (static verification only).
+"""Adapter for SGLang 0.5.16 - 0.5.19 (static verification only).
 
 Changes vs v0513 (found by the static surface check):
 - Host KV pools were split out of ``mem_cache/memory_pool_host.py`` into
@@ -42,7 +42,7 @@ HOOK_TARGETS = replace_hook_targets(
 ADAPTER = AdapterSpec(
     name="v0516",
     tested_versions=(),
-    version_range=("0.5.16", "0.5.21"),
+    version_range=("0.5.16", "0.5.20"),
     verification="static",
     hook_targets=HOOK_TARGETS,
     raw_event_map=RAW_EVENT_MAP,
@@ -50,7 +50,7 @@ ADAPTER = AdapterSpec(
     optional_hooks=OPTIONAL_HOOKS,
     request_fields=REQUEST_FIELDS,
     notes=(
-        "Static surface check passes for 0.5.16 - 0.5.20; never run on a GPU.",
+        "Static surface check passes for 0.5.16 - 0.5.19; never run on a GPU.",
         "Hybrid (HostPoolGroup) transfer hooks are absent on 0.5.18+.",
     ),
 )

@@ -186,10 +186,21 @@ SURFACE: tuple[SurfaceRequirement, ...] = tuple(
     ]
     # Fields the gateway puts on /v1/chat/completions bodies.
     + _attrs(_PROTOCOL, "ChatCompletionRequest", "priority custom_params cache_salt stream max_tokens messages temperature", FEATURE_REQUEST_LOWERING)
-    # Server flags used by the launch scripts.
+    # Server flags used by the launch scripts (run_sglang_*server.sh and the
+    # EXTRA_SERVER_ARGS defaults in run_harness_deadline_pressure.sh).
     + [
         SurfaceRequirement(kind=CLI_FLAG, module="sglang.launch_server", name=flag, feature=FEATURE_LAUNCH)
         for flag in (
+            "--model-path",
+            "--trust-remote-code",
+            "--attention-backend",
+            "--prefill-attention-backend",
+            "--decode-attention-backend",
+            "--disable-cuda-graph",
+            "--disable-piecewise-cuda-graph",
+            "--disable-overlap-schedule",
+            "--default-priority-value",
+            "--hicache-storage-backend-extra-config",
             "--enable-priority-scheduling",
             "--schedule-policy",
             "--radix-eviction-policy",
@@ -202,6 +213,16 @@ SURFACE: tuple[SurfaceRequirement, ...] = tuple(
             "--hicache-storage-prefetch-policy",
             "--mem-fraction-static",
             "--chunked-prefill-size",
+        )
+    ]
+    + [
+        SurfaceRequirement(
+            kind=CLI_FLAG,
+            module="sglang.launch_server",
+            name="--file-storage-path",
+            feature=FEATURE_LAUNCH,
+            required=False,
+            note="only passed with HICACHE_STORAGE_BACKEND=file",
         )
     ]
 )
