@@ -5957,7 +5957,7 @@ Status: ready.
 Full proposal:
 
 ```text
-KV_BLOCK_LEDGER.md
+docs/sglang_direct_kv/KV_BLOCK_LEDGER.md
 ```
 
 Why this milestone is needed:
@@ -6069,7 +6069,7 @@ Status: ready.
 Full proposal:
 
 ```text
-KV_EXACT_MOVEMENT_ATTRIBUTION.md
+docs/sglang_direct_kv/KV_EXACT_MOVEMENT_ATTRIBUTION.md
 ```
 
 Why this milestone is needed:
@@ -6166,7 +6166,7 @@ Status: ready.
 Full note:
 
 ```text
-KV_H2D_BANDWIDTH_PRESSURE.md
+docs/sglang_direct_kv/KV_H2D_BANDWIDTH_PRESSURE.md
 ```
 
 Why this milestone is needed:
@@ -6225,7 +6225,7 @@ Status: ready.
 Full note:
 
 ```text
-REPLAY_DELAY_BREAKDOWN.md
+docs/sglang_direct_kv/REPLAY_DELAY_BREAKDOWN.md
 ```
 
 Why this milestone is needed:
@@ -6276,7 +6276,7 @@ rows was already happening before G04's own H2D started.
 Full note:
 
 ```text
-REPLAY_DELAY_DEEP_INSTRUMENTATION.md
+docs/sglang_direct_kv/REPLAY_DELAY_DEEP_INSTRUMENTATION.md
 ```
 
 Why this milestone is needed:
@@ -6343,7 +6343,7 @@ trace.
 Full note:
 
 ```text
-INSTRUMENTATION_AUDIT.md
+docs/sglang_direct_kv/INSTRUMENTATION_AUDIT.md
 ```
 
 Why this milestone is needed:
@@ -6431,7 +6431,7 @@ SGLang version portability audit:
 ```text
 Before migrating this testbed to v0.5.11-cu129-runtime, read:
 
-  INSTRUMENTATION_AUDIT.md
+  docs/sglang_direct_kv/INSTRUMENTATION_AUDIT.md
     -> SGLang Version Portability Audit
 
 That section lists which hooks are already modular, which ones are

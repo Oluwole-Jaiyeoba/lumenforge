@@ -53,6 +53,8 @@ Everything except the landing page (`README.md`) and the active hand-off
 - [Effective runtime estimation](sglang_direct_kv/EFFECTIVE_RUNTIME_ESTIMATION.md)
 - [Filler timing calibration](sglang_direct_kv/FILLER_TIMING_CALIBRATION.md)
 - [Prompt codec](sglang_direct_kv/prompt_codec.md)
+- [KV block ledger](sglang_direct_kv/KV_BLOCK_LEDGER.md), [exact KV movement attribution](sglang_direct_kv/KV_EXACT_MOVEMENT_ATTRIBUTION.md), [H2D bandwidth pressure](sglang_direct_kv/KV_H2D_BANDWIDTH_PRESSURE.md)
+- [Replay delay breakdown](sglang_direct_kv/REPLAY_DELAY_BREAKDOWN.md), [deep replay instrumentation](sglang_direct_kv/REPLAY_DELAY_DEEP_INSTRUMENTATION.md), [instrumentation audit](sglang_direct_kv/INSTRUMENTATION_AUDIT.md)
 - Research PDFs: `docs/research/`
 
 ## Reports and presentations
