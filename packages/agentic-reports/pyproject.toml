@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-reports"
+version = "0.1.0"
+description = "Report builders, audits and the KV block ledger for agentic-hardware experiments."
+requires-python = ">=3.10"
+readme = {text = "See docs/architecture/README_RESTRUCTURING.md (Testbed split).", content-type = "text/markdown"}
+dependencies = [
+  "agentic-core>=0.1.0",
+  "agentic-controller>=0.1.0",
+  "agentic-prompt-codec>=0.1.0",
+  "agentic-backend-sglang>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

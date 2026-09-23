@@ -7,7 +7,10 @@
 > Code paths below that point into `sglang_direct_kv/src/agentic_kv/controller/`
 > or `agentic_kv/sglang_*` still work (they are aliases) but the code now lives
 > in `packages/`. All other top-level documents moved under `docs/`; see
-> [`docs/index.md`](docs/index.md).
+> [`docs/index.md`](docs/index.md). The Python scripts in
+> `sglang_direct_kv/scripts/` are now thin wrappers: the code is in
+> `packages/agentic-experiments` and `packages/agentic-reports`
+> ([mapping](sglang_direct_kv/scripts/README.md)); every command below still works.
 
 Updated: 2026-09-09
 

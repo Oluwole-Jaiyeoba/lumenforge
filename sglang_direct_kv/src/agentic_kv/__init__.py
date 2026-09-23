@@ -1,8 +1,14 @@
-"""Agentic KV direct instrumentation testbed.
+"""Compatibility layer for the SGLang testbed (``sglang_direct_kv``).
 
-Portable packages live at the repository's top-level ``packages`` directory.
-The path fallback keeps source-tree compatibility for historical commands;
-normal installations should use ``scripts/install_workspace.sh``.
+Since the 2026-09-23 restructuring this package contains no real code: every
+module is an alias of (or re-exports) its new home in ``packages/``
+(``agentic_backends.sglang``, ``agentic_controller``, ``agentic_harnesses``,
+``agentic_experiments``, ``agentic_reports`` ...). See
+docs/architecture/README_RESTRUCTURING.md.
+
+Importing it also puts ``<repo>/packages/*/src`` on ``sys.path`` so historical
+commands work without ``pip install``; normal installations should use
+``scripts/install_workspace.sh``.
 """
 
 from pathlib import Path

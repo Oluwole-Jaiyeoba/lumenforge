@@ -1,39 +1,10 @@
 #!/usr/bin/env python
-from __future__ import annotations
+"""Moved to ``agentic_experiments.runners.run_harness_aware_scenarios``.
 
-import argparse
-from pathlib import Path
+This file keeps ``python scripts/run_harness_aware_scenarios.py ...`` and ``import run_harness_aware_scenarios`` working
+(see docs/architecture/README_RESTRUCTURING.md, "Testbed split").
+"""
 
-from agentic_kv.harness_scenarios import load_scenario_manifest, run_scenarios
-from agentic_kv.harness_scenarios.report import write_outputs
+from _moved import run_or_alias
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Run minimal harness-aware synthetic scenarios.")
-    parser.add_argument(
-        "--manifest",
-        default="configs/harness_scenarios/minimal.json",
-        help="Scenario manifest path, relative to sglang_direct_kv unless absolute.",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="artifacts/results/harness_aware_scenarios",
-        help="Output directory, relative to sglang_direct_kv unless absolute.",
-    )
-    args = parser.parse_args()
-
-    root = Path(__file__).resolve().parents[1]
-    manifest = _resolve(root, args.manifest)
-    output_dir = _resolve(root, args.output_dir)
-    runs = run_scenarios(load_scenario_manifest(manifest))
-    write_outputs(runs, output_dir)
-    print(f"Wrote {len(runs)} scenario runs to {output_dir}")
-
-
-def _resolve(root: Path, value: str) -> Path:
-    path = Path(value)
-    return path if path.is_absolute() else root / path
-
-
-if __name__ == "__main__":
-    main()
+run_or_alias(__name__, "agentic_experiments.runners.run_harness_aware_scenarios")

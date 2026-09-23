@@ -1,32 +1,10 @@
-from .events import KVEventType, NormalizedKVEvent
-from .ledger import KVBlockLedger, KVBlockRecord, build_block_ledger
-from .normalizer import normalize_sglang_trace_events
-from .report import (
-    block_lifecycle_by_gap_rows,
-    block_lifecycle_focus_rows,
-    block_lifecycle_verdict_counts,
-    block_ledger_rows,
-    exact_movement_rows,
-    exact_movement_summary_rows,
-    gap_lifecycle_summary_rows,
-    ledger_summary_rows,
-    write_ledger_artifacts,
-)
+"""Compatibility package: the KV block ledger moved to ``agentic_reports.block_ledger``.
 
-__all__ = [
-    "KVBlockLedger",
-    "KVBlockRecord",
-    "KVEventType",
-    "NormalizedKVEvent",
-    "block_lifecycle_by_gap_rows",
-    "block_lifecycle_focus_rows",
-    "block_lifecycle_verdict_counts",
-    "block_ledger_rows",
-    "build_block_ledger",
-    "exact_movement_rows",
-    "exact_movement_summary_rows",
-    "gap_lifecycle_summary_rows",
-    "ledger_summary_rows",
-    "normalize_sglang_trace_events",
-    "write_ledger_artifacts",
-]
+This package is deliberately NOT a ``sys.modules`` alias (an aliased package
+would make ``agentic_kv.block_ledger.<sub>`` load a second copy of each
+submodule).  It re-exports the public API; each submodule file here aliases
+its ``agentic_reports.block_ledger.<sub>`` counterpart.
+"""
+
+from agentic_reports.block_ledger import *  # noqa: F401,F403
+from agentic_reports.block_ledger import __all__  # noqa: F401

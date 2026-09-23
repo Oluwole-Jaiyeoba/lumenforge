@@ -29,8 +29,9 @@ bash scripts/check_portability.sh
 ```text
 HANDOFF.md          active hand-off for the next agent/engineer
 docs/               all other documentation (index: docs/index.md), reports, presentations, archive
-packages/           portable packages; SGLang-specific code only in agentic-backend-sglang
-sglang_direct_kv/   SGLang testbed: experiment scripts, configs, tests
+packages/           all code: portable packages, agentic-experiments, agentic-reports;
+                    SGLang-specific code only in agentic-backend-sglang
+sglang_direct_kv/   SGLang testbed: shell entry points, script wrappers, configs, tests
 scripts/            workspace install and portability checks
 tests/              architecture (boundary) tests
 aws/, gh200/        deployment helpers

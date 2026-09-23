@@ -13,7 +13,7 @@ run() {
 }
 
 run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests/architecture
-for package in agentic-core agentic-backend-api agentic-controller agentic-harnesses agentic-gateway agentic-backend-sglang; do
+for package in agentic-core agentic-backend-api agentic-controller agentic-harnesses agentic-gateway agentic-backend-sglang agentic-experiments agentic-reports; do
   if [[ -d "packages/${package}/tests" ]]; then
     (cd "packages/${package}" && run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests)
   fi

@@ -15,6 +15,7 @@ Everything except the landing page (`README.md`) and the active hand-off
 - [SGLang-portability restructuring](architecture/README_RESTRUCTURING.md)
 - [Architecture map](architecture/ARCHITECTURE_MAP.md)
 - [SGLang backend package](../packages/agentic-backend-sglang/README.md) and its [compatibility matrix](../packages/agentic-backend-sglang/COMPATIBILITY.md)
+- [SGLang testbed layout](../sglang_direct_kv/README.md) and [where each script's code lives](../sglang_direct_kv/scripts/README.md)
 
 ## Deployment (`docs/deployment/`)
 

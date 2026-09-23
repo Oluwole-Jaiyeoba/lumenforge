@@ -1,6 +1,4 @@
 {
-  "_comment": "Testbed files outside packages/ that import sglang or spell sglang.srt paths. New entries are not allowed: put SGLang-internal code in packages/agentic-backend-sglang instead.",
-  "files": [
-    "sglang_direct_kv/scripts/smoke_priority_radix_eviction.py"
-  ]
+  "_comment": "Testbed files outside packages/ that import sglang or spell sglang.srt paths. New entries are not allowed: put SGLang-internal code in packages/agentic-backend-sglang instead. (Empty since 2026-09-23: smoke_priority_radix_eviction.py moved to agentic_backends.sglang.tools.)",
+  "files": []
 }

@@ -1,10 +1,8 @@
-"""Compatibility alias: this module is ``agentic_harness_scenarios.policies`` (single copy since the refactor).
+"""Compatibility package for ``agentic_harness_scenarios.policies``.
 
-``agentic_kv.harness_scenarios`` used to hold a duplicate of the portable
-scenario package; the duplicate was removed.  Only ``real_runner.py`` (the
-testbed-specific launcher) still lives here.
+Not a ``sys.modules`` alias on purpose: an aliased *package* would make
+``agentic_kv.harness_scenarios.policies.<sub>`` load a second copy of each
+submodule.  Each submodule file here aliases its counterpart instead.
 """
 
-from agentic_kv._compat_alias import alias
-
-alias(__name__, "agentic_harness_scenarios.policies")
+from agentic_harness_scenarios.policies import *  # noqa: F401,F403

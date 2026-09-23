@@ -51,6 +51,33 @@ class ModuleAliasTest(unittest.TestCase):
             "agentic_kv.controller.backend": "agentic_backends.sglang.adapters",
             "agentic_kv.sglang_adapters.capabilities": "agentic_backends.sglang.capabilities",
             "agentic_kv.sglang_adapters.v0510": "agentic_backends.sglang.versions.v0510",
+            # testbed split (second pass)
+            "agentic_kv.block_ledger.normalizer": "agentic_reports.block_ledger.normalizer",
+            "agentic_kv.evidence_audit": "agentic_reports.evidence_audit",
+            "agentic_kv.evidence_schema": "agentic_reports.evidence_schema",
+            "agentic_kv.policies": "agentic_experiments.basic_workload.policies",
+            "agentic_kv.sglang_client": "agentic_experiments.basic_workload.sglang_client",
+            "agentic_kv.harness_scenarios.real_runner": "agentic_experiments.real_runner",
+            "agentic_kv.block_ledger.events": "agentic_reports.block_ledger.events",
+            "agentic_kv.harness_scenarios.policies.baseline": "agentic_harness_scenarios.policies.baseline",
+            "agentic_kv.harness_scenarios.adapters.controller_signal": "agentic_harness_scenarios.adapters.controller_signal",
+        }
+        for old, new in pairs.items():
+            self.assertIs(importlib.import_module(old), importlib.import_module(new), old)
+
+    def test_compat_packages_reexport_without_duplicating_modules(self) -> None:
+        old = importlib.import_module("agentic_kv.block_ledger")
+        new = importlib.import_module("agentic_reports.block_ledger")
+        self.assertIs(old.KVEventType, new.KVEventType)
+        self.assertIs(old.build_block_ledger, new.build_block_ledger)
+
+    def test_script_wrappers_alias_package_modules(self) -> None:
+        pairs = {
+            "run_multi_harness_replay_driver": "agentic_experiments.runners.run_multi_harness_replay_driver",
+            "harness_sglang_gateway": "agentic_experiments.gateway.harness_sglang_gateway",
+            "build_multi_harness_deadline_summary": "agentic_reports.builders.build_multi_harness_deadline_summary",
+            "replay_path_classifier": "agentic_reports.analysis.replay_path_classifier",
+            "smoke_priority_radix_eviction": "agentic_backends.sglang.tools.smoke_priority_radix_eviction",
         }
         for old, new in pairs.items():
             self.assertIs(importlib.import_module(old), importlib.import_module(new), old)

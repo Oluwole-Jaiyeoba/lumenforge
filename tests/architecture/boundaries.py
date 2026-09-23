@@ -32,6 +32,30 @@ PACKAGES: dict[str, tuple[str, frozenset[str]]] = {
         frozenset({"agentic_core", "agentic_backend_api"}),
     ),
     "agentic_harness_scenarios": ("packages/agentic-harness-scenarios/src/agentic_harness_scenarios", frozenset()),
+    # Report layer: reads raw SGLang trace rows through the backend's event map
+    # (agentic_backends.sglang.hooks) until reports move onto normalized
+    # observations; uses controller runtime classes and prompt-codec reporting.
+    "agentic_reports": (
+        "packages/agentic-reports/src/agentic_reports",
+        frozenset({"agentic_core", "agentic_backends", "agentic_controller", "agentic_prompt_codec"}),
+    ),
+    # Composition root for experiments: may use every portable package and the
+    # SGLang backend, but never the report layer or the testbed (agentic_kv).
+    "agentic_experiments": (
+        "packages/agentic-experiments/src/agentic_experiments",
+        frozenset(
+            {
+                "agentic_core",
+                "agentic_backend_api",
+                "agentic_controller",
+                "agentic_harnesses",
+                "agentic_gateway",
+                "agentic_prompt_codec",
+                "agentic_harness_scenarios",
+                "agentic_backends",
+            }
+        ),
+    ),
 }
 
 FIRST_PARTY = set(PACKAGES) | {"agentic_kv", "sitecustomize"}

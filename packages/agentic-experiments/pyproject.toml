@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-experiments"
+version = "0.1.0"
+description = "Experiment orchestration for the agentic-hardware testbed (replay driver, gateway, workloads)."
+requires-python = ">=3.10"
+readme = {text = "See docs/architecture/README_RESTRUCTURING.md (Testbed split).", content-type = "text/markdown"}
+dependencies = [
+  "agentic-core>=0.1.0",
+  "agentic-backend-api>=0.1.0",
+  "agentic-controller>=0.1.0",
+  "agentic-harnesses>=0.1.0",
+  "agentic-gateway>=0.1.0",
+  "agentic-prompt-codec>=0.1.0",
+  "agentic-harness-scenarios>=0.1.0",
+  "agentic-backend-sglang>=0.1.0",
+  "httpx>=0.27",
+  "pyyaml>=6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

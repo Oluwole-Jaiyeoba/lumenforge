@@ -50,6 +50,17 @@ deleted. `gh200/download.sh` now copies the master report to
 replay-friction reader copy there. All markdown links were rewritten and
 checked. The full table of contents is `docs/index.md`.
 
+**Testbed split (2026-09-23, third pass; decisions D16-D20):**
+`sglang_direct_kv` was reduced to the SGLang testbed itself. Its Python
+scripts moved into two new packages, `agentic-experiments` (runners, replay
+driver, harness gateway, workloads) and `agentic-reports` (report builders,
+summaries, audits, KV block ledger, evidence audit); four SGLang-internal
+tools moved to `agentic_backends.sglang.tools`. The remaining real code in
+`agentic_kv` moved too, so `agentic_kv` is now a pure compatibility layer.
+29 unreachable milestone scripts were frozen in `sglang_direct_kv/scripts/legacy/`,
+and the testbed's loose notes moved to `docs/sglang_direct_kv/`. Every
+`python scripts/<name>.py` command still works through a thin wrapper.
+
 
 ```text
 packages/
@@ -74,8 +85,14 @@ packages/
       capabilities.py        runtime capability probe (moved verbatim)
       hooks.py               pre-refactor hook-table API for the shims
     COMPATIBILITY.md         per-release check results 0.5.10.post1 .. 0.5.20
+      tools/                 SGLang-internal probes/analysis moved from sglang_direct_kv/scripts (testbed split)
   agentic-harness-scenarios/ MOVED from repo root (was duplicated in agentic_kv)
-sglang_direct_kv/            the testbed: scripts, configs, agentic_kv (now mostly aliases), tests
+  agentic-experiments/       NEW (testbed split): runners/, gateway/, workloads/, environment/,
+                             prompt_codec_eval/, basic_workload/, real_runner.py, paths.py
+  agentic-reports/           NEW (testbed split): builders/, summaries/, audits/, analysis/,
+                             block_ledger/, evidence_audit.py, evidence_schema.py
+sglang_direct_kv/            the SGLang testbed: shell entry points, thin script wrappers, scripts/legacy/,
+                             configs, sitecustomize, agentic_kv (compatibility aliases only), tests
 tests/architecture/          NEW: boundary rules enforced by tests
 scripts/check_portability.sh NEW: every GPU-free check in one command
 .github/workflows/portability.yml  NEW: CI (no SGLang) + surface check vs SGLang wheels
@@ -87,13 +104,15 @@ Dependency direction (enforced by `tests/architecture`):
 agentic_core  <-  agentic_backend_api  <-  agentic_controller
 agentic_core  <-  agentic_harnesses    <-  agentic_gateway
 agentic_core, agentic_backend_api      <-  agentic_backends.sglang   (only one allowed to import sglang)
-sglang_direct_kv (testbed) composes all of the above
+core, backends.sglang, controller, prompt_codec          <-  agentic_reports
+every portable package + backends.sglang (not reports)   <-  agentic_experiments   (composition root)
+sglang_direct_kv (testbed) wires all of the above to a real SGLang server
 ```
 
 Request path after the refactor:
 
 ```text
-harness client --HTTP--> scripts/harness_sglang_gateway.py
+harness client --HTTP--> scripts/harness_sglang_gateway.py (wrapper for agentic_experiments.gateway.harness_sglang_gateway)
     agentic_harnesses.request_hints   what hints did the client send?
     agentic_gateway.translation       what should this request carry?  -> agentic_core.BackendRequest
     agentic_backends.sglang.lowering  how does SGLang X.Y spell that?    -> JSON body
@@ -171,6 +190,15 @@ new module object in `sys.modules` under the old name. Private names and
 module globals (e.g. the trace registries) are therefore shared. Scripts,
 `sitecustomize` and historical commands keep working unchanged.
 *Rejected:* `from new import *` (drops private names, duplicates globals).
+*Exception (fixed in the testbed split):* a compatibility **package** must not
+be an alias. If `agentic_kv.harness_scenarios.policies` is an alias, Python
+resolves `agentic_kv.harness_scenarios.policies.baseline` through the real
+package's `__path__` and loads a *second copy* of `baseline.py` (duplicate
+classes and state). The first pass had this latent bug for
+`harness_scenarios/policies` and `harness_scenarios/adapters`; those package
+`__init__` files, and the new `agentic_kv/block_ledger/__init__.py`, now
+re-export (`from new import *`) while each submodule file stays an alias.
+`test_refactor_compat.py` checks the submodule identities.
 
 ### D9. No mandatory reinstall on the server
 `agentic_kv/__init__.py` already put `<repo>/packages/*/src` on `sys.path`.
@@ -221,6 +249,58 @@ to verify the extracted records would risk silent data changes. The safety
 net for now is the adapter surface (every attribute the patch relies on) plus
 tests that run the real installer against a generated fake SGLang tree.
 See section 9 for the split plan.
+
+### D16. Split the testbed by role, keep script names as module names
+Scripts became modules in `agentic_experiments.{runners,gateway,workloads,environment,prompt_codec_eval}`,
+`agentic_reports.{builders,summaries,audits,analysis}` or
+`agentic_backends.sglang.tools`, **with their file names unchanged**, so a
+module is found by the same name used in commands, docs and logs, and
+argparse `--help` output is byte-identical. The full mapping is
+`sglang_direct_kv/scripts/README.md`. Shell entry points (`*.sh`) stayed in
+the testbed: they launch the SGLang server and wire processes together.
+*Rejected:* renaming modules (breaks every runbook) and moving the `.sh`
+files (they are the testbed).
+
+### D17. Thin wrappers via `runpy`, not copies or `python -m`
+`scripts/<name>.py` is an 8-line wrapper calling `_moved.run_or_alias`. As a
+program it runs the package module with
+`runpy.run_module(..., run_name="__main__", alter_sys=True)`; imported, it
+aliases the package module. `_moved.py` also puts `src/` on `sys.path` and
+imports `agentic_kv`, so wrappers work without `pip install` (same as D9).
+Proof: `--help` output and exit code of all 59 moved scripts compared before
+and after: identical; the harness gateway still starts as a subprocess from
+its script path. *Rejected:* rewriting ~40 shell scripts to `python -m`
+(needs installed packages everywhere, breaks documented commands).
+
+### D18. Only import lines and `__file__` changed in moved code
+An AST-based tool moved the files and rewrote exactly: sibling-script
+imports (`from build_x import` -> `from agentic_reports.builders.build_x import`),
+`agentic_kv.*` imports (to the canonical module each name is defined in,
+found by object identity), and seven `Path(__file__).parents[1]` uses (to
+`agentic_experiments.paths.testbed_root()`, which returns the same
+`sglang_direct_kv` directory; override with `AGENTIC_TESTBED_ROOT`). Three
+`SRC_ROOT` `sys.path` hacks were removed. The full diff against the originals
+is 177 lines across 72 files, all of those kinds.
+
+### D19. Legacy = unreachable, computed, not guessed
+A reference graph (script file names mentioned in scripts, plus sibling
+imports) was walked from every non-milestone shell script and every Python
+script no other script references. The 29 files not reached went to
+`scripts/legacy/`. Milestone-named scripts still used by the master-report
+pipeline (e.g. `run_milestone27_*`, `build_milestone27_controlled_replay_report.py`)
+stayed. Four legacy shell scripts compute their root from their own location;
+their `SCRIPT_DIR/..` became `SCRIPT_DIR/../..`. All `scripts/...` paths
+referenced by any shell or Python script were checked to exist.
+
+### D20. New packages get boundary rules and a vocabulary ratchet
+`tests/architecture` now covers `agentic_experiments` (composition root: may
+import everything except `agentic_reports` and `agentic_kv`) and
+`agentic_reports` (core, controller, prompt codec, and `agentic_backends` for
+the raw-event map). Both still contain many SGLang-shaped data keys (about
+1,200 occurrences); their counts were recorded in
+`vocabulary_allowlist.json` and may only go down.
+`legacy_sglang_internal_users.json` is now empty: no testbed file imports
+SGLang any more.
 
 ---
 
@@ -276,6 +356,17 @@ rest are static-only.
     to `docs/reports/` (was the repo root); `run_harness_deadline_pressure.sh`
     passes `--top-level-copy-dir <repo>/docs/reports` to the replay-friction
     analyzer (was the repo root).
+14. Testbed split: `sglang_direct_kv/scripts/*.py` are wrappers; code lives in
+    `packages/agentic-experiments`, `packages/agentic-reports`,
+    `agentic_backends.sglang.tools`. `install_workspace.sh` installs the two
+    new packages; `agentic-kv` depends on them.
+15. `agentic_experiments` code locates the testbed with `testbed_root()`
+    instead of its own file location (same result; `AGENTIC_TESTBED_ROOT`
+    overrides).
+16. 29 milestone scripts moved to `sglang_direct_kv/scripts/legacy/`; run
+    them as `scripts/legacy/<name>`.
+17. Bug fix: importing `agentic_kv.harness_scenarios.policies.*` or
+    `.adapters.*` no longer creates duplicate module copies (see D8).
 
 **Unchanged (proven by golden tests):** every gateway request body and
 translation context, every driver timing/eviction/emulation helper output,
@@ -320,6 +411,7 @@ Test inventory added by this work:
 | `sglang_direct_kv/tests/test_refactor_compat.py` | all 70 scripts import; old module paths are aliases; a fresh interpreter started like the SGLang server installs hooks via sitecustomize |
 | `packages/agentic-backend-sglang/tests/` | surface checker (positive/negative, inheritance, TYPE_CHECKING, dataclass flags), selection rules, lowering, effect levels, telemetry, launch preflight, and the **real** trace installer run against generated fake SGLang trees (reference, broken, strict, 0.5.20 layout) |
 | `packages/*/tests/` | small contract tests per package |
+| `packages/agentic-experiments/tests`, `packages/agentic-reports/tests` | every moved module imports; `testbed_root()` resolves to the former script parent; block ledger builds (testbed split) |
 | `tests/architecture/` | dependency direction, "only agentic_backends touches sglang", vocabulary ratchet, no new testbed SGLang users |
 
 Result at hand-off: all checks pass on Python 3.10 and 3.11 in a fresh venv
@@ -366,19 +458,21 @@ violated.
    `trace/control.py` (prepare-prefix HTTP server + `_execute_prepare_prefix_command`),
    `trace/events.py` (event writing, runtime telemetry, NVTX). Record a golden
    trace from a GPU run first and compare after the split.
-4. **Reports on normalized observations:** `block_ledger/normalizer.py`,
-   `evidence_audit.py` and ~17 report scripts match raw event names
-   (list: `grep -lE '"(hiradix|hicache|hostpool|radix)\.' sglang_direct_kv/scripts/*.py`).
-   Thanks to D6 this no longer breaks on SGLang upgrades, but moving them onto
-   `agentic_backends.sglang.telemetry.SGLangTelemetryNormalizer` and an
-   `agentic_reports` package is the clean end state.
+4. **Reports on normalized observations:** the report code now lives in
+   `agentic_reports` (testbed split), but `block_ledger/normalizer.py`,
+   `evidence_audit.py` and the builders still match raw event names
+   (`grep -rlE '"(hiradix|hicache|hostpool|radix)\.' packages/agentic-reports`).
+   Thanks to D6 this no longer breaks on SGLang upgrades; moving them onto
+   `agentic_backends.sglang.telemetry.SGLangTelemetryNormalizer` is the clean
+   end state and would let most of the vocabulary allowlist go to zero.
 5. **Decompose the replay driver.** `main_async` in
    `run_multi_harness_replay_driver.py` is ~3,500 lines. Suggested cut:
    harness CLI command builders (`codex_command` ... `hermes_agent_command`)
    -> `agentic_harnesses.clients`; remaining emulation helpers
    (`attach_*_priority_*`, `nat_inferred_*`) -> `agentic_harnesses.emission_emulation`;
-   workload/timeline construction and the event loop -> a new
-   `agentic_experiments` package. Extend the golden tests before each move.
+   workload/timeline construction and the event loop -> separate modules
+   inside `agentic_experiments` (the driver itself already moved there in the
+   testbed split). Extend the golden tests before each move.
 6. **Resolve gateway/controller mode divergence** (found during the move, not
    changed): the gateway's `PRIORITY_ENABLED_MODES` does not include
    `controller_priority_demotion_admission_shorthand`,
@@ -390,8 +484,14 @@ violated.
 7. **Second backend** to prove independence: implement the four protocols in
    `agentic_backend_api` for a mock OpenAI-compatible server or vLLM and run
    the gateway golden matrix through its lowering.
-8. **Remove compatibility aliases** (ARCHITECTURE_MAP Phase 7) once scripts
-   import the new paths; then burn down `vocabulary_allowlist.json`.
+8. **Remove compatibility aliases** (ARCHITECTURE_MAP Phase 7): once nothing
+   imports `agentic_kv.*` or the script wrappers by module name (tests,
+   `sitecustomize`, historical commands), delete them; then burn down
+   `vocabulary_allowlist.json`.
+9. **Move package tests out of the testbed:** `sglang_direct_kv/tests` still
+   holds controller, harness, hint-benchmark and prompt-codec tests that use
+   testbed configs. Move each next to its package with the config fixtures it
+   needs.
 
 ---
 
@@ -423,3 +523,4 @@ violated.
 | `a9b1512` | Single copy of the harness-scenario framework |
 | `1ddcaaa` | v0520 adapter, launch-flag surface, compatibility matrix |
 | (last) | This README and doc updates |
+| (testbed split) | `Move sglang_direct_kv notes into docs/sglang_direct_kv`; `Freeze unreachable milestone scripts in scripts/legacy` (+ docs follow-up); `Split sglang_direct_kv into agentic-experiments and agentic-reports packages` -- see `git log` |

@@ -28,9 +28,9 @@ are partially done. Details, decisions and every behavior change are in
 | --- | --- |
 | 1-3.5 Contracts, controller/harness split, package promotion | done (before this branch) |
 | 4 Consolidate SGLang integration | **done**: `packages/agentic-backend-sglang` (`agentic_backends.sglang`) owns all SGLang imports, hook tables, raw event maps, request lowering, launch flags and patch bootstrap; versioned adapters v0510-v0520; static surface check; explicit bootstrap via `agentic_backends.sglang.trace.install()` |
-| 5 Split experiments and reports | partial: gateway translation -> `agentic_gateway`, driver timing/eviction helpers -> `agentic_controller`; `main_async` and report builders not yet split |
+| 5 Split experiments and reports | **done structurally** (testbed split): `packages/agentic-experiments` (runners, replay driver, gateway, workloads) and `packages/agentic-reports` (builders, audits, block ledger); milestone-only scripts frozen in `sglang_direct_kv/scripts/legacy/`. Still open: decomposing the driver's `main_async` and moving reports onto normalized observations |
 | 6 Deployment portability | partial: SGLang pinned, Docker paths mount `packages/`, CI without SGLang |
-| 7 Remove compatibility shims | not started (old `agentic_kv` paths are `sys.modules` aliases) |
+| 7 Remove compatibility shims | not started (old `agentic_kv` paths and `sglang_direct_kv/scripts/*.py` are thin aliases/wrappers) |
 
 The package table below now also includes `agentic_gateway` (backend-neutral
 request translation; may import core + harnesses). Its placement rationale is
@@ -140,8 +140,8 @@ README, the active HANDOFF, and code/deployment directories.
 | `HANDOFF.md` | Active hand-off for the next agent/engineer. | Repository documentation. | Kept at root on purpose (owner decision). |
 | `docs/` | All other documentation; see `docs/index.md`. Architecture (`docs/architecture/`), hint benchmark (`docs/hint_benchmark/`), testbeds, proposals, reports (`docs/reports/`), presentations, research PDFs, archive. | Repository documentation. | Canonical home. |
 | `docs/archive/backups/`, `docs/archive/codex-build/`, `docs/archive/codex_build/` | Retained report copies and Codex build scratch (formerly `backups/`, `.codex-build/`, `.codex_build/`). | Historical material. | Tracked but out of the way; never import from here. |
-| `packages/` | All portable packages, including `agentic-backend-sglang` and `agentic-harness-scenarios`. | Package owners. | See Python Packages below. |
-| `sglang_direct_kv/` | The SGLang testbed: scripts, configs, `agentic_kv` compatibility layer, tests. | `agentic_experiments` (future). | Keep. |
+| `packages/` | All packages: core, backend API, controller, harnesses, gateway, prompt codec, harness scenarios, `agentic-backend-sglang`, `agentic-experiments`, `agentic-reports`. | Package owners. | See Python Packages below. |
+| `sglang_direct_kv/` | The SGLang testbed: shell entry points, thin script wrappers, `scripts/legacy/`, configs, `sitecustomize`, `agentic_kv` compatibility layer, tests. | Testbed. | Keep thin; new code goes into packages. |
 | `scripts/`, `tests/`, `.github/` | Workspace install, portability checks, architecture tests, CI. | Repository tooling. | Keep. |
 | `aws/`, `gh200/` | EC2 and GH200 helpers. | `deployment/*`. | Keep operational path until wrappers replace it. |
 | `.codex_external/` | External datasets and repositories used for analysis (git-ignored). | External inputs. | Never make package imports depend on this path. |
