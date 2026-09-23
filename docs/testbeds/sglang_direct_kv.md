@@ -720,7 +720,7 @@ Run the pressure trace:
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-bash scripts/run_milestone4_pressure_trace.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone4_pressure_trace.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 What this script does:
@@ -897,7 +897,7 @@ Run it:
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-bash scripts/run_milestone5_compare_modes.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone5_compare_modes.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Default pressure settings:
@@ -925,7 +925,7 @@ If resume TTFT is still too low, make the run even harsher:
 MAX_TOTAL_TOKENS=3072 \
 FILLER_SESSIONS=48 \
 PROMPT_TOKENS=2048 \
-bash scripts/run_milestone5_compare_modes.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone5_compare_modes.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 If SGLang runs out of memory or becomes unstable, back off:
@@ -934,7 +934,7 @@ If SGLang runs out of memory or becomes unstable, back off:
 MAX_TOTAL_TOKENS=6144 \
 FILLER_SESSIONS=24 \
 PROMPT_TOKENS=1024 \
-bash scripts/run_milestone5_compare_modes.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone5_compare_modes.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 What this script does:
@@ -1081,7 +1081,7 @@ Run it:
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-bash scripts/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Default sweep command:
@@ -1091,7 +1091,7 @@ RESULT_ROOT=artifacts/results/milestone6_design_space \
 FILLER_LIST="12 24 96 192" \
 PROMPT_TOKEN_LIST="1024 1536" \
 TIMINGS="pre_pressure near_resume" \
-bash scripts/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Default sweep result:
@@ -1178,14 +1178,14 @@ How to run a smaller sweep:
 FILLER_LIST="12 24" \
 PROMPT_TOKEN_LIST="1024" \
 TIMINGS="pre_pressure near_resume" \
-bash scripts/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 How to run the wider timing sweep:
 
 ```bash
 TIMINGS="very_early_before_pressure pre_pressure middle_during_pressure near_resume" \
-bash scripts/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 How to run a harsher sweep:
@@ -1194,7 +1194,7 @@ How to run a harsher sweep:
 MAX_TOTAL_TOKENS=3072 \
 FILLER_LIST="96 192 250" \
 PROMPT_TOKEN_LIST="2048" \
-bash scripts/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone6_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Important events to observe:
@@ -1268,7 +1268,7 @@ Run it:
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-bash scripts/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Small smoke version:
@@ -1277,7 +1277,7 @@ Small smoke version:
 RESULT_ROOT=artifacts/results/milestone7_smoke \
 FILLER_SESSIONS=2 \
 PROMPT_TOKENS=256 \
-bash scripts/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Smoke result:
@@ -1296,7 +1296,7 @@ Pressure version for call-shape discovery:
 RESULT_ROOT=artifacts/results/milestone7_pressure \
 FILLER_SESSIONS=96 \
 PROMPT_TOKENS=1024 \
-bash scripts/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Pressure result:
@@ -1327,7 +1327,7 @@ RESULT_ROOT=artifacts/results/milestone7_direct_load_probe \
 PREFETCH_ACTION=direct_load \
 FILLER_SESSIONS=24 \
 PROMPT_TOKENS=1024 \
-bash scripts/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 This records `agent.direct_kv_load_attempt` and sends a marked trigger request.
@@ -1437,7 +1437,7 @@ Run it:
 RESULT_ROOT=artifacts/results/milestone7_mapping \
 FILLER_SESSIONS=96 \
 PROMPT_TOKENS=1024 \
-bash scripts/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Important events to observe:
@@ -1537,7 +1537,7 @@ RESULT_ROOT=artifacts/results/milestone7d_direct_load_pressure \
 PREFETCH_ACTION=direct_load \
 FILLER_SESSIONS=96 \
 PROMPT_TOKENS=1024 \
-bash scripts/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone7_direct_hooks.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Observed result:
@@ -1618,7 +1618,7 @@ FILLER_LIST="12 24 96 192" \
 PROMPT_TOKEN_LIST="1024 1536" \
 TIMINGS="pre_pressure near_resume" \
 PREFETCH_ACTIONS="direct_load" \
-bash scripts/run_milestone8_direct_load_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone8_direct_load_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 What the default sweep runs:
@@ -1706,7 +1706,7 @@ FILLER_LIST="12" \
 PROMPT_TOKEN_LIST="1024" \
 TIMINGS="near_resume" \
 PREFETCH_ACTIONS="direct_load" \
-bash scripts/run_milestone8_direct_load_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone8_direct_load_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Smoke result observed on EC2:
@@ -2009,7 +2009,7 @@ ARRIVAL_GAP_MS=120 \
 TOOL_WAIT_LIST_MS="250 500 900 1600" \
 PROMPT_TOKEN_LIST="768 1024 1536" \
 HINT_DELAY_MS=120 \
-bash scripts/run_milestone9_oracle_lead_sweep.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone9_oracle_lead_sweep.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Expected interpretation:
@@ -2117,7 +2117,7 @@ TOOL_WAIT_LIST_MS="250 500 900 1600" \
 PROMPT_TOKEN_LIST="768 1024 1536" \
 HINT_DELAY_MS=120 \
 ORACLE_LEAD_MS=1500 \
-bash scripts/run_milestone10_dma_timeline.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone10_dma_timeline.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Smaller smoke run:
@@ -2135,7 +2135,7 @@ ARRIVAL_GAP_MS=120 \
 TOOL_WAIT_LIST_MS="500 900" \
 PROMPT_TOKEN_LIST="768" \
 ORACLE_LEAD_MS=1000 \
-bash scripts/run_milestone10_dma_timeline.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone10_dma_timeline.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Outputs:
@@ -2166,7 +2166,7 @@ ARRIVAL_GAP_MS=120 \
 TOOL_WAIT_LIST_MS="500 900" \
 PROMPT_TOKEN_LIST="768" \
 ORACLE_LEAD_MS=1000 \
-bash scripts/run_milestone10_dma_timeline.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone10_dma_timeline.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Important events to observe:
@@ -3150,7 +3150,7 @@ cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
 STRESS_PRESET=smoke \
-bash scripts/run_milestone13_failure_stress.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone13_failure_stress.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Manager stress run:
@@ -3160,7 +3160,7 @@ cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
 STRESS_PRESET=manager \
-bash scripts/run_milestone13_failure_stress.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone13_failure_stress.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Main output:
@@ -3219,7 +3219,7 @@ cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
 GREEN_BAR_PRESET=medium \
-bash scripts/run_milestone13b_green_bar_failure_stress.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone13b_green_bar_failure_stress.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Presets:
@@ -3367,7 +3367,7 @@ Recommended run:
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-bash scripts/run_milestone14_lightweight_copy_telemetry.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone14_lightweight_copy_telemetry.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Default shape:
@@ -3482,7 +3482,7 @@ Run it:
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-bash scripts/run_milestone15_targeted_dma_validation.sh Qwen/Qwen2.5-1.5B-Instruct
+bash scripts/legacy/run_milestone15_targeted_dma_validation.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
 Default shape:
@@ -3668,7 +3668,7 @@ AGENTBENCH_ROOT=~/kv_cache_offloading \
 START_INDEX=0 \
 END_INDEX=0 \
 TOOL_CALL_PARSER=qwen25 \
-bash scripts/run_milestone16_agentbench_sglang_direct.sh \
+bash scripts/legacy/run_milestone16_agentbench_sglang_direct.sh \
   Qwen/Qwen2.5-1.5B-Instruct
 ```
 
@@ -3815,7 +3815,7 @@ WORKLOAD_JSONL=artifacts/results/latest_real/agentbench_replay_workload.jsonl \
 MODES="no_prefetch direct_load oracle_direct_load" \
 ORACLE_LEAD_MS=500 \
 TRAFFIC_CONCURRENCY=4 \
-bash scripts/run_milestone18_agentbench_trace_replay_modes.sh \
+bash scripts/legacy/run_milestone18_agentbench_trace_replay_modes.sh \
   Qwen/Qwen2.5-1.5B-Instruct
 ```
 
@@ -3953,7 +3953,7 @@ MAX_SESSIONS=6 \
 CLEAN_MODES="no_prefetch oracle_direct_load" \
 ATTRIBUTION_TORCH_PROFILER_ENABLE=0 \
 TOOL_WAIT_LIST_MS="250 500 900 1600 3000" \
-bash scripts/run_milestone20_swebench_trajectory_replay.sh \
+bash scripts/legacy/run_milestone20_swebench_trajectory_replay.sh \
   Qwen/Qwen2.5-1.5B-Instruct
 ```
 
@@ -4301,7 +4301,7 @@ MAX_SESSIONS=6 \
 CLEAN_MODES="no_prefetch oracle_direct_load" \
 ATTRIBUTION_TORCH_PROFILER_ENABLE=0 \
 TOOL_WAIT_LIST_MS="250 500 900 1600 3000" \
-bash scripts/run_milestone20_swebench_trajectory_replay.sh \
+bash scripts/legacy/run_milestone20_swebench_trajectory_replay.sh \
   Qwen/Qwen2.5-1.5B-Instruct
 ```
 
@@ -5652,7 +5652,7 @@ source .venv/bin/activate
 REPORT_LABEL=milestone29_deep_run_1 \
 PRESSURE_PROFILE=medium \
 TRACE_INDEX_CSV=~/kv_cache_offloading/experiments/reports/latest_prompt_evolution_trace_index.csv \
-bash scripts/run_milestone29_deep_replay_path.sh \
+bash scripts/legacy/run_milestone29_deep_replay_path.sh \
   Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
@@ -6884,7 +6884,7 @@ MAX_TOTAL_TOKENS=12288 \
 HICACHE_SIZE_GB=16 \
 MEM_FRACTION_STATIC=0.72 \
 MAX_TIMELINE_GAPS=32 \
-bash scripts/run_milestone38_dynamo_hints_projection.sh \
+bash scripts/legacy/run_milestone38_dynamo_hints_projection.sh \
   Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
@@ -7345,7 +7345,7 @@ MAX_TOTAL_TOKENS=12288 \
 HICACHE_SIZE_GB=16 \
 MEM_FRACTION_STATIC=0.72 \
 MAX_TIMELINE_GAPS=32 \
-bash scripts/run_milestone38_dynamo_hints_projection.sh \
+bash scripts/legacy/run_milestone38_dynamo_hints_projection.sh \
   Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
@@ -7440,7 +7440,7 @@ MAX_PAIRS=1 \
 TOOL_WAIT_LIST_MS=500 \
 HICACHE_SIZE_GB=16 \
 MEM_FRACTION_STATIC=0.72 \
-bash scripts/run_milestone40_priority_retention_sanity.sh \
+bash scripts/legacy/run_milestone40_priority_retention_sanity.sh \
   Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
@@ -7454,7 +7454,7 @@ RESULT_ROOT=artifacts/results/milestone40_priority_retention_smoke \
 DISTRACTOR_COUNTS="8 16" \
 MAX_PAIRS=1 \
 TOOL_WAIT_LIST_MS=500 \
-bash scripts/run_milestone40_priority_retention_sanity.sh \
+bash scripts/legacy/run_milestone40_priority_retention_sanity.sh \
   Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
