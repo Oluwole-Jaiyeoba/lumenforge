@@ -618,7 +618,7 @@ build_final_report() {
         --report-dir "${REPORT_DIR}" \
         --run-root "${RUN_ROOT}" \
         --report-label "${REPORT_LABEL}" \
-        --top-level-copy-dir "${PROJECT_ROOT}" \
+        --top-level-copy-dir "${PROJECT_ROOT}/docs/reports" \
         "${friction_latest_args[@]}"
     fi
     return
@@ -645,7 +645,7 @@ build_final_report() {
       --report-dir "${REPORT_DIR}" \
       --run-root "${RUN_ROOT}" \
       --report-label "${REPORT_LABEL}" \
-      --top-level-copy-dir "${PROJECT_ROOT}" \
+      --top-level-copy-dir "${PROJECT_ROOT}/docs/reports" \
       "${friction_latest_args[@]}"
   fi
   REPORT_LABEL="${REPORT_LABEL}" MODEL="${MODEL}" RESULTS_ROOT="${RESULTS_ROOT}" RUN_ROOT="${RUN_ROOT}" REPORT_DIR="${REPORT_DIR}" UPDATE_LATEST="${UPDATE_LATEST}" HARDWARE_PROFILE="${HARDWARE_PROFILE}" HARDWARE_PROFILE_PATH="${HARDWARE_PROFILE_PATH}" HARNESSES="${HARNESSES}" MODES="${MODES}" PRESSURE_LEVELS="${PRESSURE_LEVELS}" "${PYTHON_BIN}" - <<'PY'

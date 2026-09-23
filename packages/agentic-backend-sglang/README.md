@@ -5,7 +5,7 @@ class/method/attribute names, CLI flags and request wire fields. Everything
 else (controller, harnesses, gateway translation, reports) talks to it through
 `agentic_backend_api` protocols and `agentic_core` records.
 
-- Design, decisions and hand-off notes: [`README_RESTRUCTURING.md`](../../README_RESTRUCTURING.md)
+- Design, decisions and hand-off notes: [`docs/architecture/README_RESTRUCTURING.md`](../../docs/architecture/README_RESTRUCTURING.md)
 - Per-release compatibility: [`COMPATIBILITY.md`](COMPATIBILITY.md)
 
 ## Upgrading SGLang (checklist)

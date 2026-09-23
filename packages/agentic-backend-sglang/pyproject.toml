@@ -7,7 +7,7 @@ name = "agentic-backend-sglang"
 version = "0.1.0"
 description = "SGLang integration: versioned adapters, surface checks, request lowering, tracing."
 requires-python = ">=3.10"
-readme = {text = "Everything that knows SGLang internals lives here. See README_RESTRUCTURING.md.", content-type = "text/markdown"}
+readme = {text = "Everything that knows SGLang internals lives here. See docs/architecture/README_RESTRUCTURING.md.", content-type = "text/markdown"}
 # SGLang itself is NOT a dependency: the static surface check, lowering and
 # selection work without it.  The server venv installs SGLang separately
 # (sglang_direct_kv/requirements.txt pins the tested version).

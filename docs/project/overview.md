@@ -200,15 +200,15 @@ and the [package guide](../packages/agentic_prompt_codec.md).
 
 | Path | Purpose |
 | --- | --- |
-| [ARCHITECTURE_MAP.md](../../ARCHITECTURE_MAP.md) | Package ownership, dependency rules, SGLang isolation boundary, and phased portability plan. |
+| [ARCHITECTURE_MAP.md](../architecture/ARCHITECTURE_MAP.md) | Package ownership, dependency rules, SGLang isolation boundary, and phased portability plan. |
 | [sglang_direct_kv/](../../sglang_direct_kv/) | Main SGLang replay-deadline testbed. |
 | [SGLang testbed notebook](../testbeds/sglang_direct_kv.md) | Long-form milestone notebook with historical detail. |
 | [sglang_direct_kv/scripts/](../../sglang_direct_kv/scripts/) | Experiment runners, workload drivers, report builders, and SGLang launch helpers. |
 | [HANDOFF.md](../../HANDOFF.md) | Current handoff for another Codex task working on this infrastructure. |
 | [EC2 deployment guide](../deployment/aws.md) | EC2 sync and connection workflow. |
 | [GH200 deployment guide](../deployment/gh200.md) | Short GH200 setup and experiment run guide. |
-| [HARDWARE_EMULATION_ENVIRONMENT.md](../../HARDWARE_EMULATION_ENVIRONMENT.md) | Original hardware-emulation environment notes. |
-| [REPLAY_PATH_INSTRUMENTATION_PROPOSAL.md](../../REPLAY_PATH_INSTRUMENTATION_PROPOSAL.md) | Replay-path instrumentation design notes. |
+| [HARDWARE_EMULATION_ENVIRONMENT.md](../proposals/HARDWARE_EMULATION_ENVIRONMENT.md) | Original hardware-emulation environment notes. |
+| [REPLAY_PATH_INSTRUMENTATION_PROPOSAL.md](../proposals/REPLAY_PATH_INSTRUMENTATION_PROPOSAL.md) | Replay-path instrumentation design notes. |
 
 ## Latest Report Outputs
 

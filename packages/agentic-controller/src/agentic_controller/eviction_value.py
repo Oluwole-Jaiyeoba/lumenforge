@@ -7,7 +7,7 @@ radix-cache priority eviction.
 
 Moved verbatim from ``run_multi_harness_replay_driver.py``.  The output keys
 ``controller_sglang_priority`` / ``sglang_radix_priority_eviction`` are kept
-because they are recorded artifact columns (see README_RESTRUCTURING.md,
+because they are recorded artifact columns (see docs/architecture/README_RESTRUCTURING.md,
 "Vocabulary allowlist").
 """
 

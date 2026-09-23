@@ -1,4 +1,4 @@
-"""Static architecture rules for the portable packages (see README_RESTRUCTURING.md).
+"""Static architecture rules for the portable packages (see docs/architecture/README_RESTRUCTURING.md).
 
 Kept separate from the test so the same scanner can print a report::
 

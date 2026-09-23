@@ -3,7 +3,7 @@
 A shim module calls ``alias(__name__, "new.module")``; the old dotted name then
 refers to the *same module object* as the new one (private names and module
 globals included), so monkeypatching or reading ``_PRIVATE`` state through the
-old path keeps working.  See README_RESTRUCTURING.md, "Compatibility shims".
+old path keeps working.  See docs/architecture/README_RESTRUCTURING.md, "Compatibility shims".
 """
 
 from __future__ import annotations

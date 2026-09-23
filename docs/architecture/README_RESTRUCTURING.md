@@ -37,6 +37,20 @@ is a GPU run on EC2 to confirm nothing changed at runtime (section 8).
 
 ## 2. Where things are now
 
+**Top-level cleanup (2026-09-23, after the refactor):** the repository root
+now holds only `README.md`, `HANDOFF.md` (kept at root by owner decision) and
+directories. This file moved to `docs/architecture/` together with
+`ARCHITECTURE_MAP.md`; the hint-benchmark docs moved to `docs/hint_benchmark/`,
+`HARNESS_AWARE_SCENARIOS.md` to `docs/testbeds/`, the five proposal documents
+to `docs/proposals/`, the three top-level HTML reports to `docs/reports/`,
+`presentation/` to `docs/presentations/`, and `backups/`, `.codex-build/`,
+`.codex_build/` to `docs/archive/` (still tracked). A stray screenshot was
+deleted. `gh200/download.sh` now copies the master report to
+`docs/reports/`, and `run_harness_deadline_pressure.sh` writes the
+replay-friction reader copy there. All markdown links were rewritten and
+checked. The full table of contents is `docs/index.md`.
+
+
 ```text
 packages/
   agentic-core/              contracts only (+ NEW BackendRequest)
@@ -258,6 +272,10 @@ rest are static-only.
 11. `agentic_harness_scenarios/` moved to `packages/agentic-harness-scenarios/`.
 12. `install_workspace.sh` also installs `agentic-gateway`,
     `agentic-backend-sglang`, `agentic-harness-scenarios`.
+13. Top-level cleanup: `gh200/download.sh` copies `latest_master_report.html`
+    to `docs/reports/` (was the repo root); `run_harness_deadline_pressure.sh`
+    passes `--top-level-copy-dir <repo>/docs/reports` to the replay-friction
+    analyzer (was the repo root).
 
 **Unchanged (proven by golden tests):** every gateway request body and
 translation context, every driver timing/eviction/emulation helper output,

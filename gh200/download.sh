@@ -89,7 +89,8 @@ else
 fi
 
 if [[ -f "${local_results}/latest_master_report.html" ]]; then
-  cp "${local_results}/latest_master_report.html" "${REPO_ROOT}/latest_master_report.html"
+  mkdir -p "${REPO_ROOT}/docs/reports"
+  cp "${local_results}/latest_master_report.html" "${REPO_ROOT}/docs/reports/latest_master_report.html"
 fi
 
 echo "GH200 download complete."

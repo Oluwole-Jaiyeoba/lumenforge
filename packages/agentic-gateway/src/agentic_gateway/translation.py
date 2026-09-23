@@ -17,7 +17,7 @@ SGLang-portability refactor.  All functions except ``translate_request`` are
 verbatim moves (``sglang_priority`` was renamed ``resolve_backend_priority``;
 the old name is kept as an alias in the gateway script).  Mode sets are kept
 exactly as the gateway had them -- they intentionally still differ from
-``agentic_controller.modes`` (see README_RESTRUCTURING.md, "Known divergences").
+``agentic_controller.modes`` (see docs/architecture/README_RESTRUCTURING.md, "Known divergences").
 
 Some *data keys* still contain the word ``sglang`` (``controller_sglang_priority``,
 ``sglang_cache_salt``).  They are part of recorded artifacts and report

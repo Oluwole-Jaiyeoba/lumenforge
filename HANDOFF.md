@@ -1,12 +1,13 @@
 # Codex Handoff
 
 > **2026-09-23 - read first:** the codebase was restructured for SGLang
-> portability on branch `refactor/sglang-portability`. See
-> [`README_RESTRUCTURING.md`](README_RESTRUCTURING.md) for what moved, every
-> behavior change, and the GPU verification that must run before merging.
+> portability (merged into `main`; the GPU verification in section 8 of
+> [`docs/architecture/README_RESTRUCTURING.md`](docs/architecture/README_RESTRUCTURING.md)
+> is still pending). That document lists what moved and every behavior change.
 > Code paths below that point into `sglang_direct_kv/src/agentic_kv/controller/`
 > or `agentic_kv/sglang_*` still work (they are aliases) but the code now lives
-> in `packages/`.
+> in `packages/`. All other top-level documents moved under `docs/`; see
+> [`docs/index.md`](docs/index.md).
 
 Updated: 2026-09-09
 

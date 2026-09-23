@@ -22,7 +22,7 @@ The target is a testbed where:
 
 Phases 1-4 are implemented on branch `refactor/sglang-portability`; Phase 5-7
 are partially done. Details, decisions and every behavior change are in
-[`README_RESTRUCTURING.md`](README_RESTRUCTURING.md). Summary:
+[`docs/architecture/README_RESTRUCTURING.md`](README_RESTRUCTURING.md). Summary:
 
 | Phase | Status |
 | --- | --- |
@@ -131,17 +131,20 @@ preserved as evidence but must not become required controller inputs.
 
 ### Top-Level Areas
 
+Updated 2026-09-23 after the top-level cleanup: root keeps only the landing
+README, the active HANDOFF, and code/deployment directories.
+
 | Current path | Current role | Target owner | Disposition |
 | --- | --- | --- | --- |
 | `README.md` | Short repository landing page. | Repository documentation. | Keep at root; substantive documentation lives under `docs/`. |
-| `HINT_BENCHMARKING_SUITE.md`, `HINT_BENCHMARK_RUNBOOK.md`, `HINT_SIGNAL_FINDINGS.md` | Hint-suite objectives, runnable scenarios, and findings. | `agentic_harnesses` documentation. | Keep paths stable initially; later colocate with harness package docs. |
-| `HARNESS_AWARE_SCENARIOS.md` | Harness-aware experiment design. | `agentic_experiments` documentation. | Keep until experiment package exists. |
-| `docs/` | Project guides, package notes, deployment instructions, research PDFs, and historical material. | Repository documentation. | Canonical home for substantive documentation. |
-| `aws/` | EC2 connection, sync, and launch helpers. | `deployment/aws`. | Keep operational path until wrappers replace it. |
-| `gh200/` | GH200 sync, Docker, and run helpers. | `deployment/gh200`. | Keep operational path until wrappers replace it. |
-| `presentation/` | Source decks and rendered presentation assets. | Presentation artifacts. | Keep outside runtime packages. |
-| `.codex_external/` | External datasets and repositories used for analysis. | External inputs. | Never make package imports depend on this path. |
-| `.codex-build/`, `.codex_build/`, `artifacts/`, `backups/` | Generated or retained outputs. | Generated data. | Exclude from architecture and package dependencies. |
+| `HANDOFF.md` | Active hand-off for the next agent/engineer. | Repository documentation. | Kept at root on purpose (owner decision). |
+| `docs/` | All other documentation; see `docs/index.md`. Architecture (`docs/architecture/`), hint benchmark (`docs/hint_benchmark/`), testbeds, proposals, reports (`docs/reports/`), presentations, research PDFs, archive. | Repository documentation. | Canonical home. |
+| `docs/archive/backups/`, `docs/archive/codex-build/`, `docs/archive/codex_build/` | Retained report copies and Codex build scratch (formerly `backups/`, `.codex-build/`, `.codex_build/`). | Historical material. | Tracked but out of the way; never import from here. |
+| `packages/` | All portable packages, including `agentic-backend-sglang` and `agentic-harness-scenarios`. | Package owners. | See Python Packages below. |
+| `sglang_direct_kv/` | The SGLang testbed: scripts, configs, `agentic_kv` compatibility layer, tests. | `agentic_experiments` (future). | Keep. |
+| `scripts/`, `tests/`, `.github/` | Workspace install, portability checks, architecture tests, CI. | Repository tooling. | Keep. |
+| `aws/`, `gh200/` | EC2 and GH200 helpers. | `deployment/*`. | Keep operational path until wrappers replace it. |
+| `.codex_external/` | External datasets and repositories used for analysis (git-ignored). | External inputs. | Never make package imports depend on this path. |
 
 ### Python Packages
 
@@ -219,7 +222,7 @@ implementations of controller policy.
 > Status 2026-09-23: 3 (duplicate harness scenarios), 4 (gateway adapters
 > under the controller) and 6 (implicit patch install) are resolved; 2 (driver)
 > and 5 (reports reading raw event names) are partially resolved -- see
-> README_RESTRUCTURING.md section 9.
+> docs/architecture/README_RESTRUCTURING.md section 9.
 
 1. `agentic_kv` is currently an umbrella package containing controller,
    harness, backend, experiment, telemetry, and reporting concerns.

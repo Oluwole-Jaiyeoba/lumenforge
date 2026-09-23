@@ -5,7 +5,7 @@ Run from ``sglang_direct_kv``::
     python tests/golden/generate_golden.py
 
 Only regenerate when a behavior change is intentional, and document why in
-``README_RESTRUCTURING.md``.  The fixtures committed with the refactor were
+``docs/architecture/README_RESTRUCTURING.md``.  The fixtures committed with the refactor were
 recorded from commit 491aea5 (pre-refactor checkpoint).
 """
 

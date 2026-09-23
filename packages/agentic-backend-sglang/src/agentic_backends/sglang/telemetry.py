@@ -9,7 +9,7 @@ Downstream code (reports, ledgers) should consume observations produced here
 instead of matching raw SGLang event names.  NOTE: the richer block ledger in
 ``sglang_direct_kv/src/agentic_kv/block_ledger`` and many report scripts
 still read raw rows directly; migrating them is listed as follow-up work in
-README_RESTRUCTURING.md.
+docs/architecture/README_RESTRUCTURING.md.
 """
 
 from __future__ import annotations

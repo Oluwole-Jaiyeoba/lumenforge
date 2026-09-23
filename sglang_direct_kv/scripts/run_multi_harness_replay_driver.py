@@ -109,7 +109,7 @@ from agentic_kv.controller.workload import (
 )
 from run_real_prompt_controlled_replay import make_pressure_filler_prompt, make_shared_prefix, prompt_hash
 
-# --- Moved during the SGLang-portability refactor (README_RESTRUCTURING.md) ---
+# --- Moved during the SGLang-portability refactor (docs/architecture/README_RESTRUCTURING.md) ---
 # Controller timing policy -> agentic_controller.lead_times
 # Value-aware eviction     -> agentic_controller.eviction_value
 # Harness hint emulation   -> agentic_harnesses.emission_emulation

@@ -1666,7 +1666,7 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, help="Output directory. Defaults to --report-dir.")
     parser.add_argument("--report-label", default="", help="Label shown in HTML.")
     parser.add_argument("--update-latest-root", type=Path, help="Optional artifacts root for latest_* copies.")
-    parser.add_argument("--top-level-copy-dir", type=Path, help="Optional project root for a stable replay_friction_deep_dive.html copy.")
+    parser.add_argument("--top-level-copy-dir", type=Path, help="Optional directory for a stable replay_friction_deep_dive.html reader copy (run_harness_deadline_pressure.sh passes <repo>/docs/reports).")
     args = parser.parse_args()
 
     out_dir = args.out_dir or args.report_dir

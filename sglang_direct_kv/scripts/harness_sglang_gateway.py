@@ -18,7 +18,7 @@ import httpx
 import agentic_kv  # noqa: F401  (puts <repo>/packages/*/src on sys.path when not installed)
 from agentic_kv.controller import build_harness_controller_signal
 
-# --- Moved during the SGLang-portability refactor (README_RESTRUCTURING.md) ---
+# --- Moved during the SGLang-portability refactor (docs/architecture/README_RESTRUCTURING.md) ---
 # Harness hint parsing   -> agentic_harnesses.request_hints
 # Client API parsing     -> agentic_gateway.client_api
 # Mode/priority/cache translation -> agentic_gateway.translation

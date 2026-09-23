@@ -1,7 +1,7 @@
 """Deterministic input matrices for behavior-preservation (golden) tests.
 
 These matrices were used to record ``*.golden.json`` from the code *before*
-the SGLang-portability refactor (see ``README_RESTRUCTURING.md``).  The tests
+the SGLang-portability refactor (see ``docs/architecture/README_RESTRUCTURING.md``).  The tests
 in ``test_golden_behavior.py`` replay the same inputs against the current
 code and require identical outputs.
 

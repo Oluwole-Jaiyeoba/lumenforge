@@ -109,7 +109,7 @@ This keeps the scenario code modular while sharing the same SGLang install,
 controller metadata, trace hooks, report builders, and artifact tree used by the
 real backend experiments.
 
-Since the SGLang-portability refactor (see `README_RESTRUCTURING.md`) there is
+Since the SGLang-portability refactor (see `docs/architecture/README_RESTRUCTURING.md`) there is
 a single copy of the portable scenario code, in
 `packages/agentic-harness-scenarios/` (import name `agentic_harness_scenarios`).
 The modules under `sglang_direct_kv/src/agentic_kv/harness_scenarios/` are
@@ -199,8 +199,8 @@ bash scripts/run_deadline_fair_realistic.sh Qwen/Qwen2.5-Coder-7B-Instruct
 This opt-in analyzer writes `replay_friction_deep_dive.html`,
 `replay_friction_deep_dive.csv`, and `replay_friction_summary.csv` into the
 run report directory. The run report version keeps the full detailed table.
-It also refreshes a top-level `replay_friction_deep_dive.html` beside
-`harness_aware_scenario_tracker.html`; that top-level version is an
+It also refreshes `docs/reports/replay_friction_deep_dive.html` beside
+`docs/reports/harness_aware_scenario_tracker.html`; that copy is an
 automatically generated plain-English reader summary with representative
 requests selected by fixed rules. It is off by default so other scenarios do
 not pay extra reporting cost. The analyzer uses
