@@ -7,6 +7,10 @@ DOCKER_PULL="${DOCKER_PULL:-1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# The repository root is mounted (not just sglang_direct_kv) because the SGLang
+# adapter code lives in packages/agentic-backend-sglang; agentic_kv adds
+# <repo>/packages/*/src to sys.path automatically.
+REPO_DIR="$(cd "${PROJECT_DIR}/.." && pwd)"
 
 mkdir -p "${PROJECT_DIR}/artifacts"
 
@@ -25,9 +29,9 @@ fi
 
 docker run --rm \
   ${DOCKER_GPU_ARGS} \
-  -e PYTHONPATH=/workspace/src \
-  -v "${PROJECT_DIR}:/workspace" \
-  -w /workspace \
+  -e PYTHONPATH=/workspace/sglang_direct_kv/src \
+  -v "${REPO_DIR}:/workspace" \
+  -w /workspace/sglang_direct_kv \
   "${IMAGE}" \
   python scripts/probe_sglang_capabilities.py \
     --out "${OUT_JSON}" \

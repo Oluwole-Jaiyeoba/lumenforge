@@ -1,17 +1,9 @@
-from __future__ import annotations
+"""Compatibility alias: this module moved to ``agentic_backends.sglang.versions.base``.
 
-from dataclasses import dataclass
-from typing import Mapping
+Kept so historical imports, scripts and sitecustomize hooks keep working.
+New code should import ``agentic_backends.sglang.versions.base`` directly.
+"""
 
+from agentic_kv._compat_alias import alias
 
-@dataclass(frozen=True)
-class SGLangHookTarget:
-    """A version-specific SGLang class/method group to trace."""
-
-    module: str
-    class_name: str
-    methods: Mapping[str, str]
-    scheduler_required: bool = False
-
-
-RawEventMap = Mapping[str, str]
+alias(__name__, "agentic_backends.sglang.versions.base")

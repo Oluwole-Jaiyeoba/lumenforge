@@ -12,3 +12,4 @@ presentation/~$*.pptx
 artifacts/
 sglang_direct_kv/artifacts/
 .pytest_cache/
+*.egg-info/

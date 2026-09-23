@@ -1,5 +1,6 @@
 """Backend-neutral contracts shared by harnesses, controllers, and reports."""
 
+from .backend_request import BACKEND_REQUEST_SCHEMA_VERSION, BackendRequest
 from .controller import (
     CONTROLLER_SCHEMA_VERSION,
     BackendCommand,
@@ -24,6 +25,8 @@ from .signals import AttachmentLevel, HarnessSignal, SignalProvenance
 
 __all__ = [
     "AttachmentLevel",
+    "BACKEND_REQUEST_SCHEMA_VERSION",
+    "BackendRequest",
     "BackendCommand",
     "BackendObservation",
     "CONTROLLER_SCHEMA_VERSION",

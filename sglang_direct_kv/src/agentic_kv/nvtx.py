@@ -1,45 +1,9 @@
-from __future__ import annotations
+"""Compatibility alias: this module moved to ``agentic_backends.sglang.instrumentation.nvtx``.
 
-import contextlib
-import os
-from collections.abc import Iterator
-from typing import Any
+Kept so historical imports, scripts and sitecustomize hooks keep working.
+New code should import ``agentic_backends.sglang.instrumentation.nvtx`` directly.
+"""
 
+from agentic_kv._compat_alias import alias
 
-def enabled() -> bool:
-    return os.environ.get("AGENTIC_KV_NVTX_ENABLE", "0") == "1"
-
-
-def _torch_nvtx() -> Any | None:
-    if not enabled():
-        return None
-    try:
-        import torch
-
-        return torch.cuda.nvtx
-    except Exception:
-        return None
-
-
-@contextlib.contextmanager
-def range_scope(message: str) -> Iterator[None]:
-    nvtx = _torch_nvtx()
-    if nvtx is None:
-        yield
-        return
-
-    nvtx.range_push(message)
-    try:
-        yield
-    finally:
-        nvtx.range_pop()
-
-
-def mark(message: str) -> None:
-    nvtx = _torch_nvtx()
-    if nvtx is None:
-        return
-    try:
-        nvtx.mark(message)
-    except Exception:
-        pass
+alias(__name__, "agentic_backends.sglang.instrumentation.nvtx")

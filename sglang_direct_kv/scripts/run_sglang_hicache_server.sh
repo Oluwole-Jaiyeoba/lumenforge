@@ -104,11 +104,24 @@ if [[ -n "${EXTRA_SERVER_ARGS}" ]]; then
   launch_args+=( ${EXTRA_SERVER_ARGS} )
 fi
 
+# Static check that the installed SGLang still accepts every flag above
+# (warning only unless AGENTIC_SGLANG_STRICT=1). Skipped for Docker launches,
+# where the image's SGLang is not the host's.
+if [[ -z "${SGLANG_DOCKER_IMAGE}" && "${AGENTIC_SGLANG_PREFLIGHT:-1}" == "1" ]]; then
+  "${PYTHON_BIN}" scripts/sglang_preflight.py -- "${launch_args[@]:3}" || [[ "${AGENTIC_SGLANG_STRICT:-0}" != "1" ]]
+fi
+
 if [[ -n "${SGLANG_DOCKER_IMAGE}" ]]; then
   if [[ "${SGLANG_DOCKER_PULL}" == "1" ]]; then
     docker pull "${SGLANG_DOCKER_IMAGE}"
   fi
   docker_mount_args=(-v "$(pwd):$(pwd)")
+  # SGLang adapter/trace code lives in <repo>/packages (agentic-backend-sglang);
+  # mount it at the same absolute path so agentic_kv's sys.path fallback finds it.
+  if [[ -d "$(pwd)/../packages" ]]; then
+    packages_dir="$(cd "$(pwd)/../packages" && pwd)"
+    docker_mount_args+=(-v "${packages_dir}:${packages_dir}:ro")
+  fi
   if [[ -n "${HICACHE_STORAGE_PATH}" ]]; then
     docker_mount_args+=(-v "${HICACHE_STORAGE_PATH}:${HICACHE_STORAGE_PATH}")
   fi
