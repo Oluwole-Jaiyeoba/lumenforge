@@ -18,6 +18,24 @@ The target is a testbed where:
 - EC2, GH200, Docker, and local setup differ through configuration and launch
   scripts, not through controller or harness logic.
 
+## Status (2026-09-23)
+
+Phases 1-4 are implemented on branch `refactor/sglang-portability`; Phase 5-7
+are partially done. Details, decisions and every behavior change are in
+[`README_RESTRUCTURING.md`](README_RESTRUCTURING.md). Summary:
+
+| Phase | Status |
+| --- | --- |
+| 1-3.5 Contracts, controller/harness split, package promotion | done (before this branch) |
+| 4 Consolidate SGLang integration | **done**: `packages/agentic-backend-sglang` (`agentic_backends.sglang`) owns all SGLang imports, hook tables, raw event maps, request lowering, launch flags and patch bootstrap; versioned adapters v0510-v0520; static surface check; explicit bootstrap via `agentic_backends.sglang.trace.install()` |
+| 5 Split experiments and reports | partial: gateway translation -> `agentic_gateway`, driver timing/eviction helpers -> `agentic_controller`; `main_async` and report builders not yet split |
+| 6 Deployment portability | partial: SGLang pinned, Docker paths mount `packages/`, CI without SGLang |
+| 7 Remove compatibility shims | not started (old `agentic_kv` paths are `sys.modules` aliases) |
+
+The package table below now also includes `agentic_gateway` (backend-neutral
+request translation; may import core + harnesses). Its placement rationale is
+decision D12 in the restructuring README.
+
 ## Architectural Decision
 
 The agentic harnesses and the agentic controller are separate packages. They
@@ -150,6 +168,12 @@ preserved as evidence but must not become required controller inputs.
 
 ### Direct SGLang Coupling Sites
 
+> **Resolved 2026-09-23.** All files below were moved into
+> `packages/agentic-backend-sglang`. The only remaining testbed file that
+> imports SGLang is `scripts/smoke_priority_radix_eviction.py` (tracked by
+> `tests/architecture/legacy_sglang_internal_users.json`). The text below is
+> the original audit, kept for history.
+
 The current direct `sglang`/`sglang.srt` imports are concentrated in:
 
 - `sglang_direct_kv/src/agentic_kv/sglang_compat.py`
@@ -191,6 +215,11 @@ container image, and backend version. They must not select different Python
 implementations of controller policy.
 
 ## Known Boundary Problems
+
+> Status 2026-09-23: 3 (duplicate harness scenarios), 4 (gateway adapters
+> under the controller) and 6 (implicit patch install) are resolved; 2 (driver)
+> and 5 (reports reading raw event names) are partially resolved -- see
+> README_RESTRUCTURING.md section 9.
 
 1. `agentic_kv` is currently an umbrella package containing controller,
    harness, backend, experiment, telemetry, and reporting concerns.

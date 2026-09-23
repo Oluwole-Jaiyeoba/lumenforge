@@ -3,6 +3,7 @@
 ## Project
 
 - [Project overview](project/overview.md)
+- [SGLang-portability restructuring](../README_RESTRUCTURING.md)
 - [Architecture map](../ARCHITECTURE_MAP.md)
 - [Current handoff](../HANDOFF.md)
 
@@ -21,6 +22,7 @@
 - [Agentic controller](packages/agentic_controller.md)
 - [Agentic harnesses](packages/agentic_harnesses.md)
 - [Agentic prompt codec](packages/agentic_prompt_codec.md)
+- [SGLang backend package](../packages/agentic-backend-sglang/README.md) and its [compatibility matrix](../packages/agentic-backend-sglang/COMPATIBILITY.md)
 
 ## SGLang Research Notes
 

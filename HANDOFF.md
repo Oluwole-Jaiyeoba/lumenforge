@@ -1,5 +1,13 @@
 # Codex Handoff
 
+> **2026-09-23 - read first:** the codebase was restructured for SGLang
+> portability on branch `refactor/sglang-portability`. See
+> [`README_RESTRUCTURING.md`](README_RESTRUCTURING.md) for what moved, every
+> behavior change, and the GPU verification that must run before merging.
+> Code paths below that point into `sglang_direct_kv/src/agentic_kv/controller/`
+> or `agentic_kv/sglang_*` still work (they are aliases) but the code now lives
+> in `packages/`.
+
 Updated: 2026-09-09
 
 This is the current handoff for another Codex task working on the agentic
