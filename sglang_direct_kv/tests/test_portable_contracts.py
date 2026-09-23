@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from agentic_backend_api import BackendActionResult, BackendAdapter, BackendCapabilities
+from agentic_controller import ControllerPolicy as PortableControllerPolicy
 from agentic_core import (
     AttachmentLevel,
     BackendCommand,
@@ -24,12 +25,17 @@ from agentic_core import (
     SessionPhase,
     SignalProvenance,
 )
+from agentic_harnesses import HarnessControllerSignal as PortableHarnessControllerSignal
+from agentic_harnesses.hint_benchmark import evidence_tier_for_mode as portable_evidence_tier_for_mode
 from agentic_kv.controller import (
     BackendActionResult as LegacyBackendActionResult,
     BackendCapabilities as LegacyBackendCapabilities,
     ControllerCommand as LegacyControllerCommand,
     ControllerEvent as LegacyControllerEvent,
+    ControllerPolicy as LegacyControllerPolicy,
+    HarnessControllerSignal as LegacyHarnessControllerSignal,
 )
+from agentic_kv.hint_benchmark import evidence_tier_for_mode as legacy_evidence_tier_for_mode
 
 
 class FakeBackend:
@@ -56,6 +62,9 @@ class PortableContractTests(unittest.TestCase):
         self.assertIs(LegacyControllerEvent, ControllerEvent)
         self.assertIs(LegacyBackendCapabilities, BackendCapabilities)
         self.assertIs(LegacyBackendActionResult, BackendActionResult)
+        self.assertIs(LegacyControllerPolicy, PortableControllerPolicy)
+        self.assertIs(LegacyHarnessControllerSignal, PortableHarnessControllerSignal)
+        self.assertIs(legacy_evidence_tier_for_mode, portable_evidence_tier_for_mode)
         self.assertEqual(BackendCapabilities().schema_version, "agentic_backend_api.v1")
         self.assertNotIn("schema_version", BackendCapabilities().to_dict())
 
@@ -165,6 +174,23 @@ class PortableContractTests(unittest.TestCase):
         for package_name in ("agentic_core", "agentic_backend_api"):
             for path in (source_root / package_name).rglob("*.py"):
                 if import_pattern.search(path.read_text(encoding="utf-8")):
+                    offenders.append(str(path.relative_to(source_root)))
+        self.assertEqual(offenders, [])
+
+    def test_controller_and_harness_packages_are_independent(self) -> None:
+        source_root = Path(__file__).resolve().parents[1] / "src"
+        forbidden = {
+            "agentic_controller": ("agentic_harnesses", "agentic_kv", "sglang"),
+            "agentic_harnesses": ("agentic_controller", "agentic_kv", "sglang"),
+        }
+        offenders: list[str] = []
+        for package_name, forbidden_roots in forbidden.items():
+            pattern = re.compile(
+                rf"^\s*(?:from|import)\s+(?:{'|'.join(forbidden_roots)})(?:\.|\s|$)",
+                re.MULTILINE,
+            )
+            for path in (source_root / package_name).rglob("*.py"):
+                if pattern.search(path.read_text(encoding="utf-8")):
                     offenders.append(str(path.relative_to(source_root)))
         self.assertEqual(offenders, [])
 

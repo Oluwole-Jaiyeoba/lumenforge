@@ -129,8 +129,10 @@ preserved as evidence but must not become required controller inputs.
 | --- | --- | --- | --- |
 | `sglang_direct_kv/src/agentic_core/` | Versioned harness, request, controller, observation, scheduler, KV, hardware, and run-manifest contracts. | `agentic_core`. | Phase 2 foundation implemented; standard-library-only and protected by import-boundary tests. |
 | `sglang_direct_kv/src/agentic_backend_api/` | Backend capabilities, action results, and the backend adapter protocol. | `agentic_backend_api`. | Phase 2 foundation implemented; depends only on `agentic_core`. |
-| `sglang_direct_kv/src/agentic_kv/controller/` | Controller models, policies, modes, SJF, workload generation, state, timing estimators, calibration, and gateway adapters. | Mostly `agentic_controller`; shared records move to `agentic_core`; backend protocols move to `agentic_backend_api`. | Strong starting point. It already emits abstract commands, but gateway-named adapters and experiment workload code need separation. |
-| `sglang_direct_kv/src/agentic_kv/hint_benchmark/` | Hint manifest/scenario runner and evidence capture. | `agentic_harnesses.benchmark`. | Portable in purpose; split harness adapters from generic runner contracts. |
+| `sglang_direct_kv/src/agentic_controller/` | Controller policy, lifecycle state, SJF, modes, workload profiles, and runtime estimation/calibration. | `agentic_controller`. | Phase 3 extraction implemented; imports neither harnesses nor SGLang. |
+| `sglang_direct_kv/src/agentic_harnesses/` | Harness signal normalization and hint-benchmark implementation. | `agentic_harnesses`. | Phase 3 extraction implemented; imports neither the controller nor SGLang. |
+| `sglang_direct_kv/src/agentic_kv/controller/` | Compatibility imports plus gateway and targeted-prefetch backend adapters. | Compatibility layer; adapters move to the backend package in Phase 4. | Existing experiment imports remain valid. |
+| `sglang_direct_kv/src/agentic_kv/hint_benchmark/` | Compatibility imports for the extracted hint benchmark. | Compatibility layer. | Existing CLI and test imports remain valid. |
 | `sglang_direct_kv/src/agentic_kv/harness_scenarios/` | Synthetic and real scenario execution, policies, adapters, metrics, and reports. | Runner pieces to `agentic_experiments`; signal adapters to `agentic_harnesses`; backend adapter to backend package; reports to `agentic_reports`. | Mixed ownership and duplicated at top level. Do not extend both copies. |
 | `agentic_harness_scenarios/src/agentic_harness_scenarios/` | Smaller portable copy of the harness-scenario framework. | Temporary migration source for `agentic_experiments`. | Overlaps the in-tree copy and lacks its `real_runner.py`; consolidate behind one canonical package. |
 | `sglang_direct_kv/src/agentic_kv/sglang_adapters/` | Version selection, hook targets, raw-event mappings, and capability inspection. | `agentic_backends.sglang`. | Correct architectural idea; broaden into the only SGLang integration boundary. |
@@ -275,6 +277,13 @@ belongs to later phases.
 - Move native harness capture and hint benchmarking to `agentic_harnesses`.
 - Prove neither package imports the other or SGLang.
 - Preserve current CLI commands through wrappers.
+
+Status: implemented. Controller policy/state/estimation code now lives in
+`agentic_controller`; harness signal normalization and hint-benchmark code now
+live in `agentic_harnesses`. Dependency-boundary tests enforce their separation,
+and the old `agentic_kv` paths remain compatibility wrappers. Concrete gateway
+and SGLang-targeted adapters intentionally remain in the compatibility package
+until Phase 4.
 
 ### Phase 4: Consolidate SGLang integration
 
