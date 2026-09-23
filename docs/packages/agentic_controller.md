@@ -159,7 +159,7 @@ admits that can push target replay past its deadline.
 The next controller direction is to separate a filler's own service-time
 estimate from its effective occupancy time under live SGLang queue, batching,
 and KV-memory pressure. The design note is in
-`docs/EFFECTIVE_RUNTIME_ESTIMATION.md`.
+[`docs/sglang_direct_kv/EFFECTIVE_RUNTIME_ESTIMATION.md`](../sglang_direct_kv/EFFECTIVE_RUNTIME_ESTIMATION.md).
 
 ## Portability Rule
 

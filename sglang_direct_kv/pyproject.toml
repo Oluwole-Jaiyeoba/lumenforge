@@ -8,6 +8,11 @@ version = "0.1.0"
 description = "Direct SGLang KV instrumentation testbed for hint-guided KV prefetching."
 requires-python = ">=3.10"
 dependencies = [
+  "agentic-backend-api>=0.1.0",
+  "agentic-controller>=0.1.0",
+  "agentic-core>=0.1.0",
+  "agentic-harnesses>=0.1.0",
+  "agentic-prompt-codec>=0.1.0",
   "aiohttp>=3.9",
   "httpx>=0.27",
   "numpy>=1.26",
@@ -20,4 +25,4 @@ dependencies = [
 where = ["src"]
 
 [project.optional-dependencies]
-prompt-codec = ["transformers>=4.45,<6", "jinja2>=3.1"]
+prompt-codec = ["agentic-prompt-codec[tokenizers]>=0.1.0"]

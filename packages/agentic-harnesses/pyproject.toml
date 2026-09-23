@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-harnesses"
+version = "0.1.0"
+description = "Harness-native signal capture, normalization, and benchmarking."
+requires-python = ">=3.10"
+readme = {text = "Portable harness signal capture and hint-benchmark infrastructure.", content-type = "text/markdown"}
+dependencies = ["agentic-core>=0.1.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

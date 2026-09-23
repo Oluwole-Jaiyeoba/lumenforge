@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-controller"
+version = "0.1.0"
+description = "Backend-neutral scheduling and KV policy for agentic inference."
+requires-python = ">=3.10"
+readme = {text = "Portable controller policy, state, SJF, workload, and runtime estimation.", content-type = "text/markdown"}
+dependencies = [
+  "agentic-core>=0.1.0",
+  "agentic-backend-api>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

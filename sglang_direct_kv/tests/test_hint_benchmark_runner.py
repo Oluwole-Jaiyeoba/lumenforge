@@ -615,6 +615,15 @@ class HintBenchmarkRunnerTests(unittest.TestCase):
                     supported_count,
                 )
 
+    def test_new_deck_native_modes_are_native_evidence(self):
+        for execution_mode in (
+            "opencode_native_capture",
+            "deep_agents_native_capture",
+            "codex_native_capture",
+        ):
+            with self.subTest(execution_mode=execution_mode):
+                self.assertEqual(evidence_tier_for_mode(execution_mode), "native_client_or_transport_capture")
+
     def test_payload_index_expectations_can_check_first_only_cache_control(self):
         manifest, scenarios = load_benchmark_inputs(MANIFEST, SCENARIOS)
         selected = select_scenarios(scenarios, "nat_cache_control_first_only")

@@ -422,7 +422,7 @@ For the direct SGLang path, start with:
 sglang_direct_kv/
 ```
 
-See: [SGLang Direct KV Instrumentation Testbed](sglang_direct_kv/README.md)
+See: [SGLang Direct KV Instrumentation Testbed](docs/testbeds/sglang_direct_kv.md)
 
 Earlier recommendation:
 

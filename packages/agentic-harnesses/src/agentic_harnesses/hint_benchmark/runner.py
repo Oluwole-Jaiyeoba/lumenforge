@@ -243,6 +243,9 @@ def evidence_tier_for_mode(execution_mode: str) -> str:
         "hermes_native_capture",
         "pi_native_capture",
         "openclaw_native_capture",
+        "opencode_native_capture",
+        "deep_agents_native_capture",
+        "codex_native_capture",
     }:
         return "native_client_or_transport_capture"
     if execution_mode in {

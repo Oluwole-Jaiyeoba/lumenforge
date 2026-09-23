@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${DIRECT_ROOT}/.." && pwd)"
+cd "${DIRECT_ROOT}"
+
 install_system_deps() {
   local cuda_packages="${CUDA_PACKAGES:-cuda-nvcc-12-8 cuda-cudart-devel-12-8 cuda-driver-devel-12-8 cuda-nvrtc-devel-12-8 libnvjitlink-devel-12-8}"
 
@@ -58,7 +63,7 @@ source .venv/bin/activate
 python --version
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
-python -m pip install -e .
+PYTHON_BIN=python bash "${REPO_ROOT}/scripts/install_workspace.sh"
 
 mkdir -p artifacts/results
 

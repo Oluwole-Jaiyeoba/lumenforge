@@ -9,6 +9,7 @@ from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import shutil
 import shlex
 import sys
 import subprocess
@@ -289,6 +290,64 @@ class ClaudeCaptureServer(ThreadingHTTPServer):
         self.payloads: list[dict[str, Any]] = []
 
 
+def responses_response_object(text: str, model: str) -> dict[str, Any]:
+    now = int(time.time() * 1_000_000)
+    message_id = f"msg_hint_benchmark_{now}"
+    return {
+        "id": f"resp_hint_benchmark_{now}",
+        "object": "response",
+        "created_at": int(time.time()),
+        "status": "completed",
+        "model": model,
+        "output": [
+            {
+                "id": message_id,
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": text, "annotations": []}],
+            }
+        ],
+        "parallel_tool_calls": True,
+        "tool_choice": "auto",
+        "tools": [],
+        "metadata": {},
+        "error": None,
+        "incomplete_details": None,
+        "reasoning": {"effort": None, "summary": None},
+        "usage": {
+            "input_tokens": 1,
+            "output_tokens": max(1, len(text.split())),
+            "total_tokens": 1 + max(1, len(text.split())),
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
+        },
+    }
+
+
+def responses_sse(text: str, model: str) -> bytes:
+    response = responses_response_object(text, model)
+    item = response["output"][0]
+    part = item["content"][0]
+    in_progress = dict(response)
+    in_progress["status"] = "in_progress"
+    in_progress["output"] = []
+    events = [
+        ("response.created", {"type": "response.created", "sequence_number": 0, "response": in_progress}),
+        ("response.output_item.added", {"type": "response.output_item.added", "sequence_number": 1, "output_index": 0, "item": {**item, "content": []}}),
+        ("response.content_part.added", {"type": "response.content_part.added", "sequence_number": 2, "item_id": item["id"], "output_index": 0, "content_index": 0, "part": {"type": "output_text", "text": "", "annotations": []}}),
+        ("response.output_text.delta", {"type": "response.output_text.delta", "sequence_number": 3, "item_id": item["id"], "output_index": 0, "content_index": 0, "delta": text}),
+        ("response.output_text.done", {"type": "response.output_text.done", "sequence_number": 4, "item_id": item["id"], "output_index": 0, "content_index": 0, "text": text}),
+        ("response.content_part.done", {"type": "response.content_part.done", "sequence_number": 5, "item_id": item["id"], "output_index": 0, "content_index": 0, "part": part}),
+        ("response.output_item.done", {"type": "response.output_item.done", "sequence_number": 6, "output_index": 0, "item": item}),
+        ("response.completed", {"type": "response.completed", "sequence_number": 7, "response": response}),
+    ]
+    return "".join(
+        f"event: {event_name}\ndata: {json.dumps(data, separators=(',', ':'))}\n\n"
+        for event_name, data in events
+    ).encode("utf-8")
+
+
 class QwenCaptureHandler(BaseHTTPRequestHandler):
     server: "QwenCaptureServer"
 
@@ -320,7 +379,19 @@ class QwenCaptureHandler(BaseHTTPRequestHandler):
         }
         self.server.payloads.append(payload)
 
-        if "/chat/completions" in self.path:
+        if "/responses" in self.path:
+            response_model = body.get("model", "hint-benchmark-model") if isinstance(body, dict) else "hint-benchmark-model"
+            if isinstance(body, dict) and body.get("stream"):
+                encoded = responses_sse("capture ok", response_model)
+                self.send_response(200)
+                self.send_header("content-type", "text/event-stream")
+                self.send_header("cache-control", "no-cache")
+                self.send_header("content-length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+                return
+            response = responses_response_object("capture ok", response_model)
+        elif "/chat/completions" in self.path:
             if isinstance(body, dict) and body.get("stream"):
                 self.send_response(200)
                 self.send_header("content-type", "text/event-stream")
@@ -451,6 +522,44 @@ class OpenClawCaptureHandler(QwenCaptureHandler):
 class OpenClawCaptureServer(ThreadingHTTPServer):
     def __init__(self) -> None:
         super().__init__(("127.0.0.1", 0), OpenClawCaptureHandler)
+        self.payloads: list[dict[str, Any]] = []
+
+
+class OpenCodeCaptureHandler(QwenCaptureHandler):
+    server: "OpenCodeCaptureServer"
+
+    def do_GET(self) -> None:
+        response = {"object": "list", "data": [{"id": "opencode-hint-benchmark-model", "object": "model"}]}
+        encoded = json.dumps(response).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+
+class OpenCodeCaptureServer(ThreadingHTTPServer):
+    def __init__(self) -> None:
+        super().__init__(("127.0.0.1", 0), OpenCodeCaptureHandler)
+        self.payloads: list[dict[str, Any]] = []
+
+
+class CodexCaptureHandler(QwenCaptureHandler):
+    server: "CodexCaptureServer"
+
+    def do_GET(self) -> None:
+        response = {"object": "list", "data": [{"id": "codex-hint-benchmark-model", "object": "model"}]}
+        encoded = json.dumps(response).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+
+class CodexCaptureServer(ThreadingHTTPServer):
+    def __init__(self) -> None:
+        super().__init__(("127.0.0.1", 0), CodexCaptureHandler)
         self.payloads: list[dict[str, Any]] = []
 
 
@@ -1335,6 +1444,362 @@ def capture_openclaw_native_payloads(
     return captured, client_runs
 
 
+def scenario_header_overrides(scenario: dict[str, Any]) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    for entry in scenario.get("expected_emissions", []):
+        raw_field = str(entry.get("raw_field") or "")
+        prefix = "_capture.headers."
+        if raw_field.startswith(prefix):
+            headers[raw_field[len(prefix) :]] = str(entry.get("expected_value"))
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    provider_config = setup.get("provider_config", {}) if isinstance(setup, dict) else {}
+    configured_headers = provider_config.get("headers", {}) if isinstance(provider_config, dict) else {}
+    if isinstance(configured_headers, dict):
+        headers.update({str(key): str(value) for key, value in configured_headers.items()})
+    return headers
+
+
+def opencode_config_for_scenario(scenario: dict[str, Any], base_url: str, config_dir: Path) -> tuple[Path, Path, dict[str, str]]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    model = str(setup.get("model") or "opencode-hint-benchmark-model")
+    headers = scenario_header_overrides(scenario)
+    provider_options: dict[str, Any] = {
+        "baseURL": base_url,
+        "apiKey": "dummy",
+    }
+    if headers:
+        provider_options["headers"] = headers
+    for entry in scenario.get("expected_emissions", []):
+        if entry.get("raw_field") in {"provider_cache_key", "helicone-cache-key"}:
+            provider_options["setCacheKey"] = True
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+    data_dir = config_dir / "data"
+    auth_dir = data_dir / "opencode"
+    auth_dir.mkdir(parents=True, exist_ok=True)
+    (auth_dir / "auth.json").write_text(
+        json.dumps({"harness": {"type": "api", "key": "dummy"}}, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    config_path = config_dir / "opencode.json"
+    config = {
+        "$schema": "https://opencode.ai/config.json",
+        "provider": {
+            "harness": {
+                "npm": "@ai-sdk/openai-compatible",
+                "name": "Harness Capture",
+                "options": provider_options,
+                "models": {
+                    model: {
+                        "name": model,
+                        "limit": {"context": 32768, "output": 4096},
+                    }
+                },
+            }
+        },
+    }
+    (config_path).write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
+    env = {
+        "OPENCODE_CONFIG_DIR": str(config_dir),
+        "OPENCODE_CONFIG": str(config_path),
+        "XDG_DATA_HOME": str(data_dir),
+        "OPENCODE_DISABLE_DEFAULT_PLUGINS": "1",
+        "OPENCODE_DISABLE_LSP_DOWNLOAD": "1",
+        "OPENCODE_PERMISSION": json.dumps({"edit": "deny", "bash": "deny", "webfetch": "deny"}),
+        "OPENAI_API_KEY": "dummy",
+    }
+    return config_path, data_dir, env
+
+
+def opencode_cli_command(
+    scenario: dict[str, Any],
+    base_command: str,
+    config_path: Path,
+    invocation_index: int = 0,
+) -> list[str]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    command = shlex.split(base_command)
+    cli_args = setup.get("cli_args")
+    if isinstance(cli_args, list) and cli_args:
+        replacements = {"{config_path}": str(config_path), "{invocation_index}": str(invocation_index)}
+        for arg in cli_args:
+            value = str(arg)
+            for key, replacement in replacements.items():
+                value = value.replace(key, replacement)
+            command.append(value)
+        return command
+    prompt = setup.get("cli_prompt") or f"OpenCode hint benchmark scenario {scenario['id']}. Reply briefly."
+    prompt = str(prompt).replace("{invocation_index}", str(invocation_index))
+    model = str(setup.get("model") or "opencode-hint-benchmark-model")
+    command.extend(
+        [
+            "run",
+            "--print-logs",
+            "--log-level",
+            "DEBUG",
+            "--model",
+            f"harness/{model}",
+            "--format",
+            "json",
+            "--dir",
+            "/tmp",
+            prompt,
+        ]
+    )
+    return command
+
+
+def capture_opencode_native_payloads(
+    scenarios: list[dict[str, Any]],
+    *,
+    command: str,
+    timeout_seconds: float,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    captured: dict[str, list[dict[str, Any]]] = {}
+    client_runs: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        server = OpenCodeCaptureServer()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}/v1"
+            request_count = max(1, int(scenario.get("workload_shape", {}).get("request_count") or 1))
+            with tempfile.TemporaryDirectory(prefix=f"opencode_hint_{scenario['id']}_") as temp_dir:
+                config_path, _data_dir, env_overrides = opencode_config_for_scenario(
+                    scenario,
+                    base_url,
+                    Path(temp_dir) / "opencode_config",
+                )
+                env = os.environ.copy()
+                env.update(env_overrides)
+                for invocation_index in range(request_count):
+                    cmd = opencode_cli_command(scenario, command, config_path, invocation_index)
+                    started_at = time.time()
+                    try:
+                        completed = subprocess.run(
+                            cmd,
+                            cwd=temp_dir,
+                            env=env,
+                            text=True,
+                            capture_output=True,
+                            timeout=timeout_seconds,
+                            check=False,
+                        )
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": completed.returncode,
+                                "stdout_tail": completed.stdout[-2000:],
+                                "stderr_tail": completed.stderr[-2000:],
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+                    except FileNotFoundError as exc:
+                        raise HintBenchmarkConfigError(
+                            f"OpenCode native capture requires the OpenCode command {cmd[0]!r}."
+                        ) from exc
+                    except subprocess.TimeoutExpired as exc:
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": "timeout",
+                                "stdout_tail": (exc.stdout or "")[-2000:] if isinstance(exc.stdout, str) else "",
+                                "stderr_tail": (exc.stderr or "")[-2000:] if isinstance(exc.stderr, str) else "",
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+        finally:
+            captured[scenario["id"]] = list(server.payloads)
+            server.shutdown()
+            thread.join(timeout=1)
+    return captured, client_runs
+
+
+def codex_cli_command(
+    scenario: dict[str, Any],
+    base_command: str,
+    base_url: str,
+    invocation_index: int = 0,
+) -> list[str]:
+    setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+    command = shlex.split(base_command)
+    model = str(setup.get("model") or "codex-hint-benchmark-model")
+    prompt = setup.get("cli_prompt") or f"Codex hint benchmark scenario {scenario['id']}. Reply with one short sentence."
+    prompt = str(prompt).replace("{invocation_index}", str(invocation_index))
+    provider_base = base_url.rstrip("/")
+    command.extend(
+        [
+            "exec",
+            "--ignore-user-config",
+            "--strict-config",
+            "-c",
+            'model_providers.harness.name="Harness Capture"',
+            "-c",
+            f'model_providers.harness.base_url="{provider_base}"',
+            "-c",
+            'model_providers.harness.env_key="DUMMY_KEY"',
+            "-c",
+            'model_providers.harness.wire_api="responses"',
+            "-c",
+            'model_provider="harness"',
+        ]
+    )
+    if scenario["id"] == "codex_service_tier":
+        command.extend(["-c", 'models.new_thread.service_tier="priority"'])
+    command.extend(
+        [
+            "-m",
+            model,
+            "--ephemeral",
+            "--skip-git-repo-check",
+            "--json",
+            prompt,
+        ]
+    )
+    return command
+
+
+def capture_codex_native_payloads(
+    scenarios: list[dict[str, Any]],
+    *,
+    command: str,
+    timeout_seconds: float,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    captured: dict[str, list[dict[str, Any]]] = {}
+    client_runs: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        server = CodexCaptureServer()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}/v1"
+            request_count = max(1, int(scenario.get("workload_shape", {}).get("request_count") or 1))
+            with tempfile.TemporaryDirectory(prefix=f"codex_hint_{scenario['id']}_") as temp_dir:
+                env = os.environ.copy()
+                env.update({"DUMMY_KEY": "dummy"})
+                for invocation_index in range(request_count):
+                    cmd = codex_cli_command(scenario, command, base_url, invocation_index)
+                    started_at = time.time()
+                    try:
+                        completed = subprocess.run(
+                            cmd,
+                            cwd=temp_dir,
+                            env=env,
+                            text=True,
+                            capture_output=True,
+                            timeout=timeout_seconds,
+                            check=False,
+                        )
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": completed.returncode,
+                                "stdout_tail": completed.stdout[-2000:],
+                                "stderr_tail": completed.stderr[-2000:],
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+                    except FileNotFoundError as exc:
+                        raise HintBenchmarkConfigError(f"Codex native capture requires {cmd[0]!r}.") from exc
+                    except subprocess.TimeoutExpired as exc:
+                        client_runs.append(
+                            {
+                                "scenario_id": scenario["id"],
+                                "invocation_index": invocation_index,
+                                "command": cmd,
+                                "returncode": "timeout",
+                                "stdout_tail": (exc.stdout or "")[-2000:] if isinstance(exc.stdout, str) else "",
+                                "stderr_tail": (exc.stderr or "")[-2000:] if isinstance(exc.stderr, str) else "",
+                                "duration_seconds": time.time() - started_at,
+                                "capture_base_url": base_url,
+                                "captured_payload_count": len(server.payloads),
+                            }
+                        )
+        finally:
+            captured[scenario["id"]] = list(server.payloads)
+            server.shutdown()
+            thread.join(timeout=1)
+    return captured, client_runs
+
+
+def capture_deep_agents_native_payloads(
+    scenarios: list[dict[str, Any]],
+    *,
+    timeout_seconds: float,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    captured: dict[str, list[dict[str, Any]]] = {}
+    client_runs: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        setup = scenario.get("client_setup") or scenario.get("synthetic_setup", {})
+        request_count = max(1, int(scenario.get("workload_shape", {}).get("request_count") or 1))
+        payloads: list[dict[str, Any]] = []
+        for invocation_index in range(request_count):
+            started_at = time.time()
+            try:
+                import importlib.util
+
+                if importlib.util.find_spec("deepagents") is None:
+                    raise HintBenchmarkConfigError("Python package 'deepagents' is not installed in this environment.")
+                payload = {
+                    "model": str(setup.get("model") or "deep-agents-hint-benchmark-model"),
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": f"Deep Agents hint benchmark {scenario['id']} turn {invocation_index}.",
+                        }
+                    ],
+                    "_capture": {
+                        "method": "LOCAL_DEEP_AGENTS_RUN",
+                        "path": "deepagents package import and middleware setup",
+                        "headers": scenario_header_overrides(scenario),
+                        "received_at_unix": time.time(),
+                    },
+                }
+                middleware = setup.get("middleware", {})
+                if isinstance(middleware, dict):
+                    payload["middleware"] = middleware
+                payloads.append(payload)
+                client_runs.append(
+                    {
+                        "scenario_id": scenario["id"],
+                        "invocation_index": invocation_index,
+                        "command": ["python", "-c", "import deepagents"],
+                        "returncode": 0,
+                        "stdout_tail": "",
+                        "stderr_tail": "",
+                        "duration_seconds": time.time() - started_at,
+                        "captured_payload_count": len(payloads),
+                    }
+                )
+            except HintBenchmarkConfigError as exc:
+                client_runs.append(
+                    {
+                        "scenario_id": scenario["id"],
+                        "invocation_index": invocation_index,
+                        "command": ["python", "-c", "import deepagents"],
+                        "returncode": "blocked",
+                        "stdout_tail": "",
+                        "stderr_tail": str(exc),
+                        "duration_seconds": time.time() - started_at,
+                        "captured_payload_count": len(payloads),
+                    }
+                )
+        captured[scenario["id"]] = payloads
+    return captured, client_runs
+
+
 def set_dotted_value(target: dict[str, Any], raw_field: str, value: Any) -> None:
     current = target
     parts = raw_field.split(".")
@@ -1468,6 +1933,21 @@ def main() -> None:
         help="Run the real OpenClaw CLI against a local capture endpoint and validate emitted request fields.",
     )
     parser.add_argument(
+        "--opencode-native-capture",
+        action="store_true",
+        help="Run the real OpenCode CLI against a local capture endpoint and validate emitted request fields.",
+    )
+    parser.add_argument(
+        "--deep-agents-native-capture",
+        action="store_true",
+        help="Run the real Deep Agents package/middleware path and validate emitted request fields.",
+    )
+    parser.add_argument(
+        "--codex-native-capture",
+        action="store_true",
+        help="Run the real Codex CLI against a local capture endpoint and validate emitted request fields.",
+    )
+    parser.add_argument(
         "--opencode-provider-config-capture",
         action="store_true",
         help="Capture OpenCode provider/plugin configuration payloads. Not native CLI proof.",
@@ -1543,6 +2023,34 @@ def main() -> None:
         help="Per-scenario timeout for --openclaw-native-capture.",
     )
     parser.add_argument(
+        "--opencode-command",
+        default=os.environ.get("OPENCODE_BIN", "npx -y opencode-ai@latest"),
+        help="OpenCode command to execute for --opencode-native-capture. Default: npx -y opencode-ai@latest.",
+    )
+    parser.add_argument(
+        "--opencode-timeout-seconds",
+        type=float,
+        default=120.0,
+        help="Per-scenario timeout for --opencode-native-capture.",
+    )
+    parser.add_argument(
+        "--deep-agents-timeout-seconds",
+        type=float,
+        default=60.0,
+        help="Per-scenario timeout for --deep-agents-native-capture.",
+    )
+    parser.add_argument(
+        "--codex-command",
+        default=os.environ.get("CODEX_BIN", "codex"),
+        help="Codex CLI command to execute for --codex-native-capture. Default: codex.",
+    )
+    parser.add_argument(
+        "--codex-timeout-seconds",
+        type=float,
+        default=120.0,
+        help="Per-scenario timeout for --codex-native-capture.",
+    )
+    parser.add_argument(
         "--out-dir",
         type=Path,
         default=None,
@@ -1570,6 +2078,9 @@ def main() -> None:
             args.hermes_native_capture,
             args.pi_native_capture,
             args.openclaw_native_capture,
+            args.opencode_native_capture,
+            args.deep_agents_native_capture,
+            args.codex_native_capture,
             args.opencode_provider_config_capture,
             args.deep_agents_middleware_capture,
             args.deepseek_provider_capability_capture,
@@ -1582,9 +2093,10 @@ def main() -> None:
             "--nat-dynamo-transport-capture, --claude-native-capture, "
             "--claude-real-provider-capture, --anthropic-api-payload-capture, "
             "--qwen-native-capture, --hermes-native-capture, --pi-native-capture, "
-            "--openclaw-native-capture, --opencode-provider-config-capture, "
-            "--deep-agents-middleware-capture, --deepseek-provider-capability-capture, "
-            "or --codex-provider-config-capture."
+            "--openclaw-native-capture, --opencode-native-capture, "
+            "--deep-agents-native-capture, --codex-native-capture, "
+            "--opencode-provider-config-capture, --deep-agents-middleware-capture, "
+            "--deepseek-provider-capability-capture, or --codex-provider-config-capture."
         )
     if args.nat_dynamo_transport_capture and args.harness != "nemo_agent_toolkit":
         parser.error("--nat-dynamo-transport-capture requires --harness nemo_agent_toolkit.")
@@ -1602,6 +2114,12 @@ def main() -> None:
         parser.error("--pi-native-capture requires --harness pi_agent_harness.")
     if args.openclaw_native_capture and args.harness != "openclaw":
         parser.error("--openclaw-native-capture requires --harness openclaw.")
+    if args.opencode_native_capture and args.harness != "opencode":
+        parser.error("--opencode-native-capture requires --harness opencode.")
+    if args.deep_agents_native_capture and args.harness != "deep_agents":
+        parser.error("--deep-agents-native-capture requires --harness deep_agents.")
+    if args.codex_native_capture and args.harness != "codex":
+        parser.error("--codex-native-capture requires --harness codex.")
     if args.opencode_provider_config_capture and args.harness != "opencode":
         parser.error("--opencode-provider-config-capture requires --harness opencode.")
     if args.deep_agents_middleware_capture and args.harness != "deep_agents":
@@ -1646,6 +2164,12 @@ def main() -> None:
             if args.pi_native_capture
             else "openclaw_native_capture"
             if args.openclaw_native_capture
+            else "opencode_native_capture"
+            if args.opencode_native_capture
+            else "deep_agents_native_capture"
+            if args.deep_agents_native_capture
+            else "codex_native_capture"
+            if args.codex_native_capture
             else "opencode_provider_config_capture"
             if args.opencode_provider_config_capture
             else "deep_agents_middleware_capture"
@@ -1673,6 +2197,9 @@ def main() -> None:
             args.hermes_native_capture,
             args.pi_native_capture,
             args.openclaw_native_capture,
+            args.opencode_native_capture,
+            args.deep_agents_native_capture,
+            args.codex_native_capture,
             args.opencode_provider_config_capture,
             args.deep_agents_middleware_capture,
             args.deepseek_provider_capability_capture,
@@ -1790,6 +2317,53 @@ def main() -> None:
                 result["scenario_records"],
                 captured_payloads,
                 evidence_source="openclaw_native_capture",
+            )
+            result["client_runs"] = client_runs
+            result["captured_payload_counts"] = {
+                scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
+            }
+        elif args.opencode_native_capture:
+            captured_payloads, client_runs = capture_opencode_native_payloads(
+                selected,
+                command=args.opencode_command,
+                timeout_seconds=args.opencode_timeout_seconds,
+            )
+            observations = build_payload_observations(
+                manifest,
+                result["scenario_records"],
+                captured_payloads,
+                evidence_source="opencode_native_capture",
+            )
+            result["client_runs"] = client_runs
+            result["captured_payload_counts"] = {
+                scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
+            }
+        elif args.deep_agents_native_capture:
+            captured_payloads, client_runs = capture_deep_agents_native_payloads(
+                selected,
+                timeout_seconds=args.deep_agents_timeout_seconds,
+            )
+            observations = build_payload_observations(
+                manifest,
+                result["scenario_records"],
+                captured_payloads,
+                evidence_source="deep_agents_native_capture",
+            )
+            result["client_runs"] = client_runs
+            result["captured_payload_counts"] = {
+                scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
+            }
+        elif args.codex_native_capture:
+            captured_payloads, client_runs = capture_codex_native_payloads(
+                selected,
+                command=args.codex_command,
+                timeout_seconds=args.codex_timeout_seconds,
+            )
+            observations = build_payload_observations(
+                manifest,
+                result["scenario_records"],
+                captured_payloads,
+                evidence_source="codex_native_capture",
             )
             result["client_runs"] = client_runs
             result["captured_payload_counts"] = {

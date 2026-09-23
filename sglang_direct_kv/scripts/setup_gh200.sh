@@ -13,6 +13,7 @@ HERMES_VENV="${HERMES_VENV:-${HOME}/agentic_hardware/.venvs/hermes_agent_py311}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${DIRECT_ROOT}/.." && pwd)"
 cd "${DIRECT_ROOT}"
 
 arch="$(uname -m)"
@@ -63,7 +64,7 @@ source .venv/bin/activate
 python --version
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
-python -m pip install -e .
+PYTHON_BIN=python bash "${REPO_ROOT}/scripts/install_workspace.sh"
 if [[ -n "${EXTRA_PYTHON_PACKAGES}" ]]; then
   python -m pip install ${EXTRA_PYTHON_PACKAGES}
 fi

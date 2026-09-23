@@ -5,7 +5,7 @@ Updated: 2026-09-09
 This is the current handoff for another Codex task working on the agentic
 hardware replay-deadline infrastructure. Treat this file plus the top-level
 `README.md` as the active source of truth. The older long-form notebook at
-`sglang_direct_kv/README.md` is useful history, but it includes outdated
+`docs/testbeds/sglang_direct_kv.md` is useful history, but it includes outdated
 milestones and should not drive current implementation choices by itself.
 
 ## Project Overview
@@ -258,7 +258,7 @@ Use this map to decide where to make changes.
 | Unit-test controller behavior | `sglang_direct_kv/tests/test_agentic_controller.py` | Add tests before EC2 runs. At minimum test full-controller commands and proof fields. |
 | Run the focused EC2 repeatability ladder | `sglang_direct_kv/scripts/run_ec2_controller_repeatability.sh` | Existing script for the current one-harness EC2 controller comparison. Update later if `controller_full` becomes the default. |
 | EC2 connection and sync | `aws/check_ec2_ready.sh`, `aws/upload.sh`, `aws/ssh_to_ec2.sh` | Use these from the local repo root. |
-| GH200 docs and runners | `gh200/README.md`, `gh200/run_controller_scaleup.sh` | Migration target only from this computer. Do not assume GH200 access here. |
+| GH200 docs and runners | `docs/deployment/gh200.md`, `gh200/run_controller_scaleup.sh` | Migration target only from this computer. Do not assume GH200 access here. |
 
 Suggested first implementation path for `controller_full`:
 

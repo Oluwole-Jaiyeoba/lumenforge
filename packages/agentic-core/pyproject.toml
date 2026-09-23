@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-core"
+version = "0.1.0"
+description = "Backend-neutral contracts for agentic inference systems."
+requires-python = ">=3.10"
+readme = {text = "Shared schemas for harnesses, controllers, backends, experiments, and reports.", content-type = "text/markdown"}
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]

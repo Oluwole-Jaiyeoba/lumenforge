@@ -4,8 +4,9 @@
 
 This document is the source of truth for separating the research ideas in this
 repository from SGLang, individual harnesses, machine setup, and report code.
-The immediate goal is architectural classification, not file movement. Existing
-commands and experiment paths remain unchanged during this phase.
+The portable package promotion is now complete. Existing commands and experiment
+paths remain available through compatibility imports while later phases isolate
+the SGLang backend and split experiment/report ownership.
 
 The target is a testbed where:
 
@@ -59,8 +60,9 @@ specific SGLang version?"
 | `agentic_reports` | Normalized evidence tables, deadline/cost accounting, audits, plots, and report rendering. | Live backend mutation and raw SGLang interpretation. |
 | `agentic_prompt_codec` | Lossless shorthand rules, codecs, tokenizer accounting, validation, and codec reports. | Controller and SGLang behavior. |
 
-These are logical package boundaries first. Physical moves should happen only
-after the contracts and compatibility tests exist.
+The backend-neutral packages now live under top-level `packages/`. SGLang-bound
+code remains in `sglang_direct_kv` until the versioned backend adapter is
+extracted in Phase 4.
 
 ## Allowed Dependencies
 
@@ -113,10 +115,10 @@ preserved as evidence but must not become required controller inputs.
 
 | Current path | Current role | Target owner | Disposition |
 | --- | --- | --- | --- |
-| `README.md` | Research overview and current run guidance. | Repository documentation. | Keep; link to this map. |
+| `README.md` | Short repository landing page. | Repository documentation. | Keep at root; substantive documentation lives under `docs/`. |
 | `HINT_BENCHMARKING_SUITE.md`, `HINT_BENCHMARK_RUNBOOK.md`, `HINT_SIGNAL_FINDINGS.md` | Hint-suite objectives, runnable scenarios, and findings. | `agentic_harnesses` documentation. | Keep paths stable initially; later colocate with harness package docs. |
 | `HARNESS_AWARE_SCENARIOS.md` | Harness-aware experiment design. | `agentic_experiments` documentation. | Keep until experiment package exists. |
-| Controller, KV, replay, and hardware proposal Markdown/PDF files | Research specifications and historical evidence. | Repository documentation. | Preserve; index rather than import into runtime packages. |
+| `docs/` | Project guides, package notes, deployment instructions, research PDFs, and historical material. | Repository documentation. | Canonical home for substantive documentation. |
 | `aws/` | EC2 connection, sync, and launch helpers. | `deployment/aws`. | Keep operational path until wrappers replace it. |
 | `gh200/` | GH200 sync, Docker, and run helpers. | `deployment/gh200`. | Keep operational path until wrappers replace it. |
 | `presentation/` | Source decks and rendered presentation assets. | Presentation artifacts. | Keep outside runtime packages. |
@@ -127,10 +129,10 @@ preserved as evidence but must not become required controller inputs.
 
 | Current path | Contents | Target owner | Portability assessment |
 | --- | --- | --- | --- |
-| `sglang_direct_kv/src/agentic_core/` | Versioned harness, request, controller, observation, scheduler, KV, hardware, and run-manifest contracts. | `agentic_core`. | Phase 2 foundation implemented; standard-library-only and protected by import-boundary tests. |
-| `sglang_direct_kv/src/agentic_backend_api/` | Backend capabilities, action results, and the backend adapter protocol. | `agentic_backend_api`. | Phase 2 foundation implemented; depends only on `agentic_core`. |
-| `sglang_direct_kv/src/agentic_controller/` | Controller policy, lifecycle state, SJF, modes, workload profiles, and runtime estimation/calibration. | `agentic_controller`. | Phase 3 extraction implemented; imports neither harnesses nor SGLang. |
-| `sglang_direct_kv/src/agentic_harnesses/` | Harness signal normalization and hint-benchmark implementation. | `agentic_harnesses`. | Phase 3 extraction implemented; imports neither the controller nor SGLang. |
+| `packages/agentic-core/` | Versioned harness, request, controller, observation, scheduler, KV, hardware, and run-manifest contracts. | `agentic_core`. | Standalone package; standard-library-only and protected by import-boundary tests. |
+| `packages/agentic-backend-api/` | Backend capabilities, action results, and the backend adapter protocol. | `agentic_backend_api`. | Standalone package; depends only on `agentic_core`. |
+| `packages/agentic-controller/` | Controller policy, lifecycle state, SJF, modes, workload profiles, and runtime estimation/calibration. | `agentic_controller`. | Standalone package; imports neither harnesses nor SGLang. |
+| `packages/agentic-harnesses/` | Harness signal normalization and hint-benchmark implementation. | `agentic_harnesses`. | Standalone package; imports neither the controller nor SGLang. |
 | `sglang_direct_kv/src/agentic_kv/controller/` | Compatibility imports plus gateway and targeted-prefetch backend adapters. | Compatibility layer; adapters move to the backend package in Phase 4. | Existing experiment imports remain valid. |
 | `sglang_direct_kv/src/agentic_kv/hint_benchmark/` | Compatibility imports for the extracted hint benchmark. | Compatibility layer. | Existing CLI and test imports remain valid. |
 | `sglang_direct_kv/src/agentic_kv/harness_scenarios/` | Synthetic and real scenario execution, policies, adapters, metrics, and reports. | Runner pieces to `agentic_experiments`; signal adapters to `agentic_harnesses`; backend adapter to backend package; reports to `agentic_reports`. | Mixed ownership and duplicated at top level. Do not extend both copies. |
@@ -143,7 +145,7 @@ preserved as evidence but must not become required controller inputs.
 | `sglang_direct_kv/src/agentic_kv/agent_trace.py`, `policies.py`, `metrics.py` | Workload trace loading, legacy experiment policy, and metrics output. | `agentic_experiments` and `agentic_reports`. | Experiment support, not core controller behavior. |
 | `sglang_direct_kv/src/agentic_kv/runtime_telemetry.py`, `instrumentation.py`, `nvtx.py`, `torch_cuda_profiler.py` | Telemetry transport and optional profiling. | Generic pieces in backend API/experiments; CUDA and SGLang-specific pieces in backend adapter. | Separate normalized telemetry from collection mechanism. |
 | `sglang_direct_kv/src/agentic_kv/block_ledger/`, `evidence_schema.py`, `evidence_audit.py` | KV-event normalization, ledger construction, and evidence validation. | Normalized schemas in `agentic_core`; transformations and rendering in `agentic_reports`; raw maps in SGLang adapter. | Valuable boundary, but `normalizer.py` currently imports SGLang raw-event maps. |
-| `sglang_direct_kv/src/agentic_prompt_codec/` | Codec interfaces, rules, tokenizers, validation, and reporting. | Standalone `agentic_prompt_codec`. | Already cohesive; preserve as an independent optional package. |
+| `packages/agentic-prompt-codec/` | Codec interfaces, rules, tokenizers, validation, and reporting. | Standalone `agentic_prompt_codec`. | Independent optional package with tokenizer extras. |
 | `sglang_direct_kv/src/sitecustomize.py` | Automatic SGLang patch installation. | `agentic_backends.sglang.bootstrap`. | Deployment-sensitive and implicit; replace with explicit opt-in bootstrap after compatibility coverage exists. |
 
 ### Direct SGLang Coupling Sites
@@ -285,6 +287,19 @@ and the old `agentic_kv` paths remain compatibility wrappers. Concrete gateway
 and SGLang-targeted adapters intentionally remain in the compatibility package
 until Phase 4.
 
+### Phase 3.5: Promote portable packages and centralize documentation
+
+- Move backend-neutral packages to top-level `packages/` directories.
+- Give every portable package independent build metadata.
+- Install packages in dependency order through `scripts/install_workspace.sh`.
+- Preserve historical commands through `agentic_kv` compatibility imports.
+- Move substantive README content and project PDFs under `docs/`.
+
+Status: implemented. The root README is intentionally a small landing page;
+`docs/index.md` is the documentation directory. EC2 and GH200 setup scripts use
+the workspace installer, so deployment does not rely on the old nested source
+layout.
+
 ### Phase 4: Consolidate SGLang integration
 
 - Move all SGLang imports, raw event maps, request lowering, and patch bootstrap
@@ -313,16 +328,14 @@ until Phase 4.
 - Archive or mark superseded scripts.
 - Publish the supported backend/harness/version matrix.
 
-## Phase 1 Guardrails
+## Migration Guardrails
 
-Until Phase 2 begins:
-
-- existing experiment commands remain authoritative;
-- no current package or script is renamed or deleted;
-- no generated artifact is rewritten;
-- no SGLang launch configuration is changed;
+- existing experiment commands remain authoritative through compatibility
+  wrappers;
+- generated artifacts are not rewritten by package moves;
+- SGLang launch behavior changes only inside deployment/backend boundaries;
 - unrelated worktree changes remain untouched;
-- this map records intended ownership, not a claim that extraction is complete.
+- compatibility shims remain until maintained commands use public package APIs.
 
 ## Definition of Portable
 
