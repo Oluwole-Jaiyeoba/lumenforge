@@ -1,36 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
-from typing import Protocol
+
+from agentic_backend_api import BackendActionResult, BackendAdapter
 
 from .models import BackendCapabilities, ControllerCommand, KVAction, SchedulerAction
-
-
-@dataclass(frozen=True)
-class BackendActionResult:
-    command_id: str
-    accepted: bool
-    acted: bool
-    reason: str
-    backend_name: str = "observe_only"
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "command_id": self.command_id,
-            "accepted": self.accepted,
-            "acted": self.acted,
-            "reason": self.reason,
-            "backend_name": self.backend_name,
-        }
-
-
-class BackendAdapter(Protocol):
-    def capabilities(self) -> BackendCapabilities:
-        ...
-
-    def apply(self, command: ControllerCommand) -> BackendActionResult:
-        ...
 
 
 class ObserveOnlyBackendAdapter:

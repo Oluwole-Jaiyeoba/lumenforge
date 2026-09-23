@@ -127,6 +127,8 @@ preserved as evidence but must not become required controller inputs.
 
 | Current path | Contents | Target owner | Portability assessment |
 | --- | --- | --- | --- |
+| `sglang_direct_kv/src/agentic_core/` | Versioned harness, request, controller, observation, scheduler, KV, hardware, and run-manifest contracts. | `agentic_core`. | Phase 2 foundation implemented; standard-library-only and protected by import-boundary tests. |
+| `sglang_direct_kv/src/agentic_backend_api/` | Backend capabilities, action results, and the backend adapter protocol. | `agentic_backend_api`. | Phase 2 foundation implemented; depends only on `agentic_core`. |
 | `sglang_direct_kv/src/agentic_kv/controller/` | Controller models, policies, modes, SJF, workload generation, state, timing estimators, calibration, and gateway adapters. | Mostly `agentic_controller`; shared records move to `agentic_core`; backend protocols move to `agentic_backend_api`. | Strong starting point. It already emits abstract commands, but gateway-named adapters and experiment workload code need separation. |
 | `sglang_direct_kv/src/agentic_kv/hint_benchmark/` | Hint manifest/scenario runner and evidence capture. | `agentic_harnesses.benchmark`. | Portable in purpose; split harness adapters from generic runner contracts. |
 | `sglang_direct_kv/src/agentic_kv/harness_scenarios/` | Synthetic and real scenario execution, policies, adapters, metrics, and reports. | Runner pieces to `agentic_experiments`; signal adapters to `agentic_harnesses`; backend adapter to backend package; reports to `agentic_reports`. | Mixed ownership and duplicated at top level. Do not extend both copies. |
@@ -260,6 +262,12 @@ README. No runtime behavior changes in this phase.
 - Move or adapt schemas without changing serialized output.
 - Add schema and fake-backend contract tests.
 - Provide temporary compatibility imports from `agentic_kv`.
+
+Status: implemented. Existing `agentic_kv.controller` imports re-export the new
+contract classes, preserving class identity and serialized controller schema
+`agentic_controller.v1`. Current experiment runners have not been migrated to
+the new normalized harness/request/observation contracts yet; that adoption
+belongs to later phases.
 
 ### Phase 3: Separate controller and harness packages
 
