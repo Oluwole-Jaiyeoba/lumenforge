@@ -1,6 +1,10 @@
-"""Future real-backend lowering hooks.
+"""Compatibility alias: this module is ``agentic_harness_scenarios.adapters.sglang`` (single copy since the refactor).
 
-The first phase of the scenario package is deliberately synthetic and does not
-import SGLang. Real backend validation can add optional lowering functions here
-without coupling the core scenario model to a serving implementation.
+``agentic_kv.harness_scenarios`` used to hold a duplicate of the portable
+scenario package; the duplicate was removed.  Only ``real_runner.py`` (the
+testbed-specific launcher) still lives here.
 """
+
+from agentic_kv._compat_alias import alias
+
+alias(__name__, "agentic_harness_scenarios.adapters.sglang")

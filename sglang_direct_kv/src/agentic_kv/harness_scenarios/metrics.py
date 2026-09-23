@@ -1,18 +1,10 @@
-from __future__ import annotations
+"""Compatibility alias: this module is ``agentic_harness_scenarios.metrics`` (single copy since the refactor).
 
-from .models import ScenarioRun
+``agentic_kv.harness_scenarios`` used to hold a duplicate of the portable
+scenario package; the duplicate was removed.  Only ``real_runner.py`` (the
+testbed-specific launcher) still lives here.
+"""
 
+from agentic_kv._compat_alias import alias
 
-def improvement_label(run: ScenarioRun) -> str:
-    key = run.primary_metric
-    improvement = run.improvement
-    if not key or improvement is None:
-        return "n/a"
-    unit = "ms" if key.endswith("_ms") else "tokens" if key.endswith("_tokens") else "units"
-    return f"{_fmt(improvement)} {unit} lower"
-
-
-def _fmt(value: float) -> str:
-    if abs(value - round(value)) < 1e-9:
-        return str(int(round(value)))
-    return f"{value:.1f}"
+alias(__name__, "agentic_harness_scenarios.metrics")

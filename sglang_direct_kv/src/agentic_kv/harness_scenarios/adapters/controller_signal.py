@@ -1,27 +1,10 @@
-from __future__ import annotations
+"""Compatibility alias: this module is ``agentic_harness_scenarios.adapters.controller_signal`` (single copy since the refactor).
 
-from typing import Any
+``agentic_kv.harness_scenarios`` used to hold a duplicate of the portable
+scenario package; the duplicate was removed.  Only ``real_runner.py`` (the
+testbed-specific launcher) still lives here.
+"""
 
+from agentic_kv._compat_alias import alias
 
-def to_harness_controller_meta(harness_signals: dict[str, Any]) -> dict[str, Any]:
-    """Map the scenario MVP signal names onto existing controller metadata.
-
-    The adapter is intentionally shallow: the scenario package remains backend
-    neutral, while callers that use the current controller can opt into this
-    conversion at the boundary.
-    """
-
-    phase = str(harness_signals.get("phase") or "request")
-    meta = {
-        "session_id": harness_signals.get("session_id", "scenario_session"),
-        "prefix_id": harness_signals.get("prefix_id", harness_signals.get("session_id", "scenario_session")),
-        "phase": phase,
-        "user_waiting": harness_signals.get("user_waiting", False),
-        "priority_label": "high" if float(harness_signals.get("priority", 0) or 0) >= 50 else "normal",
-        "replay_likely": phase in {"tool_wait", "prepare", "replay_ready"},
-        "deadline_after_tool_ms": harness_signals.get("deadline_after_ready_ms"),
-        "tool_wait_ms": harness_signals.get("expected_tool_return_ms") or harness_signals.get("next_ready_eta_ms"),
-    }
-    if "priority" in harness_signals:
-        meta["controller_sglang_priority"] = harness_signals["priority"]
-    return meta
+alias(__name__, "agentic_harness_scenarios.adapters.controller_signal")

@@ -1,7 +1,7 @@
 {
   "_comment": "Max allowed occurrences of backend words (sglang|hicache|radix) in identifiers/non-docstring strings of portable packages. These are recorded artifact keys, CLI mode names or external-tool defaults that cannot be renamed without migrating reports. The count may only go DOWN. See README_RESTRUCTURING.md#vocabulary-allowlist.",
   "counts": {
-    "agentic_harness_scenarios/src/agentic_harness_scenarios/adapters/controller_signal.py": 1,
+    "packages/agentic-harness-scenarios/src/agentic_harness_scenarios/adapters/controller_signal.py": 1,
     "packages/agentic-controller/src/agentic_controller/aiconfigurator_estimator.py": 4,
     "packages/agentic-controller/src/agentic_controller/eviction_value.py": 5,
     "packages/agentic-controller/src/agentic_controller/lead_times.py": 2,

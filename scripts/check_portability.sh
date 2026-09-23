@@ -18,6 +18,6 @@ for package in agentic-core agentic-backend-api agentic-controller agentic-harne
     (cd "packages/${package}" && run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests)
   fi
 done
-(cd agentic_harness_scenarios && run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests)
+(cd packages/agentic-harness-scenarios && run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests)
 (cd sglang_direct_kv && run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests)
 echo "All portability checks passed."

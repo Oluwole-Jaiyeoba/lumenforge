@@ -31,7 +31,7 @@ PACKAGES: dict[str, tuple[str, frozenset[str]]] = {
         "packages/agentic-backend-sglang/src/agentic_backends",
         frozenset({"agentic_core", "agentic_backend_api"}),
     ),
-    "agentic_harness_scenarios": ("agentic_harness_scenarios/src/agentic_harness_scenarios", frozenset()),
+    "agentic_harness_scenarios": ("packages/agentic-harness-scenarios/src/agentic_harness_scenarios", frozenset()),
 }
 
 FIRST_PARTY = set(PACKAGES) | {"agentic_kv", "sitecustomize"}

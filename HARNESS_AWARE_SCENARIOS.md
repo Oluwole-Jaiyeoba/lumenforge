@@ -107,8 +107,13 @@ sglang_direct_kv/src/agentic_kv/harness_scenarios/
 
 This keeps the scenario code modular while sharing the same SGLang install,
 controller metadata, trace hooks, report builders, and artifact tree used by the
-real backend experiments. The older root-level `agentic_harness_scenarios/`
-directory is retained only as reference material from the first synthetic pass.
+real backend experiments.
+
+Since the SGLang-portability refactor (see `README_RESTRUCTURING.md`) there is
+a single copy of the portable scenario code, in
+`packages/agentic-harness-scenarios/` (import name `agentic_harness_scenarios`).
+The modules under `sglang_direct_kv/src/agentic_kv/harness_scenarios/` are
+aliases of it, except `real_runner.py`, which is the testbed-specific launcher.
 
 Important paths:
 
