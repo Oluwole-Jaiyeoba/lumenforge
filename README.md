@@ -200,6 +200,7 @@ and the [module README](sglang_direct_kv/src/agentic_prompt_codec/README.md).
 
 | Path | Purpose |
 | --- | --- |
+| [ARCHITECTURE_MAP.md](ARCHITECTURE_MAP.md) | Package ownership, dependency rules, SGLang isolation boundary, and phased portability plan. |
 | [sglang_direct_kv/](sglang_direct_kv/) | Main SGLang replay-deadline testbed. |
 | [sglang_direct_kv/README.md](sglang_direct_kv/README.md) | Long-form milestone notebook with historical detail. |
 | [sglang_direct_kv/scripts/](sglang_direct_kv/scripts/) | Experiment runners, workload drivers, report builders, and SGLang launch helpers. |
