@@ -285,7 +285,7 @@ if [[ "${ENABLE_NSYS}" == "1" ]]; then
     --output "${sqlite}" \
     "${report}"
 
-  python scripts/summarize_nsys_dma_timeline.py \
+  python scripts/legacy/summarize_nsys_dma_timeline.py \
     --sqlite "${sqlite}" \
     --trace "${trace}" \
     --out-json "${nsys_summary_json}" \

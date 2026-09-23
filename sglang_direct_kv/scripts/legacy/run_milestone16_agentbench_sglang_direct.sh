@@ -31,7 +31,7 @@ HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-14}"
 MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.55}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DIRECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PROJECT_ROOT="$(cd "${DIRECT_ROOT}/.." && pwd)"
 cd "${DIRECT_ROOT}"
 
@@ -242,7 +242,7 @@ for index in $(seq "${START_INDEX}" "${END_INDEX}"); do
 done
 
 echo "Building live AgentBench direct-SGLang report..." | tee -a "${DRIVER_LOG}"
-"${PYTHON_BIN}" scripts/summarize_agentbench_sglang_direct.py \
+"${PYTHON_BIN}" scripts/legacy/summarize_agentbench_sglang_direct.py \
   --index-csv "${TASK_INDEX_CSV}" \
   --trace "${TRACE}" \
   --copy-telemetry "${COPY_TELEMETRY}" \

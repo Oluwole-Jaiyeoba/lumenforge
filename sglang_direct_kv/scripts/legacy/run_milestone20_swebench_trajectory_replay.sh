@@ -25,7 +25,7 @@ RUN_CLEAN="${RUN_CLEAN:-1}"
 RUN_ATTRIBUTION="${RUN_ATTRIBUTION:-1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DIRECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PROJECT_ROOT="$(cd "${DIRECT_ROOT}/.." && pwd)"
 cd "${DIRECT_ROOT}"
 
@@ -64,7 +64,7 @@ echo "  Tool waits are synthetic/speculated in this milestone."
 echo
 
 echo "Step 1/2: converting trajectory prompt catalog into replay workload"
-"${PYTHON_BIN}" scripts/extract_swebench_trajectory_prompt_workload.py \
+"${PYTHON_BIN}" scripts/legacy/extract_swebench_trajectory_prompt_workload.py \
   --catalog-csv "${CATALOG_CSV}" \
   --out-jsonl "${WORKLOAD_JSONL}" \
   --out-csv "${WORKLOAD_CSV}" \

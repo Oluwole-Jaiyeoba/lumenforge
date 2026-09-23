@@ -7,7 +7,7 @@ LATEST_REPORT_ROOT="${LATEST_REPORT_ROOT:-artifacts/results}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DIRECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${DIRECT_ROOT}"
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
@@ -52,7 +52,7 @@ echo
 
 bash scripts/run_milestone27_real_prompt_controlled_replay.sh "${MODEL}"
 
-"${PYTHON_BIN}" scripts/summarize_priority_retention_sanity.py \
+"${PYTHON_BIN}" scripts/legacy/summarize_priority_retention_sanity.py \
   --root "${RESULT_ROOT}" \
   --out-dir "${RESULT_ROOT}/priority_retention_report" \
   --latest-root "${LATEST_REPORT_ROOT}"

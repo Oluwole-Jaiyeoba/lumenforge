@@ -55,7 +55,7 @@ export MEM_FRACTION_STATIC
 export MAX_TIMELINE_GAPS
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DIRECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${DIRECT_ROOT}"
 
 echo "Milestone 38: Dynamo Priority Hints vs Projected Hardware"

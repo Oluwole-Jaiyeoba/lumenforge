@@ -61,7 +61,7 @@ fi
 echo "SGLang pressure server is ready at ${HOST_URL}"
 echo "MAX_TOTAL_TOKENS=${MAX_TOTAL_TOKENS}"
 
-python scripts/run_pressure_resume_workload.py \
+python scripts/legacy/run_pressure_resume_workload.py \
   --base-url "${HOST_URL}/v1" \
   --model "${MODEL}" \
   --target-sessions "${TARGET_SESSIONS}" \

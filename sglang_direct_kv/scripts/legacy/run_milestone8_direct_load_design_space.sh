@@ -96,7 +96,7 @@ run_case() {
   server_pid="$!"
   wait_for_server "${log}"
 
-  python scripts/run_pressure_resume_workload.py \
+  python scripts/legacy/run_pressure_resume_workload.py \
     --base-url "${HOST_URL}/v1" \
     --model "${MODEL}" \
     --mode "${mode}" \
@@ -138,5 +138,5 @@ for prompt_tokens in ${PROMPT_TOKEN_LIST}; do
 done
 
 echo
-python scripts/summarize_design_space.py --root "${RESULT_ROOT}"
-python scripts/plot_design_space.py --root "${RESULT_ROOT}"
+python scripts/legacy/summarize_design_space.py --root "${RESULT_ROOT}"
+python scripts/legacy/plot_design_space.py --root "${RESULT_ROOT}"

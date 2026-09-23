@@ -65,7 +65,7 @@ if [[ "${ready}" != "1" ]]; then
 fi
 
 echo "Running ${PREFETCH_ACTION} workload..."
-python scripts/run_pressure_resume_workload.py \
+python scripts/legacy/run_pressure_resume_workload.py \
   --base-url "${HOST_URL}/v1" \
   --model "${MODEL}" \
   --mode hint_aware \
@@ -81,19 +81,19 @@ echo
 python scripts/summarize_kv_trace.py --trace "${TRACE}" | head -80
 
 echo
-python scripts/build_session_cache_map.py \
+python scripts/legacy/build_session_cache_map.py \
   --trace "${TRACE}" \
   --out-json "${RESULT_ROOT}/session_cache_map.json" \
   --out-md "${RESULT_ROOT}/session_cache_map.md"
 
 echo
-python scripts/extract_hicache_call_report.py \
+python scripts/legacy/extract_hicache_call_report.py \
   --trace "${TRACE}" \
   --out-json "${RESULT_ROOT}/hicache_call_report.json" \
   --out-md "${RESULT_ROOT}/hicache_call_report.md"
 
 echo
-python scripts/map_session_host_indices.py \
+python scripts/legacy/map_session_host_indices.py \
   --trace "${TRACE}" \
   --out-json "${RESULT_ROOT}/session_host_indices_map.json" \
   --out-md "${RESULT_ROOT}/session_host_indices_map.md"

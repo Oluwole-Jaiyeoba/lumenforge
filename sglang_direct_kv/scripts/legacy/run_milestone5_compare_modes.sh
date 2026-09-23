@@ -74,7 +74,7 @@ for mode in ${MODES}; do
   server_pid="$!"
   wait_for_server "${log}"
 
-  python scripts/run_pressure_resume_workload.py \
+  python scripts/legacy/run_pressure_resume_workload.py \
     --base-url "${HOST_URL}/v1" \
     --model "${MODEL}" \
     --mode "${mode}" \
@@ -89,4 +89,4 @@ for mode in ${MODES}; do
 done
 
 echo
-python scripts/summarize_mode_comparison.py --root "${RESULT_ROOT}"
+python scripts/legacy/summarize_mode_comparison.py --root "${RESULT_ROOT}"
