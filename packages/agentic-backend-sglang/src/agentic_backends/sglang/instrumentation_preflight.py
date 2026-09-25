@@ -121,15 +121,23 @@ def _send_sentinel(gateway_base: str, model: str, timeout: float) -> dict[str, A
         "stream": False,
         "cache_salt": request_id,
     }
-    started = time.time_ns()
     body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(f"{gateway_base.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            response.read()
-        return {"sent": True, "request_id": request_id, "started_ns": started}
-    except Exception as exc:  # pragma: no cover - exercised against a live gateway
-        return {"sent": False, "request_id": request_id, "started_ns": started, "error": f"{type(exc).__name__}: {exc}"}
+    deadline = time.monotonic() + timeout
+    attempts = 0
+    last_error = ""
+    while True:
+        attempts += 1
+        started = time.time_ns()
+        req = urllib.request.Request(f"{gateway_base.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=min(5, timeout)) as response:
+                response.read()
+            return {"sent": True, "request_id": request_id, "started_ns": started, "attempts": attempts}
+        except Exception as exc:  # pragma: no cover - exercised against a live gateway
+            last_error = f"{type(exc).__name__}: {exc}"
+            if time.monotonic() >= deadline:
+                return {"sent": False, "request_id": request_id, "started_ns": started, "attempts": attempts, "error": last_error}
+            time.sleep(0.25)
 
 
 def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
