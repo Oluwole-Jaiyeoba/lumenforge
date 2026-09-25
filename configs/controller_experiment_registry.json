@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "title": "Agentic Hardware Milestone Experiments",
+  "title": "Agentic Hardware Controller Experiments",
   "comparison_safety_rules": [
     "Compared modes must use the same workload timeline and request population.",
     "The priority contract must state whether application-level priority classes exist.",

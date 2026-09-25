@@ -331,7 +331,7 @@ sglang_direct_kv/configs/hint_benchmark/codex_knobs.json
 The operational runbook with copy-paste commands is:
 
 ```text
-../../HINT_BENCHMARK_RUNBOOK.md
+HINT_BENCHMARK_RUNBOOK.md
 ```
 
 Use knob profiles when the benchmark user wants to stress one signal family

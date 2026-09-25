@@ -3,9 +3,14 @@
 Portable infrastructure for harness-aware scheduling, KV-cache control, and
 agentic inference experiments.
 
+## Two Main Workstreams
+
+- [Controller Experiments](CONTROLLER_EXPERIMENTS.html): controller scheduling,
+  KV-cache, replay deadline, TTFT, and workload-duration results.
+- [Hint Benchmark Runbook](HINT_BENCHMARK_RUNBOOK.html): reproducible harness
+  signal-emission experiments and the commands used to observe them.
+
 - [Current handoff](HANDOFF.md)
-- [Milestone experiment registry](MILESTONE_EXPERIMENTS.html)
-- [Hint Benchmark Runbook](HINT_BENCHMARK_RUNBOOK.html)
 - [Project overview](docs/project/overview.md)
 - [SGLang-portability restructuring (start here if you change code)](docs/architecture/README_RESTRUCTURING.md)
 - [Architecture map](docs/architecture/ARCHITECTURE_MAP.md)

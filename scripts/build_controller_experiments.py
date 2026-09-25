@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the human-readable milestone registry from its JSON source."""
+"""Build the human-readable controller experiment registry from its JSON source."""
 
 from __future__ import annotations
 
@@ -99,18 +99,18 @@ h1,h2,h3,p {{ margin-top: 0; }} h1 {{ font-size: 32px; margin-bottom: 8px; }} h2
 details {{ margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; }} summary {{ cursor:pointer; font-weight:700; }} pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#172033; color:#eef4ff; padding:14px; border-radius:6px; }} code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.92em; }} a {{ color:#075f9d; }}
 @media (max-width: 720px) {{ main {{ padding:28px 14px; }} .contract-grid {{ grid-template-columns:1fr; }} .experiment header {{ display:block; }} .status {{ margin-top:8px; }} }}
 </style></head><body><main>
-<h1>{text(registry['title'])}</h1><p class="lede">A reproducible record of controller milestones. The JSON registry is the machine-readable source of truth; this page is generated from it.</p>
-<section class="notice"><h2>Related Benchmark Infrastructure</h2><p><a href="HINT_BENCHMARK_RUNBOOK.html">Hint Benchmark Runbook</a> is the operational guide for reproducing harness hint emission: its commands state the expected signals, their trigger conditions, attachment level, and evidence lane. It is separate from the controller performance milestones below.</p></section>
+<h1>{text(registry['title'])}</h1><p class="lede">A reproducible record of controller experiments. The JSON registry is the machine-readable source of truth; this page is generated from it.</p>
+<section class="notice"><h2>Related Benchmark Infrastructure</h2><p><a href="HINT_BENCHMARK_RUNBOOK.html">Hint Benchmark Runbook</a> is the operational guide for reproducing harness hint emission: its commands state the expected signals, their trigger conditions, attachment level, and evidence lane. It is separate from the controller performance experiments below.</p></section>
 <section class="notice"><h2>Comparison Safety</h2><ul>{rules}</ul></section>
-<section class="registry"><h2>Milestone Index</h2><table><thead><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Comparison</th></tr></thead><tbody>{rows}</tbody></table></section>
+<section class="registry"><h2>Controller Experiment Index</h2><table><thead><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Comparison</th></tr></thead><tbody>{rows}</tbody></table></section>
 {cards}
 </main></body></html>"""
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--registry", type=Path, default=Path("configs/experiment_registry.json"))
-    parser.add_argument("--out", type=Path, default=Path("MILESTONE_EXPERIMENTS.html"))
+    parser.add_argument("--registry", type=Path, default=Path("configs/controller_experiment_registry.json"))
+    parser.add_argument("--out", type=Path, default=Path("CONTROLLER_EXPERIMENTS.html"))
     args = parser.parse_args()
     registry = json.loads(args.registry.read_text(encoding="utf-8"))
     args.out.write_text(build(registry), encoding="utf-8")
