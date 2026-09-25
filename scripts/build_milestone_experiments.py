@@ -11,6 +11,7 @@ from pathlib import Path
 
 STATUS_LABELS = {
     "validated_reference": "Validated reference",
+    "completed_reference_check": "Completed reference check",
     "completed_pending_review": "Completed - review pending",
     "invalid_for_comparison": "Invalid for comparison",
     "planned": "Planned",
@@ -94,7 +95,7 @@ h1,h2,h3,p {{ margin-top: 0; }} h1 {{ font-size: 32px; margin-bottom: 8px; }} h2
 .notice {{ border-left: 4px solid #16856b; }} .registry {{ overflow-x: auto; }} table {{ border-collapse: collapse; width: 100%; }} th,td {{ padding: 10px; border-bottom: 1px solid #e5eaf2; text-align: left; vertical-align: top; }} th {{ width: 28%; color: #4c5c74; font-weight: 600; }}
 .registry th {{ white-space: nowrap; }} .experiment header {{ display: flex; gap: 16px; justify-content: space-between; align-items: start; }} .eyebrow {{ color: #62738d; font: 600 12px ui-monospace, monospace; margin-bottom: 5px; }}
 .question {{ font-size: 17px; }} .contract-grid {{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }} .contract-grid section {{ background:#f7f9fd; border:1px solid #e4eaf3; padding:14px; border-radius:6px; }}
-.contract-grid p {{ margin-bottom:0; }} .status {{ display:inline-block; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; white-space:nowrap; }} .validated_reference {{ background:#d9f4e7; color:#0b6545; }} .completed_pending_review {{ background:#fff1c8; color:#795400; }} .invalid_for_comparison {{ background:#fee0e0; color:#9c2633; }} .planned {{ background:#e5ebf5; color:#3e516d; }}
+.contract-grid p {{ margin-bottom:0; }} .status {{ display:inline-block; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; white-space:nowrap; }} .validated_reference {{ background:#d9f4e7; color:#0b6545; }} .completed_reference_check {{ background:#dceeff; color:#075f9d; }} .completed_pending_review {{ background:#fff1c8; color:#795400; }} .invalid_for_comparison {{ background:#fee0e0; color:#9c2633; }} .planned {{ background:#e5ebf5; color:#3e516d; }}
 details {{ margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; }} summary {{ cursor:pointer; font-weight:700; }} pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#172033; color:#eef4ff; padding:14px; border-radius:6px; }} code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.92em; }} a {{ color:#075f9d; }}
 @media (max-width: 720px) {{ main {{ padding:28px 14px; }} .contract-grid {{ grid-template-columns:1fr; }} .experiment header {{ display:block; }} .status {{ margin-top:8px; }} }}
 </style></head><body><main>

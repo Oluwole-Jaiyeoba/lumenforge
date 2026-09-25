@@ -8,13 +8,13 @@ h1,h2,h3,p { margin-top: 0; } h1 { font-size: 32px; margin-bottom: 8px; } h2 { f
 .notice { border-left: 4px solid #16856b; } .registry { overflow-x: auto; } table { border-collapse: collapse; width: 100%; } th,td { padding: 10px; border-bottom: 1px solid #e5eaf2; text-align: left; vertical-align: top; } th { width: 28%; color: #4c5c74; font-weight: 600; }
 .registry th { white-space: nowrap; } .experiment header { display: flex; gap: 16px; justify-content: space-between; align-items: start; } .eyebrow { color: #62738d; font: 600 12px ui-monospace, monospace; margin-bottom: 5px; }
 .question { font-size: 17px; } .contract-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .contract-grid section { background:#f7f9fd; border:1px solid #e4eaf3; padding:14px; border-radius:6px; }
-.contract-grid p { margin-bottom:0; } .status { display:inline-block; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; white-space:nowrap; } .validated_reference { background:#d9f4e7; color:#0b6545; } .completed_pending_review { background:#fff1c8; color:#795400; } .invalid_for_comparison { background:#fee0e0; color:#9c2633; } .planned { background:#e5ebf5; color:#3e516d; }
+.contract-grid p { margin-bottom:0; } .status { display:inline-block; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; white-space:nowrap; } .validated_reference { background:#d9f4e7; color:#0b6545; } .completed_reference_check { background:#dceeff; color:#075f9d; } .completed_pending_review { background:#fff1c8; color:#795400; } .invalid_for_comparison { background:#fee0e0; color:#9c2633; } .planned { background:#e5ebf5; color:#3e516d; }
 details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } summary { cursor:pointer; font-weight:700; } pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#172033; color:#eef4ff; padding:14px; border-radius:6px; } code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.92em; } a { color:#075f9d; }
 @media (max-width: 720px) { main { padding:28px 14px; } .contract-grid { grid-template-columns:1fr; } .experiment header { display:block; } .status { margin-top:8px; } }
 </style></head><body><main>
 <h1>Agentic Hardware Milestone Experiments</h1><p class="lede">A reproducible record of controller milestones. The JSON registry is the machine-readable source of truth; this page is generated from it.</p>
 <section class="notice"><h2>Comparison Safety</h2><ul><li>Compared modes must use the same workload timeline and request population.</li><li>The priority contract must state whether application-level priority classes exist.</li><li>Controller capabilities must be isolated unless the record explicitly names a combination.</li><li>A valid result requires trace coverage and no client-side replay-dispatch delay dominating the outcome.</li></ul></section>
-<section class="registry"><h2>Milestone Index</h2><table><thead><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Comparison</th></tr></thead><tbody><tr><td><a href="#scenario1_ready_time_reference">scenario1_ready_time_reference</a></td><td>Scenario 1: Better Deadline Scheduling</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_ready_time_gpu_backfill</code></td></tr><tr><td><a href="#scenario2_proactive_kv_reference">scenario2_proactive_kv_reference</a></td><td>Scenario 2: Proactive KV-Cache Management</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_proactive_kv_management</code></td></tr><tr><td><a href="#scenario3_value_aware_eviction_reference">scenario3_value_aware_eviction_reference</a></td><td>Scenario 3: Better Cache Eviction Decisions</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_value_aware_eviction</code></td></tr><tr><td><a href="#deadline_fair_equal_diagnostic">deadline_fair_equal_diagnostic</a></td><td>Scenario 1 scheduling diagnostic</td><td><span class="status invalid_for_comparison">Invalid for comparison</span></td><td><code>no_prefetch vs controller_deadline_fair</code></td></tr><tr><td><a href="#scenario1_portability_reference">scenario1_portability_reference</a></td><td>Scenario 1 portability reproduction</td><td><span class="status completed_pending_review">Completed - review pending</span></td><td><code>no_prefetch vs controller_ready_time_gpu_backfill</code></td></tr></tbody></table></section>
+<section class="registry"><h2>Milestone Index</h2><table><thead><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Comparison</th></tr></thead><tbody><tr><td><a href="#scenario1_ready_time_reference">scenario1_ready_time_reference</a></td><td>Scenario 1: Better Deadline Scheduling</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_ready_time_gpu_backfill</code></td></tr><tr><td><a href="#scenario2_proactive_kv_reference">scenario2_proactive_kv_reference</a></td><td>Scenario 2: Proactive KV-Cache Management</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_proactive_kv_management</code></td></tr><tr><td><a href="#scenario3_value_aware_eviction_reference">scenario3_value_aware_eviction_reference</a></td><td>Scenario 3: Better Cache Eviction Decisions</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_value_aware_eviction</code></td></tr><tr><td><a href="#scenario1_portability_reference">scenario1_portability_reference</a></td><td>Scenario 1 portability reproduction</td><td><span class="status completed_reference_check">Completed reference check</span></td><td><code>no_prefetch vs controller_ready_time_gpu_backfill</code></td></tr></tbody></table></section>
 
     <article class="experiment" id="scenario1_ready_time_reference">
       <header>
@@ -91,35 +91,10 @@ details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } 
       </details>
     </article>
 
-    <article class="experiment" id="deadline_fair_equal_diagnostic">
-      <header>
-        <div><p class="eyebrow">deadline_fair_equal_diagnostic</p><h2>Scenario 1 scheduling diagnostic</h2></div>
-        <span class="status invalid_for_comparison">Invalid for comparison</span>
-      </header>
-      <p class="question">Can the new equal-importance path be inspected end to end?</p>
-      <div class="contract-grid">
-        <section><h3>Controller scope</h3><p>Deadline-fair ordering.</p></section>
-        <section><h3>Priority contract</h3><p>Equal application importance; deadline ordering only.</p></section>
-        <section><h3>Compared modes</h3><p><code>no_prefetch vs controller_deadline_fair</code></p></section>
-        <section><h3>Workload</h3><p>Hatcher; P3; two replay steps; 15 peer sessions.</p></section>
-      </div>
-      <details open><summary>Reproduction contract</summary>
-        
-        <table><tbody><tr><th>hardware profile</th><td>nvidia_a10g_24gb</td></tr><tr><th>tool wait profile</th><td>realistic_deadline_fair</td></tr><tr><th>seed</th><td>20260922</td></tr></tbody></table>
-        <p><strong>Run label:</strong> <code>deadline_fair_equal_v0510_20260925_164935</code></p>
-        <pre><code>Do not rerun as a milestone reference until replay dispatch alignment is fixed.</code></pre>
-      </details>
-      <details open><summary>Observed result</summary>
-        <table><tbody><tr><th>verdict</th><td>Do not compare this result with Scenario 1.</td></tr><tr><th>reason</th><td>Replay requests were submitted 157.8-186.7 seconds after their due times, so client dispatch, rather than backend scheduling, dominated the measurement.</td></tr></tbody></table>
-        <p><strong>Standard scenario report:</strong> External historical archive</p>
-        
-      </details>
-    </article>
-
     <article class="experiment" id="scenario1_portability_reference">
       <header>
         <div><p class="eyebrow">scenario1_portability_reference</p><h2>Scenario 1 portability reproduction</h2></div>
-        <span class="status completed_pending_review">Completed - review pending</span>
+        <span class="status completed_reference_check">Completed reference check</span>
       </header>
       <p class="question">Did the modularity restructuring preserve the original Scenario 1 behavior?</p>
       <div class="contract-grid">
@@ -135,9 +110,9 @@ details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } 
         <pre><code>Use the Scenario 1 reference spec above.</code></pre>
       </details>
       <details open><summary>Observed result</summary>
-        <table><tbody><tr><th>verdict</th><td>Completed; results have not yet been validated against the Scenario 1 reference contract.</td></tr></tbody></table>
-        <p><strong>Standard scenario report:</strong> Remote artifact pending review</p>
-        
+        <table><tbody><tr><th>total replay ttft</th><td>82.35 s -&gt; 71.99 s (12.6% better)</td></tr><tr><th>total replay deadline debt</th><td>205.23 s -&gt; 167.07 s (18.6% lower)</td></tr><tr><th>average replay ttft</th><td>2.57 s -&gt; 2.25 s (324 ms faster)</td></tr><tr><th>average replay lateness</th><td>6.41 s -&gt; 5.22 s (1.19 s less late)</td></tr><tr><th>full workload duration</th><td>176.25 s -&gt; 167.53 s (4.9% shorter)</td></tr><tr><th>verdict</th><td>Clean aggregate win: replay TTFT, replay deadline debt, and full workload duration all improved.</td></tr></tbody></table>
+        <p><strong>Standard scenario report:</strong> <a href="docs/reports/harness_aware_scenario_tracker.html">Open report</a></p>
+        <p><strong>Run-specific evidence:</strong> <a href="sglang_direct_kv/artifacts/results/reports/scenario1_portability_reference_20260925_171817/master_report.html">Open report</a></p>
       </details>
     </article>
 </main></body></html>

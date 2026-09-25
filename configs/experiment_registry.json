@@ -93,31 +93,9 @@
       "reproduction_command": "Use the recorded run configuration in the linked artifact before creating a new Scenario 3 spec; do not combine it with scheduling or direct KV preparation."
     },
     {
-      "id": "deadline_fair_equal_diagnostic",
-      "scenario": "Scenario 1 scheduling diagnostic",
-      "status": "invalid_for_comparison",
-      "question": "Can the new equal-importance path be inspected end to end?",
-      "controller_capability": "Deadline-fair ordering.",
-      "priority_contract": "Equal application importance; deadline ordering only.",
-      "comparison": "no_prefetch vs controller_deadline_fair",
-      "workload": "Hatcher; P3; two replay steps; 15 peer sessions.",
-      "parameters": {
-        "hardware_profile": "nvidia_a10g_24gb",
-        "tool_wait_profile": "realistic_deadline_fair",
-        "seed": "20260922"
-      },
-      "run_label": "deadline_fair_equal_v0510_20260925_164935",
-      "report_path": "External historical archive",
-      "results": {
-        "verdict": "Do not compare this result with Scenario 1.",
-        "reason": "Replay requests were submitted 157.8-186.7 seconds after their due times, so client dispatch, rather than backend scheduling, dominated the measurement."
-      },
-      "reproduction_command": "Do not rerun as a milestone reference until replay dispatch alignment is fixed."
-    },
-    {
       "id": "scenario1_portability_reference",
       "scenario": "Scenario 1 portability reproduction",
-      "status": "completed_pending_review",
+      "status": "completed_reference_check",
       "question": "Did the modularity restructuring preserve the original Scenario 1 behavior?",
       "controller_capability": "Ready-time scheduling only.",
       "priority_contract": "Same equal-importance contract as Scenario 1 reference.",
@@ -131,9 +109,15 @@
       },
       "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
       "run_label": "scenario1_portability_reference_20260925_171817",
-      "report_path": "Remote artifact pending review",
+      "report_path": "docs/reports/harness_aware_scenario_tracker.html",
+      "evidence_path": "sglang_direct_kv/artifacts/results/reports/scenario1_portability_reference_20260925_171817/master_report.html",
       "results": {
-        "verdict": "Completed; results have not yet been validated against the Scenario 1 reference contract."
+        "total_replay_ttft": "82.35 s -> 71.99 s (12.6% better)",
+        "total_replay_deadline_debt": "205.23 s -> 167.07 s (18.6% lower)",
+        "average_replay_ttft": "2.57 s -> 2.25 s (324 ms faster)",
+        "average_replay_lateness": "6.41 s -> 5.22 s (1.19 s less late)",
+        "full_workload_duration": "176.25 s -> 167.53 s (4.9% shorter)",
+        "verdict": "Clean aggregate win: replay TTFT, replay deadline debt, and full workload duration all improved."
       },
       "reproduction_command": "Use the Scenario 1 reference spec above."
     }
