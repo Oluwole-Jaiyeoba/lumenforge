@@ -100,6 +100,7 @@ details {{ margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; }
 @media (max-width: 720px) {{ main {{ padding:28px 14px; }} .contract-grid {{ grid-template-columns:1fr; }} .experiment header {{ display:block; }} .status {{ margin-top:8px; }} }}
 </style></head><body><main>
 <h1>{text(registry['title'])}</h1><p class="lede">A reproducible record of controller milestones. The JSON registry is the machine-readable source of truth; this page is generated from it.</p>
+<section class="notice"><h2>Related Benchmark Infrastructure</h2><p><a href="HINT_BENCHMARK_RUNBOOK.html">Hint Benchmark Runbook</a> is the operational guide for reproducing harness hint emission: its commands state the expected signals, their trigger conditions, attachment level, and evidence lane. It is separate from the controller performance milestones below.</p></section>
 <section class="notice"><h2>Comparison Safety</h2><ul>{rules}</ul></section>
 <section class="registry"><h2>Milestone Index</h2><table><thead><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Comparison</th></tr></thead><tbody>{rows}</tbody></table></section>
 {cards}

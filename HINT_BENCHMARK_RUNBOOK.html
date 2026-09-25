@@ -1,0 +1,2155 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hint Benchmark Runbook</title><style>
+:root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #172033; background: #f5f7fb; }
+body { margin: 0; line-height: 1.5; } main { max-width: 1600px; margin: 0 auto; padding: 38px 26px 72px; }
+h1,h2,h3 { line-height: 1.2; } h1 { font-size: 32px; } h2 { margin-top: 42px; font-size: 24px; } h3 { font-size: 18px; }
+table { width: 100%; border-collapse: collapse; margin: 18px 0 30px; } th,td { padding: 12px; border: 1px solid #d8e0ec; text-align: left; vertical-align: top; } th { background: #eaf0f8; font-weight: 700; } td { background: #fff; }
+pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; background: #172033; color: #eef4ff; padding: 13px; border-radius: 5px; } code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+a { color: #075f9d; } ul { padding-left: 24px; } @media (max-width: 900px) { main { padding: 24px 14px 48px; } table { display: block; overflow-x: auto; } }
+</style></head><body><main><!-- Generated from HINT_BENCHMARK_RUNBOOK.md. -->
+<h1>Hint Benchmark Runbook</h1>
+<p>Compact command table for the Agentic Hint Benchmark Suite.</p>
+<p>Run these commands on the remote A10G host machine from the repo root:</p>
+<pre><code class="language-bash">cd ~/agentic_hardware
+</code></pre>
+<p>From the Mac, SSH with the configured remote A10G host host:</p>
+<pre><code class="language-bash">cd /Users/oluwolejaiyeoba/Documents/GitHub/agentic_hardware
+bash -lc &#39;source infra/remote/config.sh &amp;&amp; ssh $(ssh_opts hintbench) &quot;$REMOTE_USER@${REMOTE_HOSTS[0]}&quot;&#39;
+cd ~/agentic_hardware
+</code></pre>
+<h2>Table Of Contents</h2>
+<ul>
+<li><a href="#claude-code">Claude Code</a></li>
+<li><a href="#qwen-code">Qwen Code</a></li>
+<li><a href="#pi-agent-harness">Pi Agent Harness</a></li>
+<li><a href="#openclaw">OpenClaw</a></li>
+<li><a href="#opencode">OpenCode</a></li>
+<li><a href="#deep-agents">Deep Agents</a></li>
+<li><a href="#deepseek-harness">DeepSeek Harness</a></li>
+<li><a href="#codex">Codex</a></li>
+<li><a href="#nemo-agent-toolkit--nat">NeMo Agent Toolkit / NAT</a></li>
+<li><a href="#hermes-agent">Hermes Agent</a></li>
+<li><a href="#harness-scope-accounting">Harness Scope Accounting</a></li>
+<li><a href="#unobserved-hint-experiment-backlog">Unobserved Hint Experiment Backlog</a></li>
+<li><a href="#missing-or-blocked-today">Missing Or Blocked Today</a></li>
+<li><a href="#pptx-signal-inventory">PPTX Signal Inventory</a></li>
+<li><a href="#inspect-results">Inspect Results</a></li>
+</ul>
+<h2>Where Attached Legend</h2>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Request</td>
+<td>Applies to one outgoing model request.</td>
+</tr>
+<tr>
+<td>Task</td>
+<td>Applies to one task or workflow run.</td>
+</tr>
+<tr>
+<td>Session</td>
+<td>Applies to a session, so many requests in that session may carry it.</td>
+</tr>
+<tr>
+<td>Configuration</td>
+<td>Comes from a client/profile setting, so any run using that setting may carry it.</td>
+</tr>
+</tbody></table>
+<h2>Source Lane Legend</h2>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Native Claude Code</td>
+<td>The real Claude Code CLI emitted the signal.</td>
+</tr>
+<tr>
+<td>Claude Code + Provider</td>
+<td>Claude Code was used, but provider routing/config may have produced the signal.</td>
+</tr>
+<tr>
+<td>Native Qwen Code</td>
+<td>The real Qwen Code CLI emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>Qwen Code + Provider Config</td>
+<td>Qwen Code carried provider/model configuration such as <code>extra_body</code>, custom headers, or cache-control settings.</td>
+</tr>
+<tr>
+<td>Native Pi Agent Harness</td>
+<td>The real Pi Agent Harness CLI emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>Pi Agent Harness + Provider Config</td>
+<td>Pi carried provider/model configuration such as prompt-cache retention, cache-control markers, or session-affinity headers.</td>
+</tr>
+<tr>
+<td>Native OpenClaw</td>
+<td>The real OpenClaw CLI emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>OpenClaw + Provider Config</td>
+<td>OpenClaw carried provider/model configuration such as service-tier, provider cache, cached-WebSocket, or namespace settings.</td>
+</tr>
+<tr>
+<td>Native OpenCode</td>
+<td>The real OpenCode CLI emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>OpenCode + Provider Config</td>
+<td>OpenCode carried provider or plugin cache metadata such as provider cache identity, plugin namespace, or usage stats.</td>
+</tr>
+<tr>
+<td>Native Deep Agents</td>
+<td>The real Deep Agents harness emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>Deep Agents + Provider Middleware</td>
+<td>Deep Agents carried provider or middleware cache/QoS metadata.</td>
+</tr>
+<tr>
+<td>Native DeepSeek Harness</td>
+<td>The real DeepSeek Harness emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>DeepSeek Harness + Provider</td>
+<td>DeepSeek Harness relied on provider-managed prefix cache, TTL, pinning, or cache-read feedback.</td>
+</tr>
+<tr>
+<td>Native Codex</td>
+<td>The real Codex client emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>Codex + Provider Config</td>
+<td>Codex carried provider prompt-cache metadata such as <code>prompt_cache_key</code>, <code>service_tier</code>, WebSocket prewarm, or cached-token usage.</td>
+</tr>
+<tr>
+<td>Native Hermes Agent</td>
+<td>The real Hermes Agent CLI emitted or carried the signal at the request boundary.</td>
+</tr>
+<tr>
+<td>Hermes Agent + Provider Config</td>
+<td>Hermes carried provider/model configuration such as <code>service_tier</code>, <code>extra_body</code>, headers, or prompt-cache settings.</td>
+</tr>
+<tr>
+<td>Native NAT Workflow</td>
+<td>The real NeMo/NAT transport emitted the signal from workflow or transport settings.</td>
+</tr>
+<tr>
+<td>NAT Pass-through</td>
+<td>The signal was supplied before or around NAT, and NAT preserved it at the boundary.</td>
+</tr>
+<tr>
+<td>Mixed NAT</td>
+<td>The run intentionally combines NAT workflow signals and NAT pass-through signals.</td>
+</tr>
+</tbody></table>
+<h2>Claude Code</h2>
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Claude native baseline</td>
+<td>Confirm Claude emits no benchmark hints when knobs are off.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_baseline_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --knob-profile baseline \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native Claude Code request-boundary control case.</td>
+</tr>
+<tr>
+<td>All Claude native request-boundary probes</td>
+<td>Produce all Claude Code signals observed today in one run.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_all_request_boundary_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --knob-profile all_request_boundary \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>system.*.cache_control.type="ephemeral"</code></li>
+<li><code>messages.*.content.*.cache_control.type="ephemeral"</code></li>
+<li><code>cache_control.ttl="1h"</code></li>
+<li><code>anthropic-beta: fast-mode-2026-02-01</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>; observed signals come from stable-context cache probes, <code>claude_fast_mode_setting</code> with <code>fastMode=true</code>, <code>ENABLE_PROMPT_CACHING_1H=1</code>, and <code>FORCE_PROMPT_CACHING_5M=1</code>.</td>
+<td>Configuration</td>
+<td>Native Claude Code request-boundary capture.</td>
+</tr>
+<tr>
+<td>Claude native QoS probes</td>
+<td>Produce the Claude fast-mode header.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_qos_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --knob-profile qos_only \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>anthropic-beta: fast-mode-2026-02-01</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile qos_only</code>, including scenario <code>claude_fast_mode_setting</code>.</td>
+<td>Configuration</td>
+<td>Native Claude Code request-boundary capture.</td>
+</tr>
+<tr>
+<td>Claude native cache probes</td>
+<td>Produce Claude prompt-cache markers and TTL.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_cache_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --knob-profile cache_only \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>system.*.cache_control.type="ephemeral"</code></li>
+<li><code>messages.*.content.*.cache_control.type="ephemeral"</code></li>
+<li><code>cache_control.ttl="1h"</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile cache_only</code>, including stable-prefix cache scenarios plus <code>claude_provider_retention_1h</code> with <code>ENABLE_PROMPT_CACHING_1H=1</code> and <code>claude_provider_retention_5m</code> with <code>FORCE_PROMPT_CACHING_5M=1</code>.</td>
+<td>Configuration</td>
+<td>Native Claude Code request-boundary capture.</td>
+</tr>
+<tr>
+<td>Claude native prewarm probe</td>
+<td>Send a request that warms a cacheable prompt block.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_prewarm_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --knob-profile prewarm_only \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>system.*.cache_control.type="ephemeral"</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile prewarm_only</code> with scenario <code>claude_prewarm_like_probe</code>.</td>
+<td>Request</td>
+<td>Native Claude Code request-boundary capture.</td>
+</tr>
+<tr>
+<td>Claude native fast mode only</td>
+<td>Produce only the Claude fast-mode header.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_fast_mode_setting_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --scenarios claude_fast_mode_setting \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>anthropic-beta: fast-mode-2026-02-01</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>claude_fast_mode_setting</code>, which passes Claude settings with <code>fastMode=true</code>.</td>
+<td>Configuration</td>
+<td>Native Claude Code request-boundary capture.</td>
+</tr>
+<tr>
+<td>Claude native 1h cache TTL</td>
+<td>Produce Claude cache control with a 1-hour TTL.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_provider_retention_1h_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --scenarios claude_provider_retention_1h \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>cache_control.type="ephemeral"</code></li>
+<li><code>cache_control.ttl="1h"</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>claude_provider_retention_1h</code> with <code>ENABLE_PROMPT_CACHING_1H=1</code>.</td>
+<td>Configuration</td>
+<td>Native Claude Code request-boundary capture using `ENABLE_PROMPT_CACHING_1H=1`.</td>
+</tr>
+<tr>
+<td>Claude native 5m cache control</td>
+<td>Produce Claude cache control with default 5-minute retention.</td>
+<td>Native Claude Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;claude_provider_retention_5m_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness claude_code \
+  --scenarios claude_provider_retention_5m \
+  --claude-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>cache_control.type="ephemeral"</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>claude_provider_retention_5m</code> with <code>FORCE_PROMPT_CACHING_5M=1</code>.</td>
+<td>Configuration</td>
+<td>Native Claude Code request-boundary capture using `FORCE_PROMPT_CACHING_5M=1`.</td>
+</tr>
+</tbody>
+</table><h2>Qwen Code</h2>
+<p>The current Qwen suite is request-boundary only. It proves Qwen Code can carry
+configured provider/body/header/cache fields. It does not prove a real provider
+or SGLang consumed them.</p>
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All Qwen request-boundary probes</td>
+<td>Produce every Qwen signal we can observe today in one run.</td>
+<td>Qwen Code + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;qwen_all_request_boundary_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile all_request_boundary \
+  --qwen-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>cacheRetention="1h"</code></li>
+<li><code>system.*.cache_control.type="ephemeral"</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li><code>agentic_hints.eviction_priority="high"</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining OpenAI-compatible extra-body/header probes and the Anthropic-compatible cache-control probe.</td>
+<td>Configuration</td>
+<td>Native Qwen Code request-boundary capture. Current artifact: <code>qwen_native_full_20260921_local</code>.</td>
+</tr>
+<tr>
+<td>Qwen native baseline</td>
+<td>Confirm Qwen emits no benchmark hints when knobs are off.</td>
+<td>Native Qwen Code</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;qwen_baseline_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile baseline \
+  --qwen-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No Qwen benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native Qwen Code request-boundary control case.</td>
+</tr>
+<tr>
+<td>Qwen provider QoS extra body</td>
+<td>Carry provider QoS metadata through Qwen's OpenAI-compatible request body.</td>
+<td>Qwen Code + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;qwen_qos_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile qos_only \
+  --qwen-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>qwen_provider_qos_extra_body</code>, whose Qwen <code>generationConfig.extra_body</code> supplies provider metadata.</td>
+<td>Configuration</td>
+<td>Provider/config carried by Qwen Code, not organic priority inference.</td>
+</tr>
+<tr>
+<td>Qwen cache signals</td>
+<td>Produce Qwen cache-retention and cache-control markers.</td>
+<td>Qwen Code + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;qwen_cache_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile cache_only \
+  --qwen-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>cacheRetention="1h"</code></li>
+<li><code>system.*.cache_control.type="ephemeral"</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li><code>anthropic-beta</code> cache TTL marker</li>
+</ul>
+</td>
+<td>Runs OpenAI-compatible retention and Anthropic-compatible cache-control scenarios. The repeated-prefix cache-key probe is optional and did not expose a literal cache-key field today.</td>
+<td>Configuration</td>
+<td>Request-boundary cache metadata only; real provider cache-hit feedback is separate.</td>
+</tr>
+<tr>
+<td>Qwen pass-through probes</td>
+<td>Carry namespace and eviction metadata through Qwen configuration.</td>
+<td>Qwen Code + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;qwen_passthrough_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness qwen_code \
+  --knob-profile passthrough_only \
+  --qwen-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>agentic_hints.eviction_priority="high"</code></li>
+</ul>
+</td>
+<td>Runs namespace-header and eviction-metadata scenarios. These fields are supplied by benchmark config and preserved by Qwen.</td>
+<td>Configuration</td>
+<td>Pass-through/config evidence, not native Qwen scheduling or eviction policy.</td>
+</tr>
+</tbody>
+</table><h2>Pi Agent Harness</h2>
+<p>The current Pi suite has native request-boundary evidence from the real Pi CLI
+via <code>npx -y @earendil-works/pi-coding-agent@latest</code>. Against
+<code>presentation/Harness Signal Tables As-Is.pptx</code>, Pi has 6 supported or
+conditional cache/provider signals and 10 unsupported focused signals. This run
+observed 5 of the 6 supported or conditional signals at the request boundary.</p>
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All Pi request-boundary probes</td>
+<td>Produce every Pi request-boundary signal observed today in one run.</td>
+<td>Pi Agent Harness + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;pi_all_request_boundary_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile all_request_boundary \
+  --pi-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>prompt_cache_key</code></li>
+<li><code>x-session-affinity</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>prompt_cache_retention="24h"</code></li>
+<li><code>messages.*.cache_control.type="ephemeral"</code></li>
+<li><code>messages.*.cache_control.ttl="1h"</code></li>
+<li>absence of literal <code>cache_pinning</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining provider prompt-cache, namespace, long-retention, cache-control, and pinning-negative probes.</td>
+<td>Configuration</td>
+<td>Native Pi request-boundary capture. Current artifact: <code>pi_native_request_boundary_rescored_20260921</code>.</td>
+</tr>
+<tr>
+<td>Pi native baseline</td>
+<td>Confirm Pi emits no benchmark cache hints when knobs are off.</td>
+<td>Native Pi Agent Harness</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;pi_baseline_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile baseline \
+  --pi-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No Pi benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native Pi request-boundary control case.</td>
+</tr>
+<tr>
+<td>Pi cache probes</td>
+<td>Produce Pi prompt-cache key, retention, cache-control, and pinning-negative evidence.</td>
+<td>Pi Agent Harness + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;pi_cache_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile cache_only \
+  --pi-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>prompt_cache_key</code></li>
+<li><code>prompt_cache_retention="24h"</code></li>
+<li><code>cache_control.type="ephemeral"</code></li>
+<li><code>cache_control.ttl="1h"</code></li>
+</ul>
+</td>
+<td>Runs provider prompt-cache, long-retention, and pinning-negative scenarios.</td>
+<td>Configuration</td>
+<td>Request-boundary cache metadata only; real cache-hit feedback is separate.</td>
+</tr>
+<tr>
+<td>Pi namespace probes</td>
+<td>Show provider/account or session-affinity cache isolation metadata.</td>
+<td>Pi Agent Harness + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;pi_namespace_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness pi_agent_harness \
+  --knob-profile namespace_only \
+  --pi-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>x-session-affinity</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>pi_provider_account_namespace</code>, with session affinity enabled in the provider extension.</td>
+<td>Session</td>
+<td>Provider/config carried by Pi and preserved at the request boundary.</td>
+</tr>
+</tbody>
+</table><h2>OpenClaw</h2>
+<p>The current OpenClaw suite has native request-boundary evidence from the real
+OpenClaw CLI via <code>npx -y openclaw@latest</code>. Against
+<code>presentation/Harness Signal Tables As-Is.pptx</code>, OpenClaw has 8 supported or
+conditional cache/provider signals and 8 unsupported focused signals. The
+current request-boundary run observed 1 of the 8 supported or conditional
+signals: configured namespace header preservation.</p>
+<p>Current artifact: <code>openclaw_native_request_boundary_20260921</code>.</p>
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All OpenClaw request-boundary probes</td>
+<td>Run every OpenClaw request-boundary probe and report what actually appears.</td>
+<td>OpenClaw + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;openclaw_all_request_boundary_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile all_request_boundary \
+  --openclaw-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>x-hintbench-cache-namespace</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining provider QoS, provider/session namespace, provider cache config, cached-WebSocket/prewarm, and cache-pinning negative probes.</td>
+<td>Session</td>
+<td>Native OpenClaw request-boundary capture. Current artifact: <code>openclaw_native_request_boundary_20260921</code>.</td>
+</tr>
+<tr>
+<td>OpenClaw native baseline</td>
+<td>Confirm OpenClaw emits no benchmark cache or QoS hints when knobs are off.</td>
+<td>Native OpenClaw</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;openclaw_baseline_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile baseline \
+  --openclaw-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No OpenClaw benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native OpenClaw request-boundary control case.</td>
+</tr>
+<tr>
+<td>OpenClaw namespace probe</td>
+<td>Show provider/session cache namespace metadata when configured.</td>
+<td>OpenClaw + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;openclaw_namespace_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile namespace_only \
+  --openclaw-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>x-hintbench-cache-namespace</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>openclaw_provider_session_namespace</code>, whose provider config supplies a namespace header.</td>
+<td>Session</td>
+<td>Provider/config carried by OpenClaw and preserved at the request boundary.</td>
+</tr>
+<tr>
+<td>OpenClaw cache candidate probes</td>
+<td>Probe provider-managed cache key, retention, entry type, cached-WebSocket, and pinning-negative recipes.</td>
+<td>OpenClaw + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;openclaw_cache_only_$(date +%Y%m%d_%H%M%S)&quot;
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness openclaw \
+  --knob-profile cache_only \
+  --openclaw-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li>none observed in the current native request-boundary run</li>
+</ul>
+</td>
+<td>Runs provider cache config, cached-WebSocket/prewarm, and cache-pinning negative probes.</td>
+<td>Configuration</td>
+<td>These remain provider-managed candidates today; the current OpenClaw request body did not expose literal cache fields.</td>
+</tr>
+</tbody>
+</table><h2>OpenCode</h2>
+<p>OpenCode appears on slides 7 and 12 of
+<code>presentation/Harness Signal Tables As-Is.pptx</code>. The deck shows no scheduling
+signals for OpenCode. It shows three cache/provider candidates: provider-managed
+cache identity, provider or plugin namespace, and provider/plugin cache usage
+feedback. OpenCode now has a manifest, scenarios, knobs, fixture validation,
+and a provider/plugin configuration capture lane.</p>
+<p>OpenCode signal accounting against <code>presentation/Harness Signal Tables As-Is.pptx</code>:</p>
+<pre><code class="language-text">focused serving-control signals for OpenCode: 16
+deck-supported or conditional signals: 3
+fixture/plumbing signals observed: 3
+provider/plugin config signals observed: 2
+native CLI signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
+deck-unsupported signals: 13
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OpenCode provider/plugin config full coverage</td>
+<td>Capture the OpenCode provider/plugin config signals we can represent locally.</td>
+<td>OpenCode + Provider Config</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness opencode --knob-profile full_coverage --opencode-provider-config-capture --run-id opencode_provider_config_20260922</code></td>
+<td><code>helicone-cache-key</code>, namespace header</td>
+<td>Runs all OpenCode scenarios, but skips real-provider-only usage feedback.</td>
+<td>Configuration</td>
+<td>Artifact: <code>opencode_provider_config_20260922</code>; provider/plugin config evidence, not native CLI proof.</td>
+</tr>
+<tr>
+<td>OpenCode fixture full coverage</td>
+<td>Validate every OpenCode signal recipe currently described by the deck.</td>
+<td>OpenCode + Provider Config</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness opencode --knob-profile full_coverage --fixture-observations --run-id opencode_fixture_full_20260922</code></td>
+<td><code>helicone-cache-key</code>, namespace header, <code>usage.cached_tokens</code> fixture shape</td>
+<td>Runs all OpenCode scenarios from the manifest.</td>
+<td>Configuration and runtime feedback</td>
+<td>Fixture artifact: <code>opencode_fixture_full_20260922</code>; not native evidence.</td>
+</tr>
+<tr>
+<td>OpenCode provider/plugin cache probe</td>
+<td>Probe provider-managed cache key and provider/plugin namespace behavior.</td>
+<td>OpenCode + Provider Config</td>
+<td><code>--harness opencode --knob-profile cache_only --opencode-provider-config-capture</code></td>
+<td><code>helicone-cache-key</code>, namespace header</td>
+<td>Runs provider-cache and plugin namespace scenarios.</td>
+<td>Configuration</td>
+<td>Provider/plugin config evidence, not native CLI proof.</td>
+</tr>
+<tr>
+<td>OpenCode provider feedback probe</td>
+<td>Probe whether OpenCode/provider/plugin usage stats expose cache-hit feedback.</td>
+<td>OpenCode + Provider Config</td>
+<td><code>--harness opencode --knob-profile feedback_only --opencode-provider-config-capture</code></td>
+<td>none yet</td>
+<td>Requires provider/plugin stats or usage output for real evidence.</td>
+<td>Runtime feedback</td>
+<td>Still missing; real provider/plugin required.</td>
+</tr>
+</tbody></table>
+<h2>Deep Agents</h2>
+<p>Deep Agents appears on slides 6 and 11 of
+<code>presentation/Harness Signal Tables As-Is.pptx</code>, and slide 3 says it was
+already covered. This runbook now represents it explicitly, but this suite does
+now contains a fresh Deep Agents manifest, scenario set, knob profiles, and
+fixture validation, and a middleware/provider configuration capture lane. The
+deck shows provider-dependent QoS plus middleware/provider cache signals.</p>
+<p>Deep Agents signal accounting against <code>presentation/Harness Signal Tables As-Is.pptx</code>:</p>
+<pre><code class="language-text">focused serving-control signals for Deep Agents: 16
+deck-supported or conditional signals: 8
+fixture/plumbing signals observed: 8
+provider/middleware config signals observed: 7
+native CLI/library signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
+deck-unsupported signals: 8
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Deep Agents middleware full coverage</td>
+<td>Capture the Deep Agents provider/middleware signals we can represent locally.</td>
+<td>Deep Agents + Provider Middleware</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deep_agents --knob-profile full_coverage --deep-agents-middleware-capture --run-id deep_agents_middleware_20260922</code></td>
+<td>provider QoS, middleware cache key, namespace, TTL, type, custom eviction, pinning</td>
+<td>Runs all Deep Agents scenarios, but skips real-provider trace feedback.</td>
+<td>Configuration</td>
+<td>Artifact: <code>deep_agents_middleware_20260922</code>; provider/middleware evidence, not native library/CLI proof.</td>
+</tr>
+<tr>
+<td>Deep Agents fixture full coverage</td>
+<td>Validate every Deep Agents signal recipe currently described by the deck.</td>
+<td>Deep Agents + Provider Middleware</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deep_agents --knob-profile full_coverage --fixture-observations --run-id deep_agents_fixture_full_20260922</code></td>
+<td>provider QoS, middleware cache key, namespace, TTL, type, eviction, pinning, trace feedback fixture shapes</td>
+<td>Runs all Deep Agents scenarios from the manifest.</td>
+<td>Configuration and runtime feedback</td>
+<td>Fixture artifact: <code>deep_agents_fixture_full_20260922</code>; not native evidence.</td>
+</tr>
+<tr>
+<td>Deep Agents provider QoS probe</td>
+<td>Probe provider-dependent speed/QoS routing.</td>
+<td>Deep Agents + Provider Middleware</td>
+<td><code>--harness deep_agents --knob-profile qos_only --deep-agents-middleware-capture</code></td>
+<td><code>provider.qos_tier</code></td>
+<td>Runs a provider QoS scenario.</td>
+<td>Provider</td>
+<td>Provider/middleware config evidence.</td>
+</tr>
+<tr>
+<td>Deep Agents middleware cache probes</td>
+<td>Probe middleware/provider cache identity, namespace, TTL, cache type, custom eviction, and pinning.</td>
+<td>Deep Agents + Provider Middleware</td>
+<td><code>--harness deep_agents --knob-profile cache_only --deep-agents-middleware-capture</code></td>
+<td>middleware cache key, namespace, TTL, type, eviction, pinning</td>
+<td>Runs middleware cache scenarios.</td>
+<td>Configuration</td>
+<td>Provider/middleware config evidence.</td>
+</tr>
+<tr>
+<td>Deep Agents provider trace feedback</td>
+<td>Probe provider trace data for cache-hit feedback.</td>
+<td>Deep Agents + Provider Middleware</td>
+<td><code>--harness deep_agents --knob-profile feedback_only --deep-agents-middleware-capture</code></td>
+<td>none yet</td>
+<td>Requires provider trace or metrics after repeated cacheable requests for real evidence.</td>
+<td>Runtime feedback</td>
+<td>Still missing; real provider trace required.</td>
+</tr>
+</tbody></table>
+<h2>DeepSeek Harness</h2>
+<p>DeepSeek Harness appears on slides 6 and 11 of
+<code>presentation/Harness Signal Tables As-Is.pptx</code>. The deck shows no scheduling
+signals. It shows four provider-managed cache candidates: automatic prefix
+matching, provider-managed TTL, <code>cacheReadTokens</code> feedback, and provider-managed
+pinning. DeepSeek Harness now has a manifest, scenarios, knobs, fixture
+validation, and a provider-capability capture lane.</p>
+<p>DeepSeek Harness signal accounting against <code>presentation/Harness Signal Tables As-Is.pptx</code>:</p>
+<pre><code class="language-text">focused serving-control signals for DeepSeek Harness: 16
+deck-supported or conditional signals: 4
+fixture/plumbing signals observed: 4
+provider capability signals observed: 3
+native harness signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
+deck-unsupported signals: 12
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepSeek provider capability full coverage</td>
+<td>Capture provider-managed DeepSeek cache capability signals we can represent locally.</td>
+<td>DeepSeek Harness + Provider</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deepseek_harness --knob-profile full_coverage --deepseek-provider-capability-capture --run-id deepseek_provider_capability_20260922</code></td>
+<td>prefix cache policy, provider-managed TTL, provider-managed pinning</td>
+<td>Runs all DeepSeek scenarios, but skips real-provider <code>cacheReadTokens</code> feedback.</td>
+<td>Configuration</td>
+<td>Artifact: <code>deepseek_provider_capability_20260922</code>; provider capability evidence, not native harness proof.</td>
+</tr>
+<tr>
+<td>DeepSeek fixture full coverage</td>
+<td>Validate every DeepSeek Harness signal recipe currently described by the deck.</td>
+<td>DeepSeek Harness + Provider</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness deepseek_harness --knob-profile full_coverage --fixture-observations --run-id deepseek_harness_fixture_full_20260922</code></td>
+<td>prefix cache, provider TTL, provider pinning, <code>cacheReadTokens</code> fixture shapes</td>
+<td>Runs all DeepSeek Harness scenarios from the manifest.</td>
+<td>Configuration and runtime feedback</td>
+<td>Fixture artifact: <code>deepseek_harness_fixture_full_20260922</code>; not native evidence.</td>
+</tr>
+<tr>
+<td>DeepSeek provider cache probe</td>
+<td>Probe automatic prefix matching, provider-managed TTL, and provider-managed pinning.</td>
+<td>DeepSeek Harness + Provider</td>
+<td><code>--harness deepseek_harness --knob-profile cache_only --deepseek-provider-capability-capture</code></td>
+<td>prefix cache policy, provider TTL, provider pinning</td>
+<td>Runs repeated stable-prefix request recipes.</td>
+<td>Configuration</td>
+<td>Provider capability evidence.</td>
+</tr>
+<tr>
+<td>DeepSeek cache feedback probe</td>
+<td>Probe <code>cacheReadTokens</code> or provider-equivalent cache feedback.</td>
+<td>DeepSeek Harness + Provider</td>
+<td><code>--harness deepseek_harness --knob-profile feedback_only --deepseek-provider-capability-capture</code></td>
+<td>none yet</td>
+<td>Requires real provider response or metrics output for real evidence.</td>
+<td>Runtime feedback</td>
+<td>Still missing; real provider required.</td>
+</tr>
+</tbody></table>
+<h2>Codex</h2>
+<p>Codex appears on slides 5 and 10 of
+<code>presentation/Harness Signal Tables As-Is.pptx</code>, and slide 3 says it was
+already covered. This runbook now represents it explicitly, but this suite does
+now contains a fresh Codex manifest, scenario set, knob profiles, and fixture
+validation, and a provider-configuration capture lane. The deck shows provider
+service tier, <code>prompt_cache_key</code>, prompt-cache bucketing,
+WebSocket prewarm, and cached input-token usage. It also notes no explicit TTL.</p>
+<p>Codex signal accounting against <code>presentation/Harness Signal Tables As-Is.pptx</code>:</p>
+<pre><code class="language-text">focused serving-control signals for Codex: 16
+deck-supported or conditional signals: 5
+fixture/plumbing signals observed: 5
+provider config signals observed: 4
+native Codex client signals observed: 0
+supported/conditional signals not provider/native observed yet: 1
+deck-unsupported signals: 11
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Codex provider config full coverage</td>
+<td>Capture the Codex provider config signals we can represent locally.</td>
+<td>Codex + Provider Config</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness codex --knob-profile full_coverage --codex-provider-config-capture --run-id codex_provider_config_20260922</code></td>
+<td><code>service_tier</code>, <code>prompt_cache_key</code>, cache bucketing, WebSocket prewarm marker</td>
+<td>Runs all Codex scenarios, but skips real-provider cached-token feedback.</td>
+<td>Configuration</td>
+<td>Artifact: <code>codex_provider_config_20260922</code>; provider config evidence, not native Codex CLI proof.</td>
+</tr>
+<tr>
+<td>Codex fixture full coverage</td>
+<td>Validate every Codex signal recipe currently described by the deck.</td>
+<td>Codex + Provider Config</td>
+<td><code>python3 sglang_direct_kv/scripts/run_hint_benchmark.py --harness codex --knob-profile full_coverage --fixture-observations --run-id codex_fixture_full_20260922</code></td>
+<td>service tier, <code>prompt_cache_key</code>, cache bucketing, WebSocket prewarm, cached-token feedback fixture shapes</td>
+<td>Runs all Codex scenarios from the manifest.</td>
+<td>Configuration and runtime feedback</td>
+<td>Fixture artifact: <code>codex_fixture_full_20260922</code>; not native evidence.</td>
+</tr>
+<tr>
+<td>Codex provider QoS probe</td>
+<td>Probe <code>service_tier</code> provider routing.</td>
+<td>Codex + Provider Config</td>
+<td><code>--harness codex --knob-profile qos_only --codex-provider-config-capture</code></td>
+<td><code>service_tier</code></td>
+<td>Runs a service-tier scenario.</td>
+<td>Provider</td>
+<td>Provider config evidence.</td>
+</tr>
+<tr>
+<td>Codex prompt cache probe</td>
+<td>Probe <code>prompt_cache_key</code>, cache bucketing, and WebSocket prewarm.</td>
+<td>Codex + Provider Config</td>
+<td><code>--harness codex --knob-profile cache_only --codex-provider-config-capture</code></td>
+<td><code>prompt_cache_key</code>, bucketing, WebSocket prewarm marker</td>
+<td>Runs stable-prefix and prewarm scenarios.</td>
+<td>Configuration</td>
+<td>Provider config evidence.</td>
+</tr>
+<tr>
+<td>Codex cache feedback probe</td>
+<td>Probe cached input-token usage.</td>
+<td>Codex + Provider Config</td>
+<td><code>--harness codex --knob-profile feedback_only --codex-provider-config-capture</code></td>
+<td>none yet</td>
+<td>Requires real provider response or client usage output for real evidence.</td>
+<td>Runtime feedback</td>
+<td>Still missing; real provider/client usage output required.</td>
+</tr>
+</tbody></table>
+<h2>NeMo Agent Toolkit / NAT</h2>
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Observed Today</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NAT baseline</td>
+<td>Confirm NAT emits no hints when knobs are off.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_baseline_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --knob-profile baseline \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li>none</li>
+</ul>
+</td>
+<td>No NAT benchmark hint knobs are enabled: <code>--knob-profile baseline</code>.</td>
+<td>Request</td>
+<td>Native NAT transport capture control case.</td>
+</tr>
+<tr>
+<td>All NAT request-boundary signals</td>
+<td>Produce every NAT signal we can observe today in one run.</td>
+<td>Mixed NAT</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_all_request_boundary_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --knob-profile all_request_boundary \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>priority</code></li>
+<li><code>latency_sensitivity</code></li>
+<li><code>osl</code></li>
+<li><code>iat</code></li>
+<li><code>total_requests</code></li>
+<li><code>prefix_id</code></li>
+<li><code>nvext.cache_control.ttl</code></li>
+<li><code>nvext.cache_control.type</code></li>
+<li><code>nvext.cache_salt</code></li>
+<li><code>provider.qos_tier</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, which combines scheduling, cache-control, namespace, and provider QoS scenarios.</td>
+<td>Configuration</td>
+<td>Native NAT `_DynamoTransport` request-boundary capture.</td>
+</tr>
+<tr>
+<td>Scheduling signals only</td>
+<td>Produce NAT priority and request-planning signals.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_scheduling_only_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --knob-profile scheduling_only \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>priority</code></li>
+<li><code>latency_sensitivity</code></li>
+<li><code>osl</code></li>
+<li><code>iat</code></li>
+<li><code>total_requests</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile scheduling_only</code>, including high/low priority, latency sensitivity, output length, cadence, and planned-count scenarios.</td>
+<td>Task</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Cache signals only</td>
+<td>Produce NAT cache reuse and cache-control signals.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_cache_only_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --knob-profile cache_only \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>prefix_id</code></li>
+<li><code>nvext.cache_control.ttl</code></li>
+<li><code>nvext.cache_control.type</code></li>
+<li><code>priority</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile cache_only</code>, including prefix reuse, TTL, ephemeral cache control, first-only cache control, and eviction-priority intent.</td>
+<td>Configuration</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Pass-through signals only</td>
+<td>Preserve provider and session metadata through NAT.</td>
+<td>NAT Pass-through</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_passthrough_only_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --knob-profile passthrough_only \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>nvext.cache_salt</code></li>
+<li><code>provider.qos_tier</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile passthrough_only</code>, including <code>nat_cache_namespace</code> and <code>nat_provider_qos</code>.</td>
+<td>Session</td>
+<td>Preserved through NAT transport; provider QoS is pass-through, not NAT-invented.</td>
+</tr>
+<tr>
+<td>Priority high</td>
+<td>Produce a high-priority NAT request.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_priority_high_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_priority_high \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>priority=100</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_priority_high</code>, whose workflow metadata sets <code>priority="high"</code>.</td>
+<td>Task</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Priority low</td>
+<td>Produce a low-priority NAT request.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_priority_low_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_priority_low \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>priority=2</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_priority_low</code>, whose workflow metadata sets <code>priority="low"</code>.</td>
+<td>Task</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Latency sensitive</td>
+<td>Produce a latency-sensitive NAT request.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_latency_sensitive_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_latency_sensitive \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>latency_sensitivity</code></li>
+<li><code>priority</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_latency_sensitive</code>, whose workflow metadata sets <code>latency_sensitivity=100</code>.</td>
+<td>Task</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Expected output length</td>
+<td>Produce the expected output length hint.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_expected_output_length_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_expected_output_length \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>osl</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_expected_output_length</code>, whose workflow metadata sets <code>osl=128</code>.</td>
+<td>Task</td>
+<td>Native NAT transport capture from configured workload metadata.</td>
+</tr>
+<tr>
+<td>Expected interarrival time</td>
+<td>Produce the expected request spacing hint.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_expected_interarrival_time_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_expected_interarrival_time \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>iat</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_expected_interarrival_time</code>, whose workflow metadata sets <code>iat=750</code>.</td>
+<td>Task</td>
+<td>Native NAT transport capture from configured workload metadata.</td>
+</tr>
+<tr>
+<td>Planned request count</td>
+<td>Produce the planned request count hint.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_remaining_calls_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_remaining_calls \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>total_requests</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_remaining_calls</code>, whose workflow metadata sets <code>total_requests=4</code>.</td>
+<td>Task</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Prefix reuse ID</td>
+<td>Produce the reusable prefix/session ID hint.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_prefix_reuse_id_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_prefix_reuse_id \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>prefix_id</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_prefix_reuse_id</code>, whose workflow metadata sets a shared <code>prefix_id</code>.</td>
+<td>Session</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Cache TTL</td>
+<td>Produce a cache lifetime hint.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_cache_control_ttl_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_cache_control_ttl \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>nvext.cache_control.ttl</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_cache_control_ttl</code>, whose workflow metadata sets <code>cache_control.ttl="1s"</code>.</td>
+<td>Request</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Ephemeral cache entry</td>
+<td>Produce an ephemeral cache-control hint.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_cache_ephemeral_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_cache_ephemeral \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>nvext.cache_control.type="ephemeral"</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_cache_ephemeral</code>, whose workflow metadata sets <code>cache_control.type="ephemeral"</code>.</td>
+<td>Request</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>First-only cache control</td>
+<td>Produce cache control only on the first repeated request.</td>
+<td>Native NAT Workflow</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_cache_control_first_only_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_cache_control_first_only \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>nvext.cache_control</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_cache_control_first_only</code>, whose workflow metadata sets <code>cache_control.mode="first_only"</code>.</td>
+<td>Task</td>
+<td>Native NAT transport capture.</td>
+</tr>
+<tr>
+<td>Cache namespace</td>
+<td>Produce a cache namespace hint.</td>
+<td>NAT Pass-through</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_cache_namespace_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_cache_namespace \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>nvext.cache_salt</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_cache_namespace</code>, whose client metadata supplies <code>nvext.cache_salt</code>.</td>
+<td>Session</td>
+<td>Pass-through preserved by NAT transport.</td>
+</tr>
+<tr>
+<td>Provider QoS pass-through</td>
+<td>Preserve provider QoS metadata through NAT.</td>
+<td>NAT Pass-through</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;nat_provider_qos_$(date +%Y%m%d_%H%M%S)&quot;
+.venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit \
+  --scenarios nat_provider_qos \
+  --nat-dynamo-transport-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>provider.qos_tier</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>nat_provider_qos</code>, whose provider metadata supplies <code>qos_tier</code>.</td>
+<td>Configuration</td>
+<td>Pass-through preserved by NAT transport; not NAT-invented.</td>
+</tr>
+</tbody>
+</table><h2>Hermes Agent</h2>
+<p>The current Hermes suite has request-boundary setup and fixture validation. A
+native Hermes run requires a Hermes CLI on the host, for example
+<code>HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes</code>.
+Do not count fixture output as native Hermes evidence.</p>
+<table>
+<colgroup>
+<col width="12%" style="width: 12%;">
+<col width="18%" style="width: 18%;">
+<col width="12%" style="width: 12%;">
+<col width="25%" style="width: 25%;">
+<col width="15%" style="width: 15%;">
+<col width="16%" style="width: 16%;">
+<col width="9%" style="width: 9%;">
+<col width="8%" style="width: 8%;">
+</colgroup>
+<thead>
+<tr>
+<th>Run</th>
+<th>Plain Purpose</th>
+<th>Source Lane</th>
+<th>Command</th>
+<th>Signals Targeted</th>
+<th>When It Appears</th>
+<th>Where Attached</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All Hermes request-boundary probes</td>
+<td>Produce every Hermes request-boundary signal recipe in one run.</td>
+<td>Hermes Agent + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;hermes_all_request_boundary_$(date +%Y%m%d_%H%M%S)&quot;
+HARNESS_HERMES_BIN=&quot;$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes&quot; \
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile all_request_boundary \
+  --hermes-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+<li><code>x-hintbench-cache-namespace</code></li>
+<li><code>system.*.cache_control.type</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li>absence of literal <code>cache_pinning</code></li>
+</ul>
+</td>
+<td>Runs <code>--knob-profile all_request_boundary</code>, combining provider QoS, namespace/isolation, prompt-cache TTL, and cache-pinning negative probes.</td>
+<td>Configuration</td>
+<td>Native Hermes Agent request-boundary capture once the Hermes CLI is installed. Local fixture check: <code>hermes_fixture_check</code>.</td>
+</tr>
+<tr>
+<td>Hermes setup smoke</td>
+<td>Verify the Hermes manifest, scenarios, and validator plumbing without claiming native evidence.</td>
+<td>Hermes Agent + Provider Config</td>
+<td><pre><code class="language-bash">python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile all_request_boundary \
+  --fixture-observations \
+  --run-id hermes_fixture_check
+</code></pre>
+</td>
+<td>
+<ul>
+<li>fixture-only validator rows</li>
+<li>no unknown hints</li>
+</ul>
+</td>
+<td>Use before native capture, or on machines without the Hermes CLI.</td>
+<td>Configuration</td>
+<td><code>fixture_plumbing_only</code>; not native harness evidence.</td>
+</tr>
+<tr>
+<td>Hermes provider QoS</td>
+<td>Carry service-tier metadata through Hermes provider config.</td>
+<td>Hermes Agent + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;hermes_qos_only_$(date +%Y%m%d_%H%M%S)&quot;
+HARNESS_HERMES_BIN=&quot;$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes&quot; \
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile qos_only \
+  --hermes-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>service_tier="priority"</code></li>
+<li><code>agentic_hints.priority_class="urgent"</code></li>
+</ul>
+</td>
+<td>Runs scenario <code>hermes_provider_qos_request_overrides</code>, whose provider config supplies service-tier metadata.</td>
+<td>Configuration</td>
+<td>Provider/config evidence, not organic urgency inference.</td>
+</tr>
+<tr>
+<td>Hermes cache probes</td>
+<td>Probe prompt-cache TTL/type and provider-derived cache-key behavior.</td>
+<td>Hermes Agent + Provider Config</td>
+<td><pre><code class="language-bash">RUN_ID=&quot;hermes_cache_only_$(date +%Y%m%d_%H%M%S)&quot;
+HARNESS_HERMES_BIN=&quot;$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes&quot; \
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness hermes_agent \
+  --knob-profile cache_only \
+  --hermes-native-capture \
+  --run-id &quot;$RUN_ID&quot; \
+  --out-dir &quot;sglang_direct_kv/artifacts/results/hint_benchmark/$RUN_ID&quot;
+</code></pre>
+</td>
+<td>
+<ul>
+<li><code>system.*.cache_control.type</code></li>
+<li><code>system.*.cache_control.ttl="1h"</code></li>
+<li><code>model</code> as part of provider cache identity</li>
+</ul>
+</td>
+<td>Runs prompt-cache TTL, repeated-prefix cache-key, and cache-pinning negative scenarios.</td>
+<td>Configuration</td>
+<td>Request-boundary cache metadata only; real provider cache-hit feedback is separate.</td>
+</tr>
+</tbody>
+</table><h2>Harness Scope Accounting</h2>
+<p>This table tracks the deck-level harness universe separately from signal-level
+coverage. Use it when asking &quot;how many harnesses are left?&quot;</p>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>Deck Status</th>
+<th>Benchmark Status</th>
+<th>Counted As Left?</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NeMo Agent Toolkit / NAT</td>
+<td>In active deck tables</td>
+<td>Native/request-boundary evidence complete for current suite</td>
+<td>no</td>
+<td>Current suite foundation.</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>In active deck tables</td>
+<td>Native/request-boundary evidence complete for current suite; real-provider feedback still blocked</td>
+<td>no</td>
+<td>Feedback work remains, but the harness pass exists.</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>In active deck tables</td>
+<td>Native/request-boundary evidence complete for current suite</td>
+<td>no</td>
+<td>Provider/config signal pass exists.</td>
+</tr>
+<tr>
+<td>Pi Agent Harness</td>
+<td>Additional harness in deck</td>
+<td>Native/request-boundary evidence complete for current suite</td>
+<td>no</td>
+<td>Current suite has signal accounting.</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>Additional harness in deck</td>
+<td>Native/request-boundary evidence exists; many signals still unobserved</td>
+<td>no</td>
+<td>Harness pass exists; omission experiments remain.</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>Additional harness in deck</td>
+<td>Manifest/scenarios/fixtures exist; native CLI evidence pending</td>
+<td>yes, if counting incomplete native evidence</td>
+<td>Needs a host with working Hermes CLI.</td>
+</tr>
+<tr>
+<td>OpenCode</td>
+<td>Additional harness in deck</td>
+<td>Provider/plugin config capture exists for 2 of 3 deck signals; native CLI proof still pending</td>
+<td>no for provider-config coverage; yes for native CLI proof</td>
+<td>Real-provider feedback still missing.</td>
+</tr>
+<tr>
+<td>Deep Agents</td>
+<td>In deck; slide 3 says already covered</td>
+<td>Provider/middleware capture exists for 7 of 8 deck signals; native library/CLI proof still pending</td>
+<td>no for middleware coverage; yes for native proof</td>
+<td>Real-provider trace feedback still missing.</td>
+</tr>
+<tr>
+<td>DeepSeek Harness</td>
+<td>In deck scheduling/cache tables</td>
+<td>Provider-capability capture exists for 3 of 4 deck signals</td>
+<td>no for provider-capability coverage</td>
+<td>Real-provider <code>cacheReadTokens</code> feedback still missing.</td>
+</tr>
+<tr>
+<td>Dynamo</td>
+<td>Slide 3 says already covered</td>
+<td>Not represented as an active benchmark pass here</td>
+<td>optional</td>
+<td>Re-open only if we want fresh evidence.</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>Slide 3 says already covered</td>
+<td>Provider-config capture exists for 4 of 5 deck signals; native Codex client proof still pending</td>
+<td>no for provider-config coverage; yes for native Codex proof</td>
+<td>Real-provider cached-token feedback still missing.</td>
+</tr>
+</tbody></table>
+<h2>Unobserved Hint Experiment Backlog</h2>
+<p>This table is the future experiment queue. A row here means the signal has not
+been observed in the current benchmark evidence for that harness, or it was
+only observed through a weaker lane than the one we want. Use it to plan the
+next round of omission-closing experiments.</p>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>Hint Not Observed Or Not Fully Proven</th>
+<th>Deck-Supported?</th>
+<th>Current Reason</th>
+<th>Next Experiment To Try</th>
+<th>Requires Real Provider?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NAT</td>
+<td>cache-hit runtime feedback</td>
+<td>yes</td>
+<td>Request-boundary capture cannot show backend cache hits or runtime reuse metrics.</td>
+<td>Run a real backend cache-hit experiment and collect SGLang/NAT profiler or metrics output after repeated cacheable requests.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>NAT</td>
+<td>literal <code>cache_pinning=true</code></td>
+<td>no</td>
+<td>NAT 1.8.0 exposes first-only/ephemeral cache control, not a separate pinning field.</td>
+<td>Recheck on a newer NAT path or treat FIRST_ONLY/ephemeral cache control as the observable pin-like behavior.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>native <code>service_tier=auto</code> / <code>standard_only</code> body field</td>
+<td>conditional</td>
+<td>Tested Claude Code env-var paths did not forward a literal body field.</td>
+<td>Try a Claude Code/provider configuration that explicitly forwards <code>ANTHROPIC_SERVICE_TIER</code> or <code>CLAUDE_CODE_SERVICE_TIER</code>, then rerun the service-tier scenarios.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>literal cache key</td>
+<td>conditional</td>
+<td>Claude appears to use provider-derived exact-prefix matching without exposing a cache-key field.</td>
+<td>Use a provider/API path that surfaces prompt-cache identity, or keep validating repeated-prefix behavior without expecting a literal key.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>tool-level <code>cache_control</code></td>
+<td>conditional</td>
+<td>Tool-heavy request had tools, but no <code>tools.*.cache_control</code> marker.</td>
+<td>Build a stable-tool-definition scenario and inspect whether Claude Code/provider marks reusable tool definitions directly.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>native <code>max_tokens=0</code> prewarm</td>
+<td>conditional</td>
+<td>Native Claude Code capture emitted cache control, but not a zero-token prewarm request.</td>
+<td>Find or add a Claude Code path that can issue a prewarm-like request, then compare against the direct API max-token-zero capability fixture.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>real cache-hit usage counters</td>
+<td>yes</td>
+<td>Current real-provider probe is blocked by Claude login/auth on remote A10G host.</td>
+<td>Authenticate Claude/provider, run repeated identical cacheable prefixes inside TTL, and collect <code>cache_creation_input_tokens</code> / <code>cache_read_input_tokens</code>.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>literal cache key</td>
+<td>conditional</td>
+<td>Deck frames Qwen cache keying as automatic prefix matching; no literal request cache-key field appeared.</td>
+<td>Run against a provider/gateway that exposes cache identity, or add a repeated-prefix provider trace lane.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>real cache-hit usage counters</td>
+<td>yes</td>
+<td>Local request-boundary capture cannot prove provider cache hits.</td>
+<td>Run repeated cacheable Qwen requests against a real provider and collect <code>usage.cached_tokens</code> or provider-specific cache counters.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Pi Agent Harness</td>
+<td>cache-hit feedback</td>
+<td>yes</td>
+<td>Request-boundary capture saw Pi request fields, but not real provider cache-hit usage.</td>
+<td>Run repeated cacheable Pi requests against a real provider and collect Pi footer/provider usage counters such as cache read/write.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>provider QoS / service tier</td>
+<td>yes</td>
+<td>Deck maps fast mode to <code>service_tier=priority</code>, but current native capture did not forward <code>service_tier</code> or <code>extra_body.service_tier</code>.</td>
+<td>Identify the OpenClaw provider/config path that forwards service tier to supported OpenAI-compatible requests and rerun <code>openclaw_provider_qos_fast_mode</code>.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>provider cache key</td>
+<td>yes</td>
+<td>Deck marks cache keying as provider-managed; current request body did not expose <code>prompt_cache_key</code>.</td>
+<td>Use a provider/path that surfaces prompt-cache request metadata or provider-side cache trace output.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>cache TTL / retention</td>
+<td>yes</td>
+<td>Provider cache config did not produce a literal retention or TTL field in the local request body.</td>
+<td>Exercise a provider path that exposes <code>prompt_cache_retention</code> or cache-control TTL metadata.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>cache entry type</td>
+<td>yes</td>
+<td>Current request body did not expose <code>cache_control.type</code>.</td>
+<td>Try an OpenClaw provider path with explicit prompt-cache block metadata and inspect message/content blocks.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>cached WebSocket / prewarm metadata</td>
+<td>conditional</td>
+<td>Deck labels this as a different mechanism from KV prefill; no <code>cached_websocket</code> or <code>websocket_prewarm</code> field appeared.</td>
+<td>Exercise the real cached-WebSocket path and capture WebSocket session metadata or provider trace.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>real cache-hit usage counters</td>
+<td>yes</td>
+<td>Request-boundary capture cannot prove provider cache hits.</td>
+<td>Run repeated cacheable OpenClaw requests against a real provider and collect OpenClaw/provider trace or usage counters.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>cache pinning / retention</td>
+<td>conditional</td>
+<td>Deck says provider-managed only; current capture did not expose retention or literal <code>cache_pinning</code>.</td>
+<td>Use a provider path that exposes retention metadata, or keep treating this as provider-managed until evidence appears.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>native request-boundary evidence</td>
+<td>yes</td>
+<td>Runner/configs are implemented, but no Hermes CLI is installed on this local machine.</td>
+<td>Run <code>--hermes-native-capture</code> on remote A10G host/GH200 or any host with <code>HARNESS_HERMES_BIN</code> set to a working Hermes CLI.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>literal cache key</td>
+<td>conditional</td>
+<td>Deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal key may not exist.</td>
+<td>Run native Hermes repeated-prefix probes and, if needed, a provider trace lane that exposes cache identity.</td>
+<td>maybe</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>real cache-hit usage counters</td>
+<td>yes</td>
+<td>Request-boundary capture cannot prove provider cache hits.</td>
+<td>Run repeated cacheable Hermes requests against a real provider and collect prompt-cache metrics or usage counters.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>OpenCode</td>
+<td>stats/provider cache feedback</td>
+<td>yes</td>
+<td>Provider/plugin config capture does not include runtime provider usage.</td>
+<td>Run provider/plugin-backed OpenCode requests and collect stats or usage fields that expose cache feedback.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Deep Agents</td>
+<td>provider trace cache feedback</td>
+<td>yes</td>
+<td>Fixture recipe exists, but no provider trace run proves cache feedback.</td>
+<td>Run repeated cacheable requests and collect provider trace data.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>DeepSeek Harness</td>
+<td><code>cacheReadTokens</code> feedback</td>
+<td>yes</td>
+<td>Provider-capability capture does not include real provider response counters.</td>
+<td>Run repeated cacheable requests and collect <code>cacheReadTokens</code> or equivalent usage counters.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>cached input-token usage</td>
+<td>yes</td>
+<td>Provider-config capture does not include real provider/client usage output.</td>
+<td>Run repeated cacheable Codex requests and collect cached input-token usage.</td>
+<td>yes</td>
+</tr>
+</tbody></table>
+<h2>Missing Or Blocked Today</h2>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>Signal</th>
+<th>Current State</th>
+<th>Needed To See It</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NAT</td>
+<td>cache-hit runtime feedback</td>
+<td>Not request-boundary metadata; needs backend/runtime cache metrics.</td>
+<td>Run a real backend cache-hit experiment and collect post-execution profiler/metrics output, not only request-boundary capture.</td>
+</tr>
+<tr>
+<td>NAT</td>
+<td>literal <code>cache_pinning=true</code></td>
+<td>Not observed in NAT 1.8.0; NAT exposes ephemeral/first-only cache control instead.</td>
+<td>A NAT version/path would need to expose an actual pinning field; today use first-only/ephemeral cache control as the observable pin-like behavior.</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>native <code>service_tier=auto</code> / <code>standard_only</code> body field</td>
+<td>Not observed through tested Claude Code env-var path.</td>
+<td>A Claude Code/provider path would need to forward <code>ANTHROPIC_SERVICE_TIER</code> or <code>CLAUDE_CODE_SERVICE_TIER</code> into the request body.</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>literal cache key</td>
+<td>Not observed; Claude appears to use provider-derived exact-prefix matching.</td>
+<td>Claude Code or the provider would need to expose a literal request cache-key field; current native capture did not.</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>tool-level <code>cache_control</code></td>
+<td>Not observed in the tested tool-heavy request.</td>
+<td>Run a Claude Code setup with stable tool definitions that the CLI/provider marks directly as <code>tools.*.cache_control</code>; our observed path cached system/message blocks instead.</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>native <code>max_tokens=0</code> prewarm</td>
+<td>Not observed from Claude Code CLI in our capture.</td>
+<td>Claude Code would need a native zero-token request path; direct API can represent this, but the native CLI path has not emitted it.</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>real cache-hit usage counters</td>
+<td>Implemented runner path, but remote A10G host Claude CLI is not logged in today.</td>
+<td>Use an authenticated Claude/provider run with repeated identical cacheable prefix requests inside the TTL, then capture response usage counters.</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>literal cache key</td>
+<td>Not observed in request-boundary capture; the deck frames Qwen cache keying as automatic prefix matching.</td>
+<td>A provider or future Qwen path would need to expose a literal request cache-key field.</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>real cache-hit usage counters</td>
+<td>Request-boundary capture cannot prove provider cache hits.</td>
+<td>Use a real provider run with repeated cacheable prefix requests and collect provider usage counters such as cached tokens.</td>
+</tr>
+<tr>
+<td>Pi Agent Harness</td>
+<td>cache-hit feedback</td>
+<td>Request-boundary capture saw Pi request fields, but not real provider cache-hit usage.</td>
+<td>Use a real provider run with repeated cacheable prefix requests and collect Pi footer/provider usage counters such as cache read/write.</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>provider QoS / service tier</td>
+<td>The deck maps fast mode to <code>service_tier=priority</code>, but the current OpenClaw native capture did not forward <code>service_tier</code> or <code>extra_body.service_tier</code>.</td>
+<td>Find the OpenClaw provider/config path that forwards service tier to supported OpenAI-compatible requests, then rerun <code>openclaw_provider_qos_fast_mode</code>.</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>provider cache key, TTL, and entry type</td>
+<td>The deck marks these as provider-managed; the current local request-boundary capture did not expose literal cache fields.</td>
+<td>Use a provider/path that surfaces prompt-cache request metadata, or collect provider-side cache trace output.</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>cached WebSocket / prewarm metadata</td>
+<td>The deck labels this as a different mechanism from KV prefill; no <code>cached_websocket</code> or <code>websocket_prewarm</code> request field appeared.</td>
+<td>Exercise the real cached-WebSocket path and capture either the WebSocket session metadata or provider trace.</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>real cache-hit usage counters</td>
+<td>Request-boundary capture cannot prove provider cache hits.</td>
+<td>Use a real provider run with repeated cacheable prefix requests and collect OpenClaw/provider trace or usage counters.</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>cache pinning / retention</td>
+<td>The deck says provider-managed only; current capture did not expose retention or literal <code>cache_pinning</code>.</td>
+<td>Use a provider path that exposes retention metadata, or keep treating this as provider-managed until evidence appears.</td>
+</tr>
+<tr>
+<td>OpenCode</td>
+<td>native CLI proof</td>
+<td>Provider/plugin config capture exists, but the OpenCode CLI local-provider probe timed out before a request reached the capture server.</td>
+<td>Revisit OpenCode native CLI automation with a stricter startup path or prestarted OpenCode server.</td>
+</tr>
+<tr>
+<td>Deep Agents</td>
+<td>native library/CLI proof</td>
+<td>Provider/middleware capture exists, but no stable local Deep Agents request-boundary CLI path was proven here.</td>
+<td>Add a Deep Agents library-level probe or identify a CLI mode that can redirect model traffic locally.</td>
+</tr>
+<tr>
+<td>DeepSeek Harness</td>
+<td>real provider feedback</td>
+<td>Provider-capability capture exists for prefix cache, TTL, and pinning, but <code>cacheReadTokens</code> needs a real DeepSeek/provider response.</td>
+<td>Run repeated prefix probes against a real provider and collect usage counters.</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>native Codex client proof</td>
+<td>Provider-config capture exists, but native Codex client proof is still separate from provider-config payload evidence.</td>
+<td>Run Codex against a local Responses capture server or real provider trace and map the resulting request fields.</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>native request-boundary evidence</td>
+<td>Runner/configs are implemented, but no Hermes CLI is installed on this local machine.</td>
+<td>Run <code>--hermes-native-capture</code> on remote A10G host/GH200 or any host with <code>HARNESS_HERMES_BIN</code> set to a working Hermes CLI.</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>literal cache key</td>
+<td>The deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal cache-key field is optional.</td>
+<td>A provider or future Hermes path would need to expose a literal request cache-key field.</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>real cache-hit usage counters</td>
+<td>Request-boundary capture cannot prove provider cache hits.</td>
+<td>Use a real provider run with repeated cacheable prefix requests and collect provider prompt-cache metrics.</td>
+</tr>
+</tbody></table>
+<h2>PPTX Signal Inventory</h2>
+<p>This table is keyed to <code>presentation/Harness Signal Tables As-Is.pptx</code>. The
+&quot;possible deck signals&quot; column lists the supported or conditional signals the
+deck says each harness may expose. The &quot;observed in this suite&quot; column counts
+the strongest evidence lane currently present in this runbook; fixture-only
+rows are not counted as observed evidence here.</p>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>Possible Deck Signals</th>
+<th>Observed In This Suite</th>
+<th>Still Missing</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dynamo</td>
+<td>soft priority; strict priority tier; expected output length; cache key/bucket; cache namespace/isolation; eviction priority; speculative prefill; cache-hit feedback</td>
+<td>0 / 8</td>
+<td>all deferred; Dynamo intentionally left out for now because of memory/GPU constraints</td>
+</tr>
+<tr>
+<td>NeMo Agent Toolkit / NAT</td>
+<td>soft priority; latency sensitivity; provider speed/QoS tier; expected output length; expected interarrival time; predicted remaining calls; prefix/workflow reuse ID; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; eviction priority; cache-hit feedback; cache pinning</td>
+<td>12 / 14</td>
+<td>cache-hit runtime feedback; literal cache pinning</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>provider speed/QoS tier; cache key/bucket; cache TTL; cache entry type; cache-hit feedback; cache pinning</td>
+<td>3 / 6</td>
+<td>literal cache key; real cache-hit feedback; native pinning beyond provider TTL retention</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>provider speed/QoS tier; cache key/bucket; cache namespace/isolation; speculative prefill; cache-hit feedback</td>
+<td>4 / 5</td>
+<td>cached input-token feedback from real provider/client usage</td>
+</tr>
+<tr>
+<td>DeepSeek Harness</td>
+<td>cache key/bucket; cache TTL; cache-hit feedback; cache pinning</td>
+<td>3 / 4</td>
+<td><code>cacheReadTokens</code> or equivalent real-provider feedback</td>
+</tr>
+<tr>
+<td>Deep Agents</td>
+<td>provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; eviction priority; cache-hit feedback; cache pinning</td>
+<td>7 / 8</td>
+<td>provider trace cache-hit feedback</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; eviction priority; cache-hit feedback; cache pinning</td>
+<td>5 / 8</td>
+<td>literal cache key; real cache-hit feedback; provider-managed pinning proof</td>
+</tr>
+<tr>
+<td>Pi Agent Harness</td>
+<td>cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; cache-hit feedback; cache pinning</td>
+<td>5 / 6</td>
+<td>real cache-hit feedback</td>
+</tr>
+<tr>
+<td>OpenCode</td>
+<td>cache key/bucket; cache namespace/isolation; cache-hit feedback</td>
+<td>2 / 3</td>
+<td>provider/plugin cache-hit usage feedback</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; speculative prefill; cache-hit feedback; cache pinning</td>
+<td>1 / 8</td>
+<td>all except provider/session namespace</td>
+</tr>
+<tr>
+<td>Hermes Agent</td>
+<td>provider speed/QoS tier; cache key/bucket; cache namespace/isolation; cache TTL; cache entry type; cache-hit feedback; cache pinning</td>
+<td>0 / 7</td>
+<td>native Hermes run still needs a working Hermes CLI; real-provider feedback remains separate</td>
+</tr>
+</tbody></table>
+<h2>Inspect Results</h2>
+<pre><code class="language-bash">export RUN_DIR=&quot;sglang_direct_kv/artifacts/results/hint_benchmark/&lt;run_id&gt;&quot;
+column -s, -t &quot;$RUN_DIR/scenario_validation_summary.csv&quot; | less -S
+column -s, -t &quot;$RUN_DIR/hint_support_matrix.csv&quot; | less -S
+column -s, -t &quot;$RUN_DIR/unknown_hints.csv&quot; | less -S
+</code></pre>
+<p>Key files:</p>
+<pre><code class="language-text">run.json
+knob_profile.json
+scenario_records.jsonl
+observed_hint_evidence.jsonl
+expected_hint_evidence.csv
+hint_validation.csv
+scenario_validation_summary.csv
+hint_support_matrix.csv
+unknown_hints.csv
+</code></pre>
+
+</main></body></html>

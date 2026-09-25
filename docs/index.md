@@ -31,7 +31,7 @@ Everything except the landing page (`README.md`) and the active hand-off
 ## Hint benchmark (`docs/hint_benchmark/`)
 
 - [Hint benchmarking suite](hint_benchmark/HINT_BENCHMARKING_SUITE.md)
-- [Hint benchmark runbook](hint_benchmark/HINT_BENCHMARK_RUNBOOK.md)
+- [Hint benchmark runbook](../HINT_BENCHMARK_RUNBOOK.html)
 - [Hint signal findings](hint_benchmark/HINT_SIGNAL_FINDINGS.md)
 
 ## Packages (`docs/packages/`, `docs/compatibility/`)

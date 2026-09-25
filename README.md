@@ -5,6 +5,7 @@ agentic inference experiments.
 
 - [Current handoff](HANDOFF.md)
 - [Milestone experiment registry](MILESTONE_EXPERIMENTS.html)
+- [Hint Benchmark Runbook](HINT_BENCHMARK_RUNBOOK.html)
 - [Project overview](docs/project/overview.md)
 - [SGLang-portability restructuring (start here if you change code)](docs/architecture/README_RESTRUCTURING.md)
 - [Architecture map](docs/architecture/ARCHITECTURE_MAP.md)
