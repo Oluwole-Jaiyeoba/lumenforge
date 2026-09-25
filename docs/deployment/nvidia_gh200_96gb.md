@@ -19,6 +19,19 @@ GH200 Docker container
 This split lets NAT and Hermes use their Python 3.11 host virtual environments
 while SGLang uses the Docker CUDA runtime required on the GH200 machine.
 
+The portable deployment contract is defined by:
+
+| File | Purpose |
+| --- | --- |
+| `configs/backend_runtimes/nvidia_gh200.json` | GPU/runtime expectations |
+| `infra/container/probe_sglang_runtime.sh` | Container capability handshake |
+| `scripts/create_run_manifest.py` | Immutable host-side run record |
+
+Reference experiments in this guide expect SGLang `0.5.10.post1`. Set
+`SGLANG_DOCKER_IMAGE` to a published, digest-backed image that contains that
+version. The preflight refuses to start the experiment when the image reports
+a different SGLang version or lacks a required capability.
+
 ## 1. Configure Connection
 
 The helpers default to:
@@ -158,6 +171,20 @@ export AGENTIC_GH200_MODEL_CACHE=/path/to/your/model_cache
 
 The run scripts will abort early with a clear message if the cache is not
 found.
+
+Before loading a model, the host runner now launches a short-lived probe in the
+same SGLang image. It writes these files under the run artifact directory:
+
+```text
+runtime/backend_runtime.json
+runtime/run_manifest.json
+```
+
+The first file is the container handshake. The second records the source
+commit, image digest, SGLang version, selected adapter, hardware profile,
+workload selection, and artifact locations. Keep the preflight enabled for
+reference runs. `AGENTIC_BACKEND_RUNTIME_PREFLIGHT=0` is only for debugging a
+legacy launch path.
 
 Use `screen` so the job survives disconnects:
 

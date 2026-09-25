@@ -6,6 +6,7 @@ from typing import Any
 
 
 BACKEND_API_SCHEMA_VERSION = "agentic_backend_api.v1"
+BACKEND_RUNTIME_SCHEMA_VERSION = "agentic_backend_runtime.v1"
 
 
 class EffectLevel(str, Enum):
@@ -47,6 +48,37 @@ class BackendCapabilities:
     @property
     def schema_version(self) -> str:
         return BACKEND_API_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class BackendRuntimeInfo:
+    """Portable startup handshake returned by a backend runtime.
+
+    The host consumes this record before an experiment starts.  Backend-specific
+    probe details remain in ``raw_capabilities``; controller and experiment code
+    should use the normalized ``capabilities`` field.
+    """
+
+    runtime_profile: str
+    backend_name: str
+    backend_version: str
+    adapter: str
+    endpoint: str = ""
+    probe_ok: bool = False
+    healthy: bool = False
+    health_status: str = "not_checked"
+    container_image: str = ""
+    container_image_digest: str = ""
+    gpu_vendor: str = ""
+    gpu_architecture: str = ""
+    host_architecture: str = ""
+    capabilities: BackendCapabilities = field(default_factory=BackendCapabilities)
+    raw_capabilities: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    schema_version: str = BACKEND_RUNTIME_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 agentic-sglang-surface = "agentic_backends.sglang.surface:main"
+agentic-sglang-runtime = "agentic_backends.sglang.runtime_contract:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

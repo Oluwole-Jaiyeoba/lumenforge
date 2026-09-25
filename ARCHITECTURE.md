@@ -66,10 +66,10 @@ Rules:
 
 ## Approved Host And Container Topology
 
-The following is the approved target for GPU machines. The package separation
-and SGLang adapter boundary already exist. Completing the common container
-launcher, capability handshake, and shared run manifest is the next deployment
-phase; do not claim those pieces are complete until their tests pass.
+The following is the approved target for GPU machines. The package separation,
+SGLang adapter boundary, runtime profiles, normalized capability handshake,
+and immutable run-manifest contract are implemented. GPU support is only
+claimed after that profile passes the validation gates below.
 
 ```text
 Host
@@ -136,6 +136,11 @@ Each runtime profile must record:
 Hardware profiles may choose values and capabilities. They must not choose a
 different Python implementation of controller policy.
 
+Runtime profiles live in `configs/backend_runtimes/`. The common container
+preflight is `infra/container/probe_sglang_runtime.sh`. It emits
+`agentic_backend_runtime.v1`, including both normalized capabilities and the
+raw backend-specific probe for debugging.
+
 ## Stable Boundary And Capability Handshake
 
 Host/container communication must use versioned project-owned schemas. The
@@ -170,6 +175,10 @@ Every reference experiment should produce one immutable run manifest containing:
 
 The host and container write into one run-specific mounted artifact directory.
 Model caches are mounted separately and are not copied into run artifacts.
+
+`scripts/create_run_manifest.py` writes `agentic_run_manifest.v2`. The GH200
+host/container runner performs the runtime preflight and writes this manifest
+before it starts the experiment matrix.
 
 For development, source may be bind-mounted read-only for rapid iteration. A
 reference experiment should use pinned package and image identities.

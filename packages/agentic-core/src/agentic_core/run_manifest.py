@@ -6,7 +6,7 @@ from typing import Any
 from .serialization import to_primitive
 
 
-RUN_MANIFEST_SCHEMA_VERSION = "agentic_run_manifest.v1"
+RUN_MANIFEST_SCHEMA_VERSION = "agentic_run_manifest.v2"
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,8 @@ class RunManifest:
     workload: dict[str, Any] = field(default_factory=dict)
     enabled_instrumentation: tuple[str, ...] = ()
     artifact_locations: dict[str, str] = field(default_factory=dict)
+    backend_runtime_contract: dict[str, Any] = field(default_factory=dict)
+    completion_status: str = "created"
     metadata: dict[str, Any] = field(default_factory=dict)
     schema_version: str = RUN_MANIFEST_SCHEMA_VERSION
 

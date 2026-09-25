@@ -153,6 +153,8 @@ class PortableContractTests(unittest.TestCase):
         self.assertEqual(residency.to_dict()["tier"], "host")
         self.assertEqual(telemetry.to_dict()["gpu_utilization_pct"], 75.0)
         self.assertEqual(manifest.to_dict()["enabled_instrumentation"], ["controller_ledger"])
+        self.assertEqual(manifest.to_dict()["schema_version"], "agentic_run_manifest.v2")
+        self.assertEqual(manifest.to_dict()["completion_status"], "created")
 
     def test_fake_backend_satisfies_backend_protocol(self) -> None:
         backend = FakeBackend()

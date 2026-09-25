@@ -1,6 +1,13 @@
 import unittest
 
-from agentic_backend_api import BackendActionResult, CompatibilityFinding, CompatibilityReport, EffectLevel
+from agentic_backend_api import (
+    BackendActionResult,
+    BackendCapabilities,
+    BackendRuntimeInfo,
+    CompatibilityFinding,
+    CompatibilityReport,
+    EffectLevel,
+)
 
 
 class ContractsTest(unittest.TestCase):
@@ -24,6 +31,22 @@ class ContractsTest(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual(report.broken_features(), ("feat.a",))
         self.assertEqual(report.to_dict()["checked"], 3)
+
+    def test_runtime_info_serializes_normalized_capabilities(self) -> None:
+        runtime = BackendRuntimeInfo(
+            runtime_profile="nvidia-gh200",
+            backend_name="sglang",
+            backend_version="0.5.10.post1",
+            adapter="v0510",
+            probe_ok=True,
+            healthy=True,
+            health_status="healthy",
+            capabilities=BackendCapabilities(priority_queue=True, backend_name="sglang"),
+        )
+        row = runtime.to_dict()
+        self.assertEqual(row["schema_version"], "agentic_backend_runtime.v1")
+        self.assertTrue(row["probe_ok"])
+        self.assertTrue(row["capabilities"]["priority_queue"])
 
 
 if __name__ == "__main__":

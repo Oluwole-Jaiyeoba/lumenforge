@@ -2,9 +2,11 @@
 
 from .models import (
     BACKEND_API_SCHEMA_VERSION,
+    BACKEND_RUNTIME_SCHEMA_VERSION,
     BackendActionResult,
     BackendCapabilities,
     BackendCapabilityError,
+    BackendRuntimeInfo,
     CompatibilityFinding,
     CompatibilityReport,
     EffectLevel,
@@ -21,10 +23,12 @@ from .protocols import (
 
 __all__ = [
     "BACKEND_API_SCHEMA_VERSION",
+    "BACKEND_RUNTIME_SCHEMA_VERSION",
     "BackendActionResult",
     "BackendAdapter",
     "BackendCapabilities",
     "BackendCapabilityError",
+    "BackendRuntimeInfo",
     "CompatibilityFinding",
     "CompatibilityProbe",
     "CompatibilityReport",

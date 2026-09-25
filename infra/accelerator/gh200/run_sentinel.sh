@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-export HARDWARE_PROFILE="${HARDWARE_PROFILE:-nvidia_a10g_24gb}"
+export HARDWARE_PROFILE="${HARDWARE_PROFILE:-nvidia_gh200_96gb}"
 export SIGNAL_FAMILIES="${SIGNAL_FAMILIES:-baseline gateway_injected}"
 export HARNESSES="${HARNESSES:-hatcher}"
 export PRESSURE_LEVELS="${PRESSURE_LEVELS:-p0_control p3_high p5_boss_queue}"

@@ -1,0 +1,20 @@
+{
+  "schema_version": "agentic_backend_runtime_profile.v1",
+  "profile_id": "nvidia-gh200",
+  "display_name": "NVIDIA GH200",
+  "status": "reference",
+  "gpu_vendor": "nvidia",
+  "gpu_architecture": "hopper",
+  "host_architecture": "aarch64",
+  "container_runtime": "docker",
+  "container_image_env": "SGLANG_DOCKER_IMAGE",
+  "default_container_image": "lmsysorg/sglang:latest",
+  "reference_run_requires_image_digest": true,
+  "backend": "sglang",
+  "expected_backend_version": "0.5.10.post1",
+  "hardware_profile": "nvidia_gh200_96gb",
+  "gpu_runtime_args": ["--gpus", "all"],
+  "required_capabilities": [],
+  "model_cache_mount": "/tmp/hfcache",
+  "artifact_mount": "/workspace/sglang_direct_kv/artifacts"
+}
