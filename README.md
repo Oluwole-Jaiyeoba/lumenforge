@@ -10,6 +10,7 @@ agentic inference experiments.
 - [Hint Benchmark Runbook](HINT_BENCHMARK_RUNBOOK.html): reproducible harness
   signal-emission experiments and the commands used to observe them.
 
+- [Architecture contract](ARCHITECTURE.md)
 - [Current handoff](HANDOFF.md)
 - [Project overview](docs/project/overview.md)
 - [SGLang-portability restructuring (start here if you change code)](docs/architecture/README_RESTRUCTURING.md)

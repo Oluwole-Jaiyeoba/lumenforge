@@ -1,17 +1,20 @@
 # Documentation Index
 
-Everything except the landing page (`README.md`) and the active hand-off
-(`HANDOFF.md`) lives under `docs/`.
+The repository root contains the active architecture, handoff, and two
+human-readable workstream entry points. Supporting documentation lives under
+`docs/`.
 
 ## Start here
 
 - [Current handoff](../HANDOFF.md) (repository root)
+- [Architecture contract](../ARCHITECTURE.md) (repository root)
 - [Project overview](project/overview.md)
 - [SGLang-portability restructuring](architecture/README_RESTRUCTURING.md) -- read before changing code
 - [Architecture map](architecture/ARCHITECTURE_MAP.md)
 
 ## Architecture (`docs/architecture/`)
 
+- [Top-level architecture contract](../ARCHITECTURE.md)
 - [SGLang-portability restructuring](architecture/README_RESTRUCTURING.md)
 - [Architecture map](architecture/ARCHITECTURE_MAP.md)
 - [SGLang backend package](../packages/agentic-backend-sglang/README.md) and its [compatibility matrix](../packages/agentic-backend-sglang/COMPATIBILITY.md)

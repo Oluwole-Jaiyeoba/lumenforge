@@ -16,7 +16,8 @@ Updated: 2026-09-09
 
 This is the current handoff for another Codex task working on the agentic
 hardware replay-deadline infrastructure. Treat this file plus the top-level
-`README.md` as the active source of truth. The older long-form notebook at
+`README.md` and [`ARCHITECTURE.md`](ARCHITECTURE.md) as the active source of
+truth. The older long-form notebook at
 `docs/testbeds/sglang_direct_kv.md` is useful history, but it includes outdated
 milestones and should not drive current implementation choices by itself.
 

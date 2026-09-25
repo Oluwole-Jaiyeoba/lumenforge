@@ -30,16 +30,18 @@ logic that moved out of scripts is proven **byte-identical** to the old code
 by golden tests. Upgrading SGLang is now: run the checker, add or adjust one
 adapter file, run the checks, run one GPU reference experiment.
 
-What was **not** done (and why) is in section 9. The most important open item
-is a GPU run on remote A10G host to confirm nothing changed at runtime (section 8).
+What was **not** done (and why) is in section 9. The original GPU verification
+item is now complete; section 8 records the reference run and outcome.
 
 ---
 
 ## 2. Where things are now
 
 **Top-level cleanup (2026-09-23, after the refactor):** the repository root
-now holds only `README.md`, `HANDOFF.md` (kept at root by owner decision) and
-directories. This file moved to `docs/architecture/` together with
+keeps only active entry-point documents/reports and directories. The current
+entry points are `README.md`, `HANDOFF.md`, `ARCHITECTURE.md`,
+`CONTROLLER_EXPERIMENTS.html`, and `HINT_BENCHMARK_RUNBOOK.html`. This file
+moved to `docs/architecture/` together with
 `ARCHITECTURE_MAP.md`; the hint-benchmark docs moved to `docs/hint_benchmark/`,
 `HARNESS_AWARE_SCENARIOS.md` to `docs/testbeds/`, the five proposal documents
 to `docs/proposals/`, the three top-level HTML reports to `docs/reports/`,
@@ -421,28 +423,29 @@ violated.
 
 ---
 
-## 8. What must happen next on a GPU (not possible in this session)
+## 8. GPU reference verification
 
-1. On remote A10G host: `git fetch && git checkout refactor/sglang-portability`, then
-   `cd sglang_direct_kv && source .venv/bin/activate && bash ../scripts/install_workspace.sh`.
-2. Confirm the pinned version: `python -m agentic_backends.sglang.surface`
-   should print `[OK] sglang 0.5.10.post1 vs adapter v0510`.
-3. Re-run the HANDOFF reference (hatcher, `p1_mild p3_high p4_cliff p5_boss_queue`,
-   the controller modes) and compare median first-token lateness with
-   `nvidia_a10g_24gb_controller_repeatability_20260909_034231`. Expected: same within
-   run-to-run noise.
-4. In each case's `kv_movement_trace.jsonl`, check `trace.install.summary`:
-   `missing_required_hooks` must be `[]`.
-5. The branch is already merged into `main` (the owner asked for every change
-   to go to main). If the remote A10G host run shows a regression, fix forward on main or
-   revert the range `491aea5..HEAD`; the pre-refactor code is also in
-   `~/Documents/GitHub/backup/agentic_hardware_pre_refactor_20260923/`.
+The focused Scenario 1 reference completed after restructuring with SGLang
+`0.5.10.post1`, the `v0510` adapter, the `nvidia_a10g_24gb` hardware profile,
+and the exact reference workload/seed. Run label:
+`scenario1_portability_reference_20260925_171817`.
+
+Compared with `no_prefetch`, `controller_ready_time_gpu_backfill` produced:
+
+- total replay TTFT: `82.35 s -> 71.99 s` (`12.6%` better);
+- total replay deadline debt: `205.23 s -> 167.07 s` (`18.6%` lower);
+- full workload duration: `176.25 s -> 167.53 s` (`4.9%` shorter).
+
+The run exercised the end-to-end controller, gateway, SGLang adapter,
+instrumentation, artifact, and report path. See
+[`CONTROLLER_EXPERIMENTS.html`](../../CONTROLLER_EXPERIMENTS.html).
 
 ---
 
 ## 9. Remaining work, in priority order
 
-1. **GPU verification** (section 8).
+1. **Common host/container deployment contract:** implement the approved
+   topology and run-manifest/capability handshake in `ARCHITECTURE.md`.
 2. **Upgrade to a newer SGLang (optional, when wanted):** make
    `--disable-piecewise-cuda-graph` conditional in
    `run_harness_deadline_pressure.sh:61` and
