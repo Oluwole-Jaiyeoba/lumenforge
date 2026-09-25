@@ -282,9 +282,12 @@ cleanup_case() {
     GATEWAY_PID=""
   fi
   if [[ -n "${SERVER_PID}" ]]; then
-    kill "-${SERVER_PID}" >/dev/null 2>&1 || true
+    # ``setsid`` gives the backend its own process group. The ``--`` is
+    # essential: without it, Bash parses a negative PID as a signal option
+    # and a blocked preflight can leave the Docker backend running.
+    kill -- "-${SERVER_PID}" >/dev/null 2>&1 || true
     sleep 2
-    kill -9 "-${SERVER_PID}" >/dev/null 2>&1 || true
+    kill -9 -- "-${SERVER_PID}" >/dev/null 2>&1 || true
     wait "${SERVER_PID}" >/dev/null 2>&1 || true
     SERVER_PID=""
   fi
