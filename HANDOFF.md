@@ -1,5 +1,59 @@
 # Codex Handoff
 
+Updated: 2026-09-25
+
+## GH200 Migration: Start Here
+
+This is the current priority for an agent working on the NVIDIA GH200 machine.
+Read these documents in order before editing or running an experiment:
+
+1. [`ARCHITECTURE.md`](ARCHITECTURE.md)
+2. [`docs/deployment/GH200_AGENT_HANDOFF.md`](docs/deployment/GH200_AGENT_HANDOFF.md)
+3. [`docs/deployment/nvidia_gh200_96gb.md`](docs/deployment/nvidia_gh200_96gb.md)
+4. [`docs/architecture/README_RESTRUCTURING.md`](docs/architecture/README_RESTRUCTURING.md)
+
+### Copyable Task Instruction
+
+```text
+Bring up the Agentic Hardware hybrid runtime on the NVIDIA GH200.
+
+Preserve this boundary:
+- Host: real harness clients, credentials, controller, gateway, orchestration,
+  and reports.
+- Docker container: SGLang 0.5.10.post1, CUDA/GPU runtime, the SGLang adapter,
+  and backend-side trace hooks.
+
+Do not solve a deployment failure by changing controller policy, harness
+behavior, or experiment semantics. First build the native ARM64 backend image
+with infra/container/build_sglang_runtime.sh. Then run
+infra/container/probe_sglang_runtime.sh. Do not launch a workload until the
+runtime contract reports probe_ok: true, SGLang 0.5.10.post1, and adapter v0510.
+
+Next, run the narrow hybrid sentinel. Preserve its runtime contract, run
+manifest, logs, and report. Only after that passes should you run larger
+controller experiments or change SGLang versions.
+```
+
+### GH200 Success Criteria
+
+- The container image is built on the GH200 as `linux/arm64` and has an
+  immutable local image ID or published registry digest.
+- The runtime probe records SGLang `0.5.10.post1`, adapter `v0510`, and
+  `probe_ok: true`.
+- Harnesses, credentials, controller, gateway, and reports remain host-native.
+- SGLang is launched only through the configured Docker image.
+- The hybrid sentinel produces a report plus
+  `runtime/backend_runtime.json` and `runtime/run_manifest.json`.
+
+### Guardrails
+
+- Do not copy virtual environments, model caches, or historical artifact trees
+  from another machine.
+- Do not use an unpinned `latest` image for a reference experiment.
+- Do not treat a successful capability probe as proof of controller behavior;
+  the sentinel is the first behavioral proof.
+- Preserve unrelated working-tree changes. Check `git status` before editing.
+
 > **2026-09-23 - read first:** the codebase was restructured for SGLang
 > portability (merged into `main`; the GPU verification in section 8 of
 > [`docs/architecture/README_RESTRUCTURING.md`](docs/architecture/README_RESTRUCTURING.md)
@@ -11,8 +65,6 @@
 > `sglang_direct_kv/scripts/` are now thin wrappers: the code is in
 > `packages/agentic-experiments` and `packages/agentic-reports`
 > ([mapping](sglang_direct_kv/scripts/README.md)); every command below still works.
-
-Updated: 2026-09-09
 
 This is the current handoff for another Codex task working on the agentic
 hardware replay-deadline infrastructure. Treat this file plus the top-level
@@ -100,20 +152,16 @@ The current active design is the portable agent-aware controller:
   prefetch are tested as explicit modes
 - the lightweight report builder is the default report path
 
-Latest pushed commit at handoff time:
+Use `git log -1 --oneline` to identify the current local handoff commit. Push
+source changes to GitHub `main` after committing when the configured remote is
+available.
 
-```text
-23b6d85 Document full controller optimization phase
-```
+## Historical Remote Reference
 
-Always push source changes to GitHub `main` after committing.
+The following remote A10G host information is historical reference for prior
+controller results. It is not the GH200 migration instruction above.
 
-## Active Machine
-
-Work from this computer should target the remote A10G host machine, not GH200.
-
-The user currently does not have GH200 access from this computer. GH200 remains
-a later migration/scale-up target only.
+The GH200 agent should use the migration section at the top of this document.
 
 Local development checkout:
 
@@ -176,7 +224,7 @@ Interpretation: controller scheduler, demote/restore, and admission-control
 paths are the strongest current remote A10G host evidence. They help because they shape the
 traffic around the replay deadline, not just the replay request itself.
 
-## Current Next Task
+## Historical Controller Follow-Up
 
 Run the focused remote A10G host validation for the timing-aware `controller_full` policy on
 one harness before expanding to more harnesses.
