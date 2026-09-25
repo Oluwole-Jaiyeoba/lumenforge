@@ -73,13 +73,13 @@ cd ~/agentic_hardware
 
 <table>
 <colgroup>
-<col width="12%" style="width: 12%;">
-<col width="18%" style="width: 18%;">
-<col width="12%" style="width: 12%;">
-<col width="25%" style="width: 25%;">
-<col width="15%" style="width: 15%;">
-<col width="16%" style="width: 16%;">
 <col width="9%" style="width: 9%;">
+<col width="12%" style="width: 12%;">
+<col width="9%" style="width: 9%;">
+<col width="32%" style="width: 32%;">
+<col width="14%" style="width: 14%;">
+<col width="10%" style="width: 10%;">
+<col width="6%" style="width: 6%;">
 <col width="8%" style="width: 8%;">
 </colgroup>
 <thead>
@@ -320,13 +320,13 @@ or SGLang consumed them.
 
 <table>
 <colgroup>
-<col width="12%" style="width: 12%;">
-<col width="18%" style="width: 18%;">
-<col width="12%" style="width: 12%;">
-<col width="25%" style="width: 25%;">
-<col width="15%" style="width: 15%;">
-<col width="16%" style="width: 16%;">
 <col width="9%" style="width: 9%;">
+<col width="12%" style="width: 12%;">
+<col width="9%" style="width: 9%;">
+<col width="32%" style="width: 32%;">
+<col width="14%" style="width: 14%;">
+<col width="10%" style="width: 10%;">
+<col width="6%" style="width: 6%;">
 <col width="8%" style="width: 8%;">
 </colgroup>
 <thead>
@@ -496,13 +496,13 @@ observed 5 of the 6 supported or conditional signals at the request boundary.
 
 <table>
 <colgroup>
-<col width="12%" style="width: 12%;">
-<col width="18%" style="width: 18%;">
-<col width="12%" style="width: 12%;">
-<col width="25%" style="width: 25%;">
-<col width="15%" style="width: 15%;">
-<col width="16%" style="width: 16%;">
 <col width="9%" style="width: 9%;">
+<col width="12%" style="width: 12%;">
+<col width="9%" style="width: 9%;">
+<col width="32%" style="width: 32%;">
+<col width="14%" style="width: 14%;">
+<col width="10%" style="width: 10%;">
+<col width="6%" style="width: 6%;">
 <col width="8%" style="width: 8%;">
 </colgroup>
 <thead>
@@ -648,13 +648,13 @@ Current artifact: `openclaw_native_request_boundary_20260921`.
 
 <table>
 <colgroup>
-<col width="12%" style="width: 12%;">
-<col width="18%" style="width: 18%;">
-<col width="12%" style="width: 12%;">
-<col width="25%" style="width: 25%;">
-<col width="15%" style="width: 15%;">
-<col width="16%" style="width: 16%;">
 <col width="9%" style="width: 9%;">
+<col width="12%" style="width: 12%;">
+<col width="9%" style="width: 9%;">
+<col width="32%" style="width: 32%;">
+<col width="14%" style="width: 14%;">
+<col width="10%" style="width: 10%;">
+<col width="6%" style="width: 6%;">
 <col width="8%" style="width: 8%;">
 </colgroup>
 <thead>
@@ -896,13 +896,13 @@ deck-unsupported signals: 11
 
 <table>
 <colgroup>
-<col width="12%" style="width: 12%;">
-<col width="18%" style="width: 18%;">
-<col width="12%" style="width: 12%;">
-<col width="25%" style="width: 25%;">
-<col width="15%" style="width: 15%;">
-<col width="16%" style="width: 16%;">
 <col width="9%" style="width: 9%;">
+<col width="12%" style="width: 12%;">
+<col width="9%" style="width: 9%;">
+<col width="32%" style="width: 32%;">
+<col width="14%" style="width: 14%;">
+<col width="10%" style="width: 10%;">
+<col width="6%" style="width: 6%;">
 <col width="8%" style="width: 8%;">
 </colgroup>
 <thead>
@@ -1390,13 +1390,13 @@ Do not count fixture output as native Hermes evidence.
 
 <table>
 <colgroup>
-<col width="12%" style="width: 12%;">
-<col width="18%" style="width: 18%;">
-<col width="12%" style="width: 12%;">
-<col width="25%" style="width: 25%;">
-<col width="15%" style="width: 15%;">
-<col width="16%" style="width: 16%;">
 <col width="9%" style="width: 9%;">
+<col width="12%" style="width: 12%;">
+<col width="9%" style="width: 9%;">
+<col width="32%" style="width: 32%;">
+<col width="14%" style="width: 14%;">
+<col width="10%" style="width: 10%;">
+<col width="6%" style="width: 6%;">
 <col width="8%" style="width: 8%;">
 </colgroup>
 <thead>
