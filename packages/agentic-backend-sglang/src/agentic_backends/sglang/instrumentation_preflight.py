@@ -161,10 +161,19 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
     while time.monotonic() < deadline:
         gateway_rows = _read_jsonl(Path(args.gateway_trace))
         backend_rows = _read_jsonl(Path(args.backend_trace))
-        if sentinel.get("sent") and any(
-            int(row.get("ts_ns", 0) or 0) >= sentinel["started_ns"]
-            for row in gateway_rows + backend_rows
-        ):
+        started_ns = int(sentinel.get("started_ns", 0))
+        gateway_finished = any(
+            str(row.get("event") or "").startswith("m27.request.end")
+            and int(row.get("ts_ns", 0) or 0) >= started_ns
+            for row in gateway_rows
+        )
+        backend_observed = any(
+            bool(row.get("source_event")) and int(row.get("ts_ns", 0) or 0) >= started_ns
+            for row in backend_rows
+        )
+        # Gateway receipt is not proof that the in-process hooks ran. Wait for
+        # both before snapshotting the sentinel evidence.
+        if sentinel.get("sent") and gateway_finished and backend_observed:
             break
         time.sleep(0.2)
     # A zero wait is useful in unit tests and when the request completed before
