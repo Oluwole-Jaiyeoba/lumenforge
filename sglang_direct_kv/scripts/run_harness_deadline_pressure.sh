@@ -185,8 +185,9 @@ run_instrumentation_preflight() {
   local contract="$1"
   local installation_report="$2"
   local live_report="$3"
-  local trace_path="$4"
-  local copied_contract="$5"
+  local gateway_trace_path="$4"
+  local backend_trace_path="$5"
+  local copied_contract="$6"
   local package_path=""
   local package_src
   for package_src in "${PROJECT_ROOT}"/packages/*/src; do
@@ -201,7 +202,8 @@ run_instrumentation_preflight() {
       --installation-report "${installation_report}" \
       --gateway-base "${GATEWAY_URL}" \
       --model "${MODEL}" \
-      --trace "${trace_path}" \
+      --gateway-trace "${gateway_trace_path}" \
+      --backend-trace "${backend_trace_path}" \
       --sentinel-trace "${CONTROLLER_INSTRUMENTATION_SENTINEL_TRACE}" \
       --controller-probe-report "${CONTROLLER_INSTRUMENTATION_CONTROLLER_PROBE}" \
       --controller-mode "${mode:-controller_scheduler_priority}" \
@@ -504,6 +506,7 @@ run_case() {
   fi
   local case_root="${RUN_ROOT}/${case_id}"
   local trace="${case_root}/m27_trace.jsonl"
+  local backend_trace="${case_root}/backend_trace.jsonl"
   local telemetry="${case_root}/m27_copy_telemetry.jsonl"
   local runtime_telemetry="${case_root}/runtime_telemetry.jsonl"
   local metrics="${case_root}/m27_metrics.jsonl"
@@ -535,7 +538,7 @@ run_case() {
     echo "==== Skipping existing completed case: ${case_id} ===="
     return
   fi
-  rm -f "${trace}" "${telemetry}" "${runtime_telemetry}" "${metrics}" "${server_log}" "${gateway_log}" "${gateway_events}" "${case_gpu_util_csv}" "${case_gpu_util_log}" "${instrumentation_contract_copy}" "${hook_installation_report}" "${live_sentinel_report}" "${live_sentinel_trace}" "${controller_probe_report}"
+  rm -f "${trace}" "${backend_trace}" "${telemetry}" "${runtime_telemetry}" "${metrics}" "${server_log}" "${gateway_log}" "${gateway_events}" "${case_gpu_util_csv}" "${case_gpu_util_log}" "${instrumentation_contract_copy}" "${hook_installation_report}" "${live_sentinel_report}" "${live_sentinel_trace}" "${controller_probe_report}"
   if [[ "${mode}" == storage_hicache_* ]]; then
     case_hicache_storage_backend="${HICACHE_STORAGE_BACKEND}"
     case_hicache_storage_prefetch_policy="${HICACHE_STORAGE_PREFETCH_POLICY}"
@@ -560,7 +563,9 @@ run_case() {
   GPU_UTIL_LOG="${case_gpu_util_log}"
   start_gpu_util_sampler
   export AGENTIC_KV_TRACE_ENABLE=1
-  export AGENTIC_KV_TRACE_PATH="${trace}"
+  # The gateway and in-process backend are distinct evidence producers. They
+  # must never share a JSONL path: concurrent appends can hide backend hooks.
+  export AGENTIC_KV_TRACE_PATH="${backend_trace}"
   export AGENTIC_KV_TRACE_INSTALL_REPORT_PATH="${hook_installation_report}"
   export AGENTIC_KV_TRACE_SCHEDULER
   export AGENTIC_KV_TRACE_KV_POOL
@@ -634,7 +639,7 @@ PYPORT
       exit 2
     fi
     echo "Validating controller instrumentation before workload measurement..."
-    if ! CONTROLLER_INSTRUMENTATION_SENTINEL_TRACE="${live_sentinel_trace}" CONTROLLER_INSTRUMENTATION_CONTROLLER_PROBE="${controller_probe_report}" run_instrumentation_preflight "${CONTROLLER_INSTRUMENTATION_CONTRACT}" "${hook_installation_report}" "${live_sentinel_report}" "${trace}" "${instrumentation_contract_copy}"; then
+    if ! CONTROLLER_INSTRUMENTATION_SENTINEL_TRACE="${live_sentinel_trace}" CONTROLLER_INSTRUMENTATION_CONTROLLER_PROBE="${controller_probe_report}" run_instrumentation_preflight "${CONTROLLER_INSTRUMENTATION_CONTRACT}" "${hook_installation_report}" "${live_sentinel_report}" "${trace}" "${backend_trace}" "${instrumentation_contract_copy}"; then
       if [[ "${CONTROLLER_INSTRUMENTATION_POLICY}" == "strict" ]]; then
         write_blocked_preflight_report "${case_id}" "${live_sentinel_report}"
         echo "Controller experiment blocked by instrumentation preflight. Report: ${REPORT_DIR}/master_report.html" >&2

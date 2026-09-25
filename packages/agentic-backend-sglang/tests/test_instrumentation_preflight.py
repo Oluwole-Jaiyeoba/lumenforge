@@ -38,7 +38,8 @@ class InstrumentationPreflightTest(unittest.TestCase):
         return argparse.Namespace(
             contract=str(self.contract), out=str(self.tmp / "out.json"), stage=stage,
             runtime_contract=str(self.runtime), installation_report=str(self.tmp / "install.json"),
-            gateway_base="http://gateway", model="model", trace=str(self.tmp / "trace.jsonl"),
+            gateway_base="http://gateway", model="model", gateway_trace=str(self.tmp / "gateway.jsonl"),
+            backend_trace=str(self.tmp / "backend.jsonl"),
             sentinel_trace=str(self.tmp / "sentinel.jsonl"), controller_probe_report=str(self.tmp / "controller.jsonl"),
             controller_mode="controller_scheduler_priority", timeout=1, trace_wait=0, policy=policy,
         )
@@ -65,7 +66,7 @@ class InstrumentationPreflightTest(unittest.TestCase):
     def test_live_rejects_installed_hook_without_live_event(self) -> None:
         args = self._args("live")
         Path(args.installation_report).write_text(json.dumps({"adapter": "v0510", "installed_hooks": [SCHEDULER_HOOK]}), encoding="utf-8")
-        Path(args.trace).write_text("\n".join(json.dumps(row) for row in [{"ts_ns": 2, "event": "m27.request.start"}, {"ts_ns": 3, "event": "m27.request.end", "ttft_ms": 1}]) + "\n", encoding="utf-8")
+        Path(args.gateway_trace).write_text("\n".join(json.dumps(row) for row in [{"ts_ns": 2, "event": "m27.request.start"}, {"ts_ns": 3, "event": "m27.request.end", "ttft_ms": 1}]) + "\n", encoding="utf-8")
         with patch("agentic_backends.sglang.instrumentation_preflight._send_sentinel", return_value={"sent": True, "started_ns": 1}), patch("agentic_backends.sglang.instrumentation_preflight._controller_probe", return_value=self._controller_rows()):
             result = run_preflight(args)
         self.assertFalse(result["valid"])
@@ -73,8 +74,10 @@ class InstrumentationPreflightTest(unittest.TestCase):
     def test_live_requires_installation_and_full_evidence(self) -> None:
         args = self._args("live")
         Path(args.installation_report).write_text(json.dumps({"adapter": "v0510", "installed_hooks": [SCHEDULER_HOOK]}), encoding="utf-8")
-        rows = [{"ts_ns": 2, "event": "m27.request.start"}, {"ts_ns": 3, "event": "m27.request.end", "ttft_ms": 1}, {"ts_ns": 4, "source_event": "scheduler.process_batch_result.end"}]
-        Path(args.trace).write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+        gateway_rows = [{"ts_ns": 2, "event": "m27.request.start"}, {"ts_ns": 3, "event": "m27.request.end", "ttft_ms": 1}]
+        backend_rows = [{"ts_ns": 4, "source_event": "scheduler.process_batch_result.end"}]
+        Path(args.gateway_trace).write_text("\n".join(json.dumps(row) for row in gateway_rows) + "\n", encoding="utf-8")
+        Path(args.backend_trace).write_text("\n".join(json.dumps(row) for row in backend_rows) + "\n", encoding="utf-8")
         with patch("agentic_backends.sglang.instrumentation_preflight._send_sentinel", return_value={"sent": True, "started_ns": 1}), patch("agentic_backends.sglang.instrumentation_preflight._controller_probe", return_value=self._controller_rows()):
             result = run_preflight(args)
         self.assertTrue(result["valid"])

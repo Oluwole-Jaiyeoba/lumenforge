@@ -156,25 +156,38 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
 
     sentinel = _send_sentinel(args.gateway_base, args.model, args.timeout)
     deadline = time.monotonic() + args.trace_wait
-    trace_rows: list[dict[str, Any]] = []
+    gateway_rows: list[dict[str, Any]] = []
+    backend_rows: list[dict[str, Any]] = []
     while time.monotonic() < deadline:
-        trace_rows = _read_jsonl(Path(args.trace))
-        if sentinel.get("sent") and any(int(row.get("ts_ns", 0) or 0) >= sentinel["started_ns"] for row in trace_rows):
+        gateway_rows = _read_jsonl(Path(args.gateway_trace))
+        backend_rows = _read_jsonl(Path(args.backend_trace))
+        if sentinel.get("sent") and any(
+            int(row.get("ts_ns", 0) or 0) >= sentinel["started_ns"]
+            for row in gateway_rows + backend_rows
+        ):
             break
         time.sleep(0.2)
     # A zero wait is useful in unit tests and when the request completed before
     # the first poll. Always take one final snapshot before evaluating events.
-    trace_rows = _read_jsonl(Path(args.trace))
-    trace_rows = [row for row in trace_rows if int(row.get("ts_ns", 0) or 0) >= int(sentinel.get("started_ns", 0))]
+    gateway_rows = _read_jsonl(Path(args.gateway_trace))
+    backend_rows = _read_jsonl(Path(args.backend_trace))
+    started_ns = int(sentinel.get("started_ns", 0))
+    gateway_rows = [row for row in gateway_rows if int(row.get("ts_ns", 0) or 0) >= started_ns]
+    backend_rows = [row for row in backend_rows if int(row.get("ts_ns", 0) or 0) >= started_ns]
+    trace_rows = [
+        {**row, "instrumentation_trace_source": "gateway"} for row in gateway_rows
+    ] + [
+        {**row, "instrumentation_trace_source": "backend"} for row in backend_rows
+    ]
     sentinel_trace = Path(args.sentinel_trace)
     sentinel_trace.parent.mkdir(parents=True, exist_ok=True)
     sentinel_trace.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in trace_rows), encoding="utf-8")
     controller_probe = _controller_probe(args)
     for entry in contract.get("required", []):
         if entry.get("hook_id"):
-            checks.append(_check_trace(entry, trace_rows, source_prefixes[entry["id"]], source=True))
+            checks.append(_check_trace(entry, backend_rows, source_prefixes[entry["id"]], source=True))
         if entry.get("trace_event_prefixes_all"):
-            checks.append(_check_trace(entry, trace_rows, entry["trace_event_prefixes_all"], require_all=True))
+            checks.append(_check_trace(entry, gateway_rows, entry["trace_event_prefixes_all"], require_all=True))
         if entry.get("controller_probe"):
             checks.append(_check_controller_probe(entry, controller_probe))
 
@@ -194,7 +207,8 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             "missing_required_hooks": installation.get("missing_required_hooks", []),
             "missing_optional_hooks": installation.get("missing_optional_hooks", []),
         },
-        "trace": str(Path(args.trace).resolve()),
+        "gateway_trace": str(Path(args.gateway_trace).resolve()),
+        "backend_trace": str(Path(args.backend_trace).resolve()),
         "live_sentinel_trace": str(sentinel_trace.resolve()),
         "controller_probe": {key: value for key, value in controller_probe.items() if key != "rows"},
         "checks": checks,
@@ -211,7 +225,8 @@ def main() -> int:
     parser.add_argument("--installation-report")
     parser.add_argument("--gateway-base")
     parser.add_argument("--model")
-    parser.add_argument("--trace")
+    parser.add_argument("--gateway-trace")
+    parser.add_argument("--backend-trace")
     parser.add_argument("--sentinel-trace")
     parser.add_argument("--controller-probe-report")
     parser.add_argument("--controller-mode", default="controller_scheduler_priority")
@@ -220,7 +235,7 @@ def main() -> int:
     parser.add_argument("--policy", choices=("strict", "observe_only"), default="strict")
     args = parser.parse_args()
     if args.stage == "live":
-        for name in ("installation_report", "gateway_base", "model", "trace", "sentinel_trace", "controller_probe_report"):
+        for name in ("installation_report", "gateway_base", "model", "gateway_trace", "backend_trace", "sentinel_trace", "controller_probe_report"):
             if not getattr(args, name):
                 parser.error(f"--{name.replace('_', '-')} is required for live preflight")
     result = run_preflight(args)

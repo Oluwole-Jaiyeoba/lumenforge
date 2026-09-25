@@ -30,12 +30,19 @@ artifacts inside every controller case:
 - `live_sentinel_report.json`
 - `live_sentinel_trace.jsonl`
 - `controller_preflight_probe.jsonl`
+- `backend_trace.jsonl`
 
 The sentinel request is labeled `instrumentation_sentinel` and is excluded from
 workload metrics. Contracts contain only stable hook IDs; the selected SGLang
 adapter resolves them to its private targets. Optional hooks are warnings;
 required hooks and required live events are blocking in the default `strict`
 policy.
+
+Gateway events and in-process backend events are deliberately written to
+separate JSONL files. The gate validates gateway receipt from `m27_trace.jsonl`
+and SGLang hook activity from `backend_trace.jsonl`, then records their joined
+sentinel slice in `live_sentinel_trace.jsonl`. This prevents one writer from
+hiding the other evidence stream.
 
 ## Operator controls
 
