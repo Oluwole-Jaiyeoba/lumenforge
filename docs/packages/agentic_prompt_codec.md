@@ -80,7 +80,7 @@ rules fired. This is the proof path for future shorthand experiments.
 Examples of allowed forms:
 
 ```text
-WR1=/home/ec2-user/agentbench/repos/example_repo
+WR1=/home/remote host-user/agentbench/repos/example_repo
 F1=`path/to/file.py`
 FN1=normalize_url
 VC1=python -m pytest tests/unit/test_example.py

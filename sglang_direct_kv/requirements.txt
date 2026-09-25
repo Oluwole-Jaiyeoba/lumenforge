@@ -5,7 +5,7 @@ pandas>=2.2
 pyyaml>=6.0
 rich>=13.7
 torch
-# Pinned to the SGLang release all recorded EC2 results used (adapter v0510,
+# Pinned to the SGLang release all recorded remote A10G host results used (adapter v0510,
 # runtime-verified).  To move to another release: check it first with
 #   python -m agentic_backends.sglang.surface --sglang-src <unpacked wheel>
 # then change this pin (see docs/architecture/README_RESTRUCTURING.md, "Upgrading SGLang").

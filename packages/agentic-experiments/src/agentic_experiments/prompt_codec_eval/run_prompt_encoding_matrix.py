@@ -55,7 +55,7 @@ def main():
                    PROMPT_REPETITION=str(job["repeat"]), MODES=job["mode"],
                    HARNESSES=" ".join(args.harnesses), PRESSURE_LEVELS=" ".join(args.pressures),
                    UPDATE_LATEST="0", REPORT_BUILDER_MODE="lightweight", REPORT_LABEL=job["label"],
-                   PYTHON_BIN=sys.executable, HARDWARE_PROFILE="ec2_a10g")
+                   PYTHON_BIN=sys.executable, HARDWARE_PROFILE="nvidia_a10g_24gb")
         if args.workload:
             env["PROMPT_WORKLOAD_JSONL"] = str(args.workload.resolve())
         subprocess.run(["bash", "scripts/run_harness_deadline_pressure.sh", args.model], cwd=root, env=env, check=True)

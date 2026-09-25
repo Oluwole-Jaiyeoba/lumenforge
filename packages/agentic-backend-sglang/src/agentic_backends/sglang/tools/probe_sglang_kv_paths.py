@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Probe installed SGLang internals for KV/cache/offload-related symbols.
 
-Run this on the EC2 GPU machine after installing SGLang. The output is a
+Run this on the remote A10G host GPU machine after installing SGLang. The output is a
 starting map for direct KV instrumentation.
 
 This script uses static source scanning by default. Importing every SGLang

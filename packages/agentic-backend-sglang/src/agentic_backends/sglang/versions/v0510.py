@@ -1,4 +1,4 @@
-"""Adapter for SGLang 0.5.10 / 0.5.10.post1 (the version most EC2 results used).
+"""Adapter for SGLang 0.5.10 / 0.5.10.post1 (the version most remote A10G host results used).
 
 Hook targets and the raw event map are the original
 ``agentic_kv/sglang_adapters/v0510.py`` tables, unchanged.  ``SURFACE`` lists
@@ -258,5 +258,5 @@ ADAPTER = AdapterSpec(
     surface=SURFACE,
     optional_hooks=OPTIONAL_HOOKS,
     request_fields=REQUEST_FIELDS,
-    notes=("Reference adapter: ~151 recorded EC2 runs used sglang 0.5.10.post1.",),
+    notes=("Reference adapter: ~151 recorded remote A10G host runs used sglang 0.5.10.post1.",),
 )

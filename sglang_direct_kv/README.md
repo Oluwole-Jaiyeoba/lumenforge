@@ -6,7 +6,7 @@ material; reusable code lives in `packages/`.
 
 | Path | What it is |
 | --- | --- |
-| `scripts/*.sh` | Experiment entry points (`run_harness_deadline_pressure.sh`, `run_*_realistic.sh`, master-report pipeline), SGLang server launch, EC2/GH200 setup |
+| `scripts/*.sh` | Experiment entry points (`run_harness_deadline_pressure.sh`, `run_*_realistic.sh`, master-report pipeline), SGLang server launch, remote A10G host/GH200 setup |
 | `scripts/*.py` | Thin wrappers that keep `python scripts/<name>.py` working; the code is in `agentic_experiments`, `agentic_reports` or `agentic_backends.sglang.tools` (see `scripts/README.md`) |
 | `scripts/legacy/` | Frozen milestone scripts, kept for reproducing old results |
 | `configs/` | Experiment settings: hardware profiles, hint-benchmark scenarios, harness scenarios, prompt codecs |

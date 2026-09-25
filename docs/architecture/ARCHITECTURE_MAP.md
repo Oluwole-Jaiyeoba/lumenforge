@@ -15,7 +15,7 @@ The target is a testbed where:
 - SGLang can be upgraded or replaced through a versioned backend adapter;
 - experiments compose packages instead of containing their implementation;
 - reports consume stable, normalized records rather than raw backend events;
-- EC2, GH200, Docker, and local setup differ through configuration and launch
+- remote A10G host, GH200, Docker, and local setup differ through configuration and launch
   scripts, not through controller or harness logic.
 
 ## Status (2026-09-23)
@@ -138,12 +138,12 @@ README, the active HANDOFF, and code/deployment directories.
 | --- | --- | --- | --- |
 | `README.md` | Short repository landing page. | Repository documentation. | Keep at root; substantive documentation lives under `docs/`. |
 | `HANDOFF.md` | Active hand-off for the next agent/engineer. | Repository documentation. | Kept at root on purpose (owner decision). |
-| `docs/` | All other documentation; see `docs/index.md`. Architecture (`docs/architecture/`), hint benchmark (`docs/hint_benchmark/`), testbeds, proposals, reports (`docs/reports/`), presentations, research PDFs, archive. | Repository documentation. | Canonical home. |
-| `docs/archive/backups/`, `docs/archive/codex-build/`, `docs/archive/codex_build/` | Retained report copies and Codex build scratch (formerly `backups/`, `.codex-build/`, `.codex_build/`). | Historical material. | Tracked but out of the way; never import from here. |
+| `docs/` | All current documentation; see `docs/index.md`. Architecture (`docs/architecture/`), hint benchmark (`docs/hint_benchmark/`), testbeds, proposals, reports (`docs/reports/`), presentations, and research PDFs. | Repository documentation. | Canonical home. |
+| External historical archive | Preserved report copies and build scratch outside the repository. | Historical material. | Never import from it. |
 | `packages/` | All packages: core, backend API, controller, harnesses, gateway, prompt codec, harness scenarios, `agentic-backend-sglang`, `agentic-experiments`, `agentic-reports`. | Package owners. | See Python Packages below. |
 | `sglang_direct_kv/` | The SGLang testbed: shell entry points, thin script wrappers, `scripts/legacy/`, configs, `sitecustomize`, `agentic_kv` compatibility layer, tests. | Testbed. | Keep thin; new code goes into packages. |
 | `scripts/`, `tests/`, `.github/` | Workspace install, portability checks, architecture tests, CI. | Repository tooling. | Keep. |
-| `aws/`, `gh200/` | EC2 and GH200 helpers. | `deployment/*`. | Keep operational path until wrappers replace it. |
+| `infra/remote/`, `infra/accelerator/gh200/` | Provider-neutral remote-host and NVIDIA GH200 helpers. | `deployment/*`. | Keep operational path until wrappers replace it. |
 | `.codex_external/` | External datasets and repositories used for analysis (git-ignored). | External inputs. | Never make package imports depend on this path. |
 
 ### Python Packages
@@ -202,7 +202,7 @@ the Python package directly.
 | `collect_run_environment.py`, `sample_gpu_utilization.py`, profiler correlation scripts | Experiment instrumentation. | Emit normalized observations and declare instrumentation cost in the run manifest. |
 | `run_milestone*.sh` and milestone-specific report scripts | Legacy/reproducibility wrappers. | Freeze for reproducibility; do not use as foundations for new APIs. |
 | Prompt codec and trajectory scripts | `agentic_prompt_codec` tools. | Keep independent from controller and backend packages. |
-| `setup_ec2.sh`, `setup_gh200.sh` | Deployment. | Parameterize package/backend versions; no experiment policy. |
+| `setup_nvidia_a10g_24gb.sh`, `setup_nvidia_gh200_96gb.sh` | Deployment. | Parameterize package/backend versions; no experiment policy. |
 
 ### Configuration Ownership
 
@@ -278,7 +278,7 @@ Before moving runtime files, add these gates:
 - raw SGLang trace fixtures that normalize to stable observations;
 - experiment golden manifests proving identical modes, seeds, and workloads;
 - report tests using only normalized fixture data;
-- one end-to-end EC2 reference run preserving current report metrics.
+- one end-to-end remote A10G host reference run preserving current report metrics.
 
 ## Migration Sequence
 
@@ -328,7 +328,7 @@ until Phase 4.
 - Move substantive README content and project PDFs under `docs/`.
 
 Status: implemented. The root README is intentionally a small landing page;
-`docs/index.md` is the documentation directory. EC2 and GH200 setup scripts use
+`docs/index.md` is the documentation directory. remote A10G host and GH200 setup scripts use
 the workspace installer, so deployment does not rely on the old nested source
 layout.
 
@@ -349,7 +349,7 @@ layout.
 
 ### Phase 6: Deployment portability
 
-- Make local, EC2, GH200, and Docker launch paths consume the same run manifest.
+- Make local, remote A10G host, GH200, and Docker launch paths consume the same run manifest.
 - Pin tested dependency/backend combinations without embedding them in core.
 - Add setup validation and a portable minimal reference run.
 
@@ -377,7 +377,7 @@ The architecture is portable when all of the following are true:
 - harness capture tests run without SGLang installed;
 - report tests run from normalized fixtures without a live backend;
 - changing SGLang versions changes only an SGLang adapter and deployment pin;
-- the same experiment manifest can run on EC2 or GH200 with a different machine
+- the same experiment manifest can run on remote A10G host or GH200 with a different machine
   profile;
 - unsupported capabilities are reported as unsupported, not simulated silently;
 - actual, injected, normalized, and simulated signals retain distinct provenance;

@@ -132,7 +132,7 @@ async def post_chat(
                     first_token_ns = now_ns()
                     write_jsonl(trace_path, {"event": "priority_sanity.first_chunk", "ts_ns": first_token_ns, **base})
                 output_chars += len(chunk or "")
-    except Exception as exc:  # pragma: no cover - exercised on EC2 only
+    except Exception as exc:  # pragma: no cover - exercised on remote A10G host only
         error = repr(exc)
     end_ns = now_ns()
     row = {

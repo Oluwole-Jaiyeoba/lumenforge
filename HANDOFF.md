@@ -97,7 +97,7 @@ Always push source changes to GitHub `main` after committing.
 
 ## Active Machine
 
-Work from this computer should target the EC2 machine, not GH200.
+Work from this computer should target the remote A10G host machine, not GH200.
 
 The user currently does not have GH200 access from this computer. GH200 remains
 a later migration/scale-up target only.
@@ -108,15 +108,15 @@ Local development checkout:
 cd /Users/oluwolejaiyeoba/Documents/GitHub/agentic_hardware
 ```
 
-EC2 helper workflow:
+remote A10G host helper workflow:
 
 ```bash
-./aws/check_ec2_ready.sh 0
-./aws/upload.sh 0
-./aws/ssh_to_ec2.sh 0
+./infra/remote/check_host_ready.sh 0
+./infra/remote/upload_workspace.sh 0
+./infra/remote/connect.sh 0
 ```
 
-On EC2:
+On remote A10G host:
 
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv
@@ -136,10 +136,10 @@ sglang_direct_kv/artifacts/results/latest_evidence_tables.html
 sglang_direct_kv/artifacts/results/latest_manifest.json
 ```
 
-Most recent EC2 controller repeatability archive:
+Most recent remote A10G host controller repeatability archive:
 
 ```text
-sglang_direct_kv/artifacts/results/reports/ec2_controller_repeatability_20260909_034231/
+sglang_direct_kv/artifacts/results/reports/nvidia_a10g_24gb_controller_repeatability_20260909_034231/
 ```
 
 That run used:
@@ -160,15 +160,15 @@ Observed median first-token lateness:
 | `p5_boss_queue` | 48.43 s | 19.37 s | 6.48 s |
 
 Interpretation: controller scheduler, demote/restore, and admission-control
-paths are the strongest current EC2 evidence. They help because they shape the
+paths are the strongest current remote A10G host evidence. They help because they shape the
 traffic around the replay deadline, not just the replay request itself.
 
 ## Current Next Task
 
-Run the focused EC2 validation for the timing-aware `controller_full` policy on
+Run the focused remote A10G host validation for the timing-aware `controller_full` policy on
 one harness before expanding to more harnesses.
 
-`controller_full` now combines only the controller behaviors that helped on EC2
+`controller_full` now combines only the controller behaviors that helped on remote A10G host
 and uses the portable `harness_controller_signal.v1` envelope:
 
 1. Track session lifecycle state: tool wait, replay ready, replay submitted,
@@ -186,7 +186,7 @@ and uses the portable `harness_controller_signal.v1` envelope:
 8. Restore filler/background priority after each replay-critical window closes.
 
 Do not include speculative preload or targeted KV prefetch in the first
-`controller_full` default. Those are mechanically wired, but prior EC2 timing
+`controller_full` default. Those are mechanically wired, but prior remote A10G host timing
 showed weak or negative benefit.
 
 The latest local implementation already added:
@@ -267,10 +267,10 @@ Use this map to decide where to make changes.
 | Update report chart/proof tables | `sglang_direct_kv/scripts/build_multi_harness_deadline_summary.py` | Add summary/proof columns for `controller_full`, urgent replay rank, demote/restore, and admission evidence. |
 | Collect environment/capability proof | `sglang_direct_kv/scripts/collect_run_environment.py` | Use this when a report needs machine, SGLang, or capability metadata. |
 | Smoke-test controller logic without GPU | `sglang_direct_kv/scripts/smoke_agentic_controller.py` | Fast sanity check for policy behavior. |
-| Unit-test controller behavior | `sglang_direct_kv/tests/test_agentic_controller.py` | Add tests before EC2 runs. At minimum test full-controller commands and proof fields. |
-| Run the focused EC2 repeatability ladder | `sglang_direct_kv/scripts/run_ec2_controller_repeatability.sh` | Existing script for the current one-harness EC2 controller comparison. Update later if `controller_full` becomes the default. |
-| EC2 connection and sync | `aws/check_ec2_ready.sh`, `aws/upload.sh`, `aws/ssh_to_ec2.sh` | Use these from the local repo root. |
-| GH200 docs and runners | `docs/deployment/gh200.md`, `gh200/run_controller_scaleup.sh` | Migration target only from this computer. Do not assume GH200 access here. |
+| Unit-test controller behavior | `sglang_direct_kv/tests/test_agentic_controller.py` | Add tests before remote A10G host runs. At minimum test full-controller commands and proof fields. |
+| Run the focused remote A10G host repeatability ladder | `sglang_direct_kv/scripts/run_nvidia_a10g_24gb_controller_repeatability.sh` | Existing script for the current one-harness remote A10G host controller comparison. Update later if `controller_full` becomes the default. |
+| remote A10G host connection and sync | `infra/remote/check_host_ready.sh`, `infra/remote/upload_workspace.sh`, `infra/remote/connect.sh` | Use these from the local repo root. |
+| GH200 docs and runners | `docs/deployment/nvidia_gh200_96gb.md`, `infra/accelerator/gh200/run_controller_scaleup.sh` | Migration target only from this computer. Do not assume GH200 access here. |
 
 Suggested first implementation path for `controller_full`:
 
@@ -281,7 +281,7 @@ Suggested first implementation path for `controller_full`:
 5. Add launch/report support in `run_harness_deadline_pressure.sh` and
    `build_multi_harness_deadline_summary.py`.
 6. Run local validation.
-7. Upload to EC2 and run the DeepAgents/Hatcher validation.
+7. Upload to remote A10G host and run the DeepAgents/Hatcher validation.
 
 ## Validation Before Push
 
@@ -298,7 +298,7 @@ For runner-only changes, also use dry-run expansion when available:
 
 ```bash
 cd sglang_direct_kv
-DRY_RUN=1 bash scripts/run_ec2_controller_repeatability.sh Qwen/Qwen2.5-Coder-7B-Instruct
+DRY_RUN=1 bash scripts/run_nvidia_a10g_24gb_controller_repeatability.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 ## Reporting Preferences

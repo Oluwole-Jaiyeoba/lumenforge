@@ -19,8 +19,8 @@ Everything except the landing page (`README.md`) and the active hand-off
 
 ## Deployment (`docs/deployment/`)
 
-- [EC2](deployment/aws.md)
-- [GH200](deployment/gh200.md)
+- [Remote host](deployment/remote_host.md)
+- [NVIDIA GH200](deployment/nvidia_gh200_96gb.md)
 
 ## Testbeds (`docs/testbeds/`)
 
@@ -63,13 +63,10 @@ Everything except the landing page (`README.md`) and the active hand-off
 - `docs/reports/`: [latest master report](reports/latest_master_report.html),
   [harness-aware scenario tracker](reports/harness_aware_scenario_tracker.html),
   [replay friction deep dive](reports/replay_friction_deep_dive.html).
-  `gh200/download.sh` and `run_harness_deadline_pressure.sh` refresh these copies.
+  `infra/accelerator/gh200/download.sh` and `run_harness_deadline_pressure.sh` refresh these copies.
 - `docs/presentations/`: slide decks and their rendered assets.
 
-## Archive (`docs/archive/`)
+## Historical artifacts
 
-Kept in git for history; nothing imports from here.
-
-- `backups/`: older copies of the master report and scenario tracker (formerly top-level `backups/`)
-- `codex-build/`, `codex_build/`: Codex slide/report build scratch (formerly `.codex-build/`, `.codex_build/`)
-- `last_conversation_verbatim.pdf`
+Historical report backups are preserved outside the repository so source and
+current documentation stay portable. Nothing in the workspace imports them.

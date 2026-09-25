@@ -416,31 +416,31 @@ nat_cache_control_ttl
 This smoke run should prove that the benchmark infrastructure works before we
 add the rest of the NAT hints.
 
-Run this on EC2, using `aws/config.sh` as the source of truth for the current
+Run this on remote A10G host, using `infra/remote/config.sh` as the source of truth for the current
 host:
 
 ```bash
 cd /Users/oluwolejaiyeoba/Documents/GitHub/agentic_hardware
-source aws/config.sh
-ssh $(ssh_opts hintbench) "$EC2_USER@${SERVERS[0]}"
+source infra/remote/config.sh
+ssh $(ssh_opts hintbench) "$REMOTE_USER@${REMOTE_HOSTS[0]}"
 
 cd ~/agentic_hardware
 .venvs/nat_py311/bin/python sglang_direct_kv/scripts/run_hint_benchmark.py \
   --harness nemo_agent_toolkit \
   --scenarios smoke \
   --nat-dynamo-transport-capture \
-  --run-id nat_real_smoke_phase5_ec2 \
-  --out-dir sglang_direct_kv/artifacts/results/hint_benchmark/nat_real_smoke_phase5_ec2
+  --run-id nat_real_smoke_phase5_remote_a10g \
+  --out-dir sglang_direct_kv/artifacts/results/hint_benchmark/nat_real_smoke_phase5_remote_a10g
 ```
 
 This capture mode uses NAT's `_DynamoTransport` and records the request body
 after NAT injects its hints, but before the request would be sent to SGLang. It
 does not require a live SGLang server, and it does not test SGLang lowering.
 
-Current phase-5 EC2 result:
+Current phase-5 remote A10G host result:
 
 ```text
-run_id: nat_real_smoke_phase5_ec2
+run_id: nat_real_smoke_phase5_remote_a10g
 execution_mode: nat_dynamo_transport_capture
 scenario_count: 5
 validation_rows: 7
@@ -472,7 +472,7 @@ real NAT smoke as pending. Do not report fixture evidence as real NAT evidence.
 Add the remaining NAT scenarios from the deck and mark unsupported or
 version-bound cases clearly.
 
-Run this on EC2:
+Run this on remote A10G host:
 
 ```bash
 cd ~/agentic_hardware
@@ -480,19 +480,19 @@ cd ~/agentic_hardware
   --harness nemo_agent_toolkit \
   --scenarios full_nat_coverage \
   --nat-dynamo-transport-capture \
-  --run-id nat_full_coverage_missing_paths_v2_ec2 \
-  --out-dir sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_ec2
+  --run-id nat_full_coverage_missing_paths_v2_remote_a10g \
+  --out-dir sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_remote_a10g
 ```
 
-Current phase-6 EC2 result:
+Current phase-6 remote A10G host result:
 
 ```text
-run_id: nat_full_coverage_missing_paths_v2_ec2
+run_id: nat_full_coverage_missing_paths_v2_remote_a10g
 execution_mode: nat_dynamo_transport_capture
 scenario_count: 16
 validation_rows: 20
 unknown_hint_rows: 0
-local artifact copy: sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_ec2
+local artifact copy: sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_remote_a10g
 ```
 
 Observed in NAT `_DynamoTransport` capture:
@@ -560,11 +560,11 @@ request-boundary runner mode: --claude-native-capture
 real-provider feedback runner mode: --claude-real-provider-capture
 ```
 
-Current EC2 status:
+Current remote A10G host status:
 
 ```text
 native capture adapter: implemented
-native Claude CLI/client: required on EC2 before Claude evidence can be claimed
+native Claude CLI/client: required on remote A10G host before Claude evidence can be claimed
 previous synthetic payload smoke: parser/plumbing only; not native harness evidence
 previous all-harness SGLang runs: adapter/glue evidence, not proof of organic Claude CLI emission
 ```

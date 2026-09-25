@@ -64,7 +64,7 @@ text. Unsupported text remains unchanged.
 Current examples:
 
 ```text
-WR1=/home/ec2-user/agentbench/repos/example_repo
+WR1=/home/remote host-user/agentbench/repos/example_repo
 F1=`path/to/file.py`
 FN1=normalize_url
 VC1=python -m pytest tests/unit/test_example.py
@@ -174,7 +174,7 @@ Example:
 
 ```bash
 cd sglang_direct_kv
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES=hatcher \
 PRESSURE_LEVELS="p3_high" \
 SIGNAL_FAMILIES="baseline frontend_supplied controller_priority_demotion_admission controller_shorthand" \
@@ -233,7 +233,7 @@ artifacts/results/prompt_shorthand_trajectory_scan.csv
 ```
 
 Use the approximate counter for quick local scans. Use the real tokenizer on
-EC2/GH200 when judging final token savings.
+remote A10G host/GH200 when judging final token savings.
 
 ## Adding A New Rule
 

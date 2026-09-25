@@ -31,7 +31,7 @@ by golden tests. Upgrading SGLang is now: run the checker, add or adjust one
 adapter file, run the checks, run one GPU reference experiment.
 
 What was **not** done (and why) is in section 9. The most important open item
-is a GPU run on EC2 to confirm nothing changed at runtime (section 8).
+is a GPU run on remote A10G host to confirm nothing changed at runtime (section 8).
 
 ---
 
@@ -43,9 +43,9 @@ directories. This file moved to `docs/architecture/` together with
 `ARCHITECTURE_MAP.md`; the hint-benchmark docs moved to `docs/hint_benchmark/`,
 `HARNESS_AWARE_SCENARIOS.md` to `docs/testbeds/`, the five proposal documents
 to `docs/proposals/`, the three top-level HTML reports to `docs/reports/`,
-`presentation/` to `docs/presentations/`, and `backups/`, `.codex-build/`,
-`.codex_build/` to `docs/archive/` (still tracked). A stray screenshot was
-deleted. `gh200/download.sh` now copies the master report to
+`presentation/` to `docs/presentations/`. Historical backups and build scratch
+were later moved outside the repository to preserve clean portability. A stray
+screenshot was deleted. `infra/accelerator/gh200/download.sh` now copies the master report to
 `docs/reports/`, and `run_harness_deadline_pressure.sh` writes the
 replay-friction reader copy there. All markdown links were rewritten and
 checked. The full table of contents is `docs/index.md`.
@@ -237,7 +237,7 @@ the test allows the count per file to go down, never up.
 
 ### D14. SGLang pinned to 0.5.10.post1
 `sglang_direct_kv/requirements.txt` had `sglang[all]` unpinned, so a fresh
-EC2 setup would install the newest release (0.5.20 as of this writing), which
+remote A10G host setup would install the newest release (0.5.20 as of this writing), which
 is 10 releases past what any result used. In the local artifacts, 151
 recorded `sglang_version` entries say 0.5.10.post1 and 3 say 0.5.11.
 
@@ -352,7 +352,7 @@ rest are static-only.
 11. `agentic_harness_scenarios/` moved to `packages/agentic-harness-scenarios/`.
 12. `install_workspace.sh` also installs `agentic-gateway`,
     `agentic-backend-sglang`, `agentic-harness-scenarios`.
-13. Top-level cleanup: `gh200/download.sh` copies `latest_master_report.html`
+13. Top-level cleanup: `infra/accelerator/gh200/download.sh` copies `latest_master_report.html`
     to `docs/reports/` (was the repo root); `run_harness_deadline_pressure.sh`
     passes `--top-level-copy-dir <repo>/docs/reports` to the replay-friction
     analyzer (was the repo root).
@@ -423,18 +423,18 @@ violated.
 
 ## 8. What must happen next on a GPU (not possible in this session)
 
-1. On EC2: `git fetch && git checkout refactor/sglang-portability`, then
+1. On remote A10G host: `git fetch && git checkout refactor/sglang-portability`, then
    `cd sglang_direct_kv && source .venv/bin/activate && bash ../scripts/install_workspace.sh`.
 2. Confirm the pinned version: `python -m agentic_backends.sglang.surface`
    should print `[OK] sglang 0.5.10.post1 vs adapter v0510`.
 3. Re-run the HANDOFF reference (hatcher, `p1_mild p3_high p4_cliff p5_boss_queue`,
    the controller modes) and compare median first-token lateness with
-   `ec2_controller_repeatability_20260909_034231`. Expected: same within
+   `nvidia_a10g_24gb_controller_repeatability_20260909_034231`. Expected: same within
    run-to-run noise.
 4. In each case's `kv_movement_trace.jsonl`, check `trace.install.summary`:
    `missing_required_hooks` must be `[]`.
 5. The branch is already merged into `main` (the owner asked for every change
-   to go to main). If the EC2 run shows a regression, fix forward on main or
+   to go to main). If the remote A10G host run shows a regression, fix forward on main or
    revert the range `491aea5..HEAD`; the pre-refactor code is also in
    `~/Documents/GitHub/backup/agentic_hardware_pre_refactor_20260923/`.
 

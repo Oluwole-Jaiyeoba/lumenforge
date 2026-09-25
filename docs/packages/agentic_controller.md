@@ -123,7 +123,7 @@ AIConfigurator estimator knobs:
   to AIConfigurator. If unset, the experiment model metadata is used.
 - `CONTROLLER_AICONFIGURATOR_SYSTEM`: AIConfigurator system name, such as
   `h200_sxm`. This is intentionally explicit because project hardware labels
-  like `ec2_a10g` are not necessarily AIConfigurator system names.
+  like `nvidia_a10g_24gb` are not necessarily AIConfigurator system names.
 - `CONTROLLER_AICONFIGURATOR_BACKEND`: backend name. Default: `sglang`.
 - `CONTROLLER_AICONFIGURATOR_ESTIMATE_MODE`: estimate mode. Default:
   `static_ctx`.

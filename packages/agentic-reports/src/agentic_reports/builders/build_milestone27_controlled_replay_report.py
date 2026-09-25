@@ -4074,7 +4074,7 @@ def runtime_config_rows(run_env: dict[str, Any]) -> dict[str, list[dict[str, str
         sglang_runtime = {}
 
     machine_rows = [
-        {"item": "machine / cloud instance", "value": env_value(run_env, "cloud", "instance_type") or "not detected", "why it matters": "Tells us whether this is a small EC2 GPU box or a Grace Hopper-class machine."},
+        {"item": "machine / cloud instance", "value": env_value(run_env, "cloud", "instance_type") or "not detected", "why it matters": "Tells us whether this is a small remote A10G host GPU box or a Grace Hopper-class machine."},
         {"item": "host RAM total", "value": env_value(run_env, "host_memory", "total_gib"), "why it matters": "Physical CPU memory available on the machine."},
         {"item": "host RAM available at capture", "value": env_value(run_env, "host_memory", "available_gib"), "why it matters": "Shows whether the machine itself was near RAM exhaustion."},
         {"item": "CPU", "value": env_value(run_env, "cpu", "Model name"), "why it matters": "Host-side KV movement and Python/SGLang control work run through this system."},
@@ -10029,8 +10029,8 @@ def reproduce_controlled_replay_html(result_root: Path) -> str:
     label = run_config.get("REPORT_LABEL") or result_root.name or "controlled_demo_1"
     model = run_config.get("MODEL") or "Qwen/Qwen2.5-Coder-7B-Instruct"
     trace_index = run_config.get("TRACE_INDEX_CSV") or "~/kv_cache_offloading/experiments/reports/latest_prompt_evolution_trace_index.csv"
-    if trace_index.startswith("/home/ec2-user/"):
-        trace_index = "~/" + trace_index.removeprefix("/home/ec2-user/")
+    if trace_index.startswith("/home/remote host-user/"):
+        trace_index = "~/" + trace_index.removeprefix("/home/remote host-user/")
 
     run_master = command_block_lines(
         [

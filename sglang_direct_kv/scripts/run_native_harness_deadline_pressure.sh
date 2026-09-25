@@ -8,7 +8,7 @@ set -euo pipefail
 export HARNESSES="${HARNESSES:-hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent}"
 export REPORT_LABEL="${REPORT_LABEL:-native_harness_deadline_pressure_$(date +%Y%m%d_%H%M%S)}"
 export REPORT_BUILDER_MODE="${REPORT_BUILDER_MODE:-lightweight}"
-# Set HARDWARE_PROFILE=ec2_a10g or HARDWARE_PROFILE=gh200 before calling this
+# Set HARDWARE_PROFILE=nvidia_a10g_24gb or HARDWARE_PROFILE=nvidia_gh200_96gb before calling this
 # wrapper to select the pressure scale.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

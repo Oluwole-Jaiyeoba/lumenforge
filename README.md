@@ -9,8 +9,8 @@ agentic inference experiments.
 - [Architecture map](docs/architecture/ARCHITECTURE_MAP.md)
 - [SGLang compatibility matrix](packages/agentic-backend-sglang/COMPATIBILITY.md)
 - [Documentation index](docs/index.md)
-- [EC2 setup](docs/deployment/aws.md)
-- [GH200 setup](docs/deployment/gh200.md)
+- [Remote host setup](docs/deployment/remote_host.md)
+- [NVIDIA GH200 setup](docs/deployment/nvidia_gh200_96gb.md)
 
 Install the complete development workspace with:
 
@@ -28,11 +28,11 @@ bash scripts/check_portability.sh
 
 ```text
 HANDOFF.md          active hand-off for the next agent/engineer
-docs/               all other documentation (index: docs/index.md), reports, presentations, archive
+docs/               all other documentation (index: docs/index.md), reports, and presentations
 packages/           all code: portable packages, agentic-experiments, agentic-reports;
                     SGLang-specific code only in agentic-backend-sglang
 sglang_direct_kv/   SGLang testbed: shell entry points, script wrappers, configs, tests
 scripts/            workspace install and portability checks
 tests/              architecture (boundary) tests
-aws/, gh200/        deployment helpers
+infra/              remote-host and accelerator deployment helpers
 ```

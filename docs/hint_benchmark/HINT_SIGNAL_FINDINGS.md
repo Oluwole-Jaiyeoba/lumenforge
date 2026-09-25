@@ -19,21 +19,21 @@ prove real-provider cache-hit feedback.
 Current NAT evidence:
 
 ```text
-run_id: nat_full_coverage_missing_paths_v2_ec2
+run_id: nat_full_coverage_missing_paths_v2_remote_a10g
 harness: nemo_agent_toolkit
 execution_mode: nat_dynamo_transport_capture
 scenario_count: 16
 validation_rows: 20
 unknown_hint_rows: 0
-artifact_dir: sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_ec2
+artifact_dir: sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_remote_a10g
 ```
 
 Primary evidence files:
 
 ```text
-sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_ec2/hint_support_matrix.csv
-sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_ec2/scenario_validation_summary.csv
-sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_ec2/observed_hint_evidence.jsonl
+sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_remote_a10g/hint_support_matrix.csv
+sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_remote_a10g/scenario_validation_summary.csv
+sglang_direct_kv/artifacts/results/hint_benchmark/nat_full_coverage_missing_paths_v2_remote_a10g/observed_hint_evidence.jsonl
 ```
 
 Important boundary: this run captures NAT request bodies after NAT's transport
@@ -47,7 +47,7 @@ Current Claude status:
 native capture adapter: implemented
 harness: claude_code
 execution_mode: claude_native_capture
-native CLI/client requirement: Claude Code must be installed and configured on EC2
+native CLI/client requirement: Claude Code must be installed and configured on remote A10G host
 current evidence status: updated native request-boundary run completed; real-provider feedback blocked by Claude login
 current native client version: Claude Code 2.1.270
 current native run_id: claude_signal_coverage_20260914_212511_native_boundary
@@ -280,7 +280,7 @@ Benchmark outputs include an `evidence_tier` column:
 | Claude Code | message block `cache_control` | yes | content block level | reusable message prefix | Claude Code prompt builder marked stable environment/context message blocks | `claude_stable_message_context` | `messages.*.content.*.cache_control.type="ephemeral"` | native Claude client probe | `claude_native_full_coverage_20260914_203812_rescored_wildcards` | Observed at nonzero message/content indexes. |
 | Claude Code | prompt cache prewarm | partial | request level | cache warmup before real request | Prewarm-like client probe checks whether the real client can emit `max_tokens=0` with cache control | `claude_prewarm_like_probe` | observed cache control, but `max_tokens=64000` | native Claude client probe | `claude_native_full_coverage_20260914_203812_rescored_wildcards` | This showed cache-control, but did not become a true `max_tokens=0` prewarm request. |
 | Claude direct API | prompt cache prewarm | yes | request level | cache warmup before real request | Direct Anthropic API request uses `max_tokens=0` with cache-controlled prefix | `claude_api_prewarm_max_tokens_zero` | `{"max_tokens":0,"system":[{"cache_control":{"type":"ephemeral"}}]}` | documented direct API payload | `anthropic_api_payload_capture` | Direct API capability only; native Claude Code CLI did not emit this shape in the previous run. |
-| Claude Code | cache-hit feedback | blocked | runtime feedback level | post-execution usage metrics | Real provider/backend response must include cache counters | `claude_provider_cache_feedback_probe` | expected: `{"usage":{"cache_creation_input_tokens":...,"cache_read_input_tokens":...}}` | real provider response required | `claude_signal_coverage_20260914_212511_real_provider_feedback` | EC2 Claude CLI returned `Not logged in`, so the usage counters were zero and this cannot prove cache-hit feedback yet. |
+| Claude Code | cache-hit feedback | blocked | runtime feedback level | post-execution usage metrics | Real provider/backend response must include cache counters | `claude_provider_cache_feedback_probe` | expected: `{"usage":{"cache_creation_input_tokens":...,"cache_read_input_tokens":...}}` | real provider response required | `claude_signal_coverage_20260914_212511_real_provider_feedback` | remote A10G host Claude CLI returned `Not logged in`, so the usage counters were zero and this cannot prove cache-hit feedback yet. |
 | Claude direct API | cache-hit feedback shape | yes | runtime feedback level | post-execution usage metrics | Direct API response fixture includes documented cache usage counters | `claude_api_cache_feedback_fixture` | `{"usage":{"cache_creation_input_tokens":248,"cache_read_input_tokens":1800}}` | documented response payload | `anthropic_api_payload_capture` | Validates reporting/validation path. Real cache proof still requires real provider execution. |
 | Claude Code | separate `cache_pinning=true` | no | cache entry level | cache retention behavior | Negative probe checks whether the real client emits literal pinning | `claude_cache_pinning_negative_probe` | no `cache_pinning` field observed | native Claude client negative probe | `claude_native_full_coverage_20260914_203812` | Negative probe passed; Claude documents TTL/cache-control behavior, not a separate pin flag. |
 | Qwen Code | provider QoS / service tier | yes | provider level | provider/model behavior | Qwen `generationConfig.extra_body` supplies provider QoS metadata | `qwen_provider_qos_extra_body` | `{"service_tier":"priority","agentic_hints":{"priority_class":"urgent"}}` | provider/config carried by Qwen Code | `qwen_native_full_20260921_local` | This is configured provider metadata, not organic urgency inference. |

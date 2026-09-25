@@ -135,29 +135,6 @@ def nvidia_smi_summary() -> dict[str, Any]:
     }
 
 
-def ec2_metadata(path: str) -> str:
-    token_result = run_cmd(
-        [
-            "curl",
-            "-fsS",
-            "-m",
-            "1",
-            "-X",
-            "PUT",
-            "http://169.254.169.254/latest/api/token",
-            "-H",
-            "X-aws-ec2-metadata-token-ttl-seconds: 60",
-        ],
-        timeout=2.0,
-    )
-    headers: list[str] = []
-    token = str(token_result.get("stdout") or "")
-    if token:
-        headers = ["-H", f"X-aws-ec2-metadata-token: {token}"]
-    result = run_cmd(["curl", "-fsS", "-m", "1", *headers, f"http://169.254.169.254/latest/meta-data/{path}"], timeout=2.0)
-    return str(result.get("stdout") or "") if result.get("ok") else ""
-
-
 def python_packages() -> dict[str, str]:
     packages: dict[str, str] = {"python": sys.version.split()[0]}
     for package in ("sglang", "torch", "transformers", "triton", "flashinfer-python"):
@@ -267,10 +244,6 @@ def main() -> None:
     run_config = parse_key_value_file(args.run_config_env)
     sglang_logs = collect_sglang_logs(args.controlled_root)
 
-    instance_type = ec2_metadata("instance-type")
-    availability_zone = ec2_metadata("placement/availability-zone")
-    instance_id = ec2_metadata("instance-id")
-
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "hostname": socket.gethostname(),
@@ -280,11 +253,9 @@ def main() -> None:
             "machine": platform.machine(),
             "platform": platform.platform(),
         },
-        "cloud": {
-            "provider": "aws" if instance_type else "",
-            "instance_type": instance_type,
-            "availability_zone": availability_zone,
-            "instance_id": instance_id,
+        "host_identity": {
+            "label": os.environ.get("AGENTIC_HW_HOST_LABEL", ""),
+            "profile": os.environ.get("HARDWARE_PROFILE", ""),
         },
         "host_memory": {
             **host_memory,

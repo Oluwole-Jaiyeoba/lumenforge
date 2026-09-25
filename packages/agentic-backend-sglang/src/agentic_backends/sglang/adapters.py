@@ -256,7 +256,7 @@ class GatewayFullControllerBackendAdapter:
     """Adapter for the first combined portable controller policy.
 
     Full controller v1 deliberately combines only the controller pieces that
-    have shown value on EC2: replay priority, background demotion/restoration,
+    have shown value on remote A10G host: replay priority, background demotion/restoration,
     and explicit admission/budget decisions. It does not expose KV prefetch in
     its default capabilities, so speculative preload cannot sneak into the full
     mode unless a later policy version opts into it.

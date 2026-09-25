@@ -7,7 +7,7 @@ DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_ROOT="$(cd "${DIRECT_ROOT}/.." && pwd)"
 cd "${DIRECT_ROOT}"
 
-HARDWARE_PROFILE="${HARDWARE_PROFILE:-ec2_a10g}"
+HARDWARE_PROFILE="${HARDWARE_PROFILE:-nvidia_a10g_24gb}"
 HARDWARE_PROFILE_PATH="${HARDWARE_PROFILE_PATH:-}"
 
 load_hardware_profile() {

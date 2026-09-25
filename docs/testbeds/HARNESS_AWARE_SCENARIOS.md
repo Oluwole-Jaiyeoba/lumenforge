@@ -350,7 +350,7 @@ The controller translates reuse probability, recompute cost, and expected replay
 SGLang compatibility note:
 
 ```text
-The EC2 SGLang version checked on 2026-09-17 is 0.5.10.post1. It already has
+The remote A10G host SGLang version checked on 2026-09-17 is 0.5.10.post1. It already has
 the internal PriorityStrategy and stores priority on radix cache nodes, but its
 CLI choice list exposes only lru, lfu, and slru by default. Scenario 3 enables
 an opt-in project shim, AGENTIC_KV_ENABLE_PRIORITY_RADIX_EVICTION_CHOICE=1, so

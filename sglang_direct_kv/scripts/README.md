@@ -7,7 +7,7 @@ or `bash scripts/run_harness_deadline_pressure.sh <model>`.
 What lives here now:
 
 - **Shell entry points** (`*.sh`): experiment orchestration, SGLang server
-  launch, EC2/GH200 setup. These are the real code for the testbed.
+  launch, remote A10G host/GH200 setup. These are the real code for the testbed.
 - **Thin Python wrappers** (`*.py`, 57 files): the code moved into
   `packages/` on 2026-09-23. Each wrapper calls
   `_moved.run_or_alias(__name__, "<package.module>")`, which runs the package

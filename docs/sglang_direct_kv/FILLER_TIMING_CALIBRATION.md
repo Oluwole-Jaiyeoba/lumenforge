@@ -24,7 +24,7 @@ before using that estimate inside the controller.
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES=hatcher \
 CONCURRENCY_LEVELS="1 2 4 8" \
 SAMPLES_PER_CONCURRENCY=8 \

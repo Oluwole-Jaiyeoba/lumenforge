@@ -2,17 +2,17 @@
 
 Compact command table for the Agentic Hint Benchmark Suite.
 
-Run these commands on the EC2 machine from the repo root:
+Run these commands on the remote A10G host machine from the repo root:
 
 ```bash
 cd ~/agentic_hardware
 ```
 
-From the Mac, SSH with the configured EC2 host:
+From the Mac, SSH with the configured remote A10G host host:
 
 ```bash
 cd /Users/oluwolejaiyeoba/Documents/GitHub/agentic_hardware
-bash -lc 'source aws/config.sh && ssh $(ssh_opts hintbench) "$EC2_USER@${SERVERS[0]}"'
+bash -lc 'source infra/remote/config.sh && ssh $(ssh_opts hintbench) "$REMOTE_USER@${REMOTE_HOSTS[0]}"'
 cd ~/agentic_hardware
 ```
 
@@ -1563,7 +1563,7 @@ next round of omission-closing experiments.
 | Claude Code | literal cache key | conditional | Claude appears to use provider-derived exact-prefix matching without exposing a cache-key field. | Use a provider/API path that surfaces prompt-cache identity, or keep validating repeated-prefix behavior without expecting a literal key. | maybe |
 | Claude Code | tool-level `cache_control` | conditional | Tool-heavy request had tools, but no `tools.*.cache_control` marker. | Build a stable-tool-definition scenario and inspect whether Claude Code/provider marks reusable tool definitions directly. | no |
 | Claude Code | native `max_tokens=0` prewarm | conditional | Native Claude Code capture emitted cache control, but not a zero-token prewarm request. | Find or add a Claude Code path that can issue a prewarm-like request, then compare against the direct API max-token-zero capability fixture. | no |
-| Claude Code | real cache-hit usage counters | yes | Current real-provider probe is blocked by Claude login/auth on EC2. | Authenticate Claude/provider, run repeated identical cacheable prefixes inside TTL, and collect `cache_creation_input_tokens` / `cache_read_input_tokens`. | yes |
+| Claude Code | real cache-hit usage counters | yes | Current real-provider probe is blocked by Claude login/auth on remote A10G host. | Authenticate Claude/provider, run repeated identical cacheable prefixes inside TTL, and collect `cache_creation_input_tokens` / `cache_read_input_tokens`. | yes |
 | Qwen Code | literal cache key | conditional | Deck frames Qwen cache keying as automatic prefix matching; no literal request cache-key field appeared. | Run against a provider/gateway that exposes cache identity, or add a repeated-prefix provider trace lane. | maybe |
 | Qwen Code | real cache-hit usage counters | yes | Local request-boundary capture cannot prove provider cache hits. | Run repeated cacheable Qwen requests against a real provider and collect `usage.cached_tokens` or provider-specific cache counters. | yes |
 | Pi Agent Harness | cache-hit feedback | yes | Request-boundary capture saw Pi request fields, but not real provider cache-hit usage. | Run repeated cacheable Pi requests against a real provider and collect Pi footer/provider usage counters such as cache read/write. | yes |
@@ -1574,7 +1574,7 @@ next round of omission-closing experiments.
 | OpenClaw | cached WebSocket / prewarm metadata | conditional | Deck labels this as a different mechanism from KV prefill; no `cached_websocket` or `websocket_prewarm` field appeared. | Exercise the real cached-WebSocket path and capture WebSocket session metadata or provider trace. | maybe |
 | OpenClaw | real cache-hit usage counters | yes | Request-boundary capture cannot prove provider cache hits. | Run repeated cacheable OpenClaw requests against a real provider and collect OpenClaw/provider trace or usage counters. | yes |
 | OpenClaw | cache pinning / retention | conditional | Deck says provider-managed only; current capture did not expose retention or literal `cache_pinning`. | Use a provider path that exposes retention metadata, or keep treating this as provider-managed until evidence appears. | maybe |
-| Hermes Agent | native request-boundary evidence | yes | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. | no |
+| Hermes Agent | native request-boundary evidence | yes | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on remote A10G host/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. | no |
 | Hermes Agent | literal cache key | conditional | Deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal key may not exist. | Run native Hermes repeated-prefix probes and, if needed, a provider trace lane that exposes cache identity. | maybe |
 | Hermes Agent | real cache-hit usage counters | yes | Request-boundary capture cannot prove provider cache hits. | Run repeated cacheable Hermes requests against a real provider and collect prompt-cache metrics or usage counters. | yes |
 | OpenCode | stats/provider cache feedback | yes | Provider/plugin config capture does not include runtime provider usage. | Run provider/plugin-backed OpenCode requests and collect stats or usage fields that expose cache feedback. | yes |
@@ -1592,7 +1592,7 @@ next round of omission-closing experiments.
 | Claude Code | literal cache key | Not observed; Claude appears to use provider-derived exact-prefix matching. | Claude Code or the provider would need to expose a literal request cache-key field; current native capture did not. |
 | Claude Code | tool-level `cache_control` | Not observed in the tested tool-heavy request. | Run a Claude Code setup with stable tool definitions that the CLI/provider marks directly as <code>tools.*.cache_control</code>; our observed path cached system/message blocks instead. |
 | Claude Code | native `max_tokens=0` prewarm | Not observed from Claude Code CLI in our capture. | Claude Code would need a native zero-token request path; direct API can represent this, but the native CLI path has not emitted it. |
-| Claude Code | real cache-hit usage counters | Implemented runner path, but EC2 Claude CLI is not logged in today. | Use an authenticated Claude/provider run with repeated identical cacheable prefix requests inside the TTL, then capture response usage counters. |
+| Claude Code | real cache-hit usage counters | Implemented runner path, but remote A10G host Claude CLI is not logged in today. | Use an authenticated Claude/provider run with repeated identical cacheable prefix requests inside the TTL, then capture response usage counters. |
 | Qwen Code | literal cache key | Not observed in request-boundary capture; the deck frames Qwen cache keying as automatic prefix matching. | A provider or future Qwen path would need to expose a literal request cache-key field. |
 | Qwen Code | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider usage counters such as cached tokens. |
 | Pi Agent Harness | cache-hit feedback | Request-boundary capture saw Pi request fields, but not real provider cache-hit usage. | Use a real provider run with repeated cacheable prefix requests and collect Pi footer/provider usage counters such as cache read/write. |
@@ -1605,7 +1605,7 @@ next round of omission-closing experiments.
 | Deep Agents | native library/CLI proof | Provider/middleware capture exists, but no stable local Deep Agents request-boundary CLI path was proven here. | Add a Deep Agents library-level probe or identify a CLI mode that can redirect model traffic locally. |
 | DeepSeek Harness | real provider feedback | Provider-capability capture exists for prefix cache, TTL, and pinning, but `cacheReadTokens` needs a real DeepSeek/provider response. | Run repeated prefix probes against a real provider and collect usage counters. |
 | Codex | native Codex client proof | Provider-config capture exists, but native Codex client proof is still separate from provider-config payload evidence. | Run Codex against a local Responses capture server or real provider trace and map the resulting request fields. |
-| Hermes Agent | native request-boundary evidence | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on EC2/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. |
+| Hermes Agent | native request-boundary evidence | Runner/configs are implemented, but no Hermes CLI is installed on this local machine. | Run `--hermes-native-capture` on remote A10G host/GH200 or any host with `HARNESS_HERMES_BIN` set to a working Hermes CLI. |
 | Hermes Agent | literal cache key | The deck frames Hermes cache keying as prompt-tier/model/provider behavior; a literal cache-key field is optional. | A provider or future Hermes path would need to expose a literal request cache-key field. |
 | Hermes Agent | real cache-hit usage counters | Request-boundary capture cannot prove provider cache hits. | Use a real provider run with repeated cacheable prefix requests and collect provider prompt-cache metrics. |
 

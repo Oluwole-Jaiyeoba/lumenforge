@@ -389,12 +389,12 @@ The need is:
 
 ### Milestone 0: Testbed Scaffold - Completed
 
-Status: completed locally and uploaded to EC2.
+Status: completed locally and uploaded to remote A10G host.
 
 What it is:
 
 ```text
-Create the project folder, scripts, Python package, configs, and EC2 sync workflow.
+Create the project folder, scripts, Python package, configs, and remote A10G host sync workflow.
 ```
 
 Why we need it:
@@ -402,30 +402,30 @@ Why we need it:
 ```text
 Before touching SGLang internals, we need a repeatable place to run experiments.
 This prevents the project from becoming a set of one-off shell commands.
-It also lets us upload the same code to EC2, run it, download artifacts, and debug cleanly.
+It also lets us upload the same code to remote A10G host, run it, download artifacts, and debug cleanly.
 ```
 
 What this proved:
 
 ```text
 The project has a clean direct-SGLang testbed structure.
-The EC2 upload/download/SSH scripts work.
+The remote A10G host upload/download/SSH scripts work.
 The Python package installs in editable mode.
 ```
 
 Important events to observe:
 
 ```text
-setup_ec2 completes without Python/package errors
-upload.sh syncs local files to EC2
-download.sh pulls artifacts back from EC2
-ssh_to_ec2.sh can run remote commands
+setup_nvidia_a10g_24gb completes without Python/package errors
+upload.sh syncs local files to remote A10G host
+download.sh pulls artifacts back from remote A10G host
+connect.sh can run remote commands
 ```
 
 Key files:
 
 ```text
-scripts/setup_ec2.sh
+scripts/setup_nvidia_a10g_24gb.sh
 scripts/run_sglang_server.sh
 scripts/run_sglang_hicache_server.sh
 scripts/probe_sglang_kv_paths.py
@@ -436,7 +436,7 @@ src/agentic_kv/instrumentation.py
 
 ### Milestone 1: SGLang Internals Map - Completed
 
-Status: completed on EC2.
+Status: completed on remote A10G host.
 
 What it is:
 
@@ -510,12 +510,12 @@ HiRadixCache / RadixCache functions are found
 
 ### Milestone 2: Real SGLang + HiCache Smoke Test - Completed
 
-Status: completed on EC2.
+Status: completed on remote A10G host.
 
 What it is:
 
 ```text
-Run a real SGLang server on the EC2 GPU with hierarchical KV cache enabled, then send a real chat request.
+Run a real SGLang server on the remote A10G host GPU with hierarchical KV cache enabled, then send a real chat request.
 ```
 
 Why we need it:
@@ -545,7 +545,7 @@ REQUEST_COUNT=3 bash scripts/smoke_hicache_request.sh Qwen/Qwen2.5-1.5B-Instruct
 What we proved:
 
 ```text
-SGLang runs on the EC2 GPU.
+SGLang runs on the remote A10G host GPU.
 Qwen/Qwen2.5-1.5B-Instruct loads successfully.
 Hierarchical KV cache can be enabled.
 SGLang allocates real device KV cache.
@@ -590,7 +590,7 @@ Prune old Docker state to free disk space.
 
 ### Milestone 3: Log Real KV Movement - Completed
 
-Status: completed on EC2 for the initial HiCache write path.
+Status: completed on remote A10G host for the initial HiCache write path.
 
 What it is:
 
@@ -675,7 +675,7 @@ hiradix.ready_to_load_host_cache.start / hiradix.ready_to_load_host_cache.end
 hicache.write.start / hicache.write.end
 ```
 
-Result from the first traced EC2 run:
+Result from the first traced remote A10G host run:
 
 ```text
 REQUEST_COUNT=3
@@ -698,7 +698,7 @@ The next step is to create a pressure/resume workload that forces load and evict
 
 ### Milestone 4: Force Load/Evict And Add Direct Hint Hooks - Completed
 
-Status: completed on EC2 for the pressure/load/evict path and initial agent hint timeline.
+Status: completed on remote A10G host for the pressure/load/evict path and initial agent hint timeline.
 
 What it is:
 
@@ -791,7 +791,7 @@ The trace can associate those events with a request/session or prefix-cache path
 The hint layer can mark a session as likely to resume soon.
 ```
 
-Result from the first pressure EC2 run:
+Result from the first pressure remote A10G host run:
 
 ```text
 MAX_TOTAL_TOKENS=8192
@@ -819,7 +819,7 @@ This is still not a performance comparison. It is proof that the pressure/resume
 
 ### Milestone 5: Compare Three Modes - Completed
 
-Status: completed on EC2 for the first small three-mode comparison.
+Status: completed on remote A10G host for the first small three-mode comparison.
 
 What it is:
 
@@ -992,7 +992,7 @@ Does hint-aware KV movement reduce post-tool resume latency compared with no pre
 Success criteria:
 
 ```text
-Same model, same trace, same EC2 machine, same request mix.
+Same model, same trace, same remote A10G host machine, same request mix.
 Mode 3 improves tool-return-to-first-token latency or tail latency.
 Mode 3 avoids obvious regressions such as too much wasted prefetch or decode slowdown.
 ```
@@ -1024,7 +1024,7 @@ Important interpretation:
 
 ```text
 The comparison harness works.
-All three modes ran on the same model, same EC2 instance, same constrained KV pool, and same pressure/resume workload.
+All three modes ran on the same model, same remote A10G host instance, same constrained KV pool, and same pressure/resume workload.
 The harsher run creates more KV pressure than the first run.
 No-prefetch resume TTFT increased from about 48 ms to about 79 ms.
 Generic pre-pressure prefetch did not help because later filler requests can evict or disturb the warmed target KV/prefix.
@@ -1035,7 +1035,7 @@ The next step is to run larger repetitions and package the results for the manag
 
 ### Milestone 6: Design-Space Sweep
 
-Status: implemented and smoke-tested on EC2.
+Status: implemented and smoke-tested on remote A10G host.
 
 What it is:
 
@@ -1232,7 +1232,7 @@ Enough evidence to pick the best next hardware feature to emulate more directly.
 
 ### Milestone 7: Direct KV Movement Hooks
 
-Status: implemented and smoke-tested on EC2 as a safe direct-hook probe.
+Status: implemented and smoke-tested on remote A10G host as a safe direct-hook probe.
 
 What it is:
 
@@ -1512,7 +1512,7 @@ To make this closer to future hardware/runtime support, we should eventually rep
 
 ### Milestone 7D: Direct Load-Back Trigger
 
-Status: implemented and pressure-tested on EC2.
+Status: implemented and pressure-tested on remote A10G host.
 
 What it is:
 
@@ -1709,7 +1709,7 @@ PREFETCH_ACTIONS="direct_load" \
 bash scripts/legacy/run_milestone8_direct_load_design_space.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
-Smoke result observed on EC2:
+Smoke result observed on remote A10G host:
 
 ```text
 filler_sessions: 12
@@ -1749,7 +1749,7 @@ This means late_prefetch can now be observed instead of hidden by the workload d
 Milestone 9B validation:
 
 ```text
-EC2 late-prefetch smoke:
+remote A10G host late-prefetch smoke:
 SESSION_COUNT=2
 TOOL_WAIT_LIST_MS="250"
 HINT_DELAY_MS=500
@@ -1948,7 +1948,7 @@ ORACLE_LEAD_MS=100 \
 bash scripts/run_milestone9_agentic_traffic.sh Qwen/Qwen2.5-1.5B-Instruct
 ```
 
-Smoke result observed on EC2:
+Smoke result observed on remote A10G host:
 
 ```text
 no_prefetch:
@@ -2056,7 +2056,7 @@ software can issue hints, but the current runtime/memory path cannot make those 
 
 ### Milestone 10: DMA Timeline Profiling
 
-Status: completed for the worker-local torch.profiler path. External Nsight remains optional and limited on the current EC2 setup.
+Status: completed for the worker-local torch.profiler path. External Nsight remains optional and limited on the current remote A10G host setup.
 
 What it is:
 
@@ -2066,7 +2066,7 @@ There are now two profiling paths:
 1. worker-local torch.profiler inside SGLang worker processes
 2. external Nsight Systems profiling
 
-The worker-local profiler is the recommended first path because external Nsight has not yet exposed SGLang's worker GPU activity on the current EC2 setup.
+The worker-local profiler is the recommended first path because external Nsight has not yet exposed SGLang's worker GPU activity on the current remote A10G host setup.
 ```
 
 Why we need it:
@@ -2093,7 +2093,7 @@ The profiler runner supports two shapes:
 1. monitor: start Nsight first as a short system-wide monitor, then start SGLang.
 2. launch: let Nsight launch SGLang directly.
 
-On the current EC2 setup, Nsight works on a simple PyTorch CUDA control test,
+On the current remote A10G host setup, Nsight works on a simple PyTorch CUDA control test,
 but does not yet expose SGLang worker memcpy/kernel tables.
 So the current fix is to enable torch.profiler inside the SGLang worker and export Chrome traces from there.
 ```
@@ -2221,7 +2221,7 @@ software can issue hints,
 but the memory movement path needs deadline, priority, and residency semantics to make the hints predictable.
 ```
 
-Current EC2 validation:
+Current remote A10G host validation:
 
 ```text
 Completed a 4-session smoke run with Nsight Systems installed.
@@ -2244,7 +2244,7 @@ Current interpretation:
 ```text
 Milestone 10 completed the worker-local profiler path.
 We also have the external Nsight harness and can generate profiler artifacts.
-But external Nsight did not expose SGLang memcpy/kernel tables on this EC2 setup.
+But external Nsight did not expose SGLang memcpy/kernel tables on this remote A10G host setup.
 
 The fix was to use a worker-local torch.profiler hook inside the SGLang worker process.
 That showed actual worker CUDA activity from inside the process.
@@ -2274,7 +2274,7 @@ we can now line up CUDA transfer events with SGLang host/device KV index movemen
 
 ### Milestone 10B: CUDA Transfer To KV Block Attribution - Completed
 
-Status: completed on EC2.
+Status: completed on remote A10G host.
 
 What it is:
 
@@ -2351,7 +2351,7 @@ Simple meaning:
 Current Milestone 10B validation:
 
 ```text
-Completed on EC2 with:
+Completed on remote A10G host with:
   RESULT_ROOT=artifacts/results/milestone10b_custom_tag_block_smoke
   MODE=oracle_direct_load
   SESSION_COUNT=4
@@ -2389,7 +2389,7 @@ For DMA/copy evidence, use Milestone 10 torch-profiler traces.
 
 ### Milestone 11: Agentic Prefetch Timeline Experiment
 
-Status: completed on EC2 for a 6-session smoke run.
+Status: completed on remote A10G host for a 6-session smoke run.
 
 What it is:
 
@@ -2557,7 +2557,7 @@ agent.request.start phase=replay
 agent.request.end phase=replay
 ```
 
-Smoke result observed on EC2:
+Smoke result observed on remote A10G host:
 
 ```text
 RESULT_ROOT=artifacts/results/milestone11_timeline_smoke
@@ -2673,7 +2673,7 @@ Use Milestone 9 style runs without torch.profiler for cleaner TTFT performance n
 
 ### Milestone 11B: Improved CUDA Copy Attribution
 
-Status: completed on EC2 for a 6-session attribution smoke run.
+Status: completed on remote A10G host for a 6-session attribution smoke run.
 
 What it is:
 
@@ -2772,7 +2772,7 @@ It does not mean:
 
 ### Milestone 11C: Profiler Coverage Diagnosis
 
-Status: completed on EC2 for a focused 6-session attribution-debug run.
+Status: completed on remote A10G host for a focused 6-session attribution-debug run.
 
 What it is:
 
@@ -2870,7 +2870,7 @@ It is a useful case showing why raw copy visibility is only one part of the pref
 
 ### Milestone 12: Paired Clean + Attribution Evidence
 
-Status: completed on EC2 with both smoke and manager stress presets.
+Status: completed on remote A10G host with both smoke and manager stress presets.
 
 What it is:
 
@@ -3043,7 +3043,7 @@ If a value comes from the profiled run, it supports mechanism/attribution claims
 
 ### Milestone 13: Failure Stress Experiment
 
-Status: completed on EC2.
+Status: completed on remote A10G host.
 
 What it is:
 
@@ -3187,7 +3187,7 @@ Key Observations Per Session:
 
 ### Milestone 13B: Green-Bar Failure Stress
 
-Status: completed on EC2.
+Status: completed on remote A10G host.
 
 What it is:
 
@@ -3299,7 +3299,7 @@ Do not use profiled TTFT as performance evidence because torch.profiler can add 
 
 ### Milestone 14: Lightweight KV Copy Telemetry
 
-Status: completed on EC2.
+Status: completed on remote A10G host.
 
 What it is:
 
@@ -3385,7 +3385,7 @@ artifacts/results/latest_synthetic_master_report.html
 artifacts/results/milestone14_lightweight_copy_telemetry/paired_report/paired_report.html
 ```
 
-Completed EC2 result:
+Completed remote A10G host result:
 
 ```text
 Clean performance:
@@ -3436,7 +3436,7 @@ SGLang KV-copy telemetry corresponds to real CUDA HtoD movement.
 
 ### Milestone 15: Targeted DMA/HtoD Validation
 
-Status: completed on EC2.
+Status: completed on remote A10G host.
 
 What it is:
 
@@ -3495,7 +3495,7 @@ AGENTIC_KV_TORCH_PROFILER_START_EVENTS=hostpool.load_to_device_per_layer
 AGENTIC_KV_TORCH_PROFILER_START_AGENT_PHASE=hint_prefetch
 ```
 
-Completed EC2 result:
+Completed remote A10G host result:
 
 ```text
 Profile files:                  1
@@ -3615,7 +3615,7 @@ The report also keeps Timeline Sanity Checks:
 
 ### Milestone 16: AgentBench -> SGLang Direct
 
-Status: validated on EC2/GPU with a single SWE-bench Pro task.
+Status: validated on remote A10G host/GPU with a single SWE-bench Pro task.
 
 What it is:
 
@@ -3779,7 +3779,7 @@ The workload has enough rows for a replay experiment.
 
 ### Milestone 18: Real Prompt Prefetch Modes
 
-Status: validated on EC2/GPU with the latest AgentBench replay workload.
+Status: validated on remote A10G host/GPU with the latest AgentBench replay workload.
 
 What it is:
 
@@ -4198,7 +4198,7 @@ Direct-SGLang tool-call health fixes:
 2. Tool filesystem root:
    DeepAgents tools see the SWE-bench repo mounted at `/`.
    The prompt patch now tells the model to use `/` or relative paths,
-   not the EC2 host checkout path.
+   not the remote A10G host host checkout path.
 
 3. Tool discipline:
    The prompt/tool descriptions now say:
@@ -4839,7 +4839,7 @@ with these same copy-paste commands.
 ```
 
 The standard master report also includes an **Experiment Machine And Runtime
-Configuration** subsection near the top. It records the EC2 instance, GPU name,
+Configuration** subsection near the top. It records the remote A10G host instance, GPU name,
 GPU memory size/type, host RAM, model, SGLang version, context length, and the
 configured HiCache host KV shelf. This is important because physical host RAM
 and the SGLang HiCache allocation are not the same thing.
@@ -6505,15 +6505,15 @@ bash scripts/probe_sglang_capabilities_docker.sh
 Use `DOCKER_PULL=0` because `local/dynamo-sglang:runtime-json-logs-gh200`
 is a locally built worker image, not a public Docker Hub image.
 
-On an x86 EC2/G5-style machine, use the EC2 worker tag instead:
+On an x86 remote A10G host/G5-style machine, use the remote A10G host worker tag instead:
 
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv
 
-IMAGE=local/dynamo-sglang:runtime-json-logs-ec2 \
+IMAGE=local/dynamo-sglang:runtime-json-logs-remote host \
 DOCKER_PULL=0 \
-OUT_JSON=artifacts/sglang_capabilities_dynamo_worker_ec2.json \
-OUT_MD=artifacts/sglang_capabilities_dynamo_worker_ec2.md \
+OUT_JSON=artifacts/sglang_capabilities_dynamo_worker_remote_a10g.json \
+OUT_MD=artifacts/sglang_capabilities_dynamo_worker_remote_a10g.md \
 bash scripts/probe_sglang_capabilities_docker.sh
 ```
 
@@ -6523,14 +6523,14 @@ If the worker image is missing, build only the worker image from the
 ```bash
 cd ~/kv_cache_offloading
 
-DYNAMO_MACHINE_PROFILE=ec2 \
+DYNAMO_MACHINE_PROFILE=remote host \
 SKIP_FRONTEND=1 \
 SKIP_WORKER=0 \
 DYN_RUNTIME_JSON_LOGS=1 \
 bash runtime_instrumentation/build_instrumented_dynamo_images.sh
 ```
 
-The GH200 tag is ARM-oriented; do not use the `gh200` profile on the x86 EC2
+The GH200 tag is ARM-oriented; do not use the `gh200` profile on the x86 remote A10G host
 machine unless you intentionally want an ARM build.
 
 What this checks:
@@ -6545,19 +6545,19 @@ What this checks:
 4. Whether our SGLang hook classes/methods still exist.
 ```
 
-Current EC2 status:
+Current remote A10G host status:
 
 ```text
-The EC2 machine has the public base image:
+The remote A10G host machine has the public base image:
   lmsysorg/sglang:v0.5.11-cu129-runtime
 
-The x86 EC2 machine should use the local worker image:
-  local/dynamo-sglang:runtime-json-logs-ec2
+The x86 remote A10G host machine should use the local worker image:
+  local/dynamo-sglang:runtime-json-logs-remote host
 
-The GH200 worker tag is ARM/GH200-oriented. Do not use it on this x86 EC2
+The GH200 worker tag is ARM/GH200-oriented. Do not use it on this x86 remote A10G host
 machine unless you intentionally want an ARM build.
 
-After the EC2 worker image is built, the capability probe should report:
+After the remote A10G host worker image is built, the capability probe should report:
   SGLang version: 0.5.11
   selected adapter: v0511
   --enable-priority-scheduling: supported
@@ -7165,7 +7165,7 @@ cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
 RESULT_LABEL=priority_queue_jump_sanity_1 \
-SGLANG_DOCKER_IMAGE=local/dynamo-sglang:runtime-json-logs-ec2 \
+SGLANG_DOCKER_IMAGE=local/dynamo-sglang:runtime-json-logs-remote host \
 SGLANG_DOCKER_PULL=0 \
 HICACHE_SIZE_GB=14 \
 LOW_BEFORE_COUNT=24 \
@@ -7499,7 +7499,7 @@ sglang_direct_kv/
     g5_2xlarge_smoke.yaml
 
   scripts/
-    setup_ec2.sh
+    setup_nvidia_a10g_24gb.sh
     run_sglang_server.sh
     run_sglang_hicache_server.sh
     smoke_hicache_request.sh
@@ -7576,7 +7576,7 @@ sglang_direct_kv/
         report.py
 ```
 
-## Recommended EC2 Machine
+## Recommended remote A10G host Machine
 
 Start with:
 
@@ -7599,19 +7599,19 @@ Llama-3.2-3B-Instruct
 
 Avoid 7B models at first because we need memory headroom for KV pressure.
 
-## Setup On EC2
+## Setup On remote A10G host
 
 Recommended base image:
 
 ```text
-AWS Deep Learning AMI GPU PyTorch
+remote host Deep Learning AMI GPU PyTorch
 ```
 
 Then:
 
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv
-bash scripts/setup_ec2.sh
+bash scripts/setup_nvidia_a10g_24gb.sh
 source .venv/bin/activate
 ```
 
@@ -7667,7 +7667,7 @@ This enables SGLang's host/device KV cache path:
 --disable-overlap-schedule
 ```
 
-The launcher uses the Triton attention backend for prefill and decode, and disables CUDA graph plus overlap scheduling by default. Some SGLang/FlashInfer/TVM paths still JIT compile kernels and require `CUDA_HOME`/`nvcc`, so `setup_ec2.sh` installs the minimal CUDA 12.8 JIT packages on Amazon Linux 2023 by default. Later performance runs can enable CUDA graphs and overlap scheduling again.
+The launcher uses the Triton attention backend for prefill and decode, and disables CUDA graph plus overlap scheduling by default. Some SGLang/FlashInfer/TVM paths still JIT compile kernels and require `CUDA_HOME`/`nvcc`, so `setup_nvidia_a10g_24gb.sh` installs the minimal CUDA 12.8 JIT packages on a compatible Linux host by default. Later performance runs can enable CUDA graphs and overlap scheduling again.
 
 For `g5.2xlarge`, the launcher defaults to:
 

@@ -761,7 +761,7 @@ SIGNAL_FAMILY_DEFINITIONS = [
     {
         "family": "Full controller",
         "where_signal_is_added": "Portable controller sidecar, lowered by gateway",
-        "what_it_means": "The controller combines the useful EC2 pieces: demote background traffic, priority-raise replay, skip speculative preload by policy, restore after replay, and rank tied urgent replays by deadline.",
+        "what_it_means": "The controller combines the useful remote A10G host pieces: demote background traffic, priority-raise replay, skip speculative preload by policy, restore after replay, and rank tied urgent replays by deadline.",
         "raw_modes": "controller_full",
     },
     {

@@ -22,7 +22,7 @@ class KVTelemetry:
 class DirectKVAdapter:
     """Interface for direct SGLang KV instrumentation.
 
-    The probe-only implementation is intentionally conservative. On EC2, after
+    The probe-only implementation is intentionally conservative. On remote A10G host, after
     identifying SGLang's KV/cache/offload internals, replace these methods with
     calls into the real KV block manager.
     """

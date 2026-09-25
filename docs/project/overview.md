@@ -205,8 +205,8 @@ and the [package guide](../packages/agentic_prompt_codec.md).
 | [SGLang testbed notebook](../testbeds/sglang_direct_kv.md) | Long-form milestone notebook with historical detail. |
 | [sglang_direct_kv/scripts/](../../sglang_direct_kv/scripts/) | Experiment runners, workload drivers, report builders, and SGLang launch helpers. |
 | [HANDOFF.md](../../HANDOFF.md) | Current handoff for another Codex task working on this infrastructure. |
-| [EC2 deployment guide](../deployment/aws.md) | EC2 sync and connection workflow. |
-| [GH200 deployment guide](../deployment/gh200.md) | Short GH200 setup and experiment run guide. |
+| [remote A10G host deployment guide](../deployment/remote_host.md) | remote A10G host sync and connection workflow. |
+| [GH200 deployment guide](../deployment/nvidia_gh200_96gb.md) | Short GH200 setup and experiment run guide. |
 | [HARDWARE_EMULATION_ENVIRONMENT.md](../proposals/HARDWARE_EMULATION_ENVIRONMENT.md) | Original hardware-emulation environment notes. |
 | [REPLAY_PATH_INSTRUMENTATION_PROPOSAL.md](../proposals/REPLAY_PATH_INSTRUMENTATION_PROPOSAL.md) | Replay-path instrumentation design notes. |
 
@@ -232,19 +232,19 @@ experiments.
 
 ## Environment
 
-On the EC2 machine used for the current experiments:
+On the remote A10G host machine used for the current experiments:
 
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 ```
 
-From a local checkout, the common EC2 helper commands are:
+From a local checkout, the common remote A10G host helper commands are:
 
 ```bash
-./aws/upload.sh 0
-./aws/ssh_to_ec2.sh 0
-./aws/download.sh 0
+./infra/remote/upload_workspace.sh 0
+./infra/remote/connect.sh 0
+./infra/remote/download_artifacts.sh 0
 ```
 
 ## Real HiCache Storage Smoke
@@ -257,7 +257,7 @@ harness, one pressure level, and three families.
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 SIGNAL_FAMILIES="baseline storage_baseline storage_controller_prefetch" \
 HARNESSES="hatcher" \
 PRESSURE_LEVELS="p1_mild" \
@@ -298,7 +298,7 @@ backend path from the environment.
 
 ## GH200 Transfer And Run Workflow
 
-Use the Mac as the development machine, EC2 for quick GPU validation, and GH200
+Use the Mac as the development machine, remote A10G host for quick GPU validation, and GH200
 for the serious scaled experiments. Move source code only; do not copy `.venv/`,
 `.venvs/`, `node_modules/`, or `artifacts/` between architectures.
 
@@ -320,8 +320,8 @@ changes.
 Run from this local checkout:
 
 ```bash
-./gh200/sync_to_gh200.sh --dry
-./gh200/sync_to_gh200.sh
+./infra/accelerator/gh200/sync_to_gh200.sh --dry
+./infra/accelerator/gh200/sync_to_gh200.sh
 ```
 
 The sync excludes generated outputs, virtual environments, `node_modules`, git
@@ -331,10 +331,10 @@ directory so GH200 experiment results are not overwritten by a source sync.
 ### 2. Enter GH200 And Build Host Dependencies
 
 ```bash
-./gh200/ssh_to_gh200.sh
+./infra/accelerator/gh200/ssh_to_gh200.sh
 
 cd ~/agentic_hardware/sglang_direct_kv
-INSTALL_SYSTEM_DEPS=0 bash scripts/setup_gh200.sh
+INSTALL_SYSTEM_DEPS=0 bash scripts/setup_nvidia_gh200_96gb.sh
 ```
 
 Use `INSTALL_SYSTEM_DEPS=0` on the current GH200 image to avoid the known DKMS
@@ -355,7 +355,7 @@ Run this on GH200 before long GPU jobs:
 
 ```bash
 cd ~/agentic_hardware
-./gh200/smoke_harnesses.sh
+./infra/accelerator/gh200/smoke_harnesses.sh
 ```
 
 This no-GPU smoke test verifies the native client harnesses can reach the
@@ -375,19 +375,19 @@ First run the sentinel:
 
 ```bash
 cd ~/agentic_hardware
-./gh200/run_sentinel.sh
+./infra/accelerator/gh200/run_sentinel.sh
 ```
 
-Then run the EC2-scale apples-to-apples comparison on GH200:
+Then run the remote A10G host-scale apples-to-apples comparison on GH200:
 
 ```bash
-./gh200/run_apples_to_apples.sh
+./infra/accelerator/gh200/run_apples_to_apples.sh
 ```
 
 Then run the GH200-scaled pressure ladder:
 
 ```bash
-./gh200/run_scaled_pressure.sh
+./infra/accelerator/gh200/run_scaled_pressure.sh
 ```
 
 While a run is active, watch progress from another GH200 shell with:
@@ -397,7 +397,7 @@ tail -f ~/agentic_hardware/sglang_direct_kv/artifacts/results/run_logs/<REPORT_L
 ```
 
 All three wrappers call
-[`gh200/run_host_signal_design_space.sh`](../../gh200/run_host_signal_design_space.sh).
+[`infra/accelerator/gh200/run_host_signal_design_space.sh`](../../infra/accelerator/gh200/run_host_signal_design_space.sh).
 That script runs the experiment driver, gateway, and harness clients on the
 GH200 host, but launches the SGLang GPU backend inside
 `lmsysorg/sglang:latest`. Because the repo is mounted into the SGLang backend
@@ -415,7 +415,7 @@ their Python 3.11 venvs stay on the host, while only SGLang uses the Docker
 CUDA/runtime environment.
 
 The older
-[`gh200/run_signal_design_space_docker.sh`](../../gh200/run_signal_design_space_docker.sh)
+[`infra/accelerator/gh200/run_signal_design_space_docker.sh`](../../infra/accelerator/gh200/run_signal_design_space_docker.sh)
 helper still exists for Docker-only debugging with Docker-compatible harnesses,
 but the recommended GH200 path is the host-harness split above.
 
@@ -424,14 +424,14 @@ but the recommended GH200 path is the host-harness split above.
 From the Mac:
 
 ```bash
-./gh200/download.sh
+./infra/accelerator/gh200/download.sh
 ```
 
 This downloads only compact latest report artifacts by default. To download one
 archived report folder:
 
 ```bash
-./gh200/download.sh --label <REPORT_LABEL>
+./infra/accelerator/gh200/download.sh --label <REPORT_LABEL>
 ```
 
 Avoid `--all` unless you intentionally want the full remote artifact tree,
@@ -464,7 +464,7 @@ require SGLang changes, harness changes, fine-tuning, or remembered state across
 requests.
 
 See [the prompt codec guide](../sglang_direct_kv/prompt_codec.md) for library
-usage, the streaming proxy, token/quality evaluation, and an isolated EC2
+usage, the streaming proxy, token/quality evaluation, and an isolated remote A10G host
 pressure matrix. Do not launch the matrix while another GPU experiment is active.
 
 ## Core Modes
@@ -601,7 +601,7 @@ The controller prototype is intentionally backend-neutral. It lives in
 `sglang_direct_kv/src/agentic_kv/controller/` and owns versioned lifecycle
 events, per-session state, timing estimates, policy decisions, and backend
 capability checks. SGLang-specific code should stay in a thin adapter/enforcer
-layer so the controller can move across EC2, GH200, and newer SGLang releases.
+layer so the controller can move across remote A10G host, GH200, and newer SGLang releases.
 
 Harnesses expose their controller-visible facts through the portable
 `harness_controller_signal.v1` envelope. The envelope is carried in driver
@@ -714,14 +714,14 @@ REPORT_BUILDER_MODE=lightweight \
 bash scripts/run_harness_signal_design_space.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-EC2 controller repeatability run:
+remote A10G host controller repeatability run:
 
 ```bash
 cd sglang_direct_kv
-bash scripts/run_ec2_controller_repeatability.sh Qwen/Qwen2.5-Coder-7B-Instruct
+bash scripts/run_nvidia_a10g_24gb_controller_repeatability.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-This repeatability run intentionally stays on the EC2 profile and uses the
+This repeatability run intentionally stays on the remote A10G host profile and uses the
 DeepAgents/Hatcher harness only. It compares the useful controller paths against
 baseline and direct gateway priority across `p1_mild`, `p3_high`, `p4_cliff`,
 and `p5_boss_queue`. The purpose is to check whether the earlier controller
@@ -729,7 +729,7 @@ ordering result repeats before spending time on broader harness or GH200 runs.
 It skips interim per-family report builds by default and writes the combined
 lightweight report once at the end.
 
-Current EC2 controller observation:
+Current remote A10G host controller observation:
 
 | Path | Current interpretation |
 | --- | --- |
@@ -739,7 +739,7 @@ Current EC2 controller observation:
 | Controller demote/restore | Helps by temporarily pushing matching filler/background work down while replay is critical, then restoring normal behavior. |
 | Controller admission control | Helps by skipping speculative work when the system is already overloaded while still raising replay priority. |
 | Full controller + chunked prefill | Keeps the same full-controller policy, but starts SGLang with chunked prefill so long background prefills are broken into smaller scheduling units. This should help most when filler work is still entering SGLang during the replay-critical window. |
-| Controller speculative preload / targeted prefetch | Mechanically validated, but not in this repeatability run because prior EC2 timing showed little benefit and sometimes extra load. |
+| Controller speculative preload / targeted prefetch | Mechanically validated, but not in this repeatability run because prior remote A10G host timing showed little benefit and sometimes extra load. |
 
 Current controller optimization target:
 
@@ -749,7 +749,7 @@ harness first, instead of carrying weak or noisy modes into the broader harness
 comparison.
 
 `controller_full` should combine only the controller actions that have helped on
-EC2 so far:
+remote A10G host so far:
 
 1. Track lifecycle state so the controller knows when a session is in tool wait,
    replay-ready, replay-submitted, and replay-finished.
@@ -765,7 +765,7 @@ EC2 so far:
 
 Do not include speculative preload or targeted KV prefetch in the first
 `controller_full` default. Those paths are mechanically useful but have not yet
-shown consistent EC2 timing benefit; keeping them out prevents the full
+shown consistent remote A10G host timing benefit; keeping them out prevents the full
 controller from adding avoidable load.
 
 Focused validation with explicit modes:
@@ -783,7 +783,7 @@ Minimal priority-plus-demotion controller probe:
 
 ```bash
 cd sglang_direct_kv
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES=hatcher \
 PRESSURE_LEVELS="p3_high" \
 SIGNAL_FAMILIES="baseline frontend_supplied controller_priority_demote" \
@@ -798,7 +798,7 @@ Minimal priority-plus-demotion-plus-admission controller probe:
 
 ```bash
 cd sglang_direct_kv
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES=hatcher \
 PRESSURE_LEVELS="p3_high" \
 SIGNAL_FAMILIES="baseline frontend_supplied controller_priority_demote controller_priority_demotion_admission" \
@@ -813,7 +813,7 @@ EarlyPrepare controller probe:
 
 ```bash
 cd sglang_direct_kv
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES=hatcher \
 PRESSURE_LEVELS="p3_high" \
 SIGNAL_FAMILIES="baseline frontend_supplied controller_priority_demotion_admission" \
@@ -830,7 +830,7 @@ Shorthand controller probe:
 
 ```bash
 cd sglang_direct_kv
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES=hatcher \
 PRESSURE_LEVELS="p3_high" \
 SIGNAL_FAMILIES="baseline frontend_supplied controller_priority_demotion_admission controller_shorthand" \
@@ -913,21 +913,21 @@ smallest possible boundary adapter.
 
 | Phase | Status | Goal | Proof Before Moving On |
 | --- | --- | --- | --- |
-| Phase 0: Capability and integration map | Started | Detect which SGLang/harness/backend features are available on the current machine and version. | Capability report records priority, cache, prefill, KV movement, and live trace support for EC2 and GH200. |
-| Phase 1: Passive lifecycle controller | Validated on EC2 | Observe agent lifecycle events without changing scheduling or KV behavior. | `controller_observe_only` emitted tool-start, prepare-checkpoint, tool-complete, and session-finish decisions for Hatcher/DeepAgents and NAT at P0/P3; all backend results were observe-only. |
-| Phase 2: Scheduler-only controller | Mechanically validated on EC2; outcome mixed | Convert controller decisions into scheduler priority only, with no speculative KV work yet. | Proof shows `tool_completed` produces `set_priority=100`, gateway source is `controller_ready_decision`, and SGLang scheduler receives the replay with priority `100`. A Hatcher/DeepAgents P3/P5 comparison showed P3 worse in one run and P5 median slightly better, so repeated samples are needed before claiming a performance win. |
-| Phase 3: Gateway speculative KV preload | Mechanically validated on EC2; timing mixed | When a likely replay becomes predictable, send background preload/prefill work before the real replay arrives. | `controller_speculative_preload` accepts a controller `kv_action=prefetch` decision and lowers it to a gateway background warmup request. A Hatcher/DeepAgents P1/P2 validation showed controller warmup launch from the driver, warmup completion before SGLang received replay, and cached-prefix evidence on replay. P2 still missed the stricter warmup-before-deadline proof, so the next phase needs earlier prediction or admission control. |
+| Phase 0: Capability and integration map | Started | Detect which SGLang/harness/backend features are available on the current machine and version. | Capability report records priority, cache, prefill, KV movement, and live trace support for remote A10G host and GH200. |
+| Phase 1: Passive lifecycle controller | Validated on remote A10G host | Observe agent lifecycle events without changing scheduling or KV behavior. | `controller_observe_only` emitted tool-start, prepare-checkpoint, tool-complete, and session-finish decisions for Hatcher/DeepAgents and NAT at P0/P3; all backend results were observe-only. |
+| Phase 2: Scheduler-only controller | Mechanically validated on remote A10G host; outcome mixed | Convert controller decisions into scheduler priority only, with no speculative KV work yet. | Proof shows `tool_completed` produces `set_priority=100`, gateway source is `controller_ready_decision`, and SGLang scheduler receives the replay with priority `100`. A Hatcher/DeepAgents P3/P5 comparison showed P3 worse in one run and P5 median slightly better, so repeated samples are needed before claiming a performance win. |
+| Phase 3: Gateway speculative KV preload | Mechanically validated on remote A10G host; timing mixed | When a likely replay becomes predictable, send background preload/prefill work before the real replay arrives. | `controller_speculative_preload` accepts a controller `kv_action=prefetch` decision and lowers it to a gateway background warmup request. A Hatcher/DeepAgents P1/P2 validation showed controller warmup launch from the driver, warmup completion before SGLang received replay, and cached-prefix evidence on replay. P2 still missed the stricter warmup-before-deadline proof, so the next phase needs earlier prediction or admission control. |
 | Phase 4: Targeted KV prefetch hook | Implemented as portable capability/proof scaffold | Add the thinnest possible backend hook for explicit host-to-device KV movement when SGLang exposes a stable path. | `controller_targeted_kv_prefetch` records controller prefetch request, backend acceptance, direct-hook availability, the SGLang prepare plan, selective admission reason, and any matching SGLang load-back or host-to-device copy before replay compute. The approved path is `prepared_prefix_control`; request-triggered warmup is removed and must not be used as a substitute. |
-| Phase 5: Demote and restore | Validated on EC2 | Temporarily lower background/filler priority while preserving correctness and restoring normal priority afterward. | `controller_demote_restore` records a controller demote command during tool wait, lowers matching filler requests to background priority at the gateway boundary, raises the replay request, then records restore/release after replay. The EC2 P1 validation demoted 8/8 matching filler requests to priority `-100`, raised replay to priority `100`, and wrote `controller_demote_restore_proof.csv`. |
-| Phase 6: Admission and overload control | Validated on EC2 | Decide when the system is too busy to accept more speculative work or urgent bursts. | `controller_admission_control` admits warmup only when the tool-wait window, filler count, concurrency, and per-case warmup budget stay under configured limits. The EC2 validation admitted P1 warmup and skipped P4 with explicit reasons: `tool_wait_ms 25 below minimum 75`, `filler_sessions 48 above limit 16`, and `concurrency 10 above limit 8`. Replay priority was still lowered to SGLang priority `100` in both cases. |
-| Phase 6.5: Single-harness full-controller optimization | Implemented; EC2 performance rerun pending | Combine the EC2-winning pieces into `controller_full` and tune them on DeepAgents/Hatcher before expanding to other harnesses. | Unit tests prove timed prepare-window transition, short-wait no-demote behavior, metadata preservation, background demotion guardrails, replay priority, budget command, and release. Next EC2 run should check whether `controller_full` matches or beats the best individual controller mode across `p1_mild`, `p3_high`, `p4_cliff`, and `p5_boss_queue`. |
-| Phase 6.6: Chunked-prefill full-controller scheduling | Implemented; EC2 performance run pending | Keep `controller_full` policy unchanged, but launch SGLang with smaller prefill chunks so the controller has more safe scheduling boundaries to insert urgent replay work. | Run `controller_full_chunked_prefill` against `controller_full` and `e2e_priority_hints` on DeepAgents/Hatcher at `p3_high` and `p5_boss_queue`; proof should show the mode, chunked-prefill launch knobs, controller traffic-reshape events, and replay lateness/TTFT deltas. |
-| Phase 6.7: Minimal priority-plus-demotion probe | Implemented; EC2 run pending | Strip the controller back to the two highest-value actions: raise target replay priority and aggressively demote filler/background work. | Run `controller_priority_demote` against baseline and front-end priority on DeepAgents/Hatcher at `p3_high` with a 1000 ms fixed tool wait. Success requires proof that filler requests entering during the replay window were lowered to priority `-100`, the target replay reached SGLang with priority `100`, and the target replay improved without hiding filler cost. |
-| Phase 6.8: Minimal priority-plus-demotion-plus-admission probe | Implemented; EC2 run pending | Add direct gateway admission control to the minimal controller: hold filler/background requests at the gateway boundary during the replay-critical window. | Run `controller_priority_demotion_admission` against baseline, front-end priority, and `controller_priority_demote` on DeepAgents/Hatcher at `p3_high` with a 1000 ms fixed tool wait. Success requires proof that filler/background requests were blocked before entering SGLang, released after target replay, and cost accounting shows where the delay moved. |
-| Phase 6.9: EarlyPrepare admission window | Implemented; EC2 run pending | Start demotion/admission before the target replay returns, using the expected tool-wait completion time exposed by the harness. | Run `controller_priority_demotion_admission_earlyprepare` against baseline, front-end priority, and the prior admission modes on DeepAgents/Hatcher at `p3_high`. Success requires proof that the hold/demotion window opened before `m27.replay.due`, replay priority still reached SGLang, and target replay lateness moves closer to zero without excessive total TTFT cost. |
-| Phase 6.10: Oracle timeline admission | Implemented; EC2 run pending | Give the controller an upper-bound timeline view: expected replay-ready time plus estimated filler runtime. It admits filler only when the filler is expected to finish before the replay-critical window. | Run `controller_oracle_timeline` against baseline, front-end priority, and the prior controller admission modes on DeepAgents/Hatcher at `p3_high`. Success requires proof rows showing each oracle `admit` or `hold` decision, estimated filler runtime, time until replay, safety margin, replay priority lowering, and resulting target/filler cost. |
-| Phase 6.11: Idle-aware Oracle SJF tuning | Implemented; EC2 run pending | Keep strict `controller_oracle_safe_sjf` as the conservative baseline, then test less cautious SJF modes that use shorter safety margins, higher filler concurrency, and a one-short-filler idle override when strict fit would leave the backend empty. | Run `controller_oracle_safe_sjf`, `controller_oracle_safe_sjf_balanced`, `controller_oracle_safe_sjf_aggressive`, and `controller_oracle_safe_sjf_maxfill` against baseline/front-end priority on DeepAgents/Hatcher at `p3_high`. Success requires trace rows distinguishing `shortest_safe_filler_fits_before_next_replay`, `idle_override_shortest_filler_admitted_to_avoid_empty_backend`, and `maxfill_shortest_filler_admitted_without_fit_requirement`, then compare target debt, filler debt, total TTFT, and GPU idle. |
-| Phase 7: GH200 profile and scale-up | Prepared; GH200 run pending | Re-run the same controller design on GH200 with larger pressure profiles and host-harness/Docker-SGLang split. | [gh200/run_controller_scaleup.sh](../../gh200/run_controller_scaleup.sh) runs the EC2-validated controller modes with `HARDWARE_PROFILE=gh200`, host-side harnesses, Dockerized SGLang, and the lightweight report builder. GH200 report should use the same scripts and modes as EC2, with only hardware profile and host/container setup differences. |
+| Phase 5: Demote and restore | Validated on remote A10G host | Temporarily lower background/filler priority while preserving correctness and restoring normal priority afterward. | `controller_demote_restore` records a controller demote command during tool wait, lowers matching filler requests to background priority at the gateway boundary, raises the replay request, then records restore/release after replay. The remote A10G host P1 validation demoted 8/8 matching filler requests to priority `-100`, raised replay to priority `100`, and wrote `controller_demote_restore_proof.csv`. |
+| Phase 6: Admission and overload control | Validated on remote A10G host | Decide when the system is too busy to accept more speculative work or urgent bursts. | `controller_admission_control` admits warmup only when the tool-wait window, filler count, concurrency, and per-case warmup budget stay under configured limits. The remote A10G host validation admitted P1 warmup and skipped P4 with explicit reasons: `tool_wait_ms 25 below minimum 75`, `filler_sessions 48 above limit 16`, and `concurrency 10 above limit 8`. Replay priority was still lowered to SGLang priority `100` in both cases. |
+| Phase 6.5: Single-harness full-controller optimization | Implemented; remote A10G host performance rerun pending | Combine the remote A10G host-winning pieces into `controller_full` and tune them on DeepAgents/Hatcher before expanding to other harnesses. | Unit tests prove timed prepare-window transition, short-wait no-demote behavior, metadata preservation, background demotion guardrails, replay priority, budget command, and release. Next remote A10G host run should check whether `controller_full` matches or beats the best individual controller mode across `p1_mild`, `p3_high`, `p4_cliff`, and `p5_boss_queue`. |
+| Phase 6.6: Chunked-prefill full-controller scheduling | Implemented; remote A10G host performance run pending | Keep `controller_full` policy unchanged, but launch SGLang with smaller prefill chunks so the controller has more safe scheduling boundaries to insert urgent replay work. | Run `controller_full_chunked_prefill` against `controller_full` and `e2e_priority_hints` on DeepAgents/Hatcher at `p3_high` and `p5_boss_queue`; proof should show the mode, chunked-prefill launch knobs, controller traffic-reshape events, and replay lateness/TTFT deltas. |
+| Phase 6.7: Minimal priority-plus-demotion probe | Implemented; remote A10G host run pending | Strip the controller back to the two highest-value actions: raise target replay priority and aggressively demote filler/background work. | Run `controller_priority_demote` against baseline and front-end priority on DeepAgents/Hatcher at `p3_high` with a 1000 ms fixed tool wait. Success requires proof that filler requests entering during the replay window were lowered to priority `-100`, the target replay reached SGLang with priority `100`, and the target replay improved without hiding filler cost. |
+| Phase 6.8: Minimal priority-plus-demotion-plus-admission probe | Implemented; remote A10G host run pending | Add direct gateway admission control to the minimal controller: hold filler/background requests at the gateway boundary during the replay-critical window. | Run `controller_priority_demotion_admission` against baseline, front-end priority, and `controller_priority_demote` on DeepAgents/Hatcher at `p3_high` with a 1000 ms fixed tool wait. Success requires proof that filler/background requests were blocked before entering SGLang, released after target replay, and cost accounting shows where the delay moved. |
+| Phase 6.9: EarlyPrepare admission window | Implemented; remote A10G host run pending | Start demotion/admission before the target replay returns, using the expected tool-wait completion time exposed by the harness. | Run `controller_priority_demotion_admission_earlyprepare` against baseline, front-end priority, and the prior admission modes on DeepAgents/Hatcher at `p3_high`. Success requires proof that the hold/demotion window opened before `m27.replay.due`, replay priority still reached SGLang, and target replay lateness moves closer to zero without excessive total TTFT cost. |
+| Phase 6.10: Oracle timeline admission | Implemented; remote A10G host run pending | Give the controller an upper-bound timeline view: expected replay-ready time plus estimated filler runtime. It admits filler only when the filler is expected to finish before the replay-critical window. | Run `controller_oracle_timeline` against baseline, front-end priority, and the prior controller admission modes on DeepAgents/Hatcher at `p3_high`. Success requires proof rows showing each oracle `admit` or `hold` decision, estimated filler runtime, time until replay, safety margin, replay priority lowering, and resulting target/filler cost. |
+| Phase 6.11: Idle-aware Oracle SJF tuning | Implemented; remote A10G host run pending | Keep strict `controller_oracle_safe_sjf` as the conservative baseline, then test less cautious SJF modes that use shorter safety margins, higher filler concurrency, and a one-short-filler idle override when strict fit would leave the backend empty. | Run `controller_oracle_safe_sjf`, `controller_oracle_safe_sjf_balanced`, `controller_oracle_safe_sjf_aggressive`, and `controller_oracle_safe_sjf_maxfill` against baseline/front-end priority on DeepAgents/Hatcher at `p3_high`. Success requires trace rows distinguishing `shortest_safe_filler_fits_before_next_replay`, `idle_override_shortest_filler_admitted_to_avoid_empty_backend`, and `maxfill_shortest_filler_admitted_without_fit_requirement`, then compare target debt, filler debt, total TTFT, and GPU idle. |
+| Phase 7: GH200 profile and scale-up | Prepared; GH200 run pending | Re-run the same controller design on GH200 with larger pressure profiles and host-harness/Docker-SGLang split. | [infra/accelerator/gh200/run_controller_scaleup.sh](../../infra/accelerator/gh200/run_controller_scaleup.sh) runs the remote A10G host-validated controller modes with `HARDWARE_PROFILE=gh200`, host-side harnesses, Dockerized SGLang, and the lightweight report builder. GH200 report should use the same scripts and modes as remote A10G host, with only hardware profile and host/container setup differences. |
 
 For Phase 6.5, the demote/restore proof is window-aware. Earlier filler
 requests that entered before controller demotion are not counted as a demotion
@@ -966,7 +966,7 @@ The driver calls
 [`sglang_direct_kv/scripts/nemo_agent_toolkit_wrapper.py`](../../sglang_direct_kv/scripts/nemo_agent_toolkit_wrapper.py),
 which writes the NAT workflow config, launches `nat run`, records wrapper
 lifecycle events, and lets the gateway prove the emitted priority-bearing HTTP
-request. This keeps the test portable across NAT versions, EC2, and GH200.
+request. This keeps the test portable across NAT versions, remote A10G host, and GH200.
 
 For stronger NAT-side evidence, use the shared-service probe. It runs a real
 `nat serve` process, sends older background requests into NAT first, then sends
@@ -1002,12 +1002,12 @@ runs use P0 through P5.
 
 Hardware profiles keep the experiment design the same while changing the amount
 of pressure applied to the machine. The runner loads
-`HARDWARE_PROFILE=ec2_a10g` by default.
+`HARDWARE_PROFILE=nvidia_a10g_24gb` by default.
 
 | Profile | File | Use Case |
 | --- | --- | --- |
-| `ec2_a10g` | [sglang_direct_kv/configs/hardware/ec2_a10g.env](../../sglang_direct_kv/configs/hardware/ec2_a10g.env) | Current EC2/A10G-scale runs and apples-to-apples GH200 comparison. |
-| `gh200` | [sglang_direct_kv/configs/hardware/gh200.env](../../sglang_direct_kv/configs/hardware/gh200.env) | GH200-scaled pressure run with larger token budget, larger HiCache, more fillers, and more urgent agents. |
+| `nvidia_a10g_24gb` | [sglang_direct_kv/configs/hardware/nvidia_a10g_24gb.env](../../sglang_direct_kv/configs/hardware/nvidia_a10g_24gb.env) | Current remote A10G host/A10G-scale runs and apples-to-apples GH200 comparison. |
+| `gh200` | [sglang_direct_kv/configs/hardware/nvidia_gh200_96gb.env](../../sglang_direct_kv/configs/hardware/nvidia_gh200_96gb.env) | GH200-scaled pressure run with larger token budget, larger HiCache, more fillers, and more urgent agents. |
 
 Profile defaults can still be overridden inline:
 
@@ -1019,24 +1019,24 @@ bash scripts/run_native_harness_deadline_pressure.sh \
 
 Recommended migration sequence for a new GH200 machine:
 
-1. Run `HARDWARE_PROFILE=ec2_a10g` first. This gives an apples-to-apples
-   comparison against the EC2 results.
+1. Run `HARDWARE_PROFILE=nvidia_a10g_24gb` first. This gives an apples-to-apples
+   comparison against the remote A10G host results.
 2. Run `HARDWARE_PROFILE=gh200` next. This increases pressure so GH200 can find
    its own replay-deadline cliff.
 3. Keep `REPORT_BUILDER_MODE=lightweight` for full multi-harness runs.
 
 ### GH200 Architecture Note
 
-The current EC2 machine and a Grace Hopper 200 machine are not the same CPU
+The current remote A10G host machine and a Grace Hopper 200 machine are not the same CPU
 architecture.
 
 | Machine | Expected CPU Architecture | What This Means |
 | --- | --- | --- |
-| Current EC2 GPU machine | `x86_64` | Uses normal x86 Linux packages and venv wheels. |
+| Current remote A10G host GPU machine | `x86_64` | Uses normal x86 Linux packages and venv wheels. |
 | GH200 | `aarch64` / `arm64` | Uses ARM64 packages and ARM64 Python/Node wheels. |
 
 In simple terms: the repo code can move to GH200, but the installed
-dependencies should not be copied from EC2. Rebuild the Python venvs, SGLang
+dependencies should not be copied from remote A10G host. Rebuild the Python venvs, SGLang
 environment, Node.js CLIs, NAT venv, and Hermes venv directly on GH200.
 
 ### GH200 Setup
@@ -1047,7 +1047,7 @@ Python environment directly on GH200:
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv
 
-INSTALL_SYSTEM_DEPS=0 bash scripts/setup_gh200.sh
+INSTALL_SYSTEM_DEPS=0 bash scripts/setup_nvidia_gh200_96gb.sh
 ```
 
 That script creates:
@@ -1061,24 +1061,24 @@ That script creates:
 If you need a different Python binary:
 
 ```bash
-PYTHON_BIN=python3.10 bash scripts/setup_gh200.sh
+PYTHON_BIN=python3.10 bash scripts/setup_nvidia_gh200_96gb.sh
 ```
 
 If the GH200 image already has system packages and CUDA configured:
 
 ```bash
-INSTALL_SYSTEM_DEPS=0 bash scripts/setup_gh200.sh
+INSTALL_SYSTEM_DEPS=0 bash scripts/setup_nvidia_gh200_96gb.sh
 ```
 
 If you want to add or change optional analysis packages:
 
 ```bash
 EXTRA_PYTHON_PACKAGES="scikit-learn matplotlib seaborn pyarrow" \
-bash scripts/setup_gh200.sh
+bash scripts/setup_nvidia_gh200_96gb.sh
 ```
 
 The native CLI harnesses use Node.js through `npx`, so GH200 also needs an ARM64
-Node.js install. If `setup_gh200.sh` says Node is missing, install Node LTS:
+Node.js install. If `setup_nvidia_gh200_96gb.sh` says Node is missing, install Node LTS:
 
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
@@ -1141,7 +1141,7 @@ codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolki
 ```
 
 `nemo_agent_toolkit` and `hermes_agent` are installed in persistent isolated
-Python 3.11 venvs on EC2 and should be passed into experiment runs with
+Python 3.11 venvs on remote A10G host and should be passed into experiment runs with
 `HARNESS_NAT_BIN` and `HARNESS_HERMES_BIN`. NAT needs the LangChain integration
 extra, so install it as `nvidia-nat[langchain]`, not plain `nvidia-nat`.
 
@@ -1153,7 +1153,7 @@ source .venv/bin/activate
 
 HARNESS_NAT_BIN=$HOME/agentic_hardware/.venvs/nat_py311/bin/nat \
 HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 PRESSURE_LEVELS="p0_control p3_high p5_boss_queue" \
 MODES="no_prefetch e2e_priority_hints e2e_priority_hints_speculative_prefill" \
 REPORT_BUILDER_MODE=lightweight \
@@ -1170,7 +1170,7 @@ source .venv/bin/activate
 
 HARNESS_NAT_BIN=$HOME/agentic_hardware/.venvs/nat_py311/bin/nat \
 HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES="hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent deepseek_harness" \
 PRESSURE_LEVELS="p0_control p3_high p5_boss_queue" \
 MODES="no_prefetch e2e_priority_hints e2e_priority_hints_speculative_prefill" \
@@ -1190,7 +1190,7 @@ source .venv/bin/activate
 
 HARNESS_NAT_BIN=$HOME/agentic_hardware/.venvs/nat_py311/bin/nat \
 HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES="hatcher codex claude_code opencode qwen_code" \
 PRESSURE_LEVELS="p0_control p3_high" \
 MODES="no_prefetch e2e_priority_hints pre_harness_priority_hints" \
@@ -1200,14 +1200,14 @@ bash scripts/run_harness_deadline_pressure.sh \
   Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-If a long EC2 run is interrupted after some cases finish, resume the same
+If a long remote A10G host run is interrupted after some cases finish, resume the same
 report label without rerunning completed cases:
 
 ```bash
 SKIP_EXISTING_CASES=1 \
 HARNESS_NAT_BIN=$HOME/agentic_hardware/.venvs/nat_py311/bin/nat \
 HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES="hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent deepseek_harness" \
 PRESSURE_LEVELS="p0_control p3_high p5_boss_queue" \
 MODES="no_prefetch e2e_priority_hints e2e_priority_hints_speculative_prefill" \
@@ -1286,7 +1286,7 @@ source .venv/bin/activate
 
 HARNESS_NAT_BIN=$HOME/agentic_hardware/.venvs/nat_py311/bin/nat \
 HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES="hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent deepseek_harness" \
 PRESSURE_LEVELS="p0_control p3_high p5_boss_queue" \
 MODES="no_prefetch e2e_priority_hints e2e_priority_hints_speculative_prefill" \
@@ -1300,21 +1300,21 @@ GH200:
 
 ```bash
 cd ~/agentic_hardware
-./gh200/run_apples_to_apples.sh
+./infra/accelerator/gh200/run_apples_to_apples.sh
 ```
 
 GH200-scaled pressure run. Use this after the apples-to-apples run:
 
 ```bash
 cd ~/agentic_hardware
-./gh200/run_scaled_pressure.sh
+./infra/accelerator/gh200/run_scaled_pressure.sh
 ```
 
 GH200 controller scale-up run. Use this for Phase 7 after the sentinel passes:
 
 ```bash
 cd ~/agentic_hardware
-./gh200/run_controller_scaleup.sh
+./infra/accelerator/gh200/run_controller_scaleup.sh
 ```
 
 By default this uses `hatcher` as the internal DeepAgents-style control harness
@@ -1358,21 +1358,21 @@ Primary scripts:
 | --- | --- |
 | [sglang_direct_kv/scripts/run_harness_deadline_pressure.sh](../../sglang_direct_kv/scripts/run_harness_deadline_pressure.sh) | Orchestrates the multi-harness pressure experiment and writes the latest report. |
 | [sglang_direct_kv/scripts/run_native_harness_deadline_pressure.sh](../../sglang_direct_kv/scripts/run_native_harness_deadline_pressure.sh) | Runs only the native CLI harnesses plus the Hatcher control. |
-| [sglang_direct_kv/scripts/run_ec2_controller_repeatability.sh](../../sglang_direct_kv/scripts/run_ec2_controller_repeatability.sh) | EC2-focused controller repeatability run for DeepAgents/Hatcher across the useful controller paths. |
+| [sglang_direct_kv/scripts/run_nvidia_a10g_24gb_controller_repeatability.sh](../../sglang_direct_kv/scripts/run_nvidia_a10g_24gb_controller_repeatability.sh) | remote A10G host-focused controller repeatability run for DeepAgents/Hatcher across the useful controller paths. |
 | [sglang_direct_kv/scripts/run_multi_harness_replay_driver.py](../../sglang_direct_kv/scripts/run_multi_harness_replay_driver.py) | Generates target replay and filler traffic for the selected harnesses. |
 | [sglang_direct_kv/scripts/nemo_agent_toolkit_wrapper.py](../../sglang_direct_kv/scripts/nemo_agent_toolkit_wrapper.py) | Portable NAT wrapper that records config, process, and gateway-emission lifecycle events without patching NAT itself. |
 | [sglang_direct_kv/scripts/run_nemo_nat_service_priority_probe.py](../../sglang_direct_kv/scripts/run_nemo_nat_service_priority_probe.py) | Runs real `nat serve` as one shared service and can also inspect NAT Dynamo-provider `nvext.agent_hints` without a full Dynamo runtime. |
 | [sglang_direct_kv/scripts/harness_sglang_gateway.py](../../sglang_direct_kv/scripts/harness_sglang_gateway.py) | Normalizes harness requests at the SGLang boundary and injects priority metadata. |
-| [sglang_direct_kv/configs/hardware/](../../sglang_direct_kv/configs/hardware/) | EC2 and GH200 pressure profiles. |
+| [sglang_direct_kv/configs/hardware/](../../sglang_direct_kv/configs/hardware/) | remote A10G host and GH200 pressure profiles. |
 | [sglang_direct_kv/scripts/run_real_client_wireability_probe.py](../../sglang_direct_kv/scripts/run_real_client_wireability_probe.py) | Launches real client CLIs against the inspection gateway and reports the live request shape observed at the boundary. |
 | [sglang_direct_kv/scripts/smoke_multi_harness_wireability.py](../../sglang_direct_kv/scripts/smoke_multi_harness_wireability.py) | Fast local smoke test for CLI harness wireability through the gateway. |
 | [sglang_direct_kv/scripts/run_sglang_hicache_server.sh](../../sglang_direct_kv/scripts/run_sglang_hicache_server.sh) | Launches SGLang with HiCache, priority scheduling, and runtime telemetry flags. |
 | [sglang_direct_kv/scripts/build_milestone27_controlled_replay_report.py](../../sglang_direct_kv/scripts/build_milestone27_controlled_replay_report.py) | Builds the master HTML report, evidence tables, and Replay Deadline Pressure Chart. |
 | [sglang_direct_kv/scripts/build_multi_harness_deadline_summary.py](../../sglang_direct_kv/scripts/build_multi_harness_deadline_summary.py) | Lightweight all-harness report builder used when the rich timeline report would be too large. |
 | [sglang_direct_kv/src/agentic_kv/sglang_adapters/capabilities.py](../../sglang_direct_kv/src/agentic_kv/sglang_adapters/capabilities.py) | Probes the installed SGLang version, hook surface, priority support, and static cache-signal source paths. |
-| [gh200/run_host_signal_design_space.sh](../../gh200/run_host_signal_design_space.sh) | Recommended GH200 runner: host-side harnesses and gateway, Dockerized SGLang backend. |
-| [gh200/run_controller_scaleup.sh](../../gh200/run_controller_scaleup.sh) | Phase 7 runner: GH200-scaled controller comparison using the portable controller modes validated on EC2. |
-| [gh200/run_signal_design_space_docker.sh](../../gh200/run_signal_design_space_docker.sh) | Docker-only fallback runner for debugging Docker-compatible harnesses. |
+| [infra/accelerator/gh200/run_host_signal_design_space.sh](../../infra/accelerator/gh200/run_host_signal_design_space.sh) | Recommended GH200 runner: host-side harnesses and gateway, Dockerized SGLang backend. |
+| [infra/accelerator/gh200/run_controller_scaleup.sh](../../infra/accelerator/gh200/run_controller_scaleup.sh) | Phase 7 runner: GH200-scaled controller comparison using the portable controller modes validated on remote A10G host. |
+| [infra/accelerator/gh200/run_signal_design_space_docker.sh](../../infra/accelerator/gh200/run_signal_design_space_docker.sh) | Docker-only fallback runner for debugging Docker-compatible harnesses. |
 
 Smoke-test native CLI wireability without starting the real GPU server:
 
@@ -1497,7 +1497,7 @@ cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
 HARNESS_NAT_BIN=$HOME/agentic_hardware/.venvs/nat_py311/bin/nat \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES="nemo_agent_toolkit" \
 PRESSURE_LEVELS="p0_control p1_mild p2_medium p3_high p4_cliff p5_boss_queue" \
 MODES="no_prefetch nat_inferred_priority_hints" \
@@ -1524,7 +1524,7 @@ source .venv/bin/activate
 
 HARNESS_NAT_BIN=$HOME/agentic_hardware/.venvs/nat_py311/bin/nat \
 HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 SIGNAL_FAMILIES="baseline harness_emitted frontend_supplied gateway_injected" \
 HARNESSES="hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent" \
 PRESSURE_LEVELS="p0_control p3_high p5_boss_queue" \
@@ -1611,13 +1611,13 @@ Harness-specific notes:
 | `openclaw` | Uses OpenClaw cache-retention environment toggles and provider compat flags. |
 | `opencode` | Uses OpenCode's own emitted prompt-cache key when available. |
 
-Recommended first run on EC2:
+Recommended first run on remote A10G host:
 
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES="opencode qwen_code pi_agent_harness openclaw" \
 PRESSURE_LEVELS="p0_control p2_medium p3_high p5_boss_queue" \
 MODES="no_cache_signal harness_native_cache_lowered" \
@@ -1633,7 +1633,7 @@ For a faster smoke test:
 cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 HARNESSES="qwen_code pi_agent_harness" \
 PRESSURE_LEVELS="p0_control" \
 MODES="no_cache_signal harness_native_cache_lowered" \
@@ -1673,7 +1673,7 @@ cd ~/agentic_hardware/sglang_direct_kv
 source .venv/bin/activate
 
 HARNESS_HERMES_BIN=$HOME/agentic_hardware/.venvs/hermes_agent_py311/bin/hermes \
-HARDWARE_PROFILE=ec2_a10g \
+HARDWARE_PROFILE=nvidia_a10g_24gb \
 SIGNAL_FAMILIES="baseline harness_emitted" \
 HARNESSES="opencode qwen_code pi_agent_harness openclaw hermes_agent" \
 PRESSURE_LEVELS="p1_mild p2_medium" \
@@ -1704,7 +1704,7 @@ SGLang package on the experiment machine and checks whether fields such as
 such as `GenerateReqInput`, `Req.extra_key`, `RadixKey.extra_key`,
 `match_prefix`, cache insertion, or priority-aware eviction.
 
-Run the source-path audit directly on EC2 or GH200 with:
+Run the source-path audit directly on remote A10G host or GH200 with:
 
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv
@@ -1715,13 +1715,13 @@ python -m agentic_kv.sglang_adapters.capabilities \
   --out-md artifacts/results/sglang_capabilities.md
 ```
 
-Latest EC2 wireability result:
+Latest remote A10G host wireability result:
 
 ```text
 sglang_direct_kv/artifacts/results/real_client_wireability/real_client_probe_six_20260901_055102/real_client_wireability_report.html
 ```
 
-That EC2 smoke, run on 2026-09-01, launched the real Codex, Claude Code,
+That remote A10G host smoke, run on 2026-09-01, launched the real Codex, Claude Code,
 OpenCode, Qwen Code, Pi, and OpenClaw CLIs against the inspection gateway. All
 six reached the gateway, all six were tagged with `sglang_priority=100`, and the
 gateway recorded their live request shape without storing prompt bodies:
@@ -1927,7 +1927,7 @@ The next recommended path is:
 
 1. Run the P0/P3/P5 sentinel ladder across the eight real CLI harness paths plus the Hatcher control through [run_native_harness_deadline_pressure.sh](../../sglang_direct_kv/scripts/run_native_harness_deadline_pressure.sh).
 2. Keep DeepSeek Harness adapter-backed until `dsh` can run a non-interactive smoke request without hanging.
-3. Leave Dynamo out of local EC2 runs unless the host has enough spare CPU, memory, and disk for its runtime stack.
+3. Leave Dynamo out of local remote A10G host runs unless the host has enough spare CPU, memory, and disk for its runtime stack.
 
 ## Current Research Claim
 

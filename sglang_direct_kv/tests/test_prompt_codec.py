@@ -97,7 +97,7 @@ class PromptCodecTests(unittest.TestCase):
         self.assertEqual(dict(encoded.rule_counts)["function_alias"], 3)
 
     def test_workspace_root_aliases_are_request_local_and_reversible(self):
-        root = "/home/ec2-user/kv_cache_offloading/agentbench/repos/qutebrowser__qutebrowser"
+        root = "/home/remote host-user/kv_cache_offloading/agentbench/repos/qutebrowser__qutebrowser"
         text = (
             f"Read `{root}/qutebrowser/utils/qtlog.py` before editing.\n"
             f"Run python -m pytest {root}/tests/unit/utils/test_qtlog.py after editing.\n"

@@ -212,20 +212,20 @@ The probe now checks both `python -m sglang.launch_server --help` and
 `python -m dynamo.sglang --help`, because the priority behavior may be exposed
 by the Dynamo worker wrapper rather than plain upstream SGLang.
 
-On the x86 EC2/G5 test machine, the runnable worker image should use the EC2
+On the x86 remote A10G host/G5 test machine, the runnable worker image should use the remote A10G host
 profile:
 
 ```bash
 cd ~/kv_cache_offloading
 
-DYNAMO_MACHINE_PROFILE=ec2 \
+DYNAMO_MACHINE_PROFILE=remote host \
 SKIP_FRONTEND=1 \
 SKIP_WORKER=0 \
 DYN_RUNTIME_JSON_LOGS=1 \
 bash runtime_instrumentation/build_instrumented_dynamo_images.sh
 ```
 
-The current EC2 host does not yet have `local/dynamo-sglang:runtime-json-logs-ec2`
+The current remote A10G host host does not yet have `local/dynamo-sglang:runtime-json-logs-remote host`
 or `local/dynamo-sglang:runtime-json-logs-gh200`. It also has about 52 GB free
 under Docker root, while the Dynamo build guard asks for 80 GB.
 
@@ -287,7 +287,7 @@ The master HTML also includes an `Instrumentation Evidence Audit` section.
 
 ## Run The Audit
 
-From EC2 or the local machine after downloading a report:
+From remote A10G host or the local machine after downloading a report:
 
 ```bash
 cd ~/agentic_hardware/sglang_direct_kv

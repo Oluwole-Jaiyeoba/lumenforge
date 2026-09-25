@@ -2,7 +2,7 @@
 """Extract likely SGLang KV hook points using static source parsing.
 
 This avoids importing heavy SGLang modules. Direct imports can trigger Triton
-native compilation and CUDA setup before the EC2 environment is fully ready.
+native compilation and CUDA setup before the remote A10G host environment is fully ready.
 """
 
 from __future__ import annotations

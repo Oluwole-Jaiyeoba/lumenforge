@@ -5,7 +5,7 @@ Generated on 2026-09-23 by running the static surface check
 of every SGLang release from 0.5.10.post1 to 0.5.20 (no install, no GPU).
 
 - **Selected adapter**: what `selection.select_adapter(<version>)` picks.
-- **Verification**: `runtime` = full EC2 experiments ran on it;
+- **Verification**: `runtime` = full remote A10G host experiments ran on it;
   `capability_probe` = `probe_sglang_capabilities_docker.sh` ran in the real
   container; `static` = only this static check. Treat `static` as "should
   work, must be confirmed with one reference experiment on a GPU".
