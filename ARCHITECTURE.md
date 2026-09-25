@@ -218,6 +218,12 @@ Then run, in order:
 5. one reference controller experiment;
 6. report and artifact validation.
 
+The reusable host-side entry point is
+`infra/container/run_hybrid_reference.sh`. The first standard-NVIDIA proof is
+the locked equal-importance Scenario 1 wrapper:
+`infra/container/run_scenario1_hybrid_reference.sh`. See
+[`docs/deployment/nvidia_standard_hybrid_validation.md`](docs/deployment/nvidia_standard_hybrid_validation.md).
+
 For the GH200 deployment path, begin with
 [`docs/deployment/nvidia_gh200_96gb.md`](docs/deployment/nvidia_gh200_96gb.md)
 and follow the explicit
