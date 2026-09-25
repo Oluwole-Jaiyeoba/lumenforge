@@ -290,6 +290,19 @@ cleanup_case() {
     kill -9 -- "-${SERVER_PID}" >/dev/null 2>&1 || true
     wait "${SERVER_PID}" >/dev/null 2>&1 || true
     SERVER_PID=""
+    # A new case must not mistake the old backend for its own server. Docker
+    # can take a moment to release the host-network port after its process
+    # group exits, so wait for that release before another launch begins.
+    for _ in $(seq 1 30); do
+      if ! curl -fsS "${HOST_URL}/health" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    if curl -fsS "${HOST_URL}/health" >/dev/null 2>&1; then
+      echo "Backend endpoint stayed live after cleanup: ${HOST_URL}" >&2
+      return 1
+    fi
   fi
 }
 
