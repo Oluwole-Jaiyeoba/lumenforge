@@ -61,10 +61,11 @@ if [[ "${DOCKER_PULL}" == "1" ]]; then
 fi
 
 IMAGE_DIGEST="$(docker image inspect --format '{{index .RepoDigests 0}}' "${IMAGE}" 2>/dev/null || true)"
-REQUIRE_DIGEST="$(profile_value reference_run_requires_image_digest)"
-if [[ "${REQUIRE_DIGEST}" == "1" && -z "${IMAGE_DIGEST}" ]]; then
-  echo "Reference runs require an immutable image digest; none was found for ${IMAGE}." >&2
-  echo "Pull a published image or use a digest-qualified SGLANG_DOCKER_IMAGE." >&2
+IMAGE_ID="$(docker image inspect --format '{{.Id}}' "${IMAGE}" 2>/dev/null || true)"
+IMAGE_IDENTITY="${IMAGE_DIGEST:-local-image-id:${IMAGE_ID}}"
+REQUIRE_IDENTITY="$(profile_value reference_run_requires_image_identity)"
+if [[ "${REQUIRE_IDENTITY}" == "1" && ( -z "${IMAGE_ID}" || "${IMAGE_IDENTITY}" == "local-image-id:" ) ]]; then
+  echo "Reference runs require an immutable container identity; Docker did not return one for ${IMAGE}." >&2
   exit 2
 fi
 PYTHONPATH_VALUE="/workspace/packages/agentic-core/src:/workspace/packages/agentic-backend-api/src:/workspace/packages/agentic-backend-sglang/src"
@@ -91,6 +92,7 @@ docker run --rm ${GPU_ARGS} \
     --runtime-profile "${PROFILE_ID}" \
     --container-image "${IMAGE}" \
     --container-image-digest "${IMAGE_DIGEST}" \
+    --container-image-identity "${IMAGE_IDENTITY}" \
     --gpu-vendor "${GPU_VENDOR}" \
     --gpu-architecture "${GPU_ARCHITECTURE}" \
     --host-architecture "${HOST_ARCHITECTURE}" \

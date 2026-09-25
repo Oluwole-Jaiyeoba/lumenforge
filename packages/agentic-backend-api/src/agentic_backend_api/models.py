@@ -72,6 +72,7 @@ class BackendRuntimeInfo:
     health_status: str = "not_checked"
     container_image: str = ""
     container_image_digest: str = ""
+    container_image_identity: str = ""
     gpu_vendor: str = ""
     gpu_architecture: str = ""
     host_architecture: str = ""

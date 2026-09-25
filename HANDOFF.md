@@ -21,6 +21,11 @@ truth. The older long-form notebook at
 `docs/testbeds/sglang_direct_kv.md` is useful history, but it includes outdated
 milestones and should not drive current implementation choices by itself.
 
+For an NVIDIA GH200 bring-up, follow
+[`docs/deployment/GH200_AGENT_HANDOFF.md`](docs/deployment/GH200_AGENT_HANDOFF.md)
+before changing any controller or harness code. It preserves the approved
+hybrid boundary: host-native harnesses/controller, containerized SGLang.
+
 Before proposing or launching a controller experiment, read
 [`CONTROLLER_EXPERIMENTS.html`](CONTROLLER_EXPERIMENTS.html). Its structured
 source is `configs/controller_experiment_registry.json`. The registry records each

@@ -126,7 +126,8 @@ amd-rocm
 Each runtime profile must record:
 
 - GPU vendor, architecture, and host architecture;
-- container image or Dockerfile and immutable image digest;
+- container image or Dockerfile and immutable image identity (a registry
+  digest for published images, or a Docker image ID during local bring-up);
 - exact SGLang version or commit;
 - backend adapter selection;
 - model-cache and artifact mounts;
@@ -139,7 +140,9 @@ different Python implementation of controller policy.
 Runtime profiles live in `configs/backend_runtimes/`. The common container
 preflight is `infra/container/probe_sglang_runtime.sh`. It emits
 `agentic_backend_runtime.v1`, including both normalized capabilities and the
-raw backend-specific probe for debugging.
+raw backend-specific probe for debugging. The runtime record distinguishes a
+published-image digest from a local Docker image ID, so an agent can validate
+a newly built image before it is published.
 
 ## Stable Boundary And Capability Handshake
 
@@ -216,7 +219,9 @@ Then run, in order:
 6. report and artifact validation.
 
 For the GH200 deployment path, begin with
-[`docs/deployment/nvidia_gh200_96gb.md`](docs/deployment/nvidia_gh200_96gb.md).
+[`docs/deployment/nvidia_gh200_96gb.md`](docs/deployment/nvidia_gh200_96gb.md)
+and follow the explicit
+[`GH200 agent handoff checklist`](docs/deployment/GH200_AGENT_HANDOFF.md).
 
 ## Change Checklist
 

@@ -32,6 +32,12 @@ Current profiles:
 | `nvidia_standard` | supported | Conventional NVIDIA CUDA hosts |
 | `amd_rocm` | experimental | ROCm container boundary; image must be supplied explicitly |
 
+`infra/container/Dockerfile.sglang` and
+`infra/container/build_sglang_runtime.sh` provide the backend-only image
+scaffold. Build the image natively on the target machine, then use the probe
+to record its local Docker image ID or published registry digest before an
+experiment is allowed to proceed.
+
 Example preflight:
 
 ```bash

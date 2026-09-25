@@ -26,11 +26,13 @@ The portable deployment contract is defined by:
 | `configs/backend_runtimes/nvidia_gh200.json` | GPU/runtime expectations |
 | `infra/container/probe_sglang_runtime.sh` | Container capability handshake |
 | `scripts/create_run_manifest.py` | Immutable host-side run record |
+| `docs/deployment/GH200_AGENT_HANDOFF.md` | Exact GH200 bring-up checklist |
 
 Reference experiments in this guide expect SGLang `0.5.10.post1`. Set
-`SGLANG_DOCKER_IMAGE` to a published, digest-backed image that contains that
-version. The preflight refuses to start the experiment when the image reports
-a different SGLang version or lacks a required capability.
+`SGLANG_DOCKER_IMAGE` to a locally built or published image that contains that
+version. The preflight records either a registry digest or a local Docker image
+ID, and refuses to start the experiment when the image reports a different
+SGLang version or lacks a required capability.
 
 ## 1. Configure Connection
 
@@ -171,6 +173,33 @@ export AGENTIC_GH200_MODEL_CACHE=/path/to/your/model_cache
 
 The run scripts will abort early with a clear message if the cache is not
 found.
+
+### Build The Backend Image
+
+The SGLang server runs in its own backend-only image. Build the ARM64 image on
+the GH200, then point every hybrid run to that explicit tag:
+
+```bash
+cd ~/agentic_hardware
+
+BACKEND_RUNTIME_PROFILE=nvidia_gh200 \
+SGLANG_RUNTIME_TAG=agentic-sglang-gh200:0.5.10.post1 \
+bash infra/container/build_sglang_runtime.sh
+
+export SGLANG_DOCKER_IMAGE=agentic-sglang-gh200:0.5.10.post1
+```
+
+Before a workload, verify that the image selects `v0510` and writes a runtime
+contract:
+
+```bash
+BACKEND_RUNTIME_PROFILE=nvidia_gh200 \
+BACKEND_RUNTIME_CONTRACT_OUT="$PWD/sglang_direct_kv/artifacts/gh200_runtime.json" \
+bash infra/container/probe_sglang_runtime.sh
+```
+
+See [the GH200 agent handoff checklist](GH200_AGENT_HANDOFF.md) for the full
+bring-up order and failure handling.
 
 Before loading a model, the host runner now launches a short-lived probe in the
 same SGLang image. It writes these files under the run artifact directory:

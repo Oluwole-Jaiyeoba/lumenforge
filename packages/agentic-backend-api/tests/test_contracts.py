@@ -41,11 +41,13 @@ class ContractsTest(unittest.TestCase):
             probe_ok=True,
             healthy=True,
             health_status="healthy",
+            container_image_identity="local-image-id:sha256:abc",
             capabilities=BackendCapabilities(priority_queue=True, backend_name="sglang"),
         )
         row = runtime.to_dict()
         self.assertEqual(row["schema_version"], "agentic_backend_runtime.v1")
         self.assertTrue(row["probe_ok"])
+        self.assertEqual(row["container_image_identity"], "local-image-id:sha256:abc")
         self.assertTrue(row["capabilities"]["priority_queue"])
 
 

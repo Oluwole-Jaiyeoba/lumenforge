@@ -24,6 +24,7 @@ human-readable workstream entry points. Supporting documentation lives under
 
 - [Remote host](deployment/remote_host.md)
 - [NVIDIA GH200](deployment/nvidia_gh200_96gb.md)
+- [GH200 agent handoff checklist](deployment/GH200_AGENT_HANDOFF.md)
 
 ## Testbeds (`docs/testbeds/`)
 

@@ -11,7 +11,7 @@ DIRECT_ROOT="${REPO_ROOT}/sglang_direct_kv"
 cd "${DIRECT_ROOT}"
 
 MODEL="${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}"
-SGLANG_DOCKER_IMAGE="${SGLANG_DOCKER_IMAGE:-lmsysorg/sglang:latest}"
+SGLANG_DOCKER_IMAGE="${SGLANG_DOCKER_IMAGE:-}"
 GH200_USER_NAME="${AGENTIC_GH200_USER:-$(id -un)}"
 GH200_MODEL_CACHE="${AGENTIC_GH200_MODEL_CACHE:-${HOME}/dynamo_model_cache}"
 GH200_TMP_HOME="${AGENTIC_GH200_TMP_HOME:-/tmp/gh200home}"
@@ -39,6 +39,11 @@ if [[ "${DRY_RUN}" != "1" && ! -f ".venv/bin/activate" ]]; then
 fi
 if [[ "${DRY_RUN}" != "1" ]] && ! command -v docker >/dev/null 2>&1; then
   echo "docker not found. Install Docker on NVIDIA GH200 before GPU runs." >&2
+  exit 1
+fi
+if [[ "${DRY_RUN}" != "1" && -z "${SGLANG_DOCKER_IMAGE}" ]]; then
+  echo "Set SGLANG_DOCKER_IMAGE to the pinned GH200 backend image before running." >&2
+  echo "Build one with: BACKEND_RUNTIME_PROFILE=nvidia_gh200 bash infra/container/build_sglang_runtime.sh" >&2
   exit 1
 fi
 if [[ "${DRY_RUN}" != "1" && ! -d "${GH200_MODEL_CACHE}" ]]; then

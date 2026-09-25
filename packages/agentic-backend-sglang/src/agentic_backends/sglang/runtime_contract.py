@@ -58,6 +58,7 @@ def build_runtime_info(
     healthy: bool | None = None,
     container_image: str = "",
     container_image_digest: str = "",
+    container_image_identity: str = "",
     gpu_vendor: str = "",
     gpu_architecture: str = "",
     host_architecture: str = "",
@@ -76,6 +77,7 @@ def build_runtime_info(
         health_status=health_status,
         container_image=container_image,
         container_image_digest=container_image_digest,
+        container_image_identity=container_image_identity,
         gpu_vendor=gpu_vendor,
         gpu_architecture=gpu_architecture,
         host_architecture=host_architecture or platform.machine(),
@@ -109,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--health-timeout-s", type=float, default=2.0)
     parser.add_argument("--container-image", default="")
     parser.add_argument("--container-image-digest", default="")
+    parser.add_argument("--container-image-identity", default="")
     parser.add_argument("--gpu-vendor", default="")
     parser.add_argument("--gpu-architecture", default="")
     parser.add_argument("--host-architecture", default="")
@@ -124,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
         healthy=_health_ok(args.health_url, args.health_timeout_s) if health_checked else None,
         container_image=args.container_image,
         container_image_digest=args.container_image_digest,
+        container_image_identity=args.container_image_identity,
         gpu_vendor=args.gpu_vendor,
         gpu_architecture=args.gpu_architecture,
         host_architecture=args.host_architecture,
