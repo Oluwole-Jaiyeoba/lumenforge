@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentic Hardware Milestone Experiments</title><style>
+:root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #172033; background: #f5f7fb; }
+body { margin: 0; line-height: 1.5; } main { max-width: 1240px; margin: 0 auto; padding: 42px 24px 72px; }
+h1,h2,h3,p { margin-top: 0; } h1 { font-size: 32px; margin-bottom: 8px; } h2 { font-size: 22px; margin-bottom: 4px; } h3 { font-size: 15px; margin-bottom: 6px; }
+.lede { color: #52627b; max-width: 880px; } .notice, .experiment, .registry { background: #fff; border: 1px solid #d8e0ec; border-radius: 8px; padding: 20px; margin-top: 20px; }
+.notice { border-left: 4px solid #16856b; } .registry { overflow-x: auto; } table { border-collapse: collapse; width: 100%; } th,td { padding: 10px; border-bottom: 1px solid #e5eaf2; text-align: left; vertical-align: top; } th { width: 28%; color: #4c5c74; font-weight: 600; }
+.registry th { white-space: nowrap; } .experiment header { display: flex; gap: 16px; justify-content: space-between; align-items: start; } .eyebrow { color: #62738d; font: 600 12px ui-monospace, monospace; margin-bottom: 5px; }
+.question { font-size: 17px; } .contract-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .contract-grid section { background:#f7f9fd; border:1px solid #e4eaf3; padding:14px; border-radius:6px; }
+.contract-grid p { margin-bottom:0; } .status { display:inline-block; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; white-space:nowrap; } .validated_reference { background:#d9f4e7; color:#0b6545; } .completed_pending_review { background:#fff1c8; color:#795400; } .invalid_for_comparison { background:#fee0e0; color:#9c2633; } .planned { background:#e5ebf5; color:#3e516d; }
+details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } summary { cursor:pointer; font-weight:700; } pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#172033; color:#eef4ff; padding:14px; border-radius:6px; } code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.92em; } a { color:#075f9d; }
+@media (max-width: 720px) { main { padding:28px 14px; } .contract-grid { grid-template-columns:1fr; } .experiment header { display:block; } .status { margin-top:8px; } }
+</style></head><body><main>
+<h1>Agentic Hardware Milestone Experiments</h1><p class="lede">A reproducible record of controller milestones. The JSON registry is the machine-readable source of truth; this page is generated from it.</p>
+<section class="notice"><h2>Comparison Safety</h2><ul><li>Compared modes must use the same workload timeline and request population.</li><li>The priority contract must state whether application-level priority classes exist.</li><li>Controller capabilities must be isolated unless the record explicitly names a combination.</li><li>A valid result requires trace coverage and no client-side replay-dispatch delay dominating the outcome.</li></ul></section>
+<section class="registry"><h2>Milestone Index</h2><table><thead><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Comparison</th></tr></thead><tbody><tr><td><a href="#scenario1_ready_time_reference">scenario1_ready_time_reference</a></td><td>Scenario 1: Better Deadline Scheduling</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_ready_time_gpu_backfill</code></td></tr><tr><td><a href="#scenario2_proactive_kv_reference">scenario2_proactive_kv_reference</a></td><td>Scenario 2: Proactive KV-Cache Management</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_proactive_kv_management</code></td></tr><tr><td><a href="#scenario3_value_aware_eviction_reference">scenario3_value_aware_eviction_reference</a></td><td>Scenario 3: Better Cache Eviction Decisions</td><td><span class="status validated_reference">Validated reference</span></td><td><code>no_prefetch vs controller_value_aware_eviction</code></td></tr><tr><td><a href="#deadline_fair_equal_diagnostic">deadline_fair_equal_diagnostic</a></td><td>Scenario 1 scheduling diagnostic</td><td><span class="status invalid_for_comparison">Invalid for comparison</span></td><td><code>no_prefetch vs controller_deadline_fair</code></td></tr><tr><td><a href="#scenario1_portability_reference">scenario1_portability_reference</a></td><td>Scenario 1 portability reproduction</td><td><span class="status completed_pending_review">Completed - review pending</span></td><td><code>no_prefetch vs controller_ready_time_gpu_backfill</code></td></tr></tbody></table></section>
+
+    <article class="experiment" id="scenario1_ready_time_reference">
+      <header>
+        <div><p class="eyebrow">scenario1_ready_time_reference</p><h2>Scenario 1: Better Deadline Scheduling</h2></div>
+        <span class="status validated_reference">Validated reference</span>
+      </header>
+      <p class="question">Can early replay-ready-time knowledge improve scheduling for equal-importance replay requests?</p>
+      <div class="contract-grid">
+        <section><h3>Controller scope</h3><p>Ready-time scheduling only; GPU-idle telemetry was observed but did not alter admission in this reference run.</p></section>
+        <section><h3>Priority contract</h3><p>All replay requests have equal application importance. The controller may order them by earliest expected ready time; this is scheduling order, not a user-priority class.</p></section>
+        <section><h3>Compared modes</h3><p><code>no_prefetch vs controller_ready_time_gpu_backfill</code></p></section>
+        <section><h3>Workload</h3><p>Hatcher; P3; 16 replay-capable sessions x 2 replay steps = 32 replays per mode; 15 concurrent peer sessions; mode-independent timeline.</p></section>
+      </div>
+      <details open><summary>Reproduction contract</summary>
+        <p><strong>Reusable spec:</strong> <code>configs/experiment_specs/scenario1_ready_time_reference.env</code></p>
+        <table><tbody><tr><th>model</th><td>Qwen/Qwen2.5-Coder-7B-Instruct</td></tr><tr><th>hardware profile</th><td>nvidia_a10g_24gb</td></tr><tr><th>sglang version</th><td>0.5.10.post1</td></tr><tr><th>tool wait profile</th><td>very_short 20% (100-500 ms), short 35% (1-5 s), medium 30% (10-30 s), long 15% (60-120 s)</td></tr><tr><th>seed</th><td>20260916</td></tr><tr><th>p3</th><td>tool_wait_ms=50, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=1536, concurrency=6</td></tr></tbody></table>
+        <p><strong>Run label:</strong> <code>scenario1_rtg_v1_20260921_172045</code></p>
+        <pre><code>cd sglang_direct_kv &amp;&amp; source .venv/bin/activate &amp;&amp; set -a &amp;&amp; source ../configs/experiment_specs/scenario1_ready_time_reference.env &amp;&amp; set +a &amp;&amp; REPORT_LABEL=&quot;scenario1_ready_time_reference_$(date +%Y%m%d_%H%M%S)&quot; bash scripts/run_harness_deadline_pressure.sh Qwen/Qwen2.5-Coder-7B-Instruct</code></pre>
+      </details>
+      <details open><summary>Observed result</summary>
+        <table><tbody><tr><th>total ttft</th><td>79.0 s -&gt; 60.0 s (24.1% better)</td></tr><tr><th>total lateness</th><td>202.1 s -&gt; 150.7 s (25.4% better)</td></tr><tr><th>p95 lateness</th><td>22.8 s -&gt; 16.7 s (26.5% better)</td></tr><tr><th>max lateness</th><td>27.7 s -&gt; 17.0 s (38.6% better)</td></tr><tr><th>mechanism proof</th><td>32/32 controller replays received ready-time ordering at the local gate and SGLang boundary.</td></tr></tbody></table>
+        <p><strong>Artifact:</strong> <a href="sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html">Open report</a></p>
+      </details>
+    </article>
+
+    <article class="experiment" id="scenario2_proactive_kv_reference">
+      <header>
+        <div><p class="eyebrow">scenario2_proactive_kv_reference</p><h2>Scenario 2: Proactive KV-Cache Management</h2></div>
+        <span class="status validated_reference">Validated reference</span>
+      </header>
+      <p class="question">Can the controller prepare useful KV during long tool waits without fake warmup requests?</p>
+      <div class="contract-grid">
+        <section><h3>Controller scope</h3><p>Direct KV preparation with selective admission only.</p></section>
+        <section><h3>Priority contract</h3><p>All replay requests have equal application importance. Admission depends on safe completion and expected reuse, not user-priority class.</p></section>
+        <section><h3>Compared modes</h3><p><code>no_prefetch vs controller_proactive_kv_management</code></p></section>
+        <section><h3>Workload</h3><p>Hatcher; P3; 32 replay requests per mode; long tool waits only; mode-independent timeline.</p></section>
+      </div>
+      <details open><summary>Reproduction contract</summary>
+        
+        <table><tbody><tr><th>model</th><td>Qwen/Qwen2.5-Coder-7B-Instruct</td></tr><tr><th>hardware profile</th><td>nvidia_a10g_24gb</td></tr><tr><th>tool wait profile</th><td>long 100% (60-120 s)</td></tr><tr><th>seed</th><td>20260917</td></tr><tr><th>p3</th><td>tool_wait_ms=1000, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=4096, concurrency=6</td></tr></tbody></table>
+        <p><strong>Run label:</strong> <code>proactive_kv_management_selective_admission_20260917_062007</code></p>
+        <pre><code>Use the recorded run configuration in the linked artifact before creating a new Scenario 2 spec; do not combine it with scheduling or eviction.</code></pre>
+      </details>
+      <details open><summary>Observed result</summary>
+        <table><tbody><tr><th>total ttft</th><td>123.1 s -&gt; 116.5 s (5.3% better)</td></tr><tr><th>total lateness</th><td>123.4 s -&gt; 116.9 s (5.3% better)</td></tr><tr><th>max lateness</th><td>10.5 s -&gt; 8.3 s</td></tr><tr><th>mechanism proof</th><td>21/21 controller preparation requests reached the backend; 9 needed load plans and 12 were already resident.</td></tr></tbody></table>
+        <p><strong>Artifact:</strong> <a href="sglang_direct_kv/artifacts/results/reports/proactive_kv_management_selective_admission_20260917_062007/master_report.html">Open report</a></p>
+      </details>
+    </article>
+
+    <article class="experiment" id="scenario3_value_aware_eviction_reference">
+      <header>
+        <div><p class="eyebrow">scenario3_value_aware_eviction_reference</p><h2>Scenario 3: Better Cache Eviction Decisions</h2></div>
+        <span class="status validated_reference">Validated reference</span>
+      </header>
+      <p class="question">Can harness-derived prefix value guide native priority-radix eviction?</p>
+      <div class="contract-grid">
+        <section><h3>Controller scope</h3><p>Value-aware eviction only.</p></section>
+        <section><h3>Priority contract</h3><p>Application value classes are intentionally present: high, normal, and low prefixes map to 100, 0, and -100. This is not comparable to an equal-importance scheduling experiment.</p></section>
+        <section><h3>Compared modes</h3><p><code>no_prefetch vs controller_value_aware_eviction</code></p></section>
+        <section><h3>Workload</h3><p>Hatcher; P3; 32 replay requests per mode; mode-independent timeline.</p></section>
+      </div>
+      <details open><summary>Reproduction contract</summary>
+        
+        <table><tbody><tr><th>model</th><td>Qwen/Qwen2.5-Coder-7B-Instruct</td></tr><tr><th>hardware profile</th><td>nvidia_a10g_24gb</td></tr><tr><th>tool wait profile</th><td>very short through long, using the Scenario 1 distribution</td></tr><tr><th>seed</th><td>20260917</td></tr><tr><th>p3</th><td>tool_wait_ms=1000, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=4096, concurrency=6</td></tr></tbody></table>
+        <p><strong>Run label:</strong> <code>value_aware_eviction_all_requests_fixed_20260917_163518</code></p>
+        <pre><code>Use the recorded run configuration in the linked artifact before creating a new Scenario 3 spec; do not combine it with scheduling or direct KV preparation.</code></pre>
+      </details>
+      <details open><summary>Observed result</summary>
+        <table><tbody><tr><th>total ttft</th><td>482.3 s -&gt; 233.5 s (51.6% better)</td></tr><tr><th>total lateness</th><td>1014.0 s -&gt; 659.9 s (34.9% better)</td></tr><tr><th>tradeoff</th><td>Overall workload window increased by 63.1 s.</td></tr><tr><th>mechanism proof</th><td>0 priority mismatches; native priority-radix eviction was active.</td></tr></tbody></table>
+        <p><strong>Artifact:</strong> <a href="sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/master_report.html">Open report</a></p>
+      </details>
+    </article>
+
+    <article class="experiment" id="deadline_fair_equal_diagnostic">
+      <header>
+        <div><p class="eyebrow">deadline_fair_equal_diagnostic</p><h2>Scenario 1 scheduling diagnostic</h2></div>
+        <span class="status invalid_for_comparison">Invalid for comparison</span>
+      </header>
+      <p class="question">Can the new equal-importance path be inspected end to end?</p>
+      <div class="contract-grid">
+        <section><h3>Controller scope</h3><p>Deadline-fair ordering.</p></section>
+        <section><h3>Priority contract</h3><p>Equal application importance; deadline ordering only.</p></section>
+        <section><h3>Compared modes</h3><p><code>no_prefetch vs controller_deadline_fair</code></p></section>
+        <section><h3>Workload</h3><p>Hatcher; P3; two replay steps; 15 peer sessions.</p></section>
+      </div>
+      <details open><summary>Reproduction contract</summary>
+        
+        <table><tbody><tr><th>hardware profile</th><td>nvidia_a10g_24gb</td></tr><tr><th>tool wait profile</th><td>realistic_deadline_fair</td></tr><tr><th>seed</th><td>20260922</td></tr></tbody></table>
+        <p><strong>Run label:</strong> <code>deadline_fair_equal_v0510_20260925_164935</code></p>
+        <pre><code>Do not rerun as a milestone reference until replay dispatch alignment is fixed.</code></pre>
+      </details>
+      <details open><summary>Observed result</summary>
+        <table><tbody><tr><th>verdict</th><td>Do not compare this result with Scenario 1.</td></tr><tr><th>reason</th><td>Replay requests were submitted 157.8-186.7 seconds after their due times, so client dispatch, rather than backend scheduling, dominated the measurement.</td></tr></tbody></table>
+        <p><strong>Artifact:</strong> External historical archive</p>
+      </details>
+    </article>
+
+    <article class="experiment" id="scenario1_portability_reference">
+      <header>
+        <div><p class="eyebrow">scenario1_portability_reference</p><h2>Scenario 1 portability reproduction</h2></div>
+        <span class="status completed_pending_review">Completed - review pending</span>
+      </header>
+      <p class="question">Did the modularity restructuring preserve the original Scenario 1 behavior?</p>
+      <div class="contract-grid">
+        <section><h3>Controller scope</h3><p>Ready-time scheduling only.</p></section>
+        <section><h3>Priority contract</h3><p>Same equal-importance contract as Scenario 1 reference.</p></section>
+        <section><h3>Compared modes</h3><p><code>no_prefetch vs controller_ready_time_gpu_backfill</code></p></section>
+        <section><h3>Workload</h3><p>Exact Scenario 1 reference workload and seed.</p></section>
+      </div>
+      <details open><summary>Reproduction contract</summary>
+        <p><strong>Reusable spec:</strong> <code>configs/experiment_specs/scenario1_ready_time_reference.env</code></p>
+        <table><tbody><tr><th>model</th><td>Qwen/Qwen2.5-Coder-7B-Instruct</td></tr><tr><th>hardware profile</th><td>nvidia_a10g_24gb</td></tr><tr><th>sglang version</th><td>0.5.10.post1</td></tr><tr><th>seed</th><td>20260916</td></tr></tbody></table>
+        <p><strong>Run label:</strong> <code>scenario1_portability_reference_20260925_171817</code></p>
+        <pre><code>Use the Scenario 1 reference spec above.</code></pre>
+      </details>
+      <details open><summary>Observed result</summary>
+        <table><tbody><tr><th>verdict</th><td>Completed; results have not yet been validated against the Scenario 1 reference contract.</td></tr></tbody></table>
+        <p><strong>Artifact:</strong> Remote artifact pending review</p>
+      </details>
+    </article>
+</main></body></html>

@@ -20,6 +20,13 @@ hardware replay-deadline infrastructure. Treat this file plus the top-level
 `docs/testbeds/sglang_direct_kv.md` is useful history, but it includes outdated
 milestones and should not drive current implementation choices by itself.
 
+Before proposing or launching an experiment, read
+[`MILESTONE_EXPERIMENTS.html`](MILESTONE_EXPERIMENTS.html). Its structured
+source is `configs/experiment_registry.json`. The registry records each
+experiment's priority contract, isolated controller capability, workload
+contract, result, and validity status. Do not compare runs with different
+priority contracts or controller scopes.
+
 ## Project Overview
 
 This project studies a specific bottleneck in agentic LLM systems: after an

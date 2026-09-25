@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "title": "Agentic Hardware Milestone Experiments",
+  "comparison_safety_rules": [
+    "Compared modes must use the same workload timeline and request population.",
+    "The priority contract must state whether application-level priority classes exist.",
+    "Controller capabilities must be isolated unless the record explicitly names a combination.",
+    "A valid result requires trace coverage and no client-side replay-dispatch delay dominating the outcome."
+  ],
+  "experiments": [
+    {
+      "id": "scenario1_ready_time_reference",
+      "scenario": "Scenario 1: Better Deadline Scheduling",
+      "status": "validated_reference",
+      "question": "Can early replay-ready-time knowledge improve scheduling for equal-importance replay requests?",
+      "controller_capability": "Ready-time scheduling only; GPU-idle telemetry was observed but did not alter admission in this reference run.",
+      "priority_contract": "All replay requests have equal application importance. The controller may order them by earliest expected ready time; this is scheduling order, not a user-priority class.",
+      "comparison": "no_prefetch vs controller_ready_time_gpu_backfill",
+      "workload": "Hatcher; P3; 16 replay-capable sessions x 2 replay steps = 32 replays per mode; 15 concurrent peer sessions; mode-independent timeline.",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "hardware_profile": "nvidia_a10g_24gb",
+        "sglang_version": "0.5.10.post1",
+        "tool_wait_profile": "very_short 20% (100-500 ms), short 35% (1-5 s), medium 30% (10-30 s), long 15% (60-120 s)",
+        "seed": "20260916",
+        "p3": "tool_wait_ms=50, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=1536, concurrency=6"
+      },
+      "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
+      "run_label": "scenario1_rtg_v1_20260921_172045",
+      "report_path": "sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html",
+      "results": {
+        "total_ttft": "79.0 s -> 60.0 s (24.1% better)",
+        "total_lateness": "202.1 s -> 150.7 s (25.4% better)",
+        "p95_lateness": "22.8 s -> 16.7 s (26.5% better)",
+        "max_lateness": "27.7 s -> 17.0 s (38.6% better)",
+        "mechanism_proof": "32/32 controller replays received ready-time ordering at the local gate and SGLang boundary."
+      },
+      "reproduction_command": "cd sglang_direct_kv && source .venv/bin/activate && set -a && source ../configs/experiment_specs/scenario1_ready_time_reference.env && set +a && REPORT_LABEL=\"scenario1_ready_time_reference_$(date +%Y%m%d_%H%M%S)\" bash scripts/run_harness_deadline_pressure.sh Qwen/Qwen2.5-Coder-7B-Instruct"
+    },
+    {
+      "id": "scenario2_proactive_kv_reference",
+      "scenario": "Scenario 2: Proactive KV-Cache Management",
+      "status": "validated_reference",
+      "question": "Can the controller prepare useful KV during long tool waits without fake warmup requests?",
+      "controller_capability": "Direct KV preparation with selective admission only.",
+      "priority_contract": "All replay requests have equal application importance. Admission depends on safe completion and expected reuse, not user-priority class.",
+      "comparison": "no_prefetch vs controller_proactive_kv_management",
+      "workload": "Hatcher; P3; 32 replay requests per mode; long tool waits only; mode-independent timeline.",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "hardware_profile": "nvidia_a10g_24gb",
+        "tool_wait_profile": "long 100% (60-120 s)",
+        "seed": "20260917",
+        "p3": "tool_wait_ms=1000, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=4096, concurrency=6"
+      },
+      "run_label": "proactive_kv_management_selective_admission_20260917_062007",
+      "report_path": "sglang_direct_kv/artifacts/results/reports/proactive_kv_management_selective_admission_20260917_062007/master_report.html",
+      "results": {
+        "total_ttft": "123.1 s -> 116.5 s (5.3% better)",
+        "total_lateness": "123.4 s -> 116.9 s (5.3% better)",
+        "max_lateness": "10.5 s -> 8.3 s",
+        "mechanism_proof": "21/21 controller preparation requests reached the backend; 9 needed load plans and 12 were already resident."
+      },
+      "reproduction_command": "Use the recorded run configuration in the linked artifact before creating a new Scenario 2 spec; do not combine it with scheduling or eviction."
+    },
+    {
+      "id": "scenario3_value_aware_eviction_reference",
+      "scenario": "Scenario 3: Better Cache Eviction Decisions",
+      "status": "validated_reference",
+      "question": "Can harness-derived prefix value guide native priority-radix eviction?",
+      "controller_capability": "Value-aware eviction only.",
+      "priority_contract": "Application value classes are intentionally present: high, normal, and low prefixes map to 100, 0, and -100. This is not comparable to an equal-importance scheduling experiment.",
+      "comparison": "no_prefetch vs controller_value_aware_eviction",
+      "workload": "Hatcher; P3; 32 replay requests per mode; mode-independent timeline.",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "hardware_profile": "nvidia_a10g_24gb",
+        "tool_wait_profile": "very short through long, using the Scenario 1 distribution",
+        "seed": "20260917",
+        "p3": "tool_wait_ms=1000, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=4096, concurrency=6"
+      },
+      "run_label": "value_aware_eviction_all_requests_fixed_20260917_163518",
+      "report_path": "sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/master_report.html",
+      "results": {
+        "total_ttft": "482.3 s -> 233.5 s (51.6% better)",
+        "total_lateness": "1014.0 s -> 659.9 s (34.9% better)",
+        "tradeoff": "Overall workload window increased by 63.1 s.",
+        "mechanism_proof": "0 priority mismatches; native priority-radix eviction was active."
+      },
+      "reproduction_command": "Use the recorded run configuration in the linked artifact before creating a new Scenario 3 spec; do not combine it with scheduling or direct KV preparation."
+    },
+    {
+      "id": "deadline_fair_equal_diagnostic",
+      "scenario": "Scenario 1 scheduling diagnostic",
+      "status": "invalid_for_comparison",
+      "question": "Can the new equal-importance path be inspected end to end?",
+      "controller_capability": "Deadline-fair ordering.",
+      "priority_contract": "Equal application importance; deadline ordering only.",
+      "comparison": "no_prefetch vs controller_deadline_fair",
+      "workload": "Hatcher; P3; two replay steps; 15 peer sessions.",
+      "parameters": {
+        "hardware_profile": "nvidia_a10g_24gb",
+        "tool_wait_profile": "realistic_deadline_fair",
+        "seed": "20260922"
+      },
+      "run_label": "deadline_fair_equal_v0510_20260925_164935",
+      "report_path": "External historical archive",
+      "results": {
+        "verdict": "Do not compare this result with Scenario 1.",
+        "reason": "Replay requests were submitted 157.8-186.7 seconds after their due times, so client dispatch, rather than backend scheduling, dominated the measurement."
+      },
+      "reproduction_command": "Do not rerun as a milestone reference until replay dispatch alignment is fixed."
+    },
+    {
+      "id": "scenario1_portability_reference",
+      "scenario": "Scenario 1 portability reproduction",
+      "status": "completed_pending_review",
+      "question": "Did the modularity restructuring preserve the original Scenario 1 behavior?",
+      "controller_capability": "Ready-time scheduling only.",
+      "priority_contract": "Same equal-importance contract as Scenario 1 reference.",
+      "comparison": "no_prefetch vs controller_ready_time_gpu_backfill",
+      "workload": "Exact Scenario 1 reference workload and seed.",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "hardware_profile": "nvidia_a10g_24gb",
+        "sglang_version": "0.5.10.post1",
+        "seed": "20260916"
+      },
+      "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
+      "run_label": "scenario1_portability_reference_20260925_171817",
+      "report_path": "Remote artifact pending review",
+      "results": {
+        "verdict": "Completed; results have not yet been validated against the Scenario 1 reference contract."
+      },
+      "reproduction_command": "Use the Scenario 1 reference spec above."
+    }
+  ]
+}

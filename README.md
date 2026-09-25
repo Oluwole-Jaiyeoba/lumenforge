@@ -4,6 +4,7 @@ Portable infrastructure for harness-aware scheduling, KV-cache control, and
 agentic inference experiments.
 
 - [Current handoff](HANDOFF.md)
+- [Milestone experiment registry](MILESTONE_EXPERIMENTS.html)
 - [Project overview](docs/project/overview.md)
 - [SGLang-portability restructuring (start here if you change code)](docs/architecture/README_RESTRUCTURING.md)
 - [Architecture map](docs/architecture/ARCHITECTURE_MAP.md)
