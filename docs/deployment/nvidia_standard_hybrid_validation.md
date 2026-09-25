@@ -63,3 +63,39 @@ reaches it through the ordinary `127.0.0.1:30000` backend endpoint.
 Do not require exact equality with historical TTFT or lateness numbers. The
 goal is a clean completed hybrid run with a plausible comparison under the
 same workload contract.
+
+## Validated Reference
+
+The first completed standard-NVIDIA hybrid run used:
+
+```text
+run label: scenario1_hybrid_reference_20260925_r6
+SGLang image: agentic-sglang-standard:0.5.10.post1
+adapter: v0510
+model: Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+It completed both equal-importance Scenario 1 modes with 32 replay requests:
+
+| Mode | Average replay TTFT | Average replay lateness | Total TTFT | Total replay debt |
+| --- | ---: | ---: | ---: | ---: |
+| `no_prefetch` | 2.70 s | 6.77 s | 86.34 s | 216.67 s |
+| `controller_ready_time_gpu_backfill` | 2.03 s | 3.10 s | 65.12 s | 99.33 s |
+
+The controller improvement is therefore not an application-priority result:
+all replays used the same importance class. It came from ordering work with
+replay-ready-time information and filling GPU gaps accordingly.
+
+The container launcher also enforces three practical boundary rules proven by
+this run:
+
+- Container server processes use the image's `python3`, never the host
+  virtual-environment interpreter.
+- PyTorch and FlashInfer use a writable temporary cache inside the container.
+- Files written into the mounted run directory are writable by the host user
+  by way of a container `umask 000`, so the host driver can append trace
+  records created by the container.
+
+The labeled `master_report.html`, `evidence_tables.html`, runtime contract,
+and run manifest are the evidence for this reference. Keep later validation
+runs in a new label; do not overwrite this one.

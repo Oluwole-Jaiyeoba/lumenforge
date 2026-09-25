@@ -27,7 +27,7 @@ SGLANG_DOCKER_IMAGE="${SGLANG_DOCKER_IMAGE:-}"
 SGLANG_DOCKER_PULL="${SGLANG_DOCKER_PULL:-0}"
 SGLANG_DOCKER_GPU_ARGS="${SGLANG_DOCKER_GPU_ARGS:---gpus all}"
 SGLANG_DOCKER_EXTRA_ARGS="${SGLANG_DOCKER_EXTRA_ARGS:-}"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 AGENTIC_RUNTIME_TELEMETRY="${AGENTIC_RUNTIME_TELEMETRY:-0}"
 AGENTIC_RUNTIME_TELEMETRY_PATH="${AGENTIC_RUNTIME_TELEMETRY_PATH:-}"
 AGENTIC_RUNTIME_TELEMETRY_BACKEND="${AGENTIC_RUNTIME_TELEMETRY_BACKEND:-sglang}"
@@ -125,6 +125,10 @@ if [[ -n "${SGLANG_DOCKER_IMAGE}" ]]; then
   if [[ -n "${HICACHE_STORAGE_PATH}" ]]; then
     docker_mount_args+=(-v "${HICACHE_STORAGE_PATH}:${HICACHE_STORAGE_PATH}")
   fi
+  # The host runner may select a virtual-environment interpreter via PYTHON_BIN.
+  # That path/name is not meaningful inside the backend image.
+  docker_launch_args=("${launch_args[@]}")
+  docker_launch_args[0]="python3"
   echo "Launching SGLang in Docker image: ${SGLANG_DOCKER_IMAGE}"
   exec docker run --rm \
     ${SGLANG_DOCKER_GPU_ARGS} \
@@ -133,6 +137,8 @@ if [[ -n "${SGLANG_DOCKER_IMAGE}" ]]; then
     --shm-size 16g \
     "${docker_mount_args[@]}" \
     -w "$(pwd)" \
+    -e HOME=/tmp \
+    -e XDG_CACHE_HOME=/tmp/.cache \
     -e AGENTIC_KV_TRACE_ENABLE \
     -e AGENTIC_KV_TRACE_PATH \
     -e AGENTIC_KV_TRACE_SCHEDULER="${AGENTIC_KV_TRACE_SCHEDULER:-0}" \
@@ -153,7 +159,8 @@ if [[ -n "${SGLANG_DOCKER_IMAGE}" ]]; then
     -e HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN:-${HF_TOKEN:-}}" \
     ${SGLANG_DOCKER_EXTRA_ARGS} \
     "${SGLANG_DOCKER_IMAGE}" \
-    "${launch_args[@]}"
+    sh -c 'umask 000; exec "$@"' -- \
+    "${docker_launch_args[@]}"
 fi
 
 exec "${launch_args[@]}"

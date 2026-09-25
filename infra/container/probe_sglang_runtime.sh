@@ -8,6 +8,15 @@ OUT_JSON="${BACKEND_RUNTIME_CONTRACT_OUT:-${REPO_ROOT}/sglang_direct_kv/artifact
 DOCKER_PULL="${SGLANG_DOCKER_PULL:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
+# Docker bind mounts require absolute host paths. Normalize the optional output
+# location once so callers may still use a repository-relative artifact path.
+OUT_JSON_DIR="$(cd "$(dirname "${OUT_JSON}")" 2>/dev/null && pwd || true)"
+if [[ -z "${OUT_JSON_DIR}" ]]; then
+  mkdir -p "$(dirname "${OUT_JSON}")"
+  OUT_JSON_DIR="$(cd "$(dirname "${OUT_JSON}")" && pwd)"
+fi
+OUT_JSON="${OUT_JSON_DIR}/$(basename "${OUT_JSON}")"
+
 if [[ ! -f "${PROFILE_PATH}" ]]; then
   echo "Backend runtime profile not found: ${PROFILE_PATH}" >&2
   exit 2
@@ -51,7 +60,7 @@ echo "Runtime contract: ${OUT_JSON}"
 if [[ "${DRY_RUN}" == "1" ]]; then
   exit 0
 fi
-mkdir -p "$(dirname "${OUT_JSON}")"
+mkdir -p "${OUT_JSON_DIR}"
 if ! command -v docker >/dev/null 2>&1; then
   echo "docker is required for the backend runtime probe." >&2
   exit 2
@@ -84,10 +93,10 @@ PY
 docker run --rm ${GPU_ARGS} \
   -e "PYTHONPATH=${PYTHONPATH_VALUE}" \
   -v "${REPO_ROOT}:/workspace:ro" \
-  -v "$(dirname "${OUT_JSON}"):$(dirname "${OUT_JSON}")" \
+  -v "${OUT_JSON_DIR}:${OUT_JSON_DIR}" \
   -w /workspace \
   "${IMAGE}" \
-  python -m agentic_backends.sglang.runtime_contract \
+  python3 -m agentic_backends.sglang.runtime_contract \
     --out "${OUT_JSON}" \
     --runtime-profile "${PROFILE_ID}" \
     --container-image "${IMAGE}" \
