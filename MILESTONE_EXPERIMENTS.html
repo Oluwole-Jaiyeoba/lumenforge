@@ -36,7 +36,8 @@ details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } 
       </details>
       <details open><summary>Observed result</summary>
         <table><tbody><tr><th>total ttft</th><td>79.0 s -&gt; 60.0 s (24.1% better)</td></tr><tr><th>total lateness</th><td>202.1 s -&gt; 150.7 s (25.4% better)</td></tr><tr><th>p95 lateness</th><td>22.8 s -&gt; 16.7 s (26.5% better)</td></tr><tr><th>max lateness</th><td>27.7 s -&gt; 17.0 s (38.6% better)</td></tr><tr><th>mechanism proof</th><td>32/32 controller replays received ready-time ordering at the local gate and SGLang boundary.</td></tr></tbody></table>
-        <p><strong>Artifact:</strong> <a href="sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html">Open report</a></p>
+        <p><strong>Standard scenario report:</strong> <a href="docs/reports/harness_aware_scenario_tracker.html">Open report</a></p>
+        <p><strong>Run-specific evidence:</strong> <a href="sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html">Open report</a></p>
       </details>
     </article>
 
@@ -60,7 +61,8 @@ details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } 
       </details>
       <details open><summary>Observed result</summary>
         <table><tbody><tr><th>total ttft</th><td>123.1 s -&gt; 116.5 s (5.3% better)</td></tr><tr><th>total lateness</th><td>123.4 s -&gt; 116.9 s (5.3% better)</td></tr><tr><th>max lateness</th><td>10.5 s -&gt; 8.3 s</td></tr><tr><th>mechanism proof</th><td>21/21 controller preparation requests reached the backend; 9 needed load plans and 12 were already resident.</td></tr></tbody></table>
-        <p><strong>Artifact:</strong> <a href="sglang_direct_kv/artifacts/results/reports/proactive_kv_management_selective_admission_20260917_062007/master_report.html">Open report</a></p>
+        <p><strong>Standard scenario report:</strong> <a href="docs/reports/harness_aware_scenario_tracker.html">Open report</a></p>
+        <p><strong>Run-specific evidence:</strong> <a href="sglang_direct_kv/artifacts/results/reports/proactive_kv_management_selective_admission_20260917_062007/master_report.html">Open report</a></p>
       </details>
     </article>
 
@@ -84,7 +86,8 @@ details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } 
       </details>
       <details open><summary>Observed result</summary>
         <table><tbody><tr><th>total ttft</th><td>482.3 s -&gt; 233.5 s (51.6% better)</td></tr><tr><th>total lateness</th><td>1014.0 s -&gt; 659.9 s (34.9% better)</td></tr><tr><th>tradeoff</th><td>Overall workload window increased by 63.1 s.</td></tr><tr><th>mechanism proof</th><td>0 priority mismatches; native priority-radix eviction was active.</td></tr></tbody></table>
-        <p><strong>Artifact:</strong> <a href="sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/master_report.html">Open report</a></p>
+        <p><strong>Standard scenario report:</strong> <a href="docs/reports/harness_aware_scenario_tracker.html">Open report</a></p>
+        <p><strong>Run-specific evidence:</strong> <a href="sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/master_report.html">Open report</a></p>
       </details>
     </article>
 
@@ -108,7 +111,8 @@ details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } 
       </details>
       <details open><summary>Observed result</summary>
         <table><tbody><tr><th>verdict</th><td>Do not compare this result with Scenario 1.</td></tr><tr><th>reason</th><td>Replay requests were submitted 157.8-186.7 seconds after their due times, so client dispatch, rather than backend scheduling, dominated the measurement.</td></tr></tbody></table>
-        <p><strong>Artifact:</strong> External historical archive</p>
+        <p><strong>Standard scenario report:</strong> External historical archive</p>
+        
       </details>
     </article>
 
@@ -132,7 +136,8 @@ details { margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; } 
       </details>
       <details open><summary>Observed result</summary>
         <table><tbody><tr><th>verdict</th><td>Completed; results have not yet been validated against the Scenario 1 reference contract.</td></tr></tbody></table>
-        <p><strong>Artifact:</strong> Remote artifact pending review</p>
+        <p><strong>Standard scenario report:</strong> Remote artifact pending review</p>
+        
       </details>
     </article>
 </main></body></html>

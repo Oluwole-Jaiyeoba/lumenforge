@@ -41,6 +41,12 @@ def render_experiment(item: dict[str, object]) -> str:
     )
     spec = item.get("spec_path")
     spec_html = f'<p><strong>Reusable spec:</strong> <code>{text(spec)}</code></p>' if spec else ""
+    evidence = item.get("evidence_path")
+    evidence_html = (
+        f'<p><strong>Run-specific evidence:</strong> {link_or_text(str(evidence))}</p>'
+        if evidence
+        else ""
+    )
     return f"""
     <article class="experiment" id="{text(item['id'])}">
       <header>
@@ -62,7 +68,8 @@ def render_experiment(item: dict[str, object]) -> str:
       </details>
       <details open><summary>Observed result</summary>
         <table><tbody>{result_rows}</tbody></table>
-        <p><strong>Artifact:</strong> {link_or_text(str(item['report_path']))}</p>
+        <p><strong>Standard scenario report:</strong> {link_or_text(str(item['report_path']))}</p>
+        {evidence_html}
       </details>
     </article>"""
 

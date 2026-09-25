@@ -27,7 +27,8 @@
       },
       "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
       "run_label": "scenario1_rtg_v1_20260921_172045",
-      "report_path": "sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html",
+      "report_path": "docs/reports/harness_aware_scenario_tracker.html",
+      "evidence_path": "sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html",
       "results": {
         "total_ttft": "79.0 s -> 60.0 s (24.1% better)",
         "total_lateness": "202.1 s -> 150.7 s (25.4% better)",
@@ -54,7 +55,8 @@
         "p3": "tool_wait_ms=1000, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=4096, concurrency=6"
       },
       "run_label": "proactive_kv_management_selective_admission_20260917_062007",
-      "report_path": "sglang_direct_kv/artifacts/results/reports/proactive_kv_management_selective_admission_20260917_062007/master_report.html",
+      "report_path": "docs/reports/harness_aware_scenario_tracker.html",
+      "evidence_path": "sglang_direct_kv/artifacts/results/reports/proactive_kv_management_selective_admission_20260917_062007/master_report.html",
       "results": {
         "total_ttft": "123.1 s -> 116.5 s (5.3% better)",
         "total_lateness": "123.4 s -> 116.9 s (5.3% better)",
@@ -80,7 +82,8 @@
         "p3": "tool_wait_ms=1000, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=4096, concurrency=6"
       },
       "run_label": "value_aware_eviction_all_requests_fixed_20260917_163518",
-      "report_path": "sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/master_report.html",
+      "report_path": "docs/reports/harness_aware_scenario_tracker.html",
+      "evidence_path": "sglang_direct_kv/artifacts/results/reports/value_aware_eviction_all_requests_fixed_20260917_163518/master_report.html",
       "results": {
         "total_ttft": "482.3 s -> 233.5 s (51.6% better)",
         "total_lateness": "1014.0 s -> 659.9 s (34.9% better)",
