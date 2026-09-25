@@ -139,9 +139,17 @@ CONTROLLER_GPU_TELEMETRY_POLL_MS="${CONTROLLER_GPU_TELEMETRY_POLL_MS:-250}"
 CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT="${CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT:-5}"
 CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS="${CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS:-500}"
 CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS="${CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS:-1000}"
+CONTROLLER_INSTRUMENTATION_GATE="${CONTROLLER_INSTRUMENTATION_GATE:-auto}"
+CONTROLLER_INSTRUMENTATION_POLICY="${CONTROLLER_INSTRUMENTATION_POLICY:-strict}"
+CONTROLLER_INSTRUMENTATION_CONTRACT="${CONTROLLER_INSTRUMENTATION_CONTRACT:-${PROJECT_ROOT}/configs/controller_instrumentation_contracts/controller_replay_v1.json}"
+CONTROLLER_INSTRUMENTATION_TIMEOUT_SECS="${CONTROLLER_INSTRUMENTATION_TIMEOUT_SECS:-30}"
+CONTROLLER_INSTRUMENTATION_TRACE_WAIT_SECS="${CONTROLLER_INSTRUMENTATION_TRACE_WAIT_SECS:-15}"
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   PYTHON_BIN="python3"
+fi
+if [[ "${CONTROLLER_INSTRUMENTATION_CONTRACT}" != /* ]]; then
+  CONTROLLER_INSTRUMENTATION_CONTRACT="${PROJECT_ROOT}/${CONTROLLER_INSTRUMENTATION_CONTRACT}"
 fi
 export PYTHON_BIN
 export PYTHONPATH="${DIRECT_ROOT}/src:${PYTHONPATH:-}"
@@ -149,6 +157,46 @@ export CONTROLLER_REPLAY_ADMISSION_GUARD CONTROLLER_REPLAY_LOOKAHEAD_MS CONTROLL
 export CONTROLLER_MAX_HOLD_MS CONTROLLER_ALLOW_SMALL_WORK_TOKENS
 export CONTROLLER_GPU_TELEMETRY_POLL_MS CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT
 export CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS
+
+controller_mode_requested() {
+  local candidate
+  for candidate in ${MODES}; do
+    if [[ "${candidate}" == controller_* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+instrumentation_gate_enabled() {
+  case "${CONTROLLER_INSTRUMENTATION_GATE}" in
+    on) return 0 ;;
+    off) return 1 ;;
+    auto) controller_mode_requested ;;
+    *) echo "Invalid CONTROLLER_INSTRUMENTATION_GATE=${CONTROLLER_INSTRUMENTATION_GATE}; use auto, on, or off." >&2; exit 2 ;;
+  esac
+}
+
+run_instrumentation_preflight() {
+  local contract="$1"
+  local installation_report="$2"
+  local live_report="$3"
+  local trace_path="$4"
+  local copied_contract="$5"
+  cp "${contract}" "${copied_contract}"
+  PYTHONPATH="${PROJECT_ROOT}/packages/agentic-backend-sglang/src:${DIRECT_ROOT}/src:${PYTHONPATH:-}" \
+    "${PYTHON_BIN}" -m agentic_backends.sglang.instrumentation_preflight \
+      --stage live \
+      --contract "${copied_contract}" \
+      --installation-report "${installation_report}" \
+      --gateway-base "${GATEWAY_URL}" \
+      --model "${MODEL}" \
+      --trace "${trace_path}" \
+      --timeout "${CONTROLLER_INSTRUMENTATION_TIMEOUT_SECS}" \
+      --trace-wait "${CONTROLLER_INSTRUMENTATION_TRACE_WAIT_SECS}" \
+      --policy "${CONTROLLER_INSTRUMENTATION_POLICY}" \
+      --out "${live_report}"
+}
 
 RESULTS_ROOT="$(mkdir -p "${RESULTS_ROOT}" && cd "${RESULTS_ROOT}" && pwd)"
 RUN_ROOT="$(mkdir -p "${RUN_ROOT}" && cd "${RUN_ROOT}" && pwd)"
@@ -308,6 +356,9 @@ write_run_config() {
     echo "HARDWARE_PROFILE_PATH=${HARDWARE_PROFILE_PATH}"
     echo "AGENTIC_BACKEND_RUNTIME_CONTRACT=${AGENTIC_BACKEND_RUNTIME_CONTRACT:-}"
     echo "AGENTIC_RUN_MANIFEST=${AGENTIC_RUN_MANIFEST:-}"
+    echo "CONTROLLER_INSTRUMENTATION_GATE=${CONTROLLER_INSTRUMENTATION_GATE}"
+    echo "CONTROLLER_INSTRUMENTATION_POLICY=${CONTROLLER_INSTRUMENTATION_POLICY}"
+    echo "CONTROLLER_INSTRUMENTATION_CONTRACT=${CONTROLLER_INSTRUMENTATION_CONTRACT}"
     echo "HARNESSES=${HARNESSES}"
     echo "MODES=${MODES}"
     echo "PROMPT_CODEC_CONFIG=${PROMPT_CODEC_CONFIG:-}"
@@ -421,6 +472,9 @@ run_case() {
   local gateway_events="${case_root}/harness_gateway_events.jsonl"
   local case_gpu_util_csv="${case_root}/gpu_utilization_samples.csv"
   local case_gpu_util_log="${case_root}/gpu_utilization_sampler.log"
+  local instrumentation_contract_copy="${case_root}/instrumentation_contract.json"
+  local hook_installation_report="${case_root}/hook_installation_report.json"
+  local live_sentinel_report="${case_root}/live_sentinel_report.json"
   local case_prompt_codec_config="${PROMPT_CODEC_CONFIG:-}"
   local case_prompt_encoding_scope="${PROMPT_ENCODING_SCOPE:-target_requests}"
   local case_hicache_storage_backend=""
@@ -439,7 +493,7 @@ run_case() {
     echo "==== Skipping existing completed case: ${case_id} ===="
     return
   fi
-  rm -f "${trace}" "${telemetry}" "${runtime_telemetry}" "${metrics}" "${server_log}" "${gateway_log}" "${gateway_events}" "${case_gpu_util_csv}" "${case_gpu_util_log}"
+  rm -f "${trace}" "${telemetry}" "${runtime_telemetry}" "${metrics}" "${server_log}" "${gateway_log}" "${gateway_events}" "${case_gpu_util_csv}" "${case_gpu_util_log}" "${instrumentation_contract_copy}" "${hook_installation_report}" "${live_sentinel_report}"
   if [[ "${mode}" == storage_hicache_* ]]; then
     case_hicache_storage_backend="${HICACHE_STORAGE_BACKEND}"
     case_hicache_storage_prefetch_policy="${HICACHE_STORAGE_PREFETCH_POLICY}"
@@ -465,6 +519,7 @@ run_case() {
   start_gpu_util_sampler
   export AGENTIC_KV_TRACE_ENABLE=1
   export AGENTIC_KV_TRACE_PATH="${trace}"
+  export AGENTIC_KV_TRACE_INSTALL_REPORT_PATH="${hook_installation_report}"
   export AGENTIC_KV_TRACE_SCHEDULER
   export AGENTIC_KV_TRACE_KV_POOL
   export TRACE_CONTROLLER_COMPLETION_LINKAGE
@@ -530,6 +585,15 @@ PYPORT
     --encoding-scope "${case_prompt_encoding_scope}" >"${gateway_log}" 2>&1 &
   GATEWAY_PID="$!"
   wait_for_gateway
+
+  if instrumentation_gate_enabled; then
+    if [[ ! -f "${CONTROLLER_INSTRUMENTATION_CONTRACT}" ]]; then
+      echo "Controller instrumentation contract not found: ${CONTROLLER_INSTRUMENTATION_CONTRACT}" >&2
+      exit 2
+    fi
+    echo "Validating controller instrumentation before workload measurement..."
+    run_instrumentation_preflight "${CONTROLLER_INSTRUMENTATION_CONTRACT}" "${hook_installation_report}" "${live_sentinel_report}" "${trace}" "${instrumentation_contract_copy}"
+  fi
 
   local driver_extra_args=()
   if [[ "${FILLER_REPLAY_DEADLINES}" == "1" ]]; then
@@ -674,9 +738,58 @@ manifest = {
     "pressure_levels": os.environ.get("PRESSURE_LEVELS", ""),
     "chart_title": "Replay Deadline Pressure Chart",
 }
+
 (report_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 if os.environ.get("UPDATE_LATEST") == "1":
     (results_root / "latest_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+}
+
+write_instrumentation_validity_summary() {
+  RUN_ROOT="${RUN_ROOT}" REPORT_DIR="${REPORT_DIR}" RESULTS_ROOT="${RESULTS_ROOT}" UPDATE_LATEST="${UPDATE_LATEST}" "${PYTHON_BIN}" - <<'PY'
+import html
+import json
+import os
+from pathlib import Path
+
+run_root = Path(os.environ["RUN_ROOT"])
+report_dir = Path(os.environ["REPORT_DIR"])
+rows = []
+for path in sorted(run_root.glob("*/live_sentinel_report.json")):
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        continue
+    rows.append({
+        "case": path.parent.name,
+        "valid": bool(payload.get("valid")),
+        "policy": payload.get("policy", ""),
+        "contract": Path(payload.get("contract", "")).name,
+    })
+if not rows:
+    raise SystemExit(0)
+summary = {"schema_version": "agentic_controller_instrumentation_summary.v1", "all_valid": all(row["valid"] for row in rows), "cases": rows}
+(report_dir / "instrumentation_preflight_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+status = "VALID" if summary["all_valid"] else "INVALID - do not use for controller claims"
+color = "#166534" if summary["all_valid"] else "#b91c1c"
+table_rows = "".join(
+    f"<tr><td>{html.escape(row['case'])}</td><td>{'valid' if row['valid'] else 'invalid'}</td><td>{html.escape(row['policy'])}</td><td>{html.escape(row['contract'])}</td></tr>"
+    for row in rows
+)
+panel = f'''<section style="margin:18px 0;padding:16px 20px;border:2px solid {color};border-radius:8px;background:#fff">
+<h2 style="margin:0 0 8px">Controller Instrumentation Validity: <span style="color:{color}">{status}</span></h2>
+<p style="margin:0 0 10px">Every controller case must install its required hooks and produce live sentinel evidence before workload measurement begins.</p>
+<table><thead><tr><th>Case</th><th>Gate</th><th>Policy</th><th>Contract</th></tr></thead><tbody>{table_rows}</tbody></table>
+<p style="margin:10px 0 0"><a href="instrumentation_preflight_summary.json">Open preflight summary</a>.</p></section>'''
+for name in ("master_report.html", "evidence_tables.html"):
+    path = report_dir / name
+    if path.exists():
+        text = path.read_text(encoding="utf-8")
+        if "Controller Instrumentation Validity:" not in text:
+            path.write_text(text.replace("</main>", panel + "\n</main>", 1), encoding="utf-8")
+if os.environ.get("UPDATE_LATEST") == "1":
+    latest = Path(os.environ["RESULTS_ROOT"])
+    (latest / "instrumentation_preflight_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 }
 
@@ -704,6 +817,7 @@ for harness in ${HARNESSES}; do
   done
 done
 build_final_report
+write_instrumentation_validity_summary
 
 echo
 echo "Done."

@@ -3485,6 +3485,23 @@ def _warn(message: str) -> None:
     print(f"[agentic-kv-trace] WARNING: {message}", file=sys.stderr, flush=True)
 
 
+def _write_installation_report(payload: dict[str, Any]) -> None:
+    """Persist hook installation evidence outside the streaming trace.
+
+    A controller preflight needs this before it can send its sentinel request,
+    so keeping it as a standalone JSON file avoids fragile trace parsing.
+    """
+
+    configured = os.environ.get("AGENTIC_KV_TRACE_INSTALL_REPORT_PATH")
+    if not configured:
+        return
+    path = Path(configured)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
 def install_sglang_kv_trace() -> None:
     """Install non-invasive SGLang KV movement trace hooks."""
 
@@ -3537,15 +3554,20 @@ def install_sglang_kv_trace() -> None:
             else:
                 missing_required.append(f"{label} ({status})")
 
-    _write_event(
-        {
-            "event": "trace.install.summary",
-            "adapter": adapter.name,
-            "installed_hook_count": len(installed),
-            "missing_required_hooks": missing_required,
-            "missing_optional_hooks": missing_optional,
-        }
-    )
+    summary = {
+        "schema_version": "agentic_sglang_hook_installation.v1",
+        "event": "trace.install.summary",
+        "adapter": adapter.name,
+        "sglang_version": sglang_version,
+        "scheduler_hooks_enabled": include_scheduler,
+        "installed_hook_count": len(installed),
+        "installed_hooks": installed,
+        "missing_required_hooks": missing_required,
+        "missing_optional_hooks": missing_optional,
+        "selection": selection.to_dict(),
+    }
+    _write_event(summary)
+    _write_installation_report(summary)
     if missing_required:
         message = (
             f"{len(missing_required)} required SGLang trace hooks could not be installed with adapter "

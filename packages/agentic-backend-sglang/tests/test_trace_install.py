@@ -80,6 +80,15 @@ class TraceInstallTest(unittest.TestCase):
         self.assertIn("hiradix.match_prefix.start", out["events"])
         self.assertIn("hiradix.match_prefix.end", out["events"])
 
+    def test_installation_report_records_exact_installed_hooks(self) -> None:
+        root = build_fake_sglang(self.tmp / "site", get_adapter("v0510"), "0.5.10.post1")
+        report = self.tmp / "hook_installation_report.json"
+        proc = run_install(root, self.tmp / "trace.jsonl", {"AGENTIC_KV_TRACE_INSTALL_REPORT_PATH": str(report)})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        evidence = json.loads(report.read_text(encoding="utf-8"))
+        self.assertEqual(evidence["adapter"], "v0510")
+        self.assertIn("sglang.srt.mem_cache.hiradix_cache.HiRadixCache.match_prefix", evidence["installed_hooks"])
+
     def test_missing_required_hook_is_loud_not_silent(self) -> None:
         root = build_fake_sglang(self.tmp / "site", get_adapter("v0510"), "0.5.10.post1", drop={"HiCacheController.load"})
         proc = run_install(root, self.tmp / "trace.jsonl")

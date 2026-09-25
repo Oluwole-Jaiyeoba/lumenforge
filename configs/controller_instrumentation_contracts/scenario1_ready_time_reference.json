@@ -1,0 +1,45 @@
+{
+  "schema_version": "agentic_controller_instrumentation_contract.v1",
+  "contract_id": "scenario1_ready_time_reference",
+  "description": "Scenario 1 ready-time scheduling validation. Cache transfer hooks are optional because this scenario tests queue scheduling rather than storage movement.",
+  "supported_adapters": ["v0510"],
+  "required": [
+    {
+      "id": "request_lifecycle",
+      "installed_hooks_any": [
+        "sglang.srt.managers.scheduler.Scheduler.handle_generate_request",
+        "sglang.srt.managers.scheduler.Scheduler.process_input_requests"
+      ],
+      "source_event_prefixes_any": ["scheduler.handle_generate_request", "scheduler.process_input_requests"]
+    },
+    {
+      "id": "scheduler_batch_observation",
+      "installed_hooks_any": [
+        "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run",
+        "sglang.srt.managers.scheduler.Scheduler.process_batch_result"
+      ],
+      "source_event_prefixes_any": ["scheduler.get_next_batch_to_run", "scheduler.process_batch_result"]
+    },
+    {
+      "id": "kv_cache_observation",
+      "installed_hooks_any": [
+        "sglang.srt.mem_cache.hiradix_cache.HiRadixCache.match_prefix",
+        "sglang.srt.mem_cache.radix_cache.RadixCache.match_prefix"
+      ],
+      "source_event_prefixes_any": ["hiradix.match_prefix", "radix.match_prefix"]
+    },
+    {
+      "id": "controller_decision_ledger",
+      "environment": {"TRACE_CONTROLLER_DECISIONS": "1"}
+    }
+  ],
+  "optional": [
+    {
+      "id": "hicache_transfer_observation",
+      "installed_hooks_any": [
+        "sglang.srt.managers.cache_controller.HiCacheController.load",
+        "sglang.srt.managers.cache_controller.HiCacheController.write"
+      ]
+    }
+  ]
+}
