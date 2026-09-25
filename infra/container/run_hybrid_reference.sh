@@ -55,6 +55,7 @@ BACKEND_RUNTIME_CONTRACT_OUT="${BACKEND_RUNTIME_CONTRACT_OUT:-${RUNTIME_DIR}/bac
 RUN_MANIFEST_PATH="${RUN_MANIFEST_PATH:-${RUNTIME_DIR}/run_manifest.json}"
 INSTRUMENTATION_CONTRACT="${CONTROLLER_INSTRUMENTATION_CONTRACT:-${REPO_ROOT}/configs/controller_instrumentation_contracts/controller_replay_v1.json}"
 INSTRUMENTATION_STATIC_PREFLIGHT="${RUNTIME_DIR}/instrumentation_static_preflight.json"
+INSTRUMENTATION_CONTRACT_COPY="${RUNTIME_DIR}/instrumentation_contract.json"
 
 mount_args=(
   -v "${AGENTIC_MODEL_CACHE}:${MODEL_CACHE_MOUNT}"
@@ -90,10 +91,17 @@ if [[ ! -f "${INSTRUMENTATION_CONTRACT}" ]]; then
   echo "Controller instrumentation contract not found: ${INSTRUMENTATION_CONTRACT}" >&2
   exit 2
 fi
-PYTHONPATH="${REPO_ROOT}/packages/agentic-backend-sglang/src:${PYTHONPATH:-}" python3 \
+mkdir -p "${RUNTIME_DIR}"
+cp "${INSTRUMENTATION_CONTRACT}" "${INSTRUMENTATION_CONTRACT_COPY}"
+PACKAGE_PYTHONPATH=""
+for package_src in "${REPO_ROOT}"/packages/*/src; do
+  [[ -d "${package_src}" ]] || continue
+  PACKAGE_PYTHONPATH="${PACKAGE_PYTHONPATH:+${PACKAGE_PYTHONPATH}:}${package_src}"
+done
+PYTHONPATH="${PACKAGE_PYTHONPATH}:${PYTHONPATH:-}" python3 \
   -m agentic_backends.sglang.instrumentation_preflight \
   --stage static \
-  --contract "${INSTRUMENTATION_CONTRACT}" \
+  --contract "${INSTRUMENTATION_CONTRACT_COPY}" \
   --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
   --policy "${CONTROLLER_INSTRUMENTATION_POLICY:-strict}" \
   --out "${INSTRUMENTATION_STATIC_PREFLIGHT}"
@@ -124,13 +132,13 @@ python3 "${REPO_ROOT}/scripts/create_run_manifest.py" \
   --workload-json "${workload_json}" \
   --instrumentation "${TRACE_PROFILE:-full_debug}" \
   --artifact "runtime_contract=${BACKEND_RUNTIME_CONTRACT_OUT}" \
-  --artifact "instrumentation_contract=${INSTRUMENTATION_CONTRACT}" \
+  --artifact "instrumentation_contract=${INSTRUMENTATION_CONTRACT_COPY}" \
   --artifact "instrumentation_static_preflight=${INSTRUMENTATION_STATIC_PREFLIGHT}" \
   --artifact "run_root=${DIRECT_ROOT}/${RESULTS_ROOT}/runs/controlled/${REPORT_LABEL}"
 
 export AGENTIC_BACKEND_RUNTIME_CONTRACT="${BACKEND_RUNTIME_CONTRACT_OUT}"
 export AGENTIC_RUN_MANIFEST="${RUN_MANIFEST_PATH}"
-export CONTROLLER_INSTRUMENTATION_CONTRACT="${INSTRUMENTATION_CONTRACT}"
+export CONTROLLER_INSTRUMENTATION_CONTRACT="${INSTRUMENTATION_CONTRACT_COPY}"
 
 cd "${DIRECT_ROOT}"
 exec bash scripts/run_harness_deadline_pressure.sh "${MODEL}"

@@ -151,6 +151,10 @@ fi
 if [[ "${CONTROLLER_INSTRUMENTATION_CONTRACT}" != /* ]]; then
   CONTROLLER_INSTRUMENTATION_CONTRACT="${PROJECT_ROOT}/${CONTROLLER_INSTRUMENTATION_CONTRACT}"
 fi
+if [[ "${CONTROLLER_INSTRUMENTATION_POLICY}" == "observe_only" ]]; then
+  # Diagnostic evidence is never eligible to replace a milestone or latest run.
+  UPDATE_LATEST=0
+fi
 export PYTHON_BIN
 export PYTHONPATH="${DIRECT_ROOT}/src:${PYTHONPATH:-}"
 export CONTROLLER_REPLAY_ADMISSION_GUARD CONTROLLER_REPLAY_LOOKAHEAD_MS CONTROLLER_REPLAY_SAFETY_MARGIN_MS
@@ -183,8 +187,14 @@ run_instrumentation_preflight() {
   local live_report="$3"
   local trace_path="$4"
   local copied_contract="$5"
+  local package_path=""
+  local package_src
+  for package_src in "${PROJECT_ROOT}"/packages/*/src; do
+    [[ -d "${package_src}" ]] || continue
+    package_path="${package_path:+${package_path}:}${package_src}"
+  done
   cp "${contract}" "${copied_contract}"
-  PYTHONPATH="${PROJECT_ROOT}/packages/agentic-backend-sglang/src:${DIRECT_ROOT}/src:${PYTHONPATH:-}" \
+  PYTHONPATH="${package_path}:${DIRECT_ROOT}/src:${PYTHONPATH:-}" \
     "${PYTHON_BIN}" -m agentic_backends.sglang.instrumentation_preflight \
       --stage live \
       --contract "${copied_contract}" \
@@ -192,10 +202,40 @@ run_instrumentation_preflight() {
       --gateway-base "${GATEWAY_URL}" \
       --model "${MODEL}" \
       --trace "${trace_path}" \
+      --sentinel-trace "${CONTROLLER_INSTRUMENTATION_SENTINEL_TRACE}" \
+      --controller-probe-report "${CONTROLLER_INSTRUMENTATION_CONTROLLER_PROBE}" \
+      --controller-mode "${mode:-controller_scheduler_priority}" \
       --timeout "${CONTROLLER_INSTRUMENTATION_TIMEOUT_SECS}" \
       --trace-wait "${CONTROLLER_INSTRUMENTATION_TRACE_WAIT_SECS}" \
       --policy "${CONTROLLER_INSTRUMENTATION_POLICY}" \
       --out "${live_report}"
+}
+
+write_blocked_preflight_report() {
+  local case_id="$1"
+  local preflight_report="$2"
+  REPORT_DIR="${REPORT_DIR}" CASE_ID="${case_id}" PREFLIGHT_REPORT="${preflight_report}" AGENTIC_RUN_MANIFEST="${AGENTIC_RUN_MANIFEST:-}" "${PYTHON_BIN}" - <<'PY'
+import html
+import json
+import os
+from pathlib import Path
+
+report_dir = Path(os.environ["REPORT_DIR"])
+evidence = Path(os.environ["PREFLIGHT_REPORT"])
+payload = json.loads(evidence.read_text(encoding="utf-8")) if evidence.exists() else {"checks": []}
+failed = [item.get("id", "unknown") for item in payload.get("checks", []) if item.get("required", True) and not item.get("passed", False)]
+manifest = {"status": "blocked_preflight", "invalid_for_controller_claims": True, "case": os.environ["CASE_ID"], "blocking_checks": failed, "preflight": str(evidence)}
+for name in ("instrumentation_preflight_summary.json", "blocked_preflight_manifest.json"):
+    (report_dir / name).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+raw_manifest = os.environ.get("AGENTIC_RUN_MANIFEST", "")
+run_manifest = Path(raw_manifest) if raw_manifest else None
+if run_manifest and run_manifest.exists():
+    current = json.loads(run_manifest.read_text(encoding="utf-8"))
+    current.update(manifest)
+    run_manifest.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+reasons = "".join(f"<li>{html.escape(reason)}</li>" for reason in failed) or "<li>Live sentinel request did not produce the required evidence.</li>"
+(report_dir / "master_report.html").write_text(f'''<!doctype html><meta charset="utf-8"><title>Experiment Blocked</title><style>body{{font-family:system-ui;margin:40px;max-width:900px}}section{{border:2px solid #b91c1c;padding:24px;border-radius:8px;background:#fff7f7}}</style><section><h1>Experiment validity: BLOCKED</h1><p>Controller-performance charts were not generated. Required instrumentation did not pass live validation.</p><h2>Blocking checks</h2><ul>{reasons}</ul><p>Evidence: <code>{html.escape(str(evidence))}</code></p></section>''', encoding="utf-8")
+PY
 }
 
 RESULTS_ROOT="$(mkdir -p "${RESULTS_ROOT}" && cd "${RESULTS_ROOT}" && pwd)"
@@ -475,6 +515,8 @@ run_case() {
   local instrumentation_contract_copy="${case_root}/instrumentation_contract.json"
   local hook_installation_report="${case_root}/hook_installation_report.json"
   local live_sentinel_report="${case_root}/live_sentinel_report.json"
+  local live_sentinel_trace="${case_root}/live_sentinel_trace.jsonl"
+  local controller_probe_report="${case_root}/controller_preflight_probe.jsonl"
   local case_prompt_codec_config="${PROMPT_CODEC_CONFIG:-}"
   local case_prompt_encoding_scope="${PROMPT_ENCODING_SCOPE:-target_requests}"
   local case_hicache_storage_backend=""
@@ -493,7 +535,7 @@ run_case() {
     echo "==== Skipping existing completed case: ${case_id} ===="
     return
   fi
-  rm -f "${trace}" "${telemetry}" "${runtime_telemetry}" "${metrics}" "${server_log}" "${gateway_log}" "${gateway_events}" "${case_gpu_util_csv}" "${case_gpu_util_log}" "${instrumentation_contract_copy}" "${hook_installation_report}" "${live_sentinel_report}"
+  rm -f "${trace}" "${telemetry}" "${runtime_telemetry}" "${metrics}" "${server_log}" "${gateway_log}" "${gateway_events}" "${case_gpu_util_csv}" "${case_gpu_util_log}" "${instrumentation_contract_copy}" "${hook_installation_report}" "${live_sentinel_report}" "${live_sentinel_trace}" "${controller_probe_report}"
   if [[ "${mode}" == storage_hicache_* ]]; then
     case_hicache_storage_backend="${HICACHE_STORAGE_BACKEND}"
     case_hicache_storage_prefetch_policy="${HICACHE_STORAGE_PREFETCH_POLICY}"
@@ -592,7 +634,13 @@ PYPORT
       exit 2
     fi
     echo "Validating controller instrumentation before workload measurement..."
-    run_instrumentation_preflight "${CONTROLLER_INSTRUMENTATION_CONTRACT}" "${hook_installation_report}" "${live_sentinel_report}" "${trace}" "${instrumentation_contract_copy}"
+    if ! CONTROLLER_INSTRUMENTATION_SENTINEL_TRACE="${live_sentinel_trace}" CONTROLLER_INSTRUMENTATION_CONTROLLER_PROBE="${controller_probe_report}" run_instrumentation_preflight "${CONTROLLER_INSTRUMENTATION_CONTRACT}" "${hook_installation_report}" "${live_sentinel_report}" "${trace}" "${instrumentation_contract_copy}"; then
+      if [[ "${CONTROLLER_INSTRUMENTATION_POLICY}" == "strict" ]]; then
+        write_blocked_preflight_report "${case_id}" "${live_sentinel_report}"
+        echo "Controller experiment blocked by instrumentation preflight. Report: ${REPORT_DIR}/master_report.html" >&2
+        exit 2
+      fi
+    fi
   fi
 
   local driver_extra_args=()
@@ -746,7 +794,7 @@ PY
 }
 
 write_instrumentation_validity_summary() {
-  RUN_ROOT="${RUN_ROOT}" REPORT_DIR="${REPORT_DIR}" RESULTS_ROOT="${RESULTS_ROOT}" UPDATE_LATEST="${UPDATE_LATEST}" "${PYTHON_BIN}" - <<'PY'
+  RUN_ROOT="${RUN_ROOT}" REPORT_DIR="${REPORT_DIR}" RESULTS_ROOT="${RESULTS_ROOT}" UPDATE_LATEST="${UPDATE_LATEST}" AGENTIC_RUN_MANIFEST="${AGENTIC_RUN_MANIFEST:-}" "${PYTHON_BIN}" - <<'PY'
 import html
 import json
 import os
@@ -765,28 +813,41 @@ for path in sorted(run_root.glob("*/live_sentinel_report.json")):
         "valid": bool(payload.get("valid")),
         "policy": payload.get("policy", ""),
         "contract": Path(payload.get("contract", "")).name,
+        "adapter": payload.get("installation", {}).get("adapter", ""),
+        "version": payload.get("installation", {}).get("sglang_version", ""),
+        "required_passed": len({check.get("id") for check in payload.get("checks", []) if check.get("required", True) and check.get("passed")}),
+        "required_total": len({check.get("id") for check in payload.get("checks", []) if check.get("required", True)}),
+        "optional_unavailable": sum(1 for check in payload.get("checks", []) if not check.get("required", True) and not check.get("passed")),
     })
 if not rows:
     raise SystemExit(0)
 summary = {"schema_version": "agentic_controller_instrumentation_summary.v1", "all_valid": all(row["valid"] for row in rows), "cases": rows}
 (report_dir / "instrumentation_preflight_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+raw_manifest = os.environ.get("AGENTIC_RUN_MANIFEST", "")
+run_manifest = Path(raw_manifest) if raw_manifest else None
+if run_manifest and run_manifest.exists():
+    current = json.loads(run_manifest.read_text(encoding="utf-8"))
+    current["instrumentation_valid"] = summary["all_valid"]
+    current["invalid_for_controller_claims"] = not summary["all_valid"]
+    current["instrumentation_preflight_summary"] = str(report_dir / "instrumentation_preflight_summary.json")
+    run_manifest.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 status = "VALID" if summary["all_valid"] else "INVALID - do not use for controller claims"
 color = "#166534" if summary["all_valid"] else "#b91c1c"
 table_rows = "".join(
-    f"<tr><td>{html.escape(row['case'])}</td><td>{'valid' if row['valid'] else 'invalid'}</td><td>{html.escape(row['policy'])}</td><td>{html.escape(row['contract'])}</td></tr>"
+    f"<tr><td>{html.escape(row['case'])}</td><td>{'valid' if row['valid'] else 'invalid'}</td><td>{row['required_passed']} of {row['required_total']}</td><td>{row['optional_unavailable']}</td><td>{html.escape(row['adapter'])} {html.escape(row['version'])}</td><td>{html.escape(row['policy'])}</td></tr>"
     for row in rows
 )
 panel = f'''<section style="margin:18px 0;padding:16px 20px;border:2px solid {color};border-radius:8px;background:#fff">
 <h2 style="margin:0 0 8px">Controller Instrumentation Validity: <span style="color:{color}">{status}</span></h2>
 <p style="margin:0 0 10px">Every controller case must install its required hooks and produce live sentinel evidence before workload measurement begins.</p>
-<table><thead><tr><th>Case</th><th>Gate</th><th>Policy</th><th>Contract</th></tr></thead><tbody>{table_rows}</tbody></table>
+<table><thead><tr><th>Case</th><th>Gate</th><th>Required proof</th><th>Optional unavailable</th><th>Runtime</th><th>Policy</th></tr></thead><tbody>{table_rows}</tbody></table>
 <p style="margin:10px 0 0"><a href="instrumentation_preflight_summary.json">Open preflight summary</a>.</p></section>'''
 for name in ("master_report.html", "evidence_tables.html"):
     path = report_dir / name
     if path.exists():
         text = path.read_text(encoding="utf-8")
         if "Controller Instrumentation Validity:" not in text:
-            path.write_text(text.replace("</main>", panel + "\n</main>", 1), encoding="utf-8")
+            path.write_text(text.replace("<main>", "<main>\n" + panel, 1), encoding="utf-8")
 if os.environ.get("UPDATE_LATEST") == "1":
     latest = Path(os.environ["RESULTS_ROOT"])
     (latest / "instrumentation_preflight_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")

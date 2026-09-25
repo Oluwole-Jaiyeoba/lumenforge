@@ -88,6 +88,7 @@ class TraceInstallTest(unittest.TestCase):
         evidence = json.loads(report.read_text(encoding="utf-8"))
         self.assertEqual(evidence["adapter"], "v0510")
         self.assertIn("sglang.srt.mem_cache.hiradix_cache.HiRadixCache.match_prefix", evidence["installed_hooks"])
+        self.assertEqual(evidence["hook_statuses"]["sglang.srt.mem_cache.hiradix_cache.HiRadixCache.match_prefix"], "installed")
 
     def test_missing_required_hook_is_loud_not_silent(self) -> None:
         root = build_fake_sglang(self.tmp / "site", get_adapter("v0510"), "0.5.10.post1", drop={"HiCacheController.load"})

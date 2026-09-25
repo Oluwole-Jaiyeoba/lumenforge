@@ -3228,6 +3228,8 @@ def _wrap_method(cls: type, method_name: str, event_name: str) -> str:
     original = getattr(cls, method_name, None)
     if original is None:
         return "missing_method"
+    if not callable(original):
+        return "signature_mismatch:not_callable"
     if getattr(original, "_agentic_kv_wrapped", False):
         return "already_wrapped"
 
@@ -3502,6 +3504,16 @@ def _write_installation_report(payload: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def _installation_status(status: str) -> str:
+    if status in {"wrapped", "already_wrapped"}:
+        return "installed"
+    if status.startswith("missing_"):
+        return "missing_target"
+    if status.startswith("signature_mismatch"):
+        return "signature_mismatch"
+    return "installation_error"
+
+
 def install_sglang_kv_trace() -> None:
     """Install non-invasive SGLang KV movement trace hooks."""
 
@@ -3537,6 +3549,7 @@ def install_sglang_kv_trace() -> None:
     installed: list[str] = []
     missing_required: list[str] = []
     missing_optional: list[str] = []
+    hook_statuses: dict[str, str] = {}
     for target in adapter.hook_targets:
         if target.scheduler_required and not include_scheduler:
             continue
@@ -3547,6 +3560,7 @@ def install_sglang_kv_trace() -> None:
         )
         for method_name, status in statuses.items():
             label = f"{target.module}.{target.class_name}.{method_name}"
+            hook_statuses[label] = _installation_status(status)
             if status in ("wrapped", "already_wrapped"):
                 installed.append(label)
             elif (target.class_name, method_name) in optional:
@@ -3562,6 +3576,7 @@ def install_sglang_kv_trace() -> None:
         "scheduler_hooks_enabled": include_scheduler,
         "installed_hook_count": len(installed),
         "installed_hooks": installed,
+        "hook_statuses": hook_statuses,
         "missing_required_hooks": missing_required,
         "missing_optional_hooks": missing_optional,
         "selection": selection.to_dict(),

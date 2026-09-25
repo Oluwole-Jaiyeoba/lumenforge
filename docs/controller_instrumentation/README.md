@@ -6,8 +6,8 @@ adapter mismatch from silently producing misleading controller results.
 
 ## Phases
 
-1. **Contract foundation** - Define the hooks and evidence each experiment
-   requires in `configs/controller_instrumentation_contracts/`.
+1. **Contract foundation** - Define stable capability IDs and evidence each
+   experiment requires in `configs/controller_instrumentation_contracts/`.
 2. **Static preflight** - Verify the runtime capability handshake and selected
    adapter before the server starts.
 3. **Installation check** - Require the in-server tracer to publish a hook
@@ -28,10 +28,14 @@ artifacts inside every controller case:
 - `instrumentation_contract.json`
 - `hook_installation_report.json`
 - `live_sentinel_report.json`
+- `live_sentinel_trace.jsonl`
+- `controller_preflight_probe.jsonl`
 
 The sentinel request is labeled `instrumentation_sentinel` and is excluded from
-workload metrics. Optional hooks are warnings; required hooks and required live
-events are blocking in the default `strict` policy.
+workload metrics. Contracts contain only stable hook IDs; the selected SGLang
+adapter resolves them to its private targets. Optional hooks are warnings;
+required hooks and required live events are blocking in the default `strict`
+policy.
 
 ## Operator controls
 
