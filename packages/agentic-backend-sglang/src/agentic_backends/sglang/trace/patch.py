@@ -1669,6 +1669,20 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         mem_quota = None
 
+    try:
+        min_load_tokens = command.get("min_load_tokens")
+        min_load_tokens = int(min_load_tokens) if min_load_tokens not in (None, "") else None
+    except (TypeError, ValueError):
+        min_load_tokens = None
+    original_threshold = getattr(tree_cache, "load_back_threshold", None)
+    effective_threshold = original_threshold
+    # This is an explicit benchmark-only override. It does not synthesize a
+    # copy; it merely lets SGLang's native load_back path admit a small evicted
+    # leaf that its normal throughput-oriented threshold would skip.
+    if min_load_tokens is not None and min_load_tokens > 0 and isinstance(original_threshold, int):
+        effective_threshold = min(original_threshold, min_load_tokens)
+        tree_cache.load_back_threshold = effective_threshold
+
     start_ns = time.time_ns()
     try:
         device_indices = tree_cache.load_back(node, mem_quota)
@@ -1680,6 +1694,9 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "node_id": node_id,
             "error": f"{type(exc).__name__}: {exc}",
         }
+    finally:
+        if effective_threshold != original_threshold:
+            tree_cache.load_back_threshold = original_threshold
 
     if device_indices is None:
         return {
@@ -1688,6 +1705,8 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "matched_key": matched_key,
             "node_id": node_id,
             "host_tokens": host_tokens,
+            "load_back_threshold_original": original_threshold,
+            "load_back_threshold_effective": effective_threshold,
             "reason": "SGLang load_back skipped this node because of threshold, quota, or memory pressure.",
         }
 
@@ -1716,6 +1735,8 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         "loaded_tokens": int(len(device_indices)),
         "producer_id": producer_id,
         "duration_ms": round(duration_ms, 3),
+        "load_back_threshold_original": original_threshold,
+        "load_back_threshold_effective": effective_threshold,
         "control_path": "hiradix.load_back+hicache.start_loading",
         "reason": "Prepared by SGLang's own load_back path.",
     }

@@ -132,6 +132,7 @@ async def prepare_prefix(
     p_hash: str,
     request_id: str,
     plan_only: bool,
+    min_load_tokens: int | None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
     response = await client.post(
@@ -146,6 +147,7 @@ async def prepare_prefix(
             "wait_timeout_ms": 10_000,
             "control_timeout_ms": 15_000,
             "source": "hardware_kv_movement_interference",
+            "min_load_tokens": min_load_tokens,
         },
     )
     try:
@@ -195,6 +197,7 @@ async def stage_host_resident_prefix(
             p_hash=donor_hash,
             request_id=donor_request,
             plan_only=True,
+            min_load_tokens=args.min_load_tokens,
         )
         write_jsonl(
             event_path,
@@ -263,6 +266,7 @@ async def run_trial(client: httpx.AsyncClient, args: argparse.Namespace, events:
             p_hash=donor_hash,
             request_id=f"{trial_id}-interference-load",
             plan_only=False,
+            min_load_tokens=args.min_load_tokens,
         )
         write_jsonl(
             events,
@@ -343,6 +347,12 @@ async def main_async() -> None:
     parser.add_argument("--eviction-rounds", type=int, default=8)
     parser.add_argument("--replay-wait-ms", type=int, default=1000)
     parser.add_argument("--replay-deadline-ms", type=float, default=2000.0)
+    parser.add_argument(
+        "--min-load-tokens",
+        type=int,
+        default=None,
+        help="Explicit benchmark-only override for SGLang's native load-back threshold.",
+    )
     parser.add_argument("--prime-max-tokens", type=int, default=1)
     parser.add_argument("--replay-max-tokens", type=int, default=8)
     args = parser.parse_args()
@@ -356,6 +366,8 @@ async def main_async() -> None:
         parser.error("--eviction-rounds must be nonnegative")
     if args.replay_deadline_ms < 0:
         parser.error("--replay-deadline-ms must be nonnegative")
+    if args.min_load_tokens is not None and args.min_load_tokens < 1:
+        parser.error("--min-load-tokens must be positive when set")
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     events = args.out_dir / "hardware_probe_events.jsonl"
@@ -380,6 +392,7 @@ async def main_async() -> None:
             "condition": args.condition,
             "run_id": args.run_id,
             "sample_set_id": args.sample_set_id,
+            "min_load_tokens": args.min_load_tokens,
         },
     )
     samples: list[dict[str, Any]] = []

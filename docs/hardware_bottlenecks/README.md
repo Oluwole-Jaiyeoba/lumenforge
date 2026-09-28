@@ -99,3 +99,9 @@ its report under
 `sglang_direct_kv/artifacts/results/hardware/$REPORT_LABEL/`. Do not promote a
 result to `HARDWARE_EXPERIMENTS.html` until its report shows accepted prepared
 loads and the paired run manifest is complete.
+
+The first mechanism pass sets `MIN_LOAD_TOKENS=1` explicitly. The pinned
+SGLang runtime normally skips its tiny final response leaf below a 10-token
+throughput threshold. This override still invokes SGLang's own `load_back`
+and host-to-GPU copy path, but it must be reported as a small-copy validation,
+not as evidence of memory-bandwidth saturation.
