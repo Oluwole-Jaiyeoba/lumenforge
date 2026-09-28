@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>KV Movement Interference</title>
+<style>
+body { font-family: Arial, sans-serif; max-width: 1050px; margin: 40px auto; color: #172033; line-height: 1.45; }
+h1 { margin-bottom: .15rem; } .sub { color: #52627a; }
+section { margin: 28px 0; padding: 20px; border: 1px solid #d8e0ea; border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d8e0ea; }
+th { background: #eef3f8; } code { background: #f2f5f8; padding: 2px 4px; }
+.callout { font-size: 1.1rem; font-weight: 600; } .warn { color: #8a4b00; }
+</style></head><body>
+<h1>KV Movement Interference</h1>
+<p class="sub">Paired replay measurements with equal frontend semantics. The only intended difference is a verified, competing KV load-back immediately before replay.</p>
+<section><div class="callout">The interference median was 0.362 ms faster than control.</div>
+<p>Positive paired change means the interference replay was slower.</p>
+<table><tr><th>Metric</th><th>Control median</th><th>Interference median</th><th>Median paired change</th><th>Mean paired change</th></tr>
+<tr><td>replay_ttft_ms</td><td>190.940 ms</td><td>189.897 ms</td><td>-0.362 ms</td><td>-0.972 ms</td></tr>
+<tr><td>replay_lateness_ms</td><td>0.000 ms</td><td>0.000 ms</td><td>0.000 ms</td><td>0.000 ms</td></tr></table></section>
+<section><h2>Evidence Captured</h2><p>The interference driver verified an eligible host-resident donor prefix and requested a load-back before each replay. It recorded 4 accepted load request(s) across 4 trial(s). The backend trace contains 120 software-visible H2D/KV load event(s) in interference and 0 in control.</p>
+<table><tr><th>Accepted load requests</th><th>Queued</th><th>Ready</th><th>Control trace H2D events</th><th>Interference trace H2D events</th></tr>
+<tr><td>4</td><td>4</td><td>0</td><td>0</td><td>120</td></tr></table></section>
+<section><h2>Interpretation Boundary</h2><p class="warn">This is software-visible evidence of a backend KV load request and trace events. It does not by itself prove physical DMA-engine or memory-bandwidth saturation. Use a separate profiler pass for physical attribution, and do not pool its timings with this lightweight latency run.</p></section>
+</body></html>
