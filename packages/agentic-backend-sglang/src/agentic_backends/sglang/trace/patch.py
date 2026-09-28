@@ -3452,7 +3452,12 @@ def _wrap_method(cls: type, method_name: str, event_name: str) -> str:
         try:
             end_context = _kv_context(event_name, method_name, self, args, kwargs, result)
             duration_ms = (time.perf_counter_ns() - start_ns) / 1_000_000
-            if method_name in {"cache_finished_req", "cache_unfinished_req"}:
+            # A request can pass through cache_unfinished_req again after its
+            # completed prefix was inserted.  That later callback may only
+            # resolve the short decode tail and would overwrite the completed
+            # donor registration.  The prepare-prefix registry is for stable,
+            # reusable prefixes, so only record the final cache insertion.
+            if method_name == "cache_finished_req":
                 _register_preparable_prefix(
                     tree_cache=self,
                     req=_arg_value(args, kwargs, 0, "req"),
