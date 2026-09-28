@@ -1,460 +1,116 @@
 # GH200 Setup And Run Guide
 
-This is the short operational guide for moving changes from your Mac to the
-GH200 machine and running replay-deadline pressure experiments there.
+This is the current bring-up path for the equal-importance Scenario 1 controller
+experiment. Read [HANDOFF.md](../../HANDOFF.md) and
+[GH200_AGENT_HANDOFF.md](GH200_AGENT_HANDOFF.md) first. The older signal-family
+and combined-mode commands are [archived](archive/nvidia_gh200_96gb_legacy.md);
+they are not current reproduction instructions.
 
-The intended setup is:
+## Runtime Boundary
 
-```text
-Mac
-  edit code, commit, push, sync, download reports
+- GH200 host: DeepAgents harness, controller, gateway, credentials, orchestration,
+  and reports.
+- Docker container: pinned SGLang `0.5.10.post1`, CUDA runtime, the `v0510`
+  adapter, and backend trace hooks.
+- Shared mounts: model cache and run artifacts. Do not copy a virtual
+  environment or a GPU image built on another architecture.
 
-GH200 host
-  run harnesses, NAT, Hermes, gateway, experiment driver
+The active comparison is `no_prefetch` versus
+`controller_ready_time_gpu_backfill` on the same seeded P3 workload. Every
+session has equal application importance; the controller may derive queue
+ranks from expected tool-return times. The experiment does not accept
+front-end high/low priority classes.
 
-GH200 Docker container
-  run only SGLang + CUDA/GPU backend
-```
+## 1. Get The Source
 
-This split lets NAT and Hermes use their Python 3.11 host virtual environments
-while SGLang uses the Docker CUDA runtime required on the GH200 machine.
-
-The portable deployment contract is defined by:
-
-| File | Purpose |
-| --- | --- |
-| `configs/backend_runtimes/nvidia_gh200.json` | GPU/runtime expectations |
-| `infra/container/probe_sglang_runtime.sh` | Container capability handshake |
-| `scripts/create_run_manifest.py` | Immutable host-side run record |
-| `docs/deployment/GH200_AGENT_HANDOFF.md` | Exact GH200 bring-up checklist |
-
-Reference experiments in this guide expect SGLang `0.5.10.post1`. Set
-`SGLANG_DOCKER_IMAGE` to a locally built or published image that contains that
-version. The preflight records either a registry digest or a local Docker image
-ID, and refuses to start the experiment when the image reports a different
-SGLang version or lacks a required capability.
-
-## 1. Configure Connection
-
-The helpers default to:
-
-| Variable | Default |
-| --- | --- |
-| `AGENTIC_GH200_USER` | `ojaiyeob` |
-| `AGENTIC_GH200_HOST` | `gracehopper` |
-| `AGENTIC_GH200_JUMP_HOST` | `falcon.7elements.com` |
-| `AGENTIC_GH200_JUMP_PORT` | `1337` |
-| `AGENTIC_GH200_REMOTE_DIR` | `/home/central/<user>/<repo-name>` (derived from local clone name) |
-| `AGENTIC_GH200_MODEL_CACHE` | `$HOME/dynamo_model_cache` |
-
-Override them on your Mac if needed:
+Clone `main` on the GH200 after it has been published to the intended GitHub
+repository. The local working copy is not a substitute for a published commit.
+Confirm the checkout before any run:
 
 ```bash
-export AGENTIC_GH200_USER="ojaiyeob"
-export AGENTIC_GH200_HOST="gracehopper"
-export AGENTIC_GH200_JUMP_HOST="falcon.7elements.com"
-export AGENTIC_GH200_JUMP_PORT="1337"
+git status --short
+git branch --show-current
+git log -1 --oneline
 ```
 
-> **Remote dir note**: `AGENTIC_GH200_REMOTE_DIR` defaults to
-> `/home/central/<user>/<repo-name>` where `<repo-name>` is your local
-> clone's directory name. If your local clone is named `agentic-hardware`
-> but the GH200 working directory is `agentic_hardware`, set this explicitly:
->
-> ```bash
-> export AGENTIC_GH200_REMOTE_DIR="/home/central/ojaiyeob/agentic_hardware"
-> ```
->
-> Add this export to your shell profile or set it before every sync/download.
+If transferring a local checkout instead, use
+`infra/accelerator/gh200/sync_to_gh200.sh` from the source machine. Do not
+transfer `.venv`, `.venvs`, caches, or old artifact trees.
 
-## 2. Sync Source From Mac To GH200
+## 2. Check The Host
 
-Run from the repo root on your Mac:
+Run from the repository root on GH200:
 
 ```bash
-cd /path/to/agentic-hardware   # your local clone root
-
-export AGENTIC_GH200_REMOTE_DIR="/home/central/ojaiyeob/agentic_hardware"
-
-./infra/accelerator/gh200/sync_to_gh200.sh --dry
-./infra/accelerator/gh200/sync_to_gh200.sh
-```
-
-The sync copies source code only. It excludes `.git/`, `.venv/`, `.venvs/`,
-`node_modules/`, caches, logs, and `sglang_direct_kv/artifacts/`. Remote
-experiment outputs are protected.
-
-> **First-time bootstrap**: all `infra/accelerator/gh200/` helper scripts live in this repo and
-> must be synced before they can be run on GH200. Always run
-> `sync_to_gh200.sh` before following the steps below for the first time.
-
-## 3. SSH Into GH200
-
-From your Mac:
-
-```bash
-./infra/accelerator/gh200/ssh_to_gh200.sh
-```
-
-Quick machine checks:
-
-```bash
-uname -m       # expected: aarch64
+uname -m
 nvidia-smi
+docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 ```
 
-## 4. Build GH200 Host Dependencies
+The architecture must be `aarch64` or `arm64`, and the Docker GPU check must
+see the accelerator. Do not stop unrelated containers or GPU jobs.
 
-Run on GH200:
+Install the host dependencies if they are not already present:
 
 ```bash
-cd ~/agentic_hardware/sglang_direct_kv
-
-INSTALL_SYSTEM_DEPS=0 bash scripts/setup_nvidia_gh200_96gb.sh
+INSTALL_SYSTEM_DEPS=0 bash sglang_direct_kv/scripts/setup_nvidia_gh200_96gb.sh
 ```
 
-This creates:
+The host Python environment is `sglang_direct_kv/.venv`. It may contain
+compatibility packages, but the serving process must run only in Docker.
 
-| Path | Purpose |
-| --- | --- |
-| `~/agentic_hardware/sglang_direct_kv/.venv` | Main project venv |
-| `~/agentic_hardware/.venvs/nat_py311` | NeMo Agent Toolkit / NAT venv |
-| `~/agentic_hardware/.venvs/hermes_agent_py311` | Hermes Agent venv |
+## 3. Build And Probe SGLang
 
-Use `INSTALL_SYSTEM_DEPS=0` on the current GH200 image to avoid the known DKMS
-package conflict.
-
-## 5. Install Node.js ARM64
-
-Run on GH200 if `node` or `npx` is missing:
+Build the ARM64 backend image on GH200. If the site requires a different
+approved CUDA base, set `SGLANG_BASE_IMAGE` before building; keep the SGLang
+version pinned.
 
 ```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-source "$HOME/.nvm/nvm.sh"
-nvm install --lts
-node -p "process.arch"   # expected: arm64
-```
-
-For new login shells, add to `~/.bashrc`:
-
-```bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-```
-
-The GPU run scripts (`run_host_signal_design_space.sh` and anything that
-calls it) source NVM automatically if `~/.nvm/nvm.sh` exists, so Node
-does not need to be on `PATH` before invoking those scripts.
-
-## 6. Smoke Test Harnesses
-
-Run on GH200 before a long GPU experiment:
-
-```bash
-cd ~/agentic_hardware
-
-./infra/accelerator/gh200/smoke_harnesses.sh
-```
-
-This is a no-GPU test. It verifies the harnesses can talk through the inspection
-gateway path, including NAT and Hermes on the host. A successful run exits with
-code 0 and prints a summary line per harness with no `ERROR` or `FAILED`
-entries. Any non-zero exit or `FAILED` line means the host environment needs
-attention before running GPU experiments.
-
-## 7. Run GPU Experiments
-
-GPU runs require a populated model cache. The default location is
-`~/dynamo_model_cache`. If that directory is empty or missing, set:
-
-```bash
-export AGENTIC_GH200_MODEL_CACHE=/path/to/your/model_cache
-```
-
-The run scripts will abort early with a clear message if the cache is not
-found.
-
-### Build The Backend Image
-
-The SGLang server runs in its own backend-only image. Build the ARM64 image on
-the GH200, then point every hybrid run to that explicit tag:
-
-```bash
-cd ~/agentic_hardware
-
 BACKEND_RUNTIME_PROFILE=nvidia_gh200 \
 SGLANG_RUNTIME_TAG=agentic-sglang-gh200:0.5.10.post1 \
 bash infra/container/build_sglang_runtime.sh
 
 export SGLANG_DOCKER_IMAGE=agentic-sglang-gh200:0.5.10.post1
-```
-
-Before a workload, verify that the image selects `v0510` and writes a runtime
-contract:
-
-```bash
 BACKEND_RUNTIME_PROFILE=nvidia_gh200 \
 BACKEND_RUNTIME_CONTRACT_OUT="$PWD/sglang_direct_kv/artifacts/gh200_runtime.json" \
 bash infra/container/probe_sglang_runtime.sh
 ```
 
-See [the GH200 agent handoff checklist](GH200_AGENT_HANDOFF.md) for the full
-bring-up order and failure handling.
+The probe must report `probe_ok: true`, SGLang `0.5.10.post1`, adapter
+`v0510`, and an image identity. A probe failure is a stop condition; do not
+change controller policy or workload parameters to work around it.
 
-Before loading a model, the host runner now launches a short-lived probe in the
-same SGLang image. It writes these files under the run artifact directory:
+## 4. Run The Locked Scenario
 
-```text
-runtime/backend_runtime.json
-runtime/run_manifest.json
-```
-
-The first file is the container handshake. The second records the source
-commit, image digest, SGLang version, selected adapter, hardware profile,
-workload selection, and artifact locations. Keep the preflight enabled for
-reference runs. `AGENTIC_BACKEND_RUNTIME_PREFLIGHT=0` is only for debugging a
-legacy launch path.
-
-Use `screen` so the job survives disconnects:
+Set the host model cache to a directory containing the model snapshot. The
+sentinel also accepts the older `AGENTIC_GH200_MODEL_CACHE` name, but
+`AGENTIC_MODEL_CACHE` is the common hybrid-run variable.
 
 ```bash
-screen -S gh200_experiment
-# detach:   Ctrl+A then D
-# reattach: screen -r gh200_experiment
-```
-
-Then run from GH200:
-
-```bash
-cd ~/agentic_hardware
-
+export AGENTIC_MODEL_CACHE="$HOME/dynamo_model_cache"
+export SGLANG_DOCKER_IMAGE=agentic-sglang-gh200:0.5.10.post1
 ./infra/accelerator/gh200/run_sentinel.sh
 ```
 
-`run_sentinel.sh` is a fast first check: Hatcher only, baseline vs
-gateway-injected priority, three pressure levels. Watch for the
-`REPORT_LABEL=gh200_sentinel_...` line in the output — that label is used
-to download or tail logs later. A clean exit (exit code 0) means the
-sentinel passed.
+The sentinel selects `nvidia_gh200`, runs DeepAgents at P3, and compares only
+baseline with ready-time GPU backfill. Its strict instrumentation gate checks
+the adapter hooks and a live model request before measuring the workload. The
+post-run validator requires 32 deadline-bearing replays per mode, complete
+timing samples, peer/normal harness signals, no frontend priority, and
+controller-derived backend ranks on all RTG replays. A failed gate or validator
+means the run is not evidence of controller performance.
 
-If that works, run the remote A10G host-scale apples-to-apples experiment:
-
-```bash
-./infra/accelerator/gh200/run_apples_to_apples.sh
-```
-
-Then run the GH200-scaled pressure ladder:
-
-```bash
-./infra/accelerator/gh200/run_scaled_pressure.sh
-```
-
-### Phase 7 Controller Scale-Up
-
-Use this after the sentinel passes when you want to test the portable
-controller design on GH200 pressure. The default is intentionally focused:
-`hatcher` is the internal DeepAgents-style control harness, and the runner
-compares baseline/gateway priority against the controller modes from phases
-2 through 6, plus the full-controller variants.
-
-```bash
-cd ~/agentic_hardware
-
-./infra/accelerator/gh200/run_controller_scaleup.sh
-```
-
-Default Phase 7 controller families:
+The runner prints a `REPORT_LABEL`. Find the per-run report and proof files at:
 
 ```text
-baseline gateway_injected controller_scheduler controller_preload controller_targeted_prefetch controller_demote_restore controller_admission controller_full controller_full_chunked
+sglang_direct_kv/artifacts/results/reports/<REPORT_LABEL>/master_report.html
+sglang_direct_kv/artifacts/results/reports/<REPORT_LABEL>/all_replay_summary.csv
+sglang_direct_kv/artifacts/results/reports/<REPORT_LABEL>/instrumentation_preflight_summary.json
+sglang_direct_kv/artifacts/results/runs/controlled/<REPORT_LABEL>/runtime/backend_runtime.json
+sglang_direct_kv/artifacts/results/runs/controlled/<REPORT_LABEL>/runtime/run_manifest.json
 ```
 
-Default Phase 7 pressure levels:
-
-```text
-p0_control p1_mild p2_medium p3_high p4_cliff p5_boss_queue
-```
-
-To scale the same controller run across every currently wired harness:
-
-```bash
-HARNESSES="hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent" \
-./infra/accelerator/gh200/run_controller_scaleup.sh
-```
-
-To run only the two strongest controller candidates:
-
-```bash
-SIGNAL_FAMILIES="baseline gateway_injected controller_demote_restore controller_admission" \
-./infra/accelerator/gh200/run_controller_scaleup.sh
-```
-
-To compare the full controller against the chunked-prefill variant only:
-
-```bash
-SIGNAL_FAMILIES="baseline gateway_injected controller_full controller_full_chunked" \
-CONTROLLER_CHUNKED_PREFILL_SIZE=512 \
-CONTROLLER_CHUNKED_MAX_PREFILL_TOKENS=4096 \
-./infra/accelerator/gh200/run_controller_scaleup.sh
-```
-
-### Full Signal Design Space Experiment
-
-Use this when you want the full manager-facing comparison across all wired
-harnesses, all pressure levels, and all consolidated signal families. It uses
-the lightweight report builder so the final report stays compact.
-
-```bash
-cd ~/agentic_hardware
-
-SIGNAL_FAMILIES="baseline harness_emitted frontend_supplied gateway_injected" \
-HARNESSES="hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent" \
-PRESSURE_LEVELS="p0_control p1_mild p2_medium p3_high p4_cliff p5_boss_queue" \
-REPORT_BUILDER_MODE=lightweight \
-./infra/accelerator/gh200/run_scaled_pressure.sh
-```
-
-Default GPU-run harnesses:
-
-```text
-hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent
-```
-
-Default signal families:
-
-```text
-baseline harness_emitted frontend_supplied gateway_injected
-```
-
-## 8. Watch Logs
-
-Each run prints its `REPORT_LABEL`. Watch progress from another GH200 shell:
-
-```bash
-tail -f ~/agentic_hardware/sglang_direct_kv/artifacts/results/run_logs/<REPORT_LABEL>.log
-```
-
-The final report path will be:
-
-```text
-~/agentic_hardware/sglang_direct_kv/artifacts/results/latest_master_report.html
-```
-
-## 9. Download Reports Back To Mac
-
-From your Mac:
-
-```bash
-cd /path/to/agentic-hardware   # your local clone root
-
-export AGENTIC_GH200_REMOTE_DIR="/home/central/ojaiyeob/agentic_hardware"
-
-./infra/accelerator/gh200/download.sh
-```
-
-This downloads compact latest report artifacts only.
-
-To download one archived report folder:
-
-```bash
-./infra/accelerator/gh200/download.sh --label <REPORT_LABEL>
-```
-
-Avoid this unless you intentionally want all artifacts:
-
-```bash
-./infra/accelerator/gh200/download.sh --all
-```
-
-Raw traces can become very large.
-
-## 10. Updating Code After A Local Change
-
-Recommended loop:
-
-```bash
-# Mac (run from repo root)
-git status
-git add <changed files>
-git commit -m "<message>"
-git push origin main
-export AGENTIC_GH200_REMOTE_DIR="/home/central/ojaiyeob/agentic_hardware"
-./infra/accelerator/gh200/sync_to_gh200.sh
-
-# GH200
-cd ~/agentic_hardware
-./infra/accelerator/gh200/run_sentinel.sh
-```
-
-If only Python scripts/configs changed, syncing is enough.
-
-If `requirements.txt` changed, run on GH200:
-
-```bash
-cd ~/agentic_hardware/sglang_direct_kv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-If package structure changed, run:
-
-```bash
-cd ~/agentic_hardware
-source .venv/bin/activate
-bash scripts/install_workspace.sh
-```
-
-## 11. Common Overrides
-
-Run only one harness:
-
-```bash
-HARNESSES=hatcher ./infra/accelerator/gh200/run_apples_to_apples.sh
-```
-
-Run only one pressure level:
-
-```bash
-PRESSURE_LEVELS=p3_high ./infra/accelerator/gh200/run_apples_to_apples.sh
-```
-
-Run only baseline and gateway-injected priority:
-
-```bash
-SIGNAL_FAMILIES="baseline gateway_injected" ./infra/accelerator/gh200/run_apples_to_apples.sh
-```
-
-Use a different model:
-
-```bash
-MODEL=Qwen/Qwen2.5-Coder-7B-Instruct ./infra/accelerator/gh200/run_scaled_pressure.sh
-```
-
-Use a different model cache:
-
-```bash
-AGENTIC_GH200_MODEL_CACHE=/path/to/model_cache ./infra/accelerator/gh200/run_scaled_pressure.sh
-```
-
-## 12. Known GH200 Notes
-
-- GH200 is ARM64 (`aarch64`), so do not copy venvs from remote A10G host or Mac.
-- SGLang runs in Docker because the GH200 CUDA/runtime setup is cleaner there.
-- Harnesses run on the host so NAT and Hermes can use Python 3.11.
-- The SGLang Docker image currently expects:
-
-```bash
-EXTRA_SERVER_ARGS="--disable-cuda-graph --disable-overlap-schedule"
-```
-
-The GH200 wrappers set that by default.
-
-- The `infra/accelerator/gh200/run_*.sh` wrappers are thin entry points that delegate to
-  `sglang_direct_kv/scripts/run_harness_signal_design_space.sh`. Both
-  must be present on GH200 (via sync) before GPU runs work.
-- Use `INSTALL_SYSTEM_DEPS=0` when re-running `setup_nvidia_gh200_96gb.sh` on the current
-  GH200 image to avoid a known DKMS package conflict with older NVIDIA kernel
-  modules (`nvidia-dkms-550-open` residuals).
-- The machine may already have long-running Docker containers (`dynamo-frontend`,
-  `dynamo-nats`, `etcd`). These are unrelated to the SGLang GPU experiment
-  containers and should be left running.
+Compare the shape and measurement coverage with the
+[validated standard-NVIDIA reference](../reports/scenario1_equal_importance_20260928.html).
+Do not expect identical latency numbers on a different GPU. GH200 performance
+remains unverified until this run completes on that machine.

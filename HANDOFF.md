@@ -45,9 +45,12 @@ with infra/container/build_sglang_runtime.sh. Then run
 infra/container/probe_sglang_runtime.sh. Do not launch a workload until the
 runtime contract reports probe_ok: true, SGLang 0.5.10.post1, and adapter v0510.
 
-Next, run the narrow hybrid sentinel. Preserve its runtime contract, run
-manifest, logs, and report. Only after that passes should you run larger
-controller experiments or change SGLang versions.
+Next, set `AGENTIC_MODEL_CACHE` and run
+`infra/accelerator/gh200/run_sentinel.sh`. It is the locked equal-importance
+Scenario 1 comparison, not the old gateway-priority test. Preserve its
+runtime contract, run manifest, live instrumentation proof, and report. Do not
+run the retired GH200 scale-up wrappers; a new workload spec must be approved
+before expanding beyond P3 and DeepAgents.
 ```
 
 ### GH200 Success Criteria
@@ -60,6 +63,8 @@ controller experiments or change SGLang versions.
 - SGLang is launched only through the configured Docker image.
 - The hybrid sentinel produces a report plus
   `runtime/backend_runtime.json` and `runtime/run_manifest.json`.
+- The live gate passes and the report counts 32 deadline-bearing replays per
+  mode without frontend priority. Numeric RTG ranks are controller-derived.
 
 ### Guardrails
 
@@ -139,20 +144,21 @@ The current controller work adds a portable policy layer around this path:
 agent lifecycle events -> controller policy -> gateway/SGLang actions
 ```
 
-The controller watches when an agent enters tool wait, when replay becomes
-likely, when replay is ready, and when replay is finished. It can then decide to
-raise replay priority, temporarily demote background work, skip speculative work
-under overload, or restore normal traffic afterward.
+In active Scenario 1, the controller receives expected tool-return timing for
+every session and assigns temporary queue ranks when replays become due. Both
+the former target-role and filler-role sessions are peers with replay
+deadlines. Demotion, semantic priority, speculative preload, and eviction
+experiments are historical work, not part of this reproduction.
 
 The main report output is the Replay Deadline Pressure Chart. It shows how late
 or early replay first tokens were under different pressure levels and modes.
 Exact proof lives in the evidence tables and CSV artifacts.
 
-Simple framing for the core idea:
+Simple framing for the active experiment:
 
 ```text
-Priority says: this request matters.
-Controller says: this request matters, and I will temporarily make room for it.
+Harness: these tool calls are expected to return at these times.
+Controller: all tasks matter equally; schedule the replay due soonest.
 ```
 
 ## Current State
@@ -160,17 +166,19 @@ Controller says: this request matters, and I will temporarily make room for it.
 The repository is focused on measuring whether agentic LLM replay requests can
 meet deadlines under SGLang queue, GPU, KV-cache, and multi-agent pressure.
 
-The current active design is the portable agent-aware controller:
+The current active design is the portable equal-importance controller:
 
 - lifecycle state is tracked outside SGLang
 - SGLang-specific behavior lives behind thin gateway/adapter boundaries
-- priority, demote/restore, admission, speculative preload, and targeted KV
-  prefetch are tested as explicit modes
-- the lightweight report builder is the default report path
+- the locked proof compares `no_prefetch` with
+  `controller_ready_time_gpu_backfill` only
+- every replay has a deadline, and the report includes all 32 replays per mode
+- strict instrumentation and request-contract validation must pass before
+  controller results are trusted
 
-Use `git log -1 --oneline` to identify the current local handoff commit. Push
-source changes to GitHub `main` after committing when the configured remote is
-available.
+Use `git log -1 --oneline` to identify the current local handoff commit. The
+configured GitHub destination is not available yet; verify that the intended
+repository's `main` contains the handoff commit before cloning on GH200.
 
 ## Historical Remote Reference
 
@@ -347,7 +355,7 @@ Use this map to decide where to make changes.
 | Unit-test controller behavior | `sglang_direct_kv/tests/test_agentic_controller.py` | Add tests before remote A10G host runs. At minimum test full-controller commands and proof fields. |
 | Run the focused remote A10G host repeatability ladder | `sglang_direct_kv/scripts/run_nvidia_a10g_24gb_controller_repeatability.sh` | Existing script for the current one-harness remote A10G host controller comparison. Update later if `controller_full` becomes the default. |
 | remote A10G host connection and sync | `infra/remote/check_host_ready.sh`, `infra/remote/upload_workspace.sh`, `infra/remote/connect.sh` | Use these from the local repo root. |
-| GH200 docs and runners | `docs/deployment/nvidia_gh200_96gb.md`, `infra/accelerator/gh200/run_controller_scaleup.sh` | Migration target only from this computer. Do not assume GH200 access here. |
+| GH200 docs and active runner | `docs/deployment/nvidia_gh200_96gb.md`, `infra/accelerator/gh200/run_sentinel.sh` | Locked equal-importance Scenario 1 bring-up; GH200 execution remains unverified here. |
 
 Suggested first implementation path for `controller_full`:
 

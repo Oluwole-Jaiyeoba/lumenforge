@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Fast first NVIDIA GH200 GPU check: Hatcher only, baseline vs gateway priority,
-# three pressure levels.
+# Locked GH200 bring-up: equal-importance DeepAgents, P3, baseline vs RTG.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-export HARDWARE_PROFILE="${HARDWARE_PROFILE:-nvidia_gh200_96gb}"
-export SIGNAL_FAMILIES="${SIGNAL_FAMILIES:-baseline gateway_injected}"
-export HARNESSES="${HARNESSES:-hatcher}"
-export PRESSURE_LEVELS="${PRESSURE_LEVELS:-p0_control p3_high p5_boss_queue}"
-export REPORT_LABEL="${REPORT_LABEL:-gh200_sentinel_$(date +%Y%m%d_%H%M%S)}"
+export BACKEND_RUNTIME_PROFILE="${BACKEND_RUNTIME_PROFILE:-nvidia_gh200}"
+if [[ "${BACKEND_RUNTIME_PROFILE}" != "nvidia_gh200" ]]; then
+  echo "GH200 sentinel requires BACKEND_RUNTIME_PROFILE=nvidia_gh200." >&2
+  exit 2
+fi
+if [[ -n "${BACKEND_RUNTIME_PROFILE_PATH:-}" || -n "${HARDWARE_PROFILE_PATH:-}" ]]; then
+  echo "GH200 sentinel does not accept backend or hardware profile path overrides." >&2
+  exit 2
+fi
+export AGENTIC_MODEL_CACHE="${AGENTIC_MODEL_CACHE:-${AGENTIC_GH200_MODEL_CACHE:-${HOME}/dynamo_model_cache}}"
+export REPORT_LABEL="${REPORT_LABEL:-gh200_scenario1_equal_$(date +%Y%m%d_%H%M%S)}"
+export UPDATE_LATEST=0
 
-exec "${SCRIPT_DIR}/run_host_signal_design_space.sh"
+exec "${REPO_ROOT}/infra/container/run_scenario1_hybrid_reference.sh" "$@"

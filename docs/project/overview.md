@@ -366,7 +366,11 @@ inspection gateway path. It includes NAT and Hermes on the GH200 host.
 
 ### 4. Run GH200 GPU Experiments
 
-Run GPU experiments inside `screen` so the job survives disconnects:
+The only active GH200 controller bring-up is the locked equal-importance
+Scenario 1 comparison. Follow the
+[current GH200 guide](../deployment/nvidia_gh200_96gb.md) for the ARM64 image
+build, runtime probe, and model-cache setup. Run inside `screen` if the SSH
+connection may drop:
 
 ```bash
 screen -S gh200_experiment
@@ -374,53 +378,18 @@ screen -S gh200_experiment
 # reattach: screen -r gh200_experiment
 ```
 
-First run the sentinel:
+Then run the sentinel:
 
 ```bash
 cd ~/agentic_hardware
 ./infra/accelerator/gh200/run_sentinel.sh
 ```
 
-Then run the remote A10G host-scale apples-to-apples comparison on GH200:
-
-```bash
-./infra/accelerator/gh200/run_apples_to_apples.sh
-```
-
-Then run the GH200-scaled pressure ladder:
-
-```bash
-./infra/accelerator/gh200/run_scaled_pressure.sh
-```
-
-While a run is active, watch progress from another GH200 shell with:
-
-```bash
-tail -f ~/agentic_hardware/sglang_direct_kv/artifacts/results/run_logs/<REPORT_LABEL>.log
-```
-
-All three wrappers call
-[`infra/accelerator/gh200/run_host_signal_design_space.sh`](../../infra/accelerator/gh200/run_host_signal_design_space.sh).
-That script runs the experiment driver, gateway, and harness clients on the
-GH200 host, but launches the SGLang GPU backend inside
-`lmsysorg/sglang:latest`. Because the repo is mounted into the SGLang backend
-container, source changes synced to GH200 are immediately visible inside
-Docker; no Docker rebuild is needed.
-
-The host-harness GH200 GPU runs default to:
-
-```text
-hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent
-```
-
-This split is what allows NAT and Hermes to participate in GH200 GPU runs:
-their Python 3.11 venvs stay on the host, while only SGLang uses the Docker
-CUDA/runtime environment.
-
-The older
-[`infra/accelerator/gh200/run_signal_design_space_docker.sh`](../../infra/accelerator/gh200/run_signal_design_space_docker.sh)
-helper still exists for Docker-only debugging with Docker-compatible harnesses,
-but the recommended GH200 path is the host-harness split above.
+This runs DeepAgents at P3 with `no_prefetch` and
+`controller_ready_time_gpu_backfill` only. The live instrumentation gate and
+all-replay contract validator must pass before interpreting performance.
+The old apples-to-apples, scaled-pressure, and combined-mode wrappers are
+retired; define a new workload contract before expanding the experiment.
 
 ### 5. Download GH200 Reports
 
@@ -930,7 +899,7 @@ smallest possible boundary adapter.
 | Phase 6.9: EarlyPrepare admission window | Implemented; remote A10G host run pending | Start demotion/admission before the target replay returns, using the expected tool-wait completion time exposed by the harness. | Run `controller_priority_demotion_admission_earlyprepare` against baseline, front-end priority, and the prior admission modes on DeepAgents/Hatcher at `p3_high`. Success requires proof that the hold/demotion window opened before `m27.replay.due`, replay priority still reached SGLang, and target replay lateness moves closer to zero without excessive total TTFT cost. |
 | Phase 6.10: Oracle timeline admission | Implemented; remote A10G host run pending | Give the controller an upper-bound timeline view: expected replay-ready time plus estimated filler runtime. It admits filler only when the filler is expected to finish before the replay-critical window. | Run `controller_oracle_timeline` against baseline, front-end priority, and the prior controller admission modes on DeepAgents/Hatcher at `p3_high`. Success requires proof rows showing each oracle `admit` or `hold` decision, estimated filler runtime, time until replay, safety margin, replay priority lowering, and resulting target/filler cost. |
 | Phase 6.11: Idle-aware Oracle SJF tuning | Implemented; remote A10G host run pending | Keep strict `controller_oracle_safe_sjf` as the conservative baseline, then test less cautious SJF modes that use shorter safety margins, higher filler concurrency, and a one-short-filler idle override when strict fit would leave the backend empty. | Run `controller_oracle_safe_sjf`, `controller_oracle_safe_sjf_balanced`, `controller_oracle_safe_sjf_aggressive`, and `controller_oracle_safe_sjf_maxfill` against baseline/front-end priority on DeepAgents/Hatcher at `p3_high`. Success requires trace rows distinguishing `shortest_safe_filler_fits_before_next_replay`, `idle_override_shortest_filler_admitted_to_avoid_empty_backend`, and `maxfill_shortest_filler_admitted_without_fit_requirement`, then compare target debt, filler debt, total TTFT, and GPU idle. |
-| Phase 7: GH200 profile and scale-up | Prepared; GH200 run pending | Re-run the same controller design on GH200 with larger pressure profiles and host-harness/Docker-SGLang split. | [infra/accelerator/gh200/run_controller_scaleup.sh](../../infra/accelerator/gh200/run_controller_scaleup.sh) runs the remote A10G host-validated controller modes with `HARDWARE_PROFILE=gh200`, host-side harnesses, Dockerized SGLang, and the lightweight report builder. GH200 report should use the same scripts and modes as remote A10G host, with only hardware profile and host/container setup differences. |
+| Phase 7: GH200 profile and scale-up | Historical plan; runner retired | Earlier proposal to compare combined controller modes at larger pressure. | The old `run_controller_scaleup.sh` now exits without running. Use the [current GH200 guide](../deployment/nvidia_gh200_96gb.md) and its locked Scenario 1 sentinel for bring-up. |
 
 For Phase 6.5, the demote/restore proof is window-aware. Earlier filler
 requests that entered before controller demotion are not counted as a demotion
@@ -1246,7 +1215,11 @@ and P5 no-prefetch rows use a backend decode-result fallback because the client
 closed the stream before the gateway emitted `m27.request.end`; the raw proof
 marks those rows with `first_token_source=scheduler_process_decode_result`.
 
-## Multi-Harness Deadline Pressure
+## Historical Multi-Harness Deadline Pressure (Do Not Run)
+
+The commands below document earlier priority-era research. Several modes are
+deliberately disabled in the active controller runner. Use the GH200 sentinel
+above for the current equal-importance protocol.
 
 The broad experiment compares the same SGLang priority boundary across ten
 non-Dynamo agent harness shapes. Eight entries now launch real native CLIs; the
@@ -1373,8 +1346,8 @@ Primary scripts:
 | [sglang_direct_kv/scripts/build_milestone27_controlled_replay_report.py](../../sglang_direct_kv/scripts/build_milestone27_controlled_replay_report.py) | Builds the master HTML report, evidence tables, and Replay Deadline Pressure Chart. |
 | [sglang_direct_kv/scripts/build_multi_harness_deadline_summary.py](../../sglang_direct_kv/scripts/build_multi_harness_deadline_summary.py) | Lightweight all-harness report builder used when the rich timeline report would be too large. |
 | [sglang_direct_kv/src/agentic_kv/sglang_adapters/capabilities.py](../../sglang_direct_kv/src/agentic_kv/sglang_adapters/capabilities.py) | Probes the installed SGLang version, hook surface, priority support, and static cache-signal source paths. |
-| [infra/accelerator/gh200/run_host_signal_design_space.sh](../../infra/accelerator/gh200/run_host_signal_design_space.sh) | Recommended GH200 runner: host-side harnesses and gateway, Dockerized SGLang backend. |
-| [infra/accelerator/gh200/run_controller_scaleup.sh](../../infra/accelerator/gh200/run_controller_scaleup.sh) | Phase 7 runner: GH200-scaled controller comparison using the portable controller modes validated on remote A10G host. |
+| [infra/accelerator/gh200/run_host_signal_design_space.sh](../../infra/accelerator/gh200/run_host_signal_design_space.sh) | Historical signal-emission runner, separate from the active controller proof. |
+| [infra/accelerator/gh200/run_controller_scaleup.sh](../../infra/accelerator/gh200/run_controller_scaleup.sh) | Retired Phase 7 runner; exits without running. |
 | [infra/accelerator/gh200/run_signal_design_space_docker.sh](../../infra/accelerator/gh200/run_signal_design_space_docker.sh) | Docker-only fallback runner for debugging Docker-compatible harnesses. |
 
 Smoke-test native CLI wireability without starting the real GPU server:

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run harnesses/gateway on the NVIDIA GH200 host while launching only the SGLang GPU
-# backend in Docker for each case. This keeps NAT/Hermes on their Python 3.11
-# host venvs and still uses the SGLang container for CUDA/GPU compatibility.
+# Historical signal-emission runner, separate from the active controller proof.
+# Harnesses stay on the host; SGLang runs in Docker.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
@@ -19,7 +18,7 @@ GH200_PASSWD_FILE="${AGENTIC_GH200_PASSWD_FILE:-/tmp/gh200_passwd}"
 
 HARDWARE_PROFILE="${HARDWARE_PROFILE:-nvidia_gh200_96gb}"
 BACKEND_RUNTIME_PROFILE="${BACKEND_RUNTIME_PROFILE:-nvidia_gh200}"
-SIGNAL_FAMILIES="${SIGNAL_FAMILIES:-baseline harness_emitted frontend_supplied gateway_injected}"
+SIGNAL_FAMILIES="${SIGNAL_FAMILIES:-baseline harness_emitted}"
 HARNESSES="${HARNESSES:-hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent}"
 PRESSURE_LEVELS="${PRESSURE_LEVELS:-p0_control p3_high p5_boss_queue}"
 REPORT_BUILDER_MODE="${REPORT_BUILDER_MODE:-lightweight}"

@@ -3,6 +3,9 @@
 Use this checklist when bringing the repository to an NVIDIA GH200 machine.
 Do not change controller policy, harness behavior, or experiment parameters to
 solve a deployment problem. First make the backend runtime contract pass.
+The source must be the published, up-to-date `main` commit (or a deliberate
+source transfer); check `git log -1 --oneline` before proceeding. The current
+GH200 path has scaffolding but has not yet been validated on that GPU.
 
 ## Architecture To Preserve
 
@@ -17,8 +20,9 @@ SGLang Docker container
 ```
 
 The host owns credentials and real harness behavior. The container owns GPU
-libraries and all SGLang-version-specific code. The repository mount is
-read-only; the model cache and run artifacts are separate mounts.
+libraries and all SGLang-version-specific code. The `packages/` source mount
+is read-only; the testbed mount remains writable for run artifacts. The model
+cache is a separate mount.
 
 ## Bring-Up Steps
 
@@ -63,17 +67,23 @@ read-only; the model cache and run artifacts are separate mounts.
 5. Read the generated runtime contract. If its version, adapter, or required
    capability is wrong, fix the image or adapter before running a workload.
 
-6. Set the host model-cache location and run the narrow hybrid sentinel:
+6. Set the host model-cache location and run the locked equal-importance
+   Scenario 1 sentinel. It compares only `no_prefetch` with
+   `controller_ready_time_gpu_backfill` at P3; all sessions have equal
+   application importance:
 
    ```bash
-   export AGENTIC_GH200_MODEL_CACHE=/path/to/model_cache
+   export AGENTIC_MODEL_CACHE=/path/to/model_cache
    export SGLANG_DOCKER_IMAGE=agentic-sglang-gh200:0.5.10.post1
    ./infra/accelerator/gh200/run_sentinel.sh
    ```
 
-7. Preserve the run's `runtime/backend_runtime.json` and
-   `runtime/run_manifest.json` with the resulting report. They are the proof
-   of the exact runtime used.
+7. Require a successful live instrumentation preflight and the final
+   equal-importance validator: 32 replays per mode, no frontend priority, and
+   controller-derived queue ranks on every RTG replay. Preserve the run's
+   `runtime/backend_runtime.json`, `runtime/run_manifest.json`,
+   `all_replay_summary.csv`, and `master_report.html` together. These prove
+   which runtime and request contract produced the result.
 
 ## If Something Fails
 
@@ -85,3 +95,5 @@ read-only; the model cache and run artifacts are separate mounts.
   that client into the container.
 - Sentinel failure after a successful handshake: keep the runtime contract and
   compare its launch settings and artifacts against the known reference run.
+- Do not launch the retired apples-to-apples, scaled-pressure, or combined-mode
+  wrappers to diagnose the active Scenario 1 protocol; they intentionally stop.

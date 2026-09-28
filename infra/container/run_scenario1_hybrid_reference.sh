@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 MODEL="${1:-Qwen/Qwen2.5-Coder-7B-Instruct}"
+requested_hardware_profile="${HARDWARE_PROFILE:-}"
 
 set -a
 # shellcheck source=/dev/null
@@ -14,6 +15,26 @@ source "${REPO_ROOT}/configs/experiment_specs/scenario1_ready_time_reference.env
 set +a
 
 export BACKEND_RUNTIME_PROFILE="${BACKEND_RUNTIME_PROFILE:-nvidia_standard}"
+profile_path="${BACKEND_RUNTIME_PROFILE_PATH:-${REPO_ROOT}/configs/backend_runtimes/${BACKEND_RUNTIME_PROFILE}.json}"
+if [[ ! -f "${profile_path}" ]]; then
+  echo "Backend runtime profile not found: ${profile_path}" >&2
+  exit 2
+fi
+profile_hardware="$(python3 - "${profile_path}" <<'PY'
+import json
+import sys
+
+value = json.load(open(sys.argv[1], encoding="utf-8")).get("hardware_profile", "")
+if not isinstance(value, str) or not value:
+    raise SystemExit("Backend runtime profile has no hardware_profile")
+print(value)
+PY
+)"
+if [[ -n "${requested_hardware_profile}" && "${requested_hardware_profile}" != "${profile_hardware}" ]]; then
+  echo "HARDWARE_PROFILE=${requested_hardware_profile} disagrees with ${BACKEND_RUNTIME_PROFILE} (${profile_hardware})." >&2
+  exit 2
+fi
+export HARDWARE_PROFILE="${profile_hardware}"
 export REPORT_LABEL="${REPORT_LABEL:-scenario1_hybrid_reference_$(date +%Y%m%d_%H%M%S)}"
 export UPDATE_LATEST="${UPDATE_LATEST:-0}"
 

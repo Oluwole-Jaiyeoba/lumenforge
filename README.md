@@ -15,6 +15,11 @@ importance. Harnesses expose expected tool-return times; the controller derives
 temporary queue ranks from those times. Earlier front-end priority experiments
 are historical evidence, not part of this protocol. Use
 `infra/container/run_scenario1_hybrid_reference.sh` for its locked reproduction.
+For GH200, start with [the handoff](HANDOFF.md) and
+[the GH200 guide](docs/deployment/nvidia_gh200_96gb.md); its first live run is
+`infra/accelerator/gh200/run_sentinel.sh`. The ARM64 image and live GPU run
+still need validation on that machine. Confirm that the intended GitHub
+repository's `main` includes these changes before cloning it there.
 
 - [Architecture contract](ARCHITECTURE.md)
 - [Current handoff](HANDOFF.md)

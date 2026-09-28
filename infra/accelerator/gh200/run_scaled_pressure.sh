@@ -1,15 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# NVIDIA GH200-scale pressure ladder. Run after the sentinel and apples-to-apples
-# checks have passed.
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-export HARDWARE_PROFILE="${HARDWARE_PROFILE:-nvidia_gh200_96gb}"
-export SIGNAL_FAMILIES="${SIGNAL_FAMILIES:-baseline harness_emitted frontend_supplied gateway_injected}"
-export HARNESSES="${HARNESSES:-hatcher codex claude_code opencode qwen_code pi_agent_harness openclaw nemo_agent_toolkit hermes_agent}"
-export PRESSURE_LEVELS="${PRESSURE_LEVELS:-p0_control p1_mild p2_medium p3_high p4_cliff p5_boss_queue}"
-export REPORT_LABEL="${REPORT_LABEL:-gh200_scaled_deadline_pressure_$(date +%Y%m%d_%H%M%S)}"
-
-exec "${SCRIPT_DIR}/run_host_signal_design_space.sh"
+echo "This historical pressure ladder is retired; validate the equal-importance Scenario 1 sentinel before defining a new scaled workload." >&2
+exit 2

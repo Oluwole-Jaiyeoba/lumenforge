@@ -28,6 +28,7 @@ PY
 PROFILE_ID="$(profile_value profile_id)"
 HOST_ARCH="$(profile_value host_architecture)"
 EXPECTED_VERSION="$(profile_value expected_backend_version)"
+PROFILE_NAME="$(basename "${PROFILE_PATH}" .json)"
 if [[ "${SGLANG_VERSION}" != "${EXPECTED_VERSION}" ]]; then
   echo "Profile ${PROFILE_ID} expects SGLang ${EXPECTED_VERSION}, got ${SGLANG_VERSION}." >&2
   exit 2
@@ -61,4 +62,4 @@ docker build \
 IMAGE_ID="$(docker image inspect --format '{{.Id}}' "${SGLANG_RUNTIME_TAG}")"
 echo "Built ${SGLANG_RUNTIME_TAG}"
 echo "Local image identity: local-image-id:${IMAGE_ID}"
-echo "Next: SGLANG_DOCKER_IMAGE=${SGLANG_RUNTIME_TAG} BACKEND_RUNTIME_PROFILE=${PROFILE_ID} bash infra/container/probe_sglang_runtime.sh"
+echo "Next: SGLANG_DOCKER_IMAGE=${SGLANG_RUNTIME_TAG} BACKEND_RUNTIME_PROFILE=${PROFILE_NAME} bash infra/container/probe_sglang_runtime.sh"
