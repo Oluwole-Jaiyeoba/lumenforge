@@ -91,8 +91,11 @@ bash infra/container/run_kv_movement_interference_reference.sh \
   Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-Useful small-run knobs are `TRIALS=4`, `SEED=7`, `HICACHE_SIZE_GB=8`, and
-`MEM_FRACTION_STATIC=0.70`. The command writes its report under
+Useful small-run knobs are `TRIALS=4`, `SEED=7`, `HICACHE_SIZE_GB=8`,
+`MEM_FRACTION_STATIC=0.70`, and `DONOR_PROMPT_TOKENS=4090`. The donor default
+is deliberately aligned with the pinned runtime's prefill chunking so its
+evicted KV segment is large enough for SGLang to load back. The command writes
+its report under
 `sglang_direct_kv/artifacts/results/hardware/$REPORT_LABEL/`. Do not promote a
 result to `HARDWARE_EXPERIMENTS.html` until its report shows accepted prepared
 loads and the paired run manifest is complete.

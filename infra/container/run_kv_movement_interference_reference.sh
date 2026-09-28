@@ -18,6 +18,7 @@ SAMPLE_SET_ID="${SAMPLE_SET_ID:-${REPORT_LABEL}_samples}"
 TRIALS="${TRIALS:-4}"
 SEED="${SEED:-7}"
 WORKLOAD_ID="${WORKLOAD_ID:-hardware_kv_movement_v1}"
+DONOR_PROMPT_TOKENS="${DONOR_PROMPT_TOKENS:-4090}"
 
 if [[ ! -f "${PROFILE_PATH}" ]]; then
   echo "Backend runtime profile not found: ${PROFILE_PATH}" >&2
@@ -192,6 +193,7 @@ run_condition() {
       --backend-version "${BACKEND_VERSION}" \
       --workload-id "${WORKLOAD_ID}" \
       --seed "${SEED}" \
+      --donor-prompt-tokens "${DONOR_PROMPT_TOKENS}" \
       --trials 1 \
       --sample-offset "${sample_index}" \
       "${append_args[@]}"

@@ -335,7 +335,10 @@ async def main_async() -> None:
         help="Append distinct sample IDs to an existing condition result.",
     )
     parser.add_argument("--target-prompt-tokens", type=int, default=2048)
-    parser.add_argument("--donor-prompt-tokens", type=int, default=4096)
+    # The chat wrapper contributes six tokens on the pinned reference runtime.
+    # 4090 user tokens therefore lands the donor on a 4096-token boundary,
+    # avoiding a tiny final radix node below SGLang's 10-token load threshold.
+    parser.add_argument("--donor-prompt-tokens", type=int, default=4090)
     parser.add_argument("--eviction-prompt-tokens", type=int, default=8192)
     parser.add_argument("--eviction-rounds", type=int, default=8)
     parser.add_argument("--replay-wait-ms", type=int, default=1000)
