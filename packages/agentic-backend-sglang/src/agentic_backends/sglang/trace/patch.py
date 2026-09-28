@@ -1842,7 +1842,15 @@ class _PreparePrefixControlHandler(BaseHTTPRequestHandler):
             return
         result = result_holder.get("result")
         if isinstance(result, dict):
-            self._send_json(200 if result.get("ok") else 409, result)
+            # A queued load is accepted even when the asynchronous H2D copy
+            # has not completed by the caller's short wait window.
+            if result.get("ok"):
+                status_code = 200
+            elif result.get("status") == "queued":
+                status_code = 202
+            else:
+                status_code = 409
+            self._send_json(status_code, result)
             return
         self._send_json(500, {"ok": False, "status": "missing_prepare_result"})
 
