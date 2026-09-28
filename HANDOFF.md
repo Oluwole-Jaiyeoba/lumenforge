@@ -28,9 +28,14 @@ Read these documents in order before editing or running an experiment:
 3. [`docs/deployment/nvidia_gh200_96gb.md`](docs/deployment/nvidia_gh200_96gb.md)
 4. [`docs/architecture/README_RESTRUCTURING.md`](docs/architecture/README_RESTRUCTURING.md)
 
-### Copyable Task Instruction
+### GH200 Agent Task
 
 ```text
+Clone https://github.com/Oluwole-Jaiyeoba/lumenforge.git into a directory
+named agentic_hardware on the NVIDIA GH200 machine. If it is already cloned,
+confirm it is on the published main commit. Read this handoff and its GH200
+reading list before editing or running an experiment.
+
 Bring up the Agentic Hardware hybrid runtime on the NVIDIA GH200.
 
 Preserve this boundary:
@@ -50,7 +55,8 @@ Next, set `AGENTIC_MODEL_CACHE` and run
 Scenario 1 comparison, not the old gateway-priority test. Preserve its
 runtime contract, run manifest, live instrumentation proof, and report. Do not
 run the retired GH200 scale-up wrappers; a new workload spec must be approved
-before expanding beyond P3 and DeepAgents.
+before expanding beyond P3 and DeepAgents. Report the first failing step and
+its evidence; do not hide or work around a failed probe, gate, or validator.
 ```
 
 ### GH200 Success Criteria
