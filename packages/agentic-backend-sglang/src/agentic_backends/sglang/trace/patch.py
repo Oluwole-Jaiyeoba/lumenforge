@@ -1477,6 +1477,42 @@ def _prepare_command_lookup_keys(command: dict[str, Any]) -> list[str]:
     return keys
 
 
+def _resolve_completed_prefix_nodes(tree_cache: Any, req: Any) -> tuple[Any, Any, str]:
+    """Re-match a completed request so registration follows its inserted radix node.
+
+    `cache_finished_req` inserts the completed prefix but does not update
+    `req.last_node`.  Reusing that stale pointer selects the preceding match
+    (often a tiny terminal leaf) instead of the large cached donor segment.
+    """
+
+    try:
+        from sglang.srt.mem_cache.base_prefix_cache import MatchPrefixParams
+        from sglang.srt.mem_cache.radix_cache import RadixKey
+
+        token_ids = list(getattr(req, "origin_input_ids", []) or []) + list(getattr(req, "output_ids", []) or [])
+        if not token_ids:
+            raise ValueError("completed request has no cacheable token IDs")
+        key = RadixKey(
+            token_ids,
+            getattr(req, "extra_key", None),
+            is_bigram=bool(getattr(tree_cache, "is_eagle", False)),
+        )
+        match = tree_cache.match_prefix(MatchPrefixParams(key=key))
+        return (
+            getattr(match, "last_host_node", None),
+            getattr(match, "last_device_node", None),
+            "completed_prefix_match",
+        )
+    except Exception as exc:  # noqa: BLE001
+        _write_event(
+            {
+                "event": "agentic_kv.prepare_prefix.resolve_fallback",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        )
+        return getattr(req, "last_host_node", None), getattr(req, "last_node", None), "request_pointer_fallback"
+
+
 def _register_preparable_prefix(
     *,
     tree_cache: Any,
@@ -1496,14 +1532,7 @@ def _register_preparable_prefix(
     keys = _prefix_lookup_keys(merged_context)
     if not keys:
         return
-    try:
-        last_host_node = getattr(req, "last_host_node", None)
-    except Exception:
-        last_host_node = None
-    try:
-        last_node = getattr(req, "last_node", None)
-    except Exception:
-        last_node = None
+    last_host_node, last_node, node_source = _resolve_completed_prefix_nodes(tree_cache, req)
     if last_host_node is None and last_node is None:
         return
     entry = {
@@ -1512,6 +1541,7 @@ def _register_preparable_prefix(
         "last_node": last_node,
         "registered_ns": time.time_ns(),
         "source_method": source_method,
+        "node_source": node_source,
         "request": req_context,
         "keys": list(keys),
         "last_host_node_id": _safe_summary(_node_id(last_host_node)),
@@ -1531,6 +1561,7 @@ def _register_preparable_prefix(
         {
             "event": "agentic_kv.prepare_prefix.registered",
             "source_method": source_method,
+            "node_source": node_source,
             "lookup_keys": keys,
             "last_host_node_id": entry["last_host_node_id"],
             "last_node_id": entry["last_node_id"],
