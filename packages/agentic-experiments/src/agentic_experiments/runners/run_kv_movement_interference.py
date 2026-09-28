@@ -30,13 +30,13 @@ def make_prompt(label: str, target_tokens: int, *, unique: bool = False) -> str:
         f"Agentic coding task {label}. Track repository context, tool results, failing tests, "
         "candidate files, and the next patch hypothesis. "
     )
-    token = "unique" if unique else "shared"
+    # One simple token per appended word keeps the configured prompt length
+    # close to the tokenizer length. The older compound/indexed words expanded
+    # into many sub-tokens and could accidentally exceed model context limits.
+    token = "cache" if unique else "context"
     words = [header]
     while len(" ".join(words).split()) < max(1, target_tokens):
-        index = len(words)
-        words.append(
-            f"{token}_{label}_{index:05d} repository file symbol stacktrace test patch context review"
-        )
+        words.append(token)
     return " ".join(words)
 
 
@@ -99,7 +99,9 @@ async def completion(
         "custom_params": request_context,
     }
     async with client.stream("POST", f"{base_url.rstrip('/')}/chat/completions", json=payload) as response:
-        response.raise_for_status()
+        if response.is_error:
+            detail = (await response.aread()).decode("utf-8", errors="replace")[:1_000]
+            raise RuntimeError(f"SGLang request failed with HTTP {response.status_code}: {detail}")
         async for line in response.aiter_lines():
             if not line.startswith("data: "):
                 continue
