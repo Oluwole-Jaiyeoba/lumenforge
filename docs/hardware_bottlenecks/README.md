@@ -92,16 +92,16 @@ bash infra/container/run_kv_movement_interference_reference.sh \
 ```
 
 Useful small-run knobs are `TRIALS=4`, `SEED=7`, `HICACHE_SIZE_GB=8`,
-`MEM_FRACTION_STATIC=0.70`, and `DONOR_PROMPT_TOKENS=4090`. The donor default
-is deliberately aligned with the pinned runtime's prefill chunking so its
-evicted KV segment is large enough for SGLang to load back. The command writes
+`MEM_FRACTION_STATIC=0.70`, `DONOR_PROMPT_TOKENS=4090`, and
+`MINIMUM_HOST_TOKENS=512`. The probe follows the donor cache path and selects
+the largest evicted, host-backed segment. It fails rather than falling back to
+a tiny leaf when that segment is below `MINIMUM_HOST_TOKENS`. The command writes
 its report under
 `sglang_direct_kv/artifacts/results/hardware/$REPORT_LABEL/`. Do not promote a
 result to `HARDWARE_EXPERIMENTS.html` until its report shows accepted prepared
 loads and the paired run manifest is complete.
 
-The first mechanism pass sets `MIN_LOAD_TOKENS=1` explicitly. The pinned
-SGLang runtime normally skips its tiny final response leaf below a 10-token
-throughput threshold. This override still invokes SGLang's own `load_back`
-and host-to-GPU copy path, but it must be reported as a small-copy validation,
-not as evidence of memory-bandwidth saturation.
+`MIN_LOAD_TOKENS=1` is retained only for a diagnostic small-copy mechanism
+pass. The normal experiment leaves it unset and uses SGLang's native threshold.
+The earlier six-token result is documented as a small-copy validation, not as
+evidence of memory-bandwidth saturation.

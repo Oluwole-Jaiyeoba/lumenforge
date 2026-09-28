@@ -133,6 +133,7 @@ async def prepare_prefix(
     request_id: str,
     plan_only: bool,
     min_load_tokens: int | None,
+    minimum_host_tokens: int,
 ) -> dict[str, Any]:
     started = time.perf_counter()
     response = await client.post(
@@ -148,6 +149,7 @@ async def prepare_prefix(
             "control_timeout_ms": 15_000,
             "source": "hardware_kv_movement_interference",
             "min_load_tokens": min_load_tokens,
+            "minimum_host_tokens": minimum_host_tokens,
         },
     )
     try:
@@ -160,7 +162,11 @@ async def prepare_prefix(
 
 
 def eligible_host_prefix(plan: dict[str, Any]) -> bool:
-    return bool(plan.get("ok")) and plan.get("status") == "would_load_back" and int(plan.get("host_tokens") or 0) > 0
+    return (
+        bool(plan.get("ok"))
+        and plan.get("status") == "would_load_back"
+        and int(plan.get("host_tokens") or 0) >= int(plan.get("minimum_host_tokens") or 1)
+    )
 
 
 async def stage_host_resident_prefix(
@@ -198,6 +204,7 @@ async def stage_host_resident_prefix(
             request_id=donor_request,
             plan_only=True,
             min_load_tokens=args.min_load_tokens,
+            minimum_host_tokens=args.minimum_host_tokens,
         )
         write_jsonl(
             event_path,
@@ -267,6 +274,7 @@ async def run_trial(client: httpx.AsyncClient, args: argparse.Namespace, events:
             request_id=f"{trial_id}-interference-load",
             plan_only=False,
             min_load_tokens=args.min_load_tokens,
+            minimum_host_tokens=args.minimum_host_tokens,
         )
         write_jsonl(
             events,
@@ -348,6 +356,12 @@ async def main_async() -> None:
     parser.add_argument("--replay-wait-ms", type=int, default=1000)
     parser.add_argument("--replay-deadline-ms", type=float, default=2000.0)
     parser.add_argument(
+        "--minimum-host-tokens",
+        type=int,
+        default=512,
+        help="Reject a donor unless its selected evicted host-backed KV segment reaches this size.",
+    )
+    parser.add_argument(
         "--min-load-tokens",
         type=int,
         default=None,
@@ -366,6 +380,8 @@ async def main_async() -> None:
         parser.error("--eviction-rounds must be nonnegative")
     if args.replay_deadline_ms < 0:
         parser.error("--replay-deadline-ms must be nonnegative")
+    if args.minimum_host_tokens < 1:
+        parser.error("--minimum-host-tokens must be positive")
     if args.min_load_tokens is not None and args.min_load_tokens < 1:
         parser.error("--min-load-tokens must be positive when set")
 
@@ -393,6 +409,7 @@ async def main_async() -> None:
             "run_id": args.run_id,
             "sample_set_id": args.sample_set_id,
             "min_load_tokens": args.min_load_tokens,
+            "minimum_host_tokens": args.minimum_host_tokens,
         },
     )
     samples: list[dict[str, Any]] = []

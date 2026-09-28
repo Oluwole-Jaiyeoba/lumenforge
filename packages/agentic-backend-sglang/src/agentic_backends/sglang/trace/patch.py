@@ -1563,6 +1563,46 @@ def _node_host_token_count(node: Any) -> int:
     return 0
 
 
+def _preparable_node_candidates(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the registered donor's leaf and ancestors without crossing into another prefix."""
+
+    candidates: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for start_key in ("last_host_node", "last_node"):
+        node = entry.get(start_key)
+        while node is not None and id(node) not in seen:
+            seen.add(id(node))
+            raw_node_id = _node_id(node)
+            candidates.append(
+                {
+                    "node": node,
+                    "node_id": "" if raw_node_id is None else str(raw_node_id),
+                    "host_tokens": _node_host_token_count(node),
+                    "evicted": _node_is_evicted(node),
+                    "backuped": _node_is_backuped(node),
+                    "source": start_key,
+                }
+            )
+            try:
+                node = getattr(node, "parent", None)
+            except Exception:
+                node = None
+    return candidates
+
+
+def _candidate_summary(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "node_id": candidate["node_id"],
+            "host_tokens": candidate["host_tokens"],
+            "evicted": candidate["evicted"],
+            "backuped": candidate["backuped"],
+            "source": candidate["source"],
+        }
+        for candidate in candidates
+    ]
+
+
 def _wait_for_prepared_load(tree_cache: Any, node_id: str, timeout_ms: int) -> str:
     deadline = time.monotonic() + max(0, timeout_ms) / 1000.0
     while True:
@@ -1605,48 +1645,34 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         }
 
     tree_cache = entry.get("tree_cache")
-    host_node = entry.get("last_host_node")
-    device_node = entry.get("last_node")
-    host_node_id = _node_id(host_node)
-    node = host_node if host_node is not None and host_node_id not in (None, "", 0, "0") else device_node
-    raw_node_id = _node_id(node)
-    node_id = "" if raw_node_id is None else str(raw_node_id)
-    if tree_cache is None or node is None or not node_id:
+    try:
+        minimum_host_tokens = int(command.get("minimum_host_tokens") or 1)
+    except (TypeError, ValueError):
+        minimum_host_tokens = 1
+    minimum_host_tokens = max(1, minimum_host_tokens)
+    candidates = _preparable_node_candidates(entry)
+    eligible_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate["node_id"]
+        and candidate["evicted"]
+        and candidate["backuped"]
+        and candidate["host_tokens"] >= minimum_host_tokens
+    ]
+    selected = max(eligible_candidates, key=lambda candidate: int(candidate["host_tokens"]), default=None)
+    if tree_cache is None or selected is None:
         return {
             "ok": False,
-            "status": "missing_tree_or_node",
+            "status": "no_eligible_host_resident_prefix",
             "matched_key": matched_key,
             "lookup_keys": lookup_keys,
+            "minimum_host_tokens": minimum_host_tokens,
+            "candidate_nodes": _candidate_summary(candidates),
+            "reason": "No donor cache-path node was both evicted, host-backed, and large enough for this probe.",
         }
-
-    if not _node_is_evicted(node):
-        return {
-            "ok": True,
-            "status": "already_device_resident",
-            "plan_only": plan_only,
-            "admission": "skip",
-            "admission_reason": "skip_already_device_resident",
-            "matched_key": matched_key,
-            "node_id": node_id,
-            "loaded_tokens": 0,
-            "host_tokens": _node_host_token_count(node),
-            "producer_id": -1,
-            "reason": "Matched prefix node is already GPU/device resident.",
-        }
-
-    if not _node_is_backuped(node):
-        return {
-            "ok": False,
-            "status": "host_backup_unavailable",
-            "plan_only": plan_only,
-            "admission": "skip",
-            "admission_reason": "skip_host_backup_unavailable",
-            "matched_key": matched_key,
-            "node_id": node_id,
-            "reason": "Matched prefix node is evicted but has no host backup.",
-        }
-
-    host_tokens = _node_host_token_count(node)
+    node = selected["node"]
+    node_id = str(selected["node_id"])
+    host_tokens = int(selected["host_tokens"])
     if plan_only:
         return {
             "ok": True,
@@ -1659,8 +1685,10 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "host_tokens": host_tokens,
             "loaded_tokens": 0,
             "producer_id": -1,
+            "minimum_host_tokens": minimum_host_tokens,
+            "candidate_nodes": _candidate_summary(candidates),
             "control_path": "hiradix.load_back+hicache.start_loading",
-            "reason": "Matched prefix is evicted from device and has a host backup; direct load_back is admissible.",
+            "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
         }
 
     try:

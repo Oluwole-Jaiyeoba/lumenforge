@@ -19,7 +19,8 @@ TRIALS="${TRIALS:-4}"
 SEED="${SEED:-7}"
 WORKLOAD_ID="${WORKLOAD_ID:-hardware_kv_movement_v1}"
 DONOR_PROMPT_TOKENS="${DONOR_PROMPT_TOKENS:-4090}"
-MIN_LOAD_TOKENS="${MIN_LOAD_TOKENS:-1}"
+MINIMUM_HOST_TOKENS="${MINIMUM_HOST_TOKENS:-512}"
+MIN_LOAD_TOKENS="${MIN_LOAD_TOKENS:-}"
 
 if [[ ! -f "${PROFILE_PATH}" ]]; then
   echo "Backend runtime profile not found: ${PROFILE_PATH}" >&2
@@ -109,6 +110,10 @@ REPORT_LABEL=${REPORT_LABEL@Q}
 SAMPLE_SET_ID=${SAMPLE_SET_ID@Q}
 TRIALS=${TRIALS@Q}
 SEED=${SEED@Q}
+DONOR_PROMPT_TOKENS=${DONOR_PROMPT_TOKENS@Q}
+MINIMUM_HOST_TOKENS=${MINIMUM_HOST_TOKENS@Q}
+MIN_LOAD_TOKENS=${MIN_LOAD_TOKENS@Q}
+export BACKEND_RUNTIME_PROFILE SGLANG_DOCKER_IMAGE AGENTIC_MODEL_CACHE REPORT_LABEL SAMPLE_SET_ID TRIALS SEED DONOR_PROMPT_TOKENS MINIMUM_HOST_TOKENS MIN_LOAD_TOKENS
 bash infra/container/run_kv_movement_interference_reference.sh "\$MODEL"
 EOF
 chmod +x "${COMMAND_PATH}"
@@ -184,6 +189,10 @@ run_condition() {
     if (( sample_index > 0 )); then
       append_args=(--append)
     fi
+    load_threshold_args=()
+    if [[ -n "${MIN_LOAD_TOKENS}" ]]; then
+      load_threshold_args=(--min-load-tokens "${MIN_LOAD_TOKENS}")
+    fi
     python3 -m agentic_experiments.runners.run_kv_movement_interference \
       --condition "${condition}" \
       --run-id "${REPORT_LABEL}_${condition}" \
@@ -195,9 +204,10 @@ run_condition() {
       --workload-id "${WORKLOAD_ID}" \
       --seed "${SEED}" \
       --donor-prompt-tokens "${DONOR_PROMPT_TOKENS}" \
-      --min-load-tokens "${MIN_LOAD_TOKENS}" \
+      --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
       --trials 1 \
       --sample-offset "${sample_index}" \
+      "${load_threshold_args[@]}" \
       "${append_args[@]}"
     verify_trace_install "${trace_path}"
     cat "${trace_path}" >>"${combined_trace}"
