@@ -41,7 +41,15 @@ RUN_ROOT="${RUN_ROOT:-${RESULTS_ROOT}/runs/controlled/${REPORT_LABEL}}"
 REPORT_DIR="${REPORT_DIR:-${RESULTS_ROOT}/reports/${REPORT_LABEL}}"
 UPDATE_LATEST="${UPDATE_LATEST:-1}"
 HARNESSES="${HARNESSES:-hatcher codex claude_code opencode qwen_code nemo_agent_toolkit deepseek_harness pi_agent_harness openclaw hermes_agent}"
-MODES="${MODES:-no_prefetch e2e_priority_hints}"
+MODES="${MODES:-no_prefetch controller_ready_time_gpu_backfill}"
+for mode in ${MODES}; do
+  case "${mode}" in
+    pre_harness_priority_hints|e2e_priority_hints|e2e_priority_hints_speculative_prefill)
+      echo "Legacy priority-injection mode '${mode}' is unavailable in the active experiment runner." >&2
+      exit 2
+      ;;
+  esac
+done
 PRESSURE_LEVELS="${PRESSURE_LEVELS:-p0_control p3_high p5_boss_queue}"
 MAX_TIMELINE_GAPS="${MAX_TIMELINE_GAPS:-96}"
 REPORT_BUILDER_MODE="${REPORT_BUILDER_MODE:-auto}"
@@ -351,6 +359,24 @@ wait_for_server() {
     tail -160 "${log}" || true
     exit 1
   fi
+  if instrumentation_gate_enabled; then
+    # The metadata endpoint can answer before the first model forward completes.
+    ready=0
+    for _ in $(seq 1 4); do
+      if curl -fsS --max-time 30 -H 'Content-Type: application/json' \
+        -d '{"text":"Reply: ready.","sampling_params":{"max_new_tokens":1,"temperature":0}}' \
+        "${HOST_URL}/generate" >/dev/null 2>&1; then
+        ready=1
+        break
+      fi
+      sleep 2
+    done
+    if [[ "${ready}" != "1" ]]; then
+      echo "SGLang answered model_info but did not complete an inference readiness probe. Log tail:" >&2
+      tail -160 "${log}" >&2 || true
+      exit 1
+    fi
+  fi
 }
 
 wait_for_gateway() {
@@ -421,6 +447,7 @@ write_run_config() {
     echo "CONTROLLER_INSTRUMENTATION_CONTRACT=${CONTROLLER_INSTRUMENTATION_CONTRACT}"
     echo "HARNESSES=${HARNESSES}"
     echo "MODES=${MODES}"
+    echo "AGENTIC_EQUAL_IMPORTANCE_WORKLOAD=${AGENTIC_EQUAL_IMPORTANCE_WORKLOAD:-0}"
     echo "PROMPT_CODEC_CONFIG=${PROMPT_CODEC_CONFIG:-}"
     echo "PROMPT_ENCODING_SCOPE=${PROMPT_ENCODING_SCOPE:-target_requests}"
     echo "PROMPT_WORKLOAD_JSONL=${PROMPT_WORKLOAD_JSONL:-}"

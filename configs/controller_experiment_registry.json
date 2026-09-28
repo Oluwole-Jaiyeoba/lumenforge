@@ -3,18 +3,49 @@
   "title": "Agentic Hardware Controller Experiments",
   "comparison_safety_rules": [
     "Compared modes must use the same workload timeline and request population.",
-    "The priority contract must state whether application-level priority classes exist.",
+    "The active Scenario 1 protocol forbids application-level priority classes; numeric backend ranks may only be derived from replay-ready time.",
     "Controller capabilities must be isolated unless the record explicitly names a combination.",
     "A valid result requires trace coverage and no client-side replay-dispatch delay dominating the outcome."
   ],
   "experiments": [
     {
+      "id": "scenario1_equal_importance_active",
+      "scenario": "Scenario 1: Equal-Importance Ready-Time Scheduling",
+      "status": "validated_reference",
+      "question": "Can expected tool-return times improve replay scheduling when no task is designated more important by the front end?",
+      "controller_capability": "Ready-time ordering and safe GPU backfill only; backend priority numbers are temporary queue ranks derived by the controller.",
+      "priority_contract": "All 16 sessions have equal application importance. Both former target-role and filler-role replays have deadlines. No front-end priority, QoS tier, urgent label, or demotable background class is allowed.",
+      "comparison": "no_prefetch vs controller_ready_time_gpu_backfill",
+      "workload": "DeepAgents; P3; 16 sessions x 2 replay steps = 32 deadline-bearing replays per mode; identical seeded workload shape.",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "hardware_profile": "nvidia_a10g_24gb",
+        "sglang_version": "0.5.10.post1",
+        "seed": "20260916",
+        "tool_wait_profile": "very_short 20% (100-500 ms), short 35% (1-5 s), medium 30% (10-30 s), long 15% (60-120 s)",
+        "p3": "tool_wait_ms=50, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=1536, concurrency=6",
+        "instrumentation": "strict live preflight; 32/32 replay timing samples and queue-rank linkage required"
+      },
+      "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
+      "run_label": "scenario1_equal_contract_20260928_03",
+      "report_path": "docs/reports/scenario1_equal_importance_20260928.html",
+      "evidence_path": "docs/reports/scenario1_equal_importance_20260928_summary.csv",
+      "results": {
+        "total_replay_ttft": "92.33 s -> 65.55 s (29.0% lower)",
+        "total_replay_deadline_debt": "221.66 s -> 159.00 s (28.3% lower)",
+        "median_replay_ttft": "2.74 s -> 1.93 s",
+        "replay_coverage": "32/32 requests per mode, including both workload-generation roles",
+        "mechanism_proof": "No front-end priority signal; all non-sentinel requests were peer/normal, and RTG derived a backend queue rank for every replay."
+      },
+      "reproduction_command": "SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 AGENTIC_MODEL_CACHE=/path/to/model/cache REPORT_LABEL=scenario1_equal_$(date +%Y%m%d_%H%M%S) UPDATE_LATEST=0 bash infra/container/run_scenario1_hybrid_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct"
+    },
+    {
       "id": "scenario1_ready_time_reference",
       "scenario": "Scenario 1: Better Deadline Scheduling",
-      "status": "validated_reference",
+      "status": "historical_reference",
       "question": "Can early replay-ready-time knowledge improve scheduling for equal-importance replay requests?",
       "controller_capability": "Ready-time scheduling only; GPU-idle telemetry was observed but did not alter admission in this reference run.",
-      "priority_contract": "All replay requests have equal application importance. The controller may order them by earliest expected ready time; this is scheduling order, not a user-priority class.",
+      "priority_contract": "Historical run predating the enforced equal-importance contract. Its target/filler metadata must not be assumed equivalent to the active Scenario 1 protocol.",
       "comparison": "no_prefetch vs controller_ready_time_gpu_backfill",
       "workload": "Hatcher; P3; 16 replay-capable sessions x 2 replay steps = 32 replays per mode; 15 concurrent peer sessions; mode-independent timeline.",
       "parameters": {
@@ -25,7 +56,6 @@
         "seed": "20260916",
         "p3": "tool_wait_ms=50, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=1536, concurrency=6"
       },
-      "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
       "run_label": "scenario1_rtg_v1_20260921_172045",
       "report_path": "docs/reports/harness_aware_scenario_tracker.html",
       "evidence_path": "sglang_direct_kv/artifacts/results/reports/scenario1_rtg_v1_20260921_172045/master_report.html",
@@ -36,12 +66,12 @@
         "max_lateness": "27.7 s -> 17.0 s (38.6% better)",
         "mechanism_proof": "32/32 controller replays received ready-time ordering at the local gate and SGLang boundary."
       },
-      "reproduction_command": "cd sglang_direct_kv && source .venv/bin/activate && set -a && source ../configs/experiment_specs/scenario1_ready_time_reference.env && set +a && REPORT_LABEL=\"scenario1_ready_time_reference_$(date +%Y%m%d_%H%M%S)\" bash scripts/run_harness_deadline_pressure.sh Qwen/Qwen2.5-Coder-7B-Instruct"
+      "reproduction_command": "Historical evidence only; use the active equal-importance Scenario 1 entry for new runs."
     },
     {
       "id": "scenario2_proactive_kv_reference",
       "scenario": "Scenario 2: Proactive KV-Cache Management",
-      "status": "validated_reference",
+      "status": "historical_reference",
       "question": "Can the controller prepare useful KV during long tool waits without fake warmup requests?",
       "controller_capability": "Direct KV preparation with selective admission only.",
       "priority_contract": "All replay requests have equal application importance. Admission depends on safe completion and expected reuse, not user-priority class.",
@@ -68,7 +98,7 @@
     {
       "id": "scenario3_value_aware_eviction_reference",
       "scenario": "Scenario 3: Better Cache Eviction Decisions",
-      "status": "validated_reference",
+      "status": "historical_reference",
       "question": "Can harness-derived prefix value guide native priority-radix eviction?",
       "controller_capability": "Value-aware eviction only.",
       "priority_contract": "Application value classes are intentionally present: high, normal, and low prefixes map to 100, 0, and -100. This is not comparable to an equal-importance scheduling experiment.",
@@ -95,10 +125,10 @@
     {
       "id": "scenario1_portability_reference",
       "scenario": "Scenario 1 portability reproduction",
-      "status": "completed_reference_check",
+      "status": "historical_reference",
       "question": "Did the modularity restructuring preserve the original Scenario 1 behavior?",
       "controller_capability": "Ready-time scheduling only.",
-      "priority_contract": "Same equal-importance contract as Scenario 1 reference.",
+      "priority_contract": "Historical run predating the enforced equal-importance contract; do not compare it as if it used the active request metadata.",
       "comparison": "no_prefetch vs controller_ready_time_gpu_backfill",
       "workload": "Exact Scenario 1 reference workload and seed.",
       "parameters": {
@@ -107,7 +137,6 @@
         "sglang_version": "0.5.10.post1",
         "seed": "20260916"
       },
-      "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
       "run_label": "scenario1_portability_reference_20260925_171817",
       "report_path": "docs/reports/harness_aware_scenario_tracker.html",
       "evidence_path": "sglang_direct_kv/artifacts/results/reports/scenario1_portability_reference_20260925_171817/master_report.html",
@@ -119,7 +148,7 @@
         "full_workload_duration": "176.25 s -> 167.53 s (4.9% shorter)",
         "verdict": "Clean aggregate win: replay TTFT, replay deadline debt, and full workload duration all improved."
       },
-      "reproduction_command": "Use the Scenario 1 reference spec above."
+      "reproduction_command": "Historical evidence only; use the active equal-importance Scenario 1 entry for new runs."
     }
   ]
 }

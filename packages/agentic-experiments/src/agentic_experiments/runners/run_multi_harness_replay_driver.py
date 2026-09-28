@@ -417,13 +417,8 @@ def attach_harness_priority_metadata(meta: dict[str, Any]) -> dict[str, Any]:
     return attach_nat_inferred_priority_profile(meta)
 
 
-def apply_deadline_fair_contract(meta: dict[str, Any], *, enabled: bool) -> dict[str, Any]:
-    """Mark equal-importance traffic and reject semantic priority inputs.
-
-    Deadline-fair ordering may use a derived SGLang priority number for replay
-    due-time order.  That is distinct from a client or workload declaring that
-    one request is semantically more important than another.
-    """
+def apply_equal_importance_contract(meta: dict[str, Any], *, enabled: bool) -> dict[str, Any]:
+    """Require equal application importance while allowing due-time queue ranks."""
     if not enabled:
         return meta
 
@@ -435,17 +430,25 @@ def apply_deadline_fair_contract(meta: dict[str, Any], *, enabled: bool) -> dict
         "priority_class",
         "qos_tier",
         "service_tier",
+        "high_priority",
+        "low_priority",
     )
     supplied = {field: meta[field] for field in forbidden_fields if meta.get(field) not in (None, "", [], {})}
+    if str(meta.get("priority_label") or "").lower() in {"high", "urgent", "low", "background"}:
+        supplied["priority_label"] = meta["priority_label"]
     if supplied:
         raise ValueError(
-            "controller_deadline_fair forbids semantic priority inputs; "
+            "Equal-importance workload forbids semantic priority inputs; "
             f"received {supplied}"
         )
 
     meta["semantic_priority_class"] = "equal"
     meta["semantic_priority_source"] = "none"
-    meta["priority_label"] = "deadline_fair" if meta.get("phase") in {"replay", "pressure_filler"} else "equal"
+    meta["priority_label"] = "equal"
+    meta["work_class"] = "peer"
+    meta["safe_to_demote"] = False
+    meta["background_safe_to_demote"] = False
+    meta["background_can_delay_ms"] = 0
     return meta
 
 
@@ -1580,7 +1583,7 @@ async def run_filler(
         "task_index": pair.task_index,
         "prompt_hash": prompt_hash(prompt),
         "prompt_tokens": estimate_tokens(prompt),
-        "priority_label": "low",
+        "priority_label": "equal" if deadline_fair_enabled else "low",
         "max_tokens": initial_max_tokens,
             "tool_wait_step": 0,
             "task_replay_steps": total_steps,
@@ -1590,7 +1593,7 @@ async def run_filler(
         meta["estimated_runtime_ms"] = estimate_request_runtime_ms(int(meta["prompt_tokens"]), int(meta["max_tokens"]))
     meta["oracle_runtime_key"] = oracle_runtime_key(meta)
     meta = attach_pre_harness_priority_intent(meta)
-    meta = apply_deadline_fair_contract(meta, enabled=deadline_fair_enabled)
+    meta = apply_equal_importance_contract(meta, enabled=deadline_fair_enabled)
     write_background_reshape_signal(meta, request_id=str(meta["label"]), stage="initial")
     admission_result = await wait_for_admission_if_needed(meta, request_id=str(meta["label"]), stage="initial")
     request_start_offset_ms = offset_ms()
@@ -1754,7 +1757,7 @@ async def run_filler(
             "task_index": pair.task_index,
             "prompt_hash": prompt_hash(replay_prompt),
             "prompt_tokens": estimate_tokens(replay_prompt),
-            "priority_label": "low",
+            "priority_label": "equal" if deadline_fair_enabled else "low",
             "max_tokens": replay_max_tokens,
             "deadline_offset_ms": round(replay_due_ms, 3),
             "tool_wait_ms": wait_ms,
@@ -1774,7 +1777,7 @@ async def run_filler(
         if predictive_replay_fields:
             replay_meta.update(predictive_replay_fields)
         replay_meta = attach_pre_harness_priority_intent(replay_meta)
-        replay_meta = apply_deadline_fair_contract(replay_meta, enabled=deadline_fair_enabled)
+        replay_meta = apply_equal_importance_contract(replay_meta, enabled=deadline_fair_enabled)
         write_background_reshape_signal(replay_meta, request_id=replay_label, stage="replay")
         admission_result = await wait_for_admission_if_needed(replay_meta, request_id=replay_label, stage="replay")
         request_start_offset_ms = offset_ms()
@@ -2039,6 +2042,11 @@ async def main_async() -> None:
     controller_demotion_state: dict[str, Any] = {"active": False, "meta": {}, "owners": set()}
     controller_enabled = controller_mode(args.mode)
     controller_active_deadline_fair = args.mode == CONTROLLER_DEADLINE_FAIR_MODE
+    equal_importance_workload = (
+        controller_active_deadline_fair
+        or args.mode == CONTROLLER_READY_TIME_GPU_BACKFILL_MODE
+        or env_truthy("AGENTIC_EQUAL_IMPORTANCE_WORKLOAD")
+    )
     controller_active_predictive_deadline_queue = args.mode in {
         CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_MODE,
         CONTROLLER_PREDICTIVE_DEADLINE_QUEUE_ADMISSION_GUARD_MODE,
@@ -3662,9 +3670,11 @@ async def main_async() -> None:
             "model": args.model,
             "session_generation": 1,
             "prefix_id": f"{pair.session_id}:prefix",
-            "high_priority": 100,
-            "speculative_prefill_priority": 50,
-            "low_priority": -100,
+            **({} if equal_importance_workload else {
+                "high_priority": 100,
+                "speculative_prefill_priority": 50,
+                "low_priority": -100,
+            }),
             "tool_wait_ms": args.tool_wait_ms,
             "tool_wait_profile": args.tool_wait_profile,
             "tool_wait_profile_spec": args.tool_wait_profile_spec,
@@ -3719,9 +3729,7 @@ async def main_async() -> None:
             "task_index": pair.task_index,
             "prompt_hash": prompt_hash(target_initial_prompt),
             "prompt_tokens": estimate_tokens(target_initial_prompt),
-            "priority_label": "normal"
-            if (controller_active_deadline_fair or controller_active_predictive_deadline_queue)
-            else "high",
+            "priority_label": "equal" if equal_importance_workload else "high",
             "max_tokens": target_initial_max_tokens,
             "tool_wait_step": 0,
             "speculative_prefill": args.mode == "e2e_priority_hints_speculative_prefill",
@@ -3729,7 +3737,7 @@ async def main_async() -> None:
         }
         initial_meta.update(value_aware_eviction_metadata(initial_meta))
         initial_meta = attach_harness_priority_metadata(initial_meta)
-        initial_meta = apply_deadline_fair_contract(initial_meta, enabled=controller_active_deadline_fair)
+        initial_meta = apply_equal_importance_contract(initial_meta, enabled=equal_importance_workload)
         await bounded_request(target_initial_prompt, initial_meta)
         target_current_prompt = target_initial_prompt
         filler_base_meta = base_meta
@@ -3995,7 +4003,7 @@ async def main_async() -> None:
                         False,
                     ),
                     submit_request=bounded_request,
-                    deadline_fair_enabled=controller_active_deadline_fair,
+                    deadline_fair_enabled=equal_importance_workload,
                     deadline_fair_priority=assign_deadline_fair_priority
                     if controller_active_deadline_fair
                     else None,
@@ -5061,11 +5069,7 @@ async def main_async() -> None:
                 "label": replay_label,
                 "task_index": pair.task_index,
                 "prompt_hash": prompt_hash(step_replay_prompt),
-                "priority_label": "deadline_fair"
-                if controller_active_deadline_fair
-                else "predictive_deadline_queue"
-                if controller_active_predictive_deadline_queue
-                else "high",
+                "priority_label": "equal" if equal_importance_workload else "high",
                 "deadline_offset_ms": round(replay_due_ms, 3),
                 "max_tokens": replay_max_tokens,
                 "prompt_tokens": estimate_tokens(step_replay_prompt),
@@ -5089,7 +5093,7 @@ async def main_async() -> None:
                     ] = f"controller.set_priority={controller_replay_priority}"
                 replay_meta.update(controller_fields)
             replay_meta = attach_harness_priority_metadata(replay_meta)
-            replay_meta = apply_deadline_fair_contract(replay_meta, enabled=controller_active_deadline_fair)
+            replay_meta = apply_equal_importance_contract(replay_meta, enabled=equal_importance_workload)
             if controller_demotion_state.get("active"):
                 write_trace(
                     args.trace,

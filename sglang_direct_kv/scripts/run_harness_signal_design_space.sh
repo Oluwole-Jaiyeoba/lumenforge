@@ -6,9 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIRECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${DIRECT_ROOT}"
 
-SIGNAL_FAMILIES="${SIGNAL_FAMILIES:-baseline harness_emitted frontend_supplied gateway_injected}"
+SIGNAL_FAMILIES="${SIGNAL_FAMILIES:-baseline harness_emitted}"
 if [[ "${SIGNAL_FAMILIES}" == "all" ]]; then
-  SIGNAL_FAMILIES="baseline harness_emitted frontend_supplied gateway_injected controller_observe controller_scheduler controller_preload controller_targeted_prefetch controller_demote_restore controller_priority_demote controller_priority_demotion_admission controller_oracle_timeline controller_calibrated_admission controller_oracle_exact_runtime controller_deadline_fair controller_shorthand controller_admission controller_full controller_full_chunked storage_baseline storage_controller_prefetch"
+  SIGNAL_FAMILIES="baseline harness_emitted controller_observe controller_scheduler controller_preload controller_targeted_prefetch controller_demote_restore controller_priority_demote controller_priority_demotion_admission controller_oracle_timeline controller_calibrated_admission controller_oracle_exact_runtime controller_deadline_fair controller_shorthand controller_admission controller_full controller_full_chunked storage_baseline storage_controller_prefetch"
 fi
 
 REPORT_LABEL="${REPORT_LABEL:-signal_design_space_$(date +%Y%m%d_%H%M%S)}"
@@ -54,8 +54,6 @@ HICACHE_STORAGE_PATH="${HICACHE_STORAGE_PATH:-}"
 
 BASELINE_MODES="${BASELINE_MODES:-no_prefetch}"
 HARNESS_EMITTED_MODES="${HARNESS_EMITTED_MODES:-harness_emitted_signals}"
-FRONTEND_SUPPLIED_MODES="${FRONTEND_SUPPLIED_MODES:-pre_harness_priority_hints}"
-GATEWAY_INJECTED_MODES="${GATEWAY_INJECTED_MODES:-e2e_priority_hints}"
 CONTROLLER_OBSERVE_MODES="${CONTROLLER_OBSERVE_MODES:-controller_observe_only}"
 CONTROLLER_SCHEDULER_MODES="${CONTROLLER_SCHEDULER_MODES:-controller_scheduler_priority}"
 CONTROLLER_PRELOAD_MODES="${CONTROLLER_PRELOAD_MODES:-controller_speculative_preload}"
@@ -130,10 +128,10 @@ validate_families() {
   local family
   for family in ${SIGNAL_FAMILIES}; do
     case "${family}" in
-      baseline|harness_emitted|frontend_supplied|gateway_injected|controller_observe|controller_scheduler|controller_preload|controller_targeted_prefetch|controller_demote_restore|controller_priority_demote|controller_priority_demotion_admission|controller_oracle_timeline|controller_calibrated_admission|controller_oracle_exact_runtime|controller_deadline_fair|controller_shorthand|controller_admission|controller_full|controller_full_chunked|storage_baseline|storage_controller_prefetch) ;;
+      baseline|harness_emitted|controller_observe|controller_scheduler|controller_preload|controller_targeted_prefetch|controller_demote_restore|controller_priority_demote|controller_priority_demotion_admission|controller_oracle_timeline|controller_calibrated_admission|controller_oracle_exact_runtime|controller_deadline_fair|controller_shorthand|controller_admission|controller_full|controller_full_chunked|storage_baseline|storage_controller_prefetch) ;;
       *)
         echo "Unknown SIGNAL_FAMILIES entry: ${family}" >&2
-        echo "Supported: baseline harness_emitted frontend_supplied gateway_injected controller_observe controller_scheduler controller_preload controller_targeted_prefetch controller_demote_restore controller_priority_demote controller_priority_demotion_admission controller_oracle_timeline controller_calibrated_admission controller_oracle_exact_runtime controller_deadline_fair controller_shorthand controller_admission controller_full controller_full_chunked storage_baseline storage_controller_prefetch all" >&2
+        echo "Supported: baseline harness_emitted controller_observe controller_scheduler controller_preload controller_targeted_prefetch controller_demote_restore controller_priority_demote controller_priority_demotion_admission controller_oracle_timeline controller_calibrated_admission controller_oracle_exact_runtime controller_deadline_fair controller_shorthand controller_admission controller_full controller_full_chunked storage_baseline storage_controller_prefetch all" >&2
         exit 2
         ;;
     esac
@@ -377,16 +375,6 @@ for family in ${SIGNAL_FAMILIES}; do
       EXPANDED_MODES="$(append_unique_word "${EXPANDED_MODES}" "${mode}")"
     done
     FAMILY_EXPANSION="$(append_unique_word "${FAMILY_EXPANSION}" "harness_emitted")"
-  elif [[ "${family}" == "frontend_supplied" ]]; then
-    for mode in ${FRONTEND_SUPPLIED_MODES}; do
-      EXPANDED_MODES="$(append_unique_word "${EXPANDED_MODES}" "${mode}")"
-    done
-    FAMILY_EXPANSION="$(append_unique_word "${FAMILY_EXPANSION}" "frontend_supplied:priority")"
-  elif [[ "${family}" == "gateway_injected" ]]; then
-    for mode in ${GATEWAY_INJECTED_MODES}; do
-      EXPANDED_MODES="$(append_unique_word "${EXPANDED_MODES}" "${mode}")"
-    done
-    FAMILY_EXPANSION="$(append_unique_word "${FAMILY_EXPANSION}" "gateway_injected:priority")"
   elif [[ "${family}" == "controller_observe" ]]; then
     for mode in ${CONTROLLER_OBSERVE_MODES}; do
       EXPANDED_MODES="$(append_unique_word "${EXPANDED_MODES}" "${mode}")"
@@ -499,12 +487,6 @@ fi
 if word_in_list "harness_emitted" "${SIGNAL_FAMILIES}"; then
   echo "- harness_emitted -> ${HARNESS_EMITTED_MODES}"
 fi
-if word_in_list "frontend_supplied" "${SIGNAL_FAMILIES}"; then
-  echo "- frontend_supplied -> ${FRONTEND_SUPPLIED_MODES}"
-fi
-if word_in_list "gateway_injected" "${SIGNAL_FAMILIES}"; then
-  echo "- gateway_injected -> ${GATEWAY_INJECTED_MODES}"
-fi
 if word_in_list "controller_observe" "${SIGNAL_FAMILIES}"; then
   echo "- controller_observe -> ${CONTROLLER_OBSERVE_MODES}"
 fi
@@ -566,13 +548,6 @@ if word_in_list "harness_emitted" "${SIGNAL_FAMILIES}"; then
   run_family_piece "harness_emitted" "signals" "${HARNESS_EMITTED_MODES}" "${HARNESSES}"
 fi
 
-if word_in_list "frontend_supplied" "${SIGNAL_FAMILIES}"; then
-  run_family_piece "frontend_supplied" "priority" "${FRONTEND_SUPPLIED_MODES}" "${HARNESSES}"
-fi
-
-if word_in_list "gateway_injected" "${SIGNAL_FAMILIES}"; then
-  run_family_piece "gateway_injected" "priority" "${GATEWAY_INJECTED_MODES}" "${HARNESSES}"
-fi
 
 if word_in_list "controller_observe" "${SIGNAL_FAMILIES}"; then
   run_family_piece "controller_observe" "lifecycle" "${CONTROLLER_OBSERVE_MODES}" "${HARNESSES}"

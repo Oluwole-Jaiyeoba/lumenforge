@@ -1,0 +1,3 @@
+harness,pressure,mode,mode_label,replays,ttft_samples,total_ttft_ms,median_ttft_ms,lateness_samples,total_deadline_debt_ms,median_lateness_ms
+DeepAgents,P3 Queue Pressure,controller_ready_time_gpu_backfill,RTG = Controller ready-time + GPU backfill,32,32,65545.136,1925.961,32,158996.051,2264.974
+DeepAgents,P3 Queue Pressure,no_prefetch,NP = No prefetch,32,32,92334.705,2735.203,32,221660.535,3343.266

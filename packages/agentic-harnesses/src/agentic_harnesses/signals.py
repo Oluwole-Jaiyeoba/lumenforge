@@ -168,6 +168,8 @@ class HarnessControllerSignal:
 
 
 def infer_work_class(meta: dict[str, Any]) -> str:
+    if meta.get("semantic_priority_class") == "equal":
+        return "peer"
     explicit = _text(meta.get("work_class") or meta.get("request_group"))
     if explicit:
         return explicit
@@ -191,6 +193,8 @@ def infer_tool_type(meta: dict[str, Any]) -> str:
 
 
 def infer_urgency(meta: dict[str, Any], work_class: str) -> str:
+    if meta.get("semantic_priority_class") == "equal":
+        return "normal"
     priority_intent = meta.get("priority_intent")
     if isinstance(priority_intent, dict):
         priority_class = _text(priority_intent.get("class")).lower()

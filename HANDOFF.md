@@ -1,6 +1,22 @@
 # Codex Handoff
 
-Updated: 2026-09-25
+Updated: 2026-09-28
+
+## Active Controller Protocol
+
+Scenario 1 now gives every request equal application importance. The harness
+exposes expected tool-return times, and the controller derives temporary queue
+ranks for deadline-bearing replays. Do not assign high/low priority, QoS tiers,
+or demotable background classes in the frontend for this experiment. The active
+two-mode comparison is `no_prefetch` versus
+`controller_ready_time_gpu_backfill`; use
+`infra/container/run_scenario1_hybrid_reference.sh`. It fails closed unless
+all 32 replay requests per mode have timing evidence and the live gateway trace
+proves no frontend priority signal. The validated run and results are in
+[`CONTROLLER_EXPERIMENTS.html`](CONTROLLER_EXPERIMENTS.html) and
+[`docs/reports/scenario1_equal_importance_20260928.html`](docs/reports/scenario1_equal_importance_20260928.html).
+Older front-end priority and target-versus-filler experiments remain historical
+evidence only; do not use their commands as the current Scenario 1 protocol.
 
 ## GH200 Migration: Start Here
 

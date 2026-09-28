@@ -3,16 +3,19 @@
 This repository is a research testbed for measuring whether agentic LLM
 systems can resume quickly after tool calls.
 
-The current question is:
+The active Scenario 1 question is:
 
-> When many agents return from tools and need their next LLM token, can priority
-> signals help the replay request meet its deadline under GPU, KV-cache, queue,
-> and burst pressure?
+> When many equally important agents return from tools and need their next LLM
+> token, can harness-exposed tool-return times help the controller order replays
+> and reduce wait without declaring any task more important than another?
 
 The project has moved beyond the older generic "software prefetch" framing. The
-current experiments focus on replay-deadline readiness with real SGLang serving,
-HiCache, live timestamped telemetry, SGLang priority scheduling, controlled
-pressure levels, and multiple coding-agent harness shapes.
+current Scenario 1 experiment focuses on replay-deadline readiness with real
+SGLang serving, HiCache, live timestamped telemetry, controller-derived queue
+ranks, and controlled pressure. Older sections in this document describe
+historical front-end priority experiments; they are not active reproduction
+instructions. The locked equal-importance entry point is
+`infra/container/run_scenario1_hybrid_reference.sh`.
 
 ## Three-Layer Visibility Model
 

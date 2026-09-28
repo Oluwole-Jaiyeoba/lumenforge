@@ -30,5 +30,15 @@ if [[ "${WORKLOAD_SHAPE_MODE_INDEPENDENT}" != "1" ]]; then
   echo "Scenario 1 requires a mode-independent workload timeline." >&2
   exit 2
 fi
+if [[ "${AGENTIC_EQUAL_IMPORTANCE_WORKLOAD:-0}" != "1" || "${FILLER_REPLAY_DEADLINES}" != "1" ]]; then
+  echo "Scenario 1 requires equal importance and replay deadlines for every session." >&2
+  exit 2
+fi
 
-exec "${SCRIPT_DIR}/run_hybrid_reference.sh" "${MODEL}"
+"${SCRIPT_DIR}/run_hybrid_reference.sh" "${MODEL}"
+if [[ "${DRY_RUN:-0}" != "1" ]]; then
+  python3 "${REPO_ROOT}/scripts/validate_scenario1_equal_importance.py" \
+    --run-root "${REPO_ROOT}/sglang_direct_kv/artifacts/results/runs/controlled/${REPORT_LABEL}" \
+    --report-dir "${REPO_ROOT}/sglang_direct_kv/artifacts/results/reports/${REPORT_LABEL}" \
+    --expected-replays 32
+fi

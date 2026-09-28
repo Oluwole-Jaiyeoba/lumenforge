@@ -102,31 +102,32 @@ def _static(contract: dict[str, Any], runtime: dict[str, Any] | None) -> list[di
 
 
 def _send_sentinel(gateway_base: str, model: str, timeout: float) -> dict[str, Any]:
-    request_id = f"instrumentation-sentinel-{uuid.uuid4().hex}"
-    marker = {
-        "session_id": "instrumentation-sentinel",
-        "phase": "replay",
-        "mode": "instrumentation_sentinel",
-        "harness": "instrumentation",
-        "label": request_id,
-        "deadline_offset_ms": 1000,
-        "expected_replay_request_id": request_id,
-    }
-    encoded = base64.urlsafe_b64encode(json.dumps(marker, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": f"Reply only: ready.\nHARNESS_REPLAY_EXPERIMENT_JSON:{encoded}"}],
-        "max_tokens": 1,
-        "temperature": 0,
-        "stream": False,
-        "cache_salt": request_id,
-    }
-    body = json.dumps(payload).encode("utf-8")
     deadline = time.monotonic() + timeout
     attempts = 0
     last_error = ""
     while True:
         attempts += 1
+        # The gateway deduplicates marked requests, so every retry needs a new ID.
+        request_id = f"instrumentation-sentinel-{uuid.uuid4().hex}"
+        marker = {
+            "session_id": "instrumentation-sentinel",
+            "phase": "replay",
+            "mode": "instrumentation_sentinel",
+            "harness": "instrumentation",
+            "label": request_id,
+            "deadline_offset_ms": 1000,
+            "expected_replay_request_id": request_id,
+        }
+        encoded = base64.urlsafe_b64encode(json.dumps(marker, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": f"Reply only: ready.\nHARNESS_REPLAY_EXPERIMENT_JSON:{encoded}"}],
+            "max_tokens": 1,
+            "temperature": 0,
+            "stream": False,
+            "cache_salt": request_id,
+        }
+        body = json.dumps(payload).encode("utf-8")
         started = time.time_ns()
         req = urllib.request.Request(f"{gateway_base.rstrip('/')}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"}, method="POST")
         try:

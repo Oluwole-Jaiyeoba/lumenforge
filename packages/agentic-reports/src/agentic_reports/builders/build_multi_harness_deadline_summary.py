@@ -407,6 +407,7 @@ CHART_SIGNAL_ORDER = (
     "controller_priority_demotion_calibrated_admission",
     "controller_oracle_exact_runtime_admission",
     "controller_deadline_fair",
+    "controller_ready_time_gpu_backfill",
     "controller_admission",
     "controller_full",
     "controller_full_chunked",
@@ -3931,13 +3932,48 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def target_replay_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        row
-        for row in rows
-        if str(row.get("request_group") or "target") == "target"
-        and str(row.get("phase") or "replay") == "replay"
-    ]
+def target_replay_rows(rows: list[dict[str, Any]], *, equal_importance: bool = False) -> list[dict[str, Any]]:
+    result = []
+    for row in rows:
+        if str(row.get("harness") or "") == "instrumentation":
+            continue
+        if equal_importance:
+            include = (
+                str(row.get("phase") or "") in {"replay", "pressure_filler"}
+                and str(row.get("has_replay_deadline") or "") == "yes"
+            )
+        else:
+            include = (
+                str(row.get("request_group") or "target") == "target"
+                and str(row.get("phase") or "replay") == "replay"
+            )
+        if include:
+            result.append(row)
+    return result
+
+
+def collect_equal_replay_summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in target_replay_rows(rows, equal_importance=True):
+        grouped[(str(row.get("harness") or ""), str(row.get("pressure_level") or ""), str(row.get("mode") or ""))].append(row)
+    out = []
+    for (harness, pressure, mode), group in sorted(grouped.items()):
+        ttft = [value for row in group if (value := optional_float(row.get("ttft_ms"))) is not None]
+        lateness = [value for row in group if (value := optional_float(row.get("first_token_lateness_ms"))) is not None]
+        out.append({
+            "harness": HARNESS_LABELS.get(harness, harness),
+            "pressure": PRESSURE_LABELS.get(pressure, pressure),
+            "mode": mode,
+            "mode_label": MODE_LABELS.get(mode, mode),
+            "replays": len(group),
+            "ttft_samples": len(ttft),
+            "total_ttft_ms": round(sum(ttft), 3),
+            "median_ttft_ms": round(statistics.median(ttft), 3) if ttft else "",
+            "lateness_samples": len(lateness),
+            "total_deadline_debt_ms": round(sum(max(value, 0.0) for value in lateness), 3),
+            "median_lateness_ms": round(statistics.median(lateness), 3) if lateness else "",
+        })
+    return out
 
 
 def cost_signal_bucket(group_rows: list[dict[str, Any]], mode: str) -> str:
@@ -5095,14 +5131,14 @@ def linear_tick_values(values: list[float]) -> list[int]:
     return [tick for tick in negative + positive if tick >= v_min * 1.05 and tick <= max(top * 1.12, 1000)]
 
 
-def render_pressure_chart(rows: list[dict[str, Any]]) -> str:
-    rows = target_replay_rows(rows)
+def render_pressure_chart(rows: list[dict[str, Any]], *, equal_importance: bool = False) -> str:
+    rows = target_replay_rows(rows, equal_importance=equal_importance)
     encoding_groups = defaultdict(list)
     for row in rows:
         encoding_groups[(row.get("encoding_codec", "identity"), row.get("encoding_config_hash", ""),
                          row.get("encoding_scope", ""))].append(row)
     if len(encoding_groups) > 1:
-        return "".join(f"<h3>Encoding: {html.escape(str(key))}</h3>" + render_pressure_chart(group)
+        return "".join(f"<h3>Encoding: {html.escape(str(key))}</h3>" + render_pressure_chart(group, equal_importance=equal_importance)
                        for key, group in sorted(encoding_groups.items()))
     pressures = [pressure for pressure in PRESSURE_ORDER if any(row["pressure_level"] == pressure for row in rows)]
     harnesses = [harness for harness in HARNESS_LABELS if any(row["harness"] == harness for row in rows)]
@@ -5180,7 +5216,7 @@ def render_pressure_chart(rows: list[dict[str, Any]]) -> str:
         style_y = legend_y + 24
         lines.append(
             f'<text x="{legend_x:.1f}" y="{style_y:.1f}" font-size="10" fill="#64748b">'
-            'Each dot is the median replay for that harness and signal path. Labels show n= when multiple replay requests were summarized.'
+            'Each dot is the median replay for that harness and mode. Labels show n= when multiple replay requests were summarized.'
             '</text>'
         )
         lines.append(f'<text x="{legend_x:.1f}" y="{style_y + 21:.1f}" font-size="10" fill="#64748b">Harness identity is the sub-window label on the x-axis.</text>')
@@ -5249,7 +5285,7 @@ def render_pressure_chart(rows: list[dict[str, Any]]) -> str:
                 lines.append(f'<rect x="{x:.1f}" y="{panel_top}" width="{pressure_group_w:.1f}" height="{panel_h}" fill="#f8fafc" opacity="0.62"/>')
             cx = x + pressure_group_w / 2
             lines.append(f'<text x="{cx:.1f}" y="{panel_bottom+56:.1f}" text-anchor="middle" font-size="16" font-weight="800" fill="#111827">{html.escape(PRESSURE_LABELS.get(pressure, pressure))}</text>')
-            lines.append(f'<text x="{cx:.1f}" y="{panel_bottom+75:.1f}" text-anchor="middle" font-size="11" fill="#64748b">one sub-window per harness; color = signal path</text>')
+            lines.append(f'<text x="{cx:.1f}" y="{panel_bottom+75:.1f}" text-anchor="middle" font-size="11" fill="#64748b">one sub-window per harness; color = mode</text>')
             harness_step = pressure_group_w / max(1, len(harnesses))
             for harness_index, harness in enumerate(harnesses):
                 harness_left = left + pressure_index * pressure_group_w + harness_step * harness_index
@@ -6907,10 +6943,24 @@ def render_html(
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     hardware_profile = os.environ.get("HARDWARE_PROFILE") or run_config.get("HARDWARE_PROFILE") or "not recorded"
     hardware_profile_path = os.environ.get("HARDWARE_PROFILE_PATH") or run_config.get("HARDWARE_PROFILE_PATH") or "not recorded"
-    chart = render_pressure_chart(rows)
+    equal_importance = run_config.get("AGENTIC_EQUAL_IMPORTANCE_WORKLOAD") == "1"
+    chart = render_pressure_chart(rows, equal_importance=equal_importance)
     chart_controls = render_chart_controls(rows)
     chart_interaction_script = render_chart_interaction_script()
-    cost_accounting_section = render_cost_accounting_section(cost_accounting_rows)
+    if equal_importance:
+        all_replay_rows = collect_equal_replay_summary(rows)
+        all_replay_table = render_table(all_replay_rows, [
+            "harness", "pressure", "mode_label", "replays", "ttft_samples", "total_ttft_ms",
+            "median_ttft_ms", "lateness_samples", "total_deadline_debt_ms", "median_lateness_ms",
+        ])
+        cost_accounting_section = (
+            "<h2>All Replay Requests</h2>"
+            "<p>Every task has equal application importance. Queue ranks come only from expected replay-ready times. "
+            "Totals include all replay requests, regardless of their workload-generation role.</p>"
+            f'<div class="card">{all_replay_table}</div>'
+        )
+    else:
+        cost_accounting_section = render_cost_accounting_section(cost_accounting_rows)
     gpu_idle_section = render_gpu_idle_section(gpu_idle_rows)
     controller_idle_gap_audit_section = render_controller_idle_gap_audit_section(controller_idle_gap_audit_rows)
     idle_gap_case_study_section = render_idle_gap_case_study_section(idle_gap_case_study_rows)
@@ -6921,6 +6971,13 @@ def render_html(
     controller_harness_exposure_section = render_controller_harness_exposure_section(controller_harness_exposure_rows)
     signal_family_definition_table = render_signal_family_definition_table()
     harness_cache_decision_table = render_harness_cache_decision_table()
+    signal_family_section = "" if equal_importance else (
+        "<h2>Signal Family Definitions</h2>"
+        "<p>This table explains who added the signal before it reached SGLang.</p>"
+        f'<div class="card">{signal_family_definition_table}</div>'
+        "<h2>Harness Cache Signal Decision Map</h2>"
+        f'<div class="card">{harness_cache_decision_table}</div>'
+    )
     pressure_definition_table = render_pressure_definition_table(rows, run_config)
     summary_table = render_table(
         summary,
@@ -7039,13 +7096,8 @@ code {{ background: #eef2ff; padding: 1px 4px; border-radius: 4px; }}
 <h1>Replay Deadline Pressure Chart</h1>
 <p>Report label: <code>{html.escape(report_label)}</code>. Generated {generated}.</p>
 <p>Hardware profile: <code>{html.escape(hardware_profile)}</code>. Profile file: <code>{html.escape(hardware_profile_path)}</code>.</p>
-    <p class="note">This lightweight all-harness report uses the completed workload traces directly. Each dot is the median replay for one harness and signal path; labels show n= when multiple replay requests were summarized. Use the controls to choose signal paths, switch the deadline-pressure axis between linear and symlog, and focus on selected pressure levels such as P0/P3/P5. The TTFT-impact view shows how long each replay request took to reach first token after it started. Lower is better. Exact lower-level modes remain in the evidence file.</p>
-	<h2>Signal Family Definitions</h2>
-	<p>This table explains who added the signal before it reached SGLang. The chart uses this family view first, while raw mode names remain in the evidence tables.</p>
-	<div class="card">{signal_family_definition_table}</div>
-	<h2>Harness Cache Signal Decision Map</h2>
-	<p>This table explains how each harness produced cache signals in this report. It focuses on the target replay requests shown in the chart.</p>
-	<div class="card">{harness_cache_decision_table}</div>
+    <p class="note">This report uses completed workload traces directly. {'Every replay request is included; all tasks have equal application importance.' if equal_importance else 'The chart focuses on target replay requests.'} Each dot is the median replay for one harness and mode. Lower TTFT and lateness are better.</p>
+{signal_family_section}
 	<h2>Pressure Level Definitions</h2>
 	<p>Each pressure level is a bundled stress setting, not a full Cartesian sweep. The chart below shows only the levels marked <strong>Yes</strong> for this run.</p>
 	<div class="card">{pressure_definition_table}</div>
@@ -7362,10 +7414,11 @@ def main() -> None:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     run_config = read_run_config(args.run_config or args.out_dir / "run_config.env")
+    equal_importance = run_config.get("AGENTIC_EQUAL_IMPORTANCE_WORKLOAD") == "1"
     if args.rows_csv:
         raw_root_available = args.root.exists()
         rows = read_csv_table(args.rows_csv)
-        target_rows = target_replay_rows(rows)
+        target_rows = target_replay_rows(rows, equal_importance=equal_importance)
         summary = read_csv_table(args.out_dir / "global_kv_readiness_by_mode_summary.csv") or summarize(target_rows)
         cost_accounting_rows = collect_cost_accounting_summary(rows)
         gpu_idle_rows = read_csv_table(args.out_dir / "gpu_idle_summary.csv") or collect_gpu_idle_summary(
@@ -7403,7 +7456,7 @@ def main() -> None:
         cache_benefit_rows = read_csv_table(args.out_dir / "cache_benefit_summary.csv")
     else:
         rows = collect_rows(args.root)
-        target_rows = target_replay_rows(rows)
+        target_rows = target_replay_rows(rows, equal_importance=equal_importance)
         summary = summarize(target_rows)
         cost_accounting_rows = collect_cost_accounting_summary(rows)
         gpu_idle_rows = collect_gpu_idle_summary(args.root, rows, args.out_dir / "gpu_utilization_samples.csv")
@@ -7436,6 +7489,11 @@ def main() -> None:
     nat_inferred_priority_profile = read_nat_inferred_priority_profile(args.out_dir)
     write_csv(args.out_dir / "global_kv_readiness_by_mode.csv", rows, RAW_COLUMNS)
     write_csv(args.out_dir / "global_kv_readiness_by_mode_summary.csv", summary, SUMMARY_COLUMNS)
+    if equal_importance:
+        write_csv(args.out_dir / "all_replay_summary.csv", collect_equal_replay_summary(rows), [
+            "harness", "pressure", "mode", "mode_label", "replays", "ttft_samples", "total_ttft_ms",
+            "median_ttft_ms", "lateness_samples", "total_deadline_debt_ms", "median_lateness_ms",
+        ])
     write_csv(args.out_dir / "cost_accounting_summary.csv", cost_accounting_rows, COST_ACCOUNTING_COLUMNS)
     write_csv(args.out_dir / "gpu_idle_summary.csv", gpu_idle_rows, GPU_IDLE_COLUMNS)
     write_csv(

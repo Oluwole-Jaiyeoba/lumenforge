@@ -10,6 +10,12 @@ agentic inference experiments.
 - [Hint Benchmark Runbook](HINT_BENCHMARK_RUNBOOK.html): reproducible harness
   signal-emission experiments and the commands used to observe them.
 
+The active Scenario 1 controller experiment gives every request equal application
+importance. Harnesses expose expected tool-return times; the controller derives
+temporary queue ranks from those times. Earlier front-end priority experiments
+are historical evidence, not part of this protocol. Use
+`infra/container/run_scenario1_hybrid_reference.sh` for its locked reproduction.
+
 - [Architecture contract](ARCHITECTURE.md)
 - [Current handoff](HANDOFF.md)
 - [Project overview](docs/project/overview.md)

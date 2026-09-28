@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from agentic_backends.sglang.instrumentation_preflight import run_preflight
+from agentic_backends.sglang.instrumentation_preflight import _send_sentinel, run_preflight
 
 
 SCHEDULER_HOOK = "sglang.srt.managers.scheduler.Scheduler.process_batch_result"
@@ -90,6 +91,24 @@ class InstrumentationPreflightTest(unittest.TestCase):
             result = run_preflight(args)
         self.assertFalse(result["valid"])
         self.assertTrue(result["experiment_allowed"])
+
+    def test_sentinel_retry_uses_fresh_request_identity(self) -> None:
+        response = MagicMock()
+        with patch(
+            "agentic_backends.sglang.instrumentation_preflight.urllib.request.urlopen",
+            side_effect=[OSError("temporarily unavailable"), response],
+        ) as urlopen, patch("agentic_backends.sglang.instrumentation_preflight.time.sleep"):
+            result = _send_sentinel("http://gateway", "model", 1)
+        request_ids = []
+        for call in urlopen.call_args_list:
+            body = json.loads(call.args[0].data)
+            encoded = body["messages"][0]["content"].split("HARNESS_REPLAY_EXPERIMENT_JSON:", 1)[1]
+            marker = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+            self.assertEqual(body["cache_salt"], marker["label"])
+            request_ids.append(marker["label"])
+        self.assertEqual(len(request_ids), 2)
+        self.assertNotEqual(*request_ids)
+        self.assertEqual(result["request_id"], request_ids[-1])
 
 
 if __name__ == "__main__":
