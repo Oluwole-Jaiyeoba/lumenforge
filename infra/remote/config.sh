@@ -11,10 +11,21 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REPO_NAME="$(basename "${REPO_ROOT}")"
 
 LOCAL_CONFIG="${AGENTIC_HW_REMOTE_CONFIG:-${HOME}/.config/agentic_hardware/remote.env}"
+# Capture explicit process-level overrides before sourcing the optional local
+# file. The local file is a default, while a caller-supplied value must win.
+EXPLICIT_SSH_KEY="${AGENTIC_HW_SSH_KEY:-}"
+EXPLICIT_REMOTE_USER="${AGENTIC_HW_REMOTE_USER:-}"
+EXPLICIT_REMOTE_DIR="${AGENTIC_HW_REMOTE_DIR:-}"
+EXPLICIT_REMOTE_HOSTS="${AGENTIC_HW_REMOTE_HOSTS:-}"
 if [[ -f "${LOCAL_CONFIG}" ]]; then
   # shellcheck disable=SC1090
   source "${LOCAL_CONFIG}"
 fi
+
+[[ -n "${EXPLICIT_SSH_KEY}" ]] && AGENTIC_HW_SSH_KEY="${EXPLICIT_SSH_KEY}"
+[[ -n "${EXPLICIT_REMOTE_USER}" ]] && AGENTIC_HW_REMOTE_USER="${EXPLICIT_REMOTE_USER}"
+[[ -n "${EXPLICIT_REMOTE_DIR}" ]] && AGENTIC_HW_REMOTE_DIR="${EXPLICIT_REMOTE_DIR}"
+[[ -n "${EXPLICIT_REMOTE_HOSTS}" ]] && AGENTIC_HW_REMOTE_HOSTS="${EXPLICIT_REMOTE_HOSTS}"
 
 SSH_KEY="${AGENTIC_HW_SSH_KEY:-}"
 REMOTE_USER="${AGENTIC_HW_REMOTE_USER:-}"
