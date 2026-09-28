@@ -114,6 +114,10 @@ chmod +x "${COMMAND_PATH}"
 wait_for_server() {
   local deadline=$((SECONDS + 240))
   until curl --silent --show-error --fail http://127.0.0.1:30000/v1/models >/dev/null; do
+    if [[ -n "${SERVER_PID}" ]] && ! kill -0 "${SERVER_PID}" 2>/dev/null; then
+      echo "SGLang exited during startup; inspect ${1}/server.log" >&2
+      return 1
+    fi
     if (( SECONDS >= deadline )); then
       echo "SGLang server did not become ready; inspect ${1}/server.log" >&2
       return 1
@@ -152,7 +156,9 @@ run_condition() {
     cd "${DIRECT_ROOT}"
     export AGENTIC_KV_TRACE_ENABLE=1
     export AGENTIC_KV_TRACE_PATH="${trace_path}"
-    export AGENTIC_KV_TRACE_INSTALL_REPORT_PATH="${condition_dir}/trace_install.json"
+    # The JSONL trace itself is the authoritative install/evidence record.
+    # Avoid a multi-process installation-report race during server startup.
+    export AGENTIC_KV_TRACE_INSTALL_REPORT_PATH=""
     export AGENTIC_KV_TRACE_SCHEDULER=1
     export AGENTIC_KV_TRACE_KV_POOL=1
     export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
@@ -160,7 +166,9 @@ run_condition() {
     export AGENTIC_KV_PREPARE_CONTROL_PORT=31991
     export AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=10000
     export HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
-    export MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.50}"
+    # Qwen2.5-Coder-7B weights need more than half of the 24 GB A10G before
+    # SGLang can allocate its static pool; callers can still override this.
+    export MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"
     bash scripts/run_sglang_hicache_server.sh "${MODEL}"
   ) >"${condition_dir}/server.log" 2>&1 &
   SERVER_PID="$!"

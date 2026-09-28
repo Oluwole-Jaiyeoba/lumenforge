@@ -92,7 +92,7 @@ bash infra/container/run_kv_movement_interference_reference.sh \
 ```
 
 Useful small-run knobs are `TRIALS=4`, `SEED=7`, `HICACHE_SIZE_GB=8`, and
-`MEM_FRACTION_STATIC=0.50`. The command writes its report under
+`MEM_FRACTION_STATIC=0.70`. The command writes its report under
 `sglang_direct_kv/artifacts/results/hardware/$REPORT_LABEL/`. Do not promote a
 result to `HARDWARE_EXPERIMENTS.html` until its report shows accepted prepared
 loads and the paired run manifest is complete.
