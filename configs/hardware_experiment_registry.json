@@ -19,20 +19,20 @@
         "Physical transfer and memory activity in a separate profiler pass"
       ],
       "evidence_rule": "Backend KV events show software-visible movement; physical saturation needs profiler or hardware-counter evidence. Lightweight and profiled timing runs are not pooled.",
-      "run_id": "hardware_kv_movement_mechanism_20260928_214954",
-      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' TRIALS=4 SEED=7 MIN_LOAD_TOKENS=1 bash infra/container/run_kv_movement_interference_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
-      "report_path": "docs/reports/hardware/hardware_kv_movement_mechanism_20260928_214954/hardware_kv_movement_report.html",
-      "manifest_path": "docs/reports/hardware/hardware_kv_movement_mechanism_20260928_214954/run_manifest.json",
-      "evidence_path": "docs/reports/hardware/hardware_kv_movement_mechanism_20260928_214954/hardware_kv_movement_summary.json",
+      "run_id": "hardware_kv_movement_large_final_20260928_224413",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' TRIALS=4 SEED=7 MINIMUM_HOST_TOKENS=512 bash infra/container/run_kv_movement_interference_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/hardware_kv_movement_large_final_20260928_224413/hardware_kv_movement_report.html",
+      "manifest_path": "docs/reports/hardware/hardware_kv_movement_large_final_20260928_224413/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/hardware_kv_movement_large_final_20260928_224413/hardware_kv_movement_summary.json",
       "results": {
         "sample pairs": "4",
-        "replay TTFT, control median": "190.940 ms",
-        "replay TTFT, interference median": "189.897 ms",
-        "median paired TTFT change": "-0.362 ms",
-        "mean paired TTFT change": "-0.972 ms",
+        "replay TTFT, control median": "193.357 ms",
+        "replay TTFT, interference median": "188.759 ms",
+        "median paired TTFT change": "-6.542 ms",
+        "mean paired TTFT change": "-3.242 ms",
         "replay deadline lateness": "0.000 ms in both conditions",
-        "verified SGLang load-backs": "4 of 4; 6 tokens each",
-        "interpretation": "Small-copy mechanism validation only; no claim of physical memory-bandwidth saturation."
+        "verified SGLang load-backs": "4 of 4; 4,040 tokens each",
+        "interpretation": "Substantial native load-back was verified. This four-pair timing result does not establish physical memory-bandwidth saturation; that requires a separate profiler pass."
       }
     },
     {
