@@ -13,6 +13,7 @@ dependencies = [
   "agentic-controller>=0.1.0",
   "agentic-prompt-codec>=0.1.0",
   "agentic-backend-sglang>=0.1.0",
+  "agentic-hardware-probes>=0.1.0",
 ]
 
 [tool.setuptools.packages.find]

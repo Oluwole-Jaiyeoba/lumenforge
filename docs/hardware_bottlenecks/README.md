@@ -69,3 +69,30 @@ Existing SGLang-visible H2D analysis is described in
 [`KV_H2D_BANDWIDTH_PRESSURE.md`](../sglang_direct_kv/KV_H2D_BANDWIDTH_PRESSURE.md).
 Its physical-evidence limitation is recorded in
 [`INSTRUMENTATION_AUDIT.md`](../sglang_direct_kv/INSTRUMENTATION_AUDIT.md).
+
+## First controlled run
+
+The first runnable case is deliberately narrow. It sends no frontend priority
+or VIP labels. Both conditions use the same logical prompt/sample set and
+start from a fresh containerized backend. The interference condition must
+first prove that a donor prefix is host-resident, then request its load-back
+immediately before target replay. The command fails rather than silently
+downgrading to a no-movement comparison.
+
+Run this from the repository root after setting the runtime image and host
+model cache for the selected machine:
+
+```bash
+export SGLANG_DOCKER_IMAGE='your-pinned-sglang-image'
+export AGENTIC_MODEL_CACHE='/absolute/path/to/model-cache'
+export BACKEND_RUNTIME_PROFILE='nvidia_standard'
+export REPORT_LABEL="hardware_kv_movement_$(date +%Y%m%d_%H%M%S)"
+bash infra/container/run_kv_movement_interference_reference.sh \
+  Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+Useful small-run knobs are `TRIALS=4`, `SEED=7`, `HICACHE_SIZE_GB=8`, and
+`MEM_FRACTION_STATIC=0.50`. The command writes its report under
+`sglang_direct_kv/artifacts/results/hardware/$REPORT_LABEL/`. Do not promote a
+result to `HARDWARE_EXPERIMENTS.html` until its report shows accepted prepared
+loads and the paired run manifest is complete.
