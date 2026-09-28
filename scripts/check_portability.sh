@@ -20,7 +20,8 @@ run() {
 }
 
 run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests/architecture
-for package in agentic-core agentic-backend-api agentic-controller agentic-harnesses agentic-gateway agentic-backend-sglang agentic-experiments agentic-reports; do
+run "${PYTHON_BIN}" scripts/build_hardware_experiments.py --check
+for package in agentic-core agentic-backend-api agentic-controller agentic-harnesses agentic-gateway agentic-backend-sglang agentic-experiments agentic-reports agentic-hardware-probes; do
   if [[ -d "packages/${package}/tests" ]]; then
     (cd "packages/${package}" && run "${PYTHON_BIN}" -m pytest -q -p no:cacheprovider tests)
   fi

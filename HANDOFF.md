@@ -2,6 +2,29 @@
 
 Updated: 2026-09-28
 
+## Three Research Lanes
+
+- [`HINT_BENCHMARK_RUNBOOK.html`](HINT_BENCHMARK_RUNBOOK.html) records which
+  native harness signals can be reproduced. It is not performance evidence.
+- [`CONTROLLER_EXPERIMENTS.html`](CONTROLLER_EXPERIMENTS.html) records controller
+  protocols and results. Its active equal-importance Scenario 1 is described
+  below.
+- [`HARDWARE_EXPERIMENTS.html`](HARDWARE_EXPERIMENTS.html) tracks controlled GPU
+  bottleneck experiments. The initial KV-movement and active-compute cases are
+  **planned, not measured**. Read
+  [`docs/hardware_bottlenecks/README.md`](docs/hardware_bottlenecks/README.md)
+  before implementing or running them. Do not interpret controller wins or
+  SGLang-visible H2D events as proof of physical GPU saturation. The first
+  platform is the accessible standard-NVIDIA remote GPU; GH200 requires a
+  separate run and manifest.
+
+The hardware registry is `configs/hardware_experiment_registry.json`; regenerate
+its root HTML with `python3 scripts/build_hardware_experiments.py`. A result
+must link a run command, manifest, report, and evidence before it is presented
+as measured. Portable comparison code lives in
+`packages/agentic-hardware-probes/`; backend-specific capture remains in
+`packages/agentic-backend-sglang/` and profiler launchers belong in `infra/`.
+
 ## Active Controller Protocol
 
 Scenario 1 now gives every request equal application importance. The harness

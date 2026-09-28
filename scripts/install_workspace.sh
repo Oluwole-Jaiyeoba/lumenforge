@@ -15,6 +15,7 @@ package_paths=(
   "packages/agentic-gateway"
   "packages/agentic-backend-sglang"
   "packages/agentic-harness-scenarios"
+  "packages/agentic-hardware-probes"
   "packages/agentic-experiments"
   "packages/agentic-reports"
 )

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardware Bottleneck Experiments</title><style>
+:root { font-family: system-ui, sans-serif; color: #182331; background: #f6f8fa; }
+body { margin: 0; line-height: 1.5; } main { max-width: 1100px; margin: auto; padding: 32px 24px 72px; }
+h1 { font-size: 30px; margin: 0 0 8px; } h2 { font-size: 21px; margin: 0 0 4px; } h3 { font-size: 15px; margin: 20px 0 4px; }
+p { margin: 6px 0 12px; } .intro { color: #526273; max-width: 850px; } nav { display: flex; flex-wrap: wrap; gap: 18px; margin: 22px 0 32px; }
+a { color: #08648b; } .index { overflow-x: auto; } table { border-collapse: collapse; width: 100%; } th,td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #dfe5eb; }
+.index th:nth-child(1) { min-width: 180px; } .index th:nth-child(2) { min-width: 300px; } .index th:nth-child(3) { min-width: 170px; }
+.experiment { border-top: 2px solid #9ab4c4; margin-top: 36px; padding-top: 22px; } .heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.status { white-space: nowrap; font-size: 12px; font-weight: 650; padding: 5px 8px; border: 1px solid #b7c6d2; } .validated { border-color: #478675; color: #14634d; }
+.measured_pending_review { border-color: #a67937; color: #79500d; } dl { display: grid; grid-template-columns: 125px minmax(0, 1fr); margin: 18px 0; }
+dt,dd { margin: 0; padding: 9px 0; border-bottom: 1px solid #dfe5eb; } dt { font-weight: 650; color: #465666; } ul { margin: 8px 0 16px; padding-left: 22px; }
+.evidence { border-left: 3px solid #4d8998; padding-left: 12px; } .pending { color: #5e6872; } .links { display: flex; gap: 18px; flex-wrap: wrap; }
+pre { overflow-x: auto; background: #1b2933; color: #f3f6f8; padding: 14px; } code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+@media (max-width: 640px) { main { padding: 22px 16px 48px; } .heading { display: block; } .status { display: inline-block; margin: 8px 0; } dl { grid-template-columns: 100px minmax(0, 1fr); } }
+</style></head><body><main>
+<h1>Hardware Bottleneck Experiments</h1>
+<p class="intro">A separate research lane measuring GPU and memory bottlenecks before proposing hardware changes. Planned cases are not results. This page is generated from a structured registry.</p>
+<nav aria-label="Project lanes"><a href="CONTROLLER_EXPERIMENTS.html">Controller experiments</a><a href="HINT_BENCHMARK_RUNBOOK.html">Hint benchmark runbook</a><a href="ARCHITECTURE.md">Architecture</a></nav>
+<div class="index"><table><thead><tr><th>Experiment</th><th>Question</th><th>Status</th></tr></thead><tbody><tr><td><a href="#kv_movement_interference">KV Movement Interference</a></td><td>Does host-to-GPU KV movement delay replay or ongoing token generation?</td><td>Planned - not measured</td></tr><tr><td><a href="#active_compute_blocking">Replay Behind Active Compute</a></td><td>How long does a replay wait when it becomes ready during an active prefill chunk?</td><td>Planned - not measured</td></tr></tbody></table></div>
+<section class="experiment" id="kv_movement_interference">
+<div class="heading"><div><h2>KV Movement Interference</h2><p>Does host-to-GPU KV movement delay replay or ongoing token generation?</p></div><span class="status planned">Planned - not measured</span></div>
+<dl><dt>Platform</dt><dd>nvidia_standard; record the exact GPU in the run manifest</dd><dt>Backend</dt><dd>pinned 0.5.10.post1 runtime and selected adapter</dd><dt>Control</dt><dd>Replay and decode without competing host-to-GPU KV movement.</dd><dt>Interference</dt><dd>Identical replay and decode timeline while other KV data moves to the GPU.</dd><dt>Held constant</dt><dd>Model, request population, prompt/output lengths, seed, backend flags, and cache state.</dd></dl>
+<h3>Measurements</h3><ul><li>Replay ready-to-first-token time and deadline lateness</li><li>Decode inter-token latency, including tail latency</li><li>KV transfer start, end, bytes, and overlap with replay</li><li>Physical transfer and memory activity in a separate profiler pass</li></ul><p class="evidence"><strong>Evidence rule:</strong> Backend KV events show software-visible movement; physical saturation needs profiler or hardware-counter evidence. Lightweight and profiled timing runs are not pooled.</p>
+<h3>Result</h3><p class="pending">No GPU measurements yet. A command and result will appear only after the run is implemented and evidence is reviewed.</p></section>
+<section class="experiment" id="active_compute_blocking">
+<div class="heading"><div><h2>Replay Behind Active Compute</h2><p>How long does a replay wait when it becomes ready during an active prefill chunk?</p></div><span class="status planned">Planned - not measured</span></div>
+<dl><dt>Platform</dt><dd>nvidia_standard; record the exact GPU in the run manifest</dd><dt>Backend</dt><dd>pinned 0.5.10.post1 runtime and selected adapter</dd><dt>Control</dt><dd>The same replay timeline without overlapping prefill work.</dd><dt>Interference</dt><dd>Make replay ready during prefill; vary one prefill chunk-size setting at a time.</dd><dt>Held constant</dt><dd>Model, replay inputs, arrival schedule, seed, backend flags other than chunk size, and request population.</dd></dl>
+<h3>Measurements</h3><ul><li>Replay ready, backend submit, admit, compute start, and first-token times</li><li>Duration of overlapping active prefill work</li><li>Replay wait attributable to active compute versus queue or submit gaps</li><li>Prefill throughput and decode inter-token latency</li></ul><p class="evidence"><strong>Evidence rule:</strong> A long replay wait alone does not prove GPU compute blocking; align backend stage events with a GPU execution timeline. Lightweight and profiled timing runs are not pooled.</p>
+<h3>Result</h3><p class="pending">No GPU measurements yet. A command and result will appear only after the run is implemented and evidence is reviewed.</p></section>
+</main></body></html>

@@ -3,12 +3,15 @@
 Portable infrastructure for harness-aware scheduling, KV-cache control, and
 agentic inference experiments.
 
-## Two Main Workstreams
+## Three Research Lanes
 
 - [Controller Experiments](CONTROLLER_EXPERIMENTS.html): controller scheduling,
   KV-cache, replay deadline, TTFT, and workload-duration results.
 - [Hint Benchmark Runbook](HINT_BENCHMARK_RUNBOOK.html): reproducible harness
   signal-emission experiments and the commands used to observe them.
+- [Hardware Bottleneck Experiments](HARDWARE_EXPERIMENTS.html): controlled GPU
+  compute and memory-movement measurements. The first cases are planned, not
+  measured results; see [the lane protocol](docs/hardware_bottlenecks/README.md).
 
 The active Scenario 1 controller experiment gives every request equal application
 importance. Harnesses expose expected tool-return times; the controller derives
@@ -49,7 +52,7 @@ bash scripts/check_portability.sh
 HANDOFF.md          active hand-off for the next agent/engineer
 docs/               all other documentation (index: docs/index.md), reports, and presentations
 packages/           all code: portable packages, agentic-experiments, agentic-reports;
-                    SGLang-specific code only in agentic-backend-sglang
+                    hardware probes; SGLang-specific code only in agentic-backend-sglang
 sglang_direct_kv/   SGLang testbed: shell entry points, script wrappers, configs, tests
 scripts/            workspace install and portability checks
 tests/              architecture (boundary) tests

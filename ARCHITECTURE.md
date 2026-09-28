@@ -12,7 +12,7 @@ The full package inventory lives in
 
 ## Main Workstreams
 
-This repository contains two related but distinct research workstreams:
+This repository contains three related but distinct research lanes:
 
 1. **Controller experiments** study how harness knowledge and backend
    observations can improve scheduling, replay deadlines, KV-cache management,
@@ -21,9 +21,15 @@ This repository contains two related but distinct research workstreams:
 2. **Hint benchmarking** determines which signals real harnesses expose, when
    they appear, where they attach, and how to reproduce them. The operator
    entry point is [`HINT_BENCHMARK_RUNBOOK.html`](HINT_BENCHMARK_RUNBOOK.html).
+3. **Hardware bottleneck characterization** measures whether KV movement or
+   active GPU compute blocks agentic replay after controlling for software
+   queue and submit gaps. Its evidence index is
+   [`HARDWARE_EXPERIMENTS.html`](HARDWARE_EXPERIMENTS.html). Planned cases are
+   not hardware results.
 
-Hint-emission evidence is not controller-performance evidence. Keep their
-claims, runs, and reports separate even when they share harness adapters.
+Hint-emission evidence is not controller-performance evidence, and a controller
+win does not prove a physical GPU bottleneck. Keep the three claims, runs, and
+reports separate even when they share normalized observations.
 
 ## Implemented Package Boundaries
 
@@ -39,6 +45,7 @@ The portable package split is implemented and enforced by architecture tests:
 | `agentic-backend-sglang` | The only package allowed to know SGLang internals or version drift. |
 | `agentic-experiments` | Composition and experiment orchestration. |
 | `agentic-reports` | Normalized analysis, audits, and report generation. |
+| `agentic-hardware-probes` | Backend-neutral paired-measurement contracts for controlled hardware studies. |
 
 The dependency direction is:
 
@@ -51,6 +58,8 @@ Controller commands -> agentic-backend-api -> agentic-backend-sglang -> SGLang
 
 agentic-experiments composes the path.
 agentic-reports reads normalized artifacts from the path.
+agentic-hardware-probes compares matched timing samples; physical capture stays
+behind the backend adapter or machine-specific profiler tooling.
 ```
 
 Rules:
@@ -61,6 +70,9 @@ Rules:
   only in `agentic-backend-sglang` or deployment code.
 - Reports should consume stable normalized records rather than private SGLang
   structures.
+- Hardware probes must not import SGLang, a harness SDK, or controller policy.
+  Pair lightweight runs with lightweight runs and profiler runs with profiler
+  runs; timing overlap alone is not proof of physical saturation.
 - `sglang_direct_kv/` is a testbed and compatibility surface, not the owner of
   new portable policy.
 
@@ -233,7 +245,7 @@ and follow the explicit
 
 Before committing an architectural change, confirm:
 
-- Does it preserve the two workstreams and their evidence boundaries?
+- Does it preserve the three research lanes and their evidence boundaries?
 - Is portable logic outside the SGLang adapter and deployment layers?
 - Is machine/vendor/version variation represented as configuration or an
   adapter rather than policy duplication?

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "title": "Hardware Bottleneck Experiments",
+  "experiments": [
+    {
+      "id": "kv_movement_interference",
+      "name": "KV Movement Interference",
+      "status": "planned",
+      "question": "Does host-to-GPU KV movement delay replay or ongoing token generation?",
+      "platform": "nvidia_standard; record the exact GPU in the run manifest",
+      "backend": "pinned 0.5.10.post1 runtime and selected adapter",
+      "control": "Replay and decode without competing host-to-GPU KV movement.",
+      "interference": "Identical replay and decode timeline while other KV data moves to the GPU.",
+      "held_constant": "Model, request population, prompt/output lengths, seed, backend flags, and cache state.",
+      "measurements": [
+        "Replay ready-to-first-token time and deadline lateness",
+        "Decode inter-token latency, including tail latency",
+        "KV transfer start, end, bytes, and overlap with replay",
+        "Physical transfer and memory activity in a separate profiler pass"
+      ],
+      "evidence_rule": "Backend KV events show software-visible movement; physical saturation needs profiler or hardware-counter evidence. Lightweight and profiled timing runs are not pooled.",
+      "run_id": null,
+      "command": null,
+      "report_path": null,
+      "manifest_path": null,
+      "evidence_path": null,
+      "results": {}
+    },
+    {
+      "id": "active_compute_blocking",
+      "name": "Replay Behind Active Compute",
+      "status": "planned",
+      "question": "How long does a replay wait when it becomes ready during an active prefill chunk?",
+      "platform": "nvidia_standard; record the exact GPU in the run manifest",
+      "backend": "pinned 0.5.10.post1 runtime and selected adapter",
+      "control": "The same replay timeline without overlapping prefill work.",
+      "interference": "Make replay ready during prefill; vary one prefill chunk-size setting at a time.",
+      "held_constant": "Model, replay inputs, arrival schedule, seed, backend flags other than chunk size, and request population.",
+      "measurements": [
+        "Replay ready, backend submit, admit, compute start, and first-token times",
+        "Duration of overlapping active prefill work",
+        "Replay wait attributable to active compute versus queue or submit gaps",
+        "Prefill throughput and decode inter-token latency"
+      ],
+      "evidence_rule": "A long replay wait alone does not prove GPU compute blocking; align backend stage events with a GPU execution timeline. Lightweight and profiled timing runs are not pooled.",
+      "run_id": null,
+      "command": null,
+      "report_path": null,
+      "manifest_path": null,
+      "evidence_path": null,
+      "results": {}
+    }
+  ]
+}
