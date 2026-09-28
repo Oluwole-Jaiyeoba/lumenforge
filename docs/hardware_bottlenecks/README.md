@@ -73,11 +73,11 @@ Its physical-evidence limitation is recorded in
 ## First controlled run
 
 The first runnable case is deliberately narrow. It sends no frontend priority
-or VIP labels. Both conditions use the same logical prompt/sample set and
-start from a fresh containerized backend. The interference condition must
-first prove that a donor prefix is host-resident, then request its load-back
-immediately before target replay. The command fails rather than silently
-downgrading to a no-movement comparison.
+or VIP labels. Both conditions use the same logical prompt/sample set, and
+every individual sample starts from a fresh containerized backend. The
+interference condition must first prove that a donor prefix is host-resident,
+then request its load-back immediately before target replay. The command fails
+rather than silently downgrading to a no-movement comparison.
 
 Run this from the repository root after setting the runtime image and host
 model cache for the selected machine:

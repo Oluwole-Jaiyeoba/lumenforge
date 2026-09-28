@@ -147,46 +147,58 @@ PY
 run_condition() {
   local condition="$1"
   local condition_dir="${RUN_ROOT}/${condition}"
-  local trace_path="${condition_dir}/backend_trace.jsonl"
+  local combined_trace="${condition_dir}/backend_trace.jsonl"
+  rm -rf "${condition_dir}"
   mkdir -p "${condition_dir}"
-  rm -f "${trace_path}"
+  : >"${combined_trace}"
 
-  echo "Starting clean ${condition} backend..."
-  (
-    cd "${DIRECT_ROOT}"
-    export AGENTIC_KV_TRACE_ENABLE=1
-    export AGENTIC_KV_TRACE_PATH="${trace_path}"
-    # The JSONL trace itself is the authoritative install/evidence record.
-    # Avoid a multi-process installation-report race during server startup.
-    export AGENTIC_KV_TRACE_INSTALL_REPORT_PATH=""
-    export AGENTIC_KV_TRACE_SCHEDULER=1
-    export AGENTIC_KV_TRACE_KV_POOL=1
-    export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
-    export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
-    export AGENTIC_KV_PREPARE_CONTROL_PORT=31991
-    export AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=10000
-    export HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
-    # Qwen2.5-Coder-7B weights need more than half of the 24 GB A10G before
-    # SGLang can allocate its static pool; callers can still override this.
-    export MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"
-    bash scripts/run_sglang_hicache_server.sh "${MODEL}"
-  ) >"${condition_dir}/server.log" 2>&1 &
-  SERVER_PID="$!"
-  wait_for_server "${condition_dir}"
+  for ((sample_index = 0; sample_index < TRIALS; sample_index++)); do
+    local trial_dir="${condition_dir}/trial_$(printf '%03d' "${sample_index}")"
+    local trace_path="${trial_dir}/backend_trace.jsonl"
+    mkdir -p "${trial_dir}"
+    echo "Starting clean ${condition} backend for sample ${sample_index}/${TRIALS}..."
+    (
+      cd "${DIRECT_ROOT}"
+      export AGENTIC_KV_TRACE_ENABLE=1
+      export AGENTIC_KV_TRACE_PATH="${trace_path}"
+      # The JSONL trace itself is the authoritative install/evidence record.
+      export AGENTIC_KV_TRACE_INSTALL_REPORT_PATH=""
+      export AGENTIC_KV_TRACE_SCHEDULER=1
+      export AGENTIC_KV_TRACE_KV_POOL=1
+      export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
+      export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
+      export AGENTIC_KV_PREPARE_CONTROL_PORT=31991
+      export AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=10000
+      export HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
+      # Qwen2.5-Coder-7B weights need more than half of the 24 GB A10G before
+      # SGLang can allocate its static pool; callers can still override this.
+      export MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"
+      bash scripts/run_sglang_hicache_server.sh "${MODEL}"
+    ) >"${trial_dir}/server.log" 2>&1 &
+    SERVER_PID="$!"
+    wait_for_server "${trial_dir}"
 
-  python3 -m agentic_experiments.runners.run_kv_movement_interference \
-    --condition "${condition}" \
-    --run-id "${REPORT_LABEL}_${condition}" \
-    --sample-set-id "${SAMPLE_SET_ID}" \
-    --out-dir "${condition_dir}" \
-    --model "${MODEL}" \
-    --hardware-profile "${HARDWARE_PROFILE}" \
-    --backend-version "${BACKEND_VERSION}" \
-    --workload-id "${WORKLOAD_ID}" \
-    --seed "${SEED}" \
-    --trials "${TRIALS}"
-  verify_trace_install "${trace_path}"
-  cleanup_backend
+    append_args=()
+    if (( sample_index > 0 )); then
+      append_args=(--append)
+    fi
+    python3 -m agentic_experiments.runners.run_kv_movement_interference \
+      --condition "${condition}" \
+      --run-id "${REPORT_LABEL}_${condition}" \
+      --sample-set-id "${SAMPLE_SET_ID}" \
+      --out-dir "${condition_dir}" \
+      --model "${MODEL}" \
+      --hardware-profile "${HARDWARE_PROFILE}" \
+      --backend-version "${BACKEND_VERSION}" \
+      --workload-id "${WORKLOAD_ID}" \
+      --seed "${SEED}" \
+      --trials 1 \
+      --sample-offset "${sample_index}" \
+      "${append_args[@]}"
+    verify_trace_install "${trace_path}"
+    cat "${trace_path}" >>"${combined_trace}"
+    cleanup_backend
+  done
 }
 
 run_condition control

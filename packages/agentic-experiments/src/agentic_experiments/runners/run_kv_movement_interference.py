@@ -328,6 +328,12 @@ async def main_async() -> None:
     )
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--trials", type=int, default=4)
+    parser.add_argument("--sample-offset", type=int, default=0)
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Append distinct sample IDs to an existing condition result.",
+    )
     parser.add_argument("--target-prompt-tokens", type=int, default=2048)
     parser.add_argument("--donor-prompt-tokens", type=int, default=4096)
     parser.add_argument("--eviction-prompt-tokens", type=int, default=8192)
@@ -339,6 +345,8 @@ async def main_async() -> None:
     args = parser.parse_args()
     if args.trials < 1:
         parser.error("--trials must be at least one")
+    if args.sample_offset < 0:
+        parser.error("--sample-offset must be nonnegative")
     if min(args.target_prompt_tokens, args.donor_prompt_tokens, args.eviction_prompt_tokens) < 1:
         parser.error("prompt sizes must be positive")
     if args.eviction_rounds < 0:
@@ -348,7 +356,20 @@ async def main_async() -> None:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     events = args.out_dir / "hardware_probe_events.jsonl"
-    events.write_text("", encoding="utf-8")
+    probe_path = args.out_dir / "probe_run.json"
+    existing_samples: list[dict[str, Any]] = []
+    existing_details: list[dict[str, Any]] = []
+    if args.append:
+        if not probe_path.is_file():
+            parser.error("--append requires an existing probe_run.json")
+        existing = json.loads(probe_path.read_text(encoding="utf-8"))
+        for field in ("condition", "hardware_profile", "backend_version", "model", "workload_id", "seed"):
+            if str(existing.get(field)) != str(getattr(args, field)):
+                parser.error(f"--append contract mismatch for {field}")
+        existing_samples = list(existing.get("samples", []))
+        existing_details = list(existing.get("probe_metadata", {}).get("trial_details", []))
+    else:
+        events.write_text("", encoding="utf-8")
     write_jsonl(
         events,
         {
@@ -360,8 +381,12 @@ async def main_async() -> None:
     )
     samples: list[dict[str, Any]] = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
-        for index in range(args.trials):
+        for index in range(args.sample_offset, args.sample_offset + args.trials):
             samples.append(await run_trial(client, args, events, index))
+    all_samples = existing_samples + [{"sample_id": row["sample_id"], "metrics_ms": row["metrics_ms"]} for row in samples]
+    all_details = existing_details + samples
+    if len({str(row["sample_id"]) for row in all_samples}) != len(all_samples):
+        parser.error("combined samples contain duplicate sample IDs")
     probe_run = {
         "run_id": args.run_id,
         "condition": args.condition,
@@ -371,15 +396,15 @@ async def main_async() -> None:
         "workload_id": args.workload_id,
         "seed": args.seed,
         "instrumentation_profile": "lightweight_backend_trace",
-        "samples": [{"sample_id": row["sample_id"], "metrics_ms": row["metrics_ms"]} for row in samples],
+        "samples": all_samples,
         "probe_metadata": {
             "sample_set_id": args.sample_set_id,
-            "trial_details": samples,
+            "trial_details": all_details,
             "events": str(events),
         },
     }
-    (args.out_dir / "probe_run.json").write_text(json.dumps(probe_run, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    write_jsonl(events, {"event": "hardware_probe.complete", "condition": args.condition, "sample_count": len(samples)})
+    probe_path.write_text(json.dumps(probe_run, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_jsonl(events, {"event": "hardware_probe.complete", "condition": args.condition, "sample_count": len(all_samples)})
 
 
 if __name__ == "__main__":
