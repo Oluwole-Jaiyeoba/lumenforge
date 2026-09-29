@@ -147,3 +147,51 @@ after reload. It does not assume that every visible update equals exactly one
 generated token. This is lightweight timing evidence. Run the profiler separately before making a
 claim about transfer-engine or memory-controller bandwidth, and do not pool
 profiled timing with the lightweight run.
+
+## Sustained KV pressure
+
+The stronger follow-up keeps the earlier single-reload evidence intact and
+adds a separate `sustained_kv_pressure` workload. Every condition stages the
+same pool of eight distinct, host-resident donor prefixes. Requests have equal
+frontend semantics and no frontend priority.
+
+The three conditions are:
+
+1. `decode_control`: load no donors during decode.
+2. `single_reload`: load one donor after 24 visible output updates.
+3. `sustained_reload`: load all eight donors sequentially after the same
+   warmup point.
+
+Run the one-trial proof pass with:
+
+```bash
+export SGLANG_DOCKER_IMAGE='your-pinned-sglang-image'
+export AGENTIC_MODEL_CACHE='/absolute/path/to/model-cache'
+export BACKEND_RUNTIME_PROFILE='nvidia_standard'
+export REPORT_LABEL="sustained_kv_pressure_sanity_$(date +%Y%m%d_%H%M%S)"
+TRIALS=1 bash infra/container/run_sustained_kv_pressure_reference.sh \
+  Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+This pressure workload defaults to `MEM_FRACTION_STATIC=0.80` and
+`DEVICE_FREE_TOKENS=40000`, both held constant across all conditions. The
+common precondition clears enough device-cache capacity before measurement for
+the complete eight-prefix train. This avoids mixing the intended host-to-device
+traffic with emergency cache eviction during decode. The run still fails
+loudly if the backend cannot allocate any individual load.
+
+Only after that passes, use `TRIALS=6` for paired evidence. The script rotates
+condition order for each sample and starts a clean backend for every
+sample/condition. The sustained condition fails unless all eight native loads
+finish inside decode, each has positive CUDA duration, every physical reload
+window intersects a client-visible decode interval, their total CUDA load time
+reaches `MINIMUM_TOTAL_CUDA_LOAD_MS`, and their largest observed gap remains
+below `MAXIMUM_INTER_LOAD_GAP_MS`. Reloads can share one long output gap; the
+gate checks every reload window rather than requiring an arbitrary number of
+distinct streamed updates.
+
+The HTML report includes complete-decode and pressure-window timelines,
+paired decode-time changes, reload counts, moved tokens, CUDA duration,
+pressure duty cycle, and visible output timing before, during, between, and
+after reloads. This remains lightweight timing evidence; use a separate
+profiler pass for physical memory-bandwidth attribution.

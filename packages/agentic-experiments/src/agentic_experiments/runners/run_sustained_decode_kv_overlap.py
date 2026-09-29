@@ -112,6 +112,7 @@ async def free_device_cache(
     p_hash: str,
     request_id: str,
     tokens: int,
+    source: str = "sustained_decode_kv_overlap",
 ) -> dict[str, Any]:
     response = await client.post(
         url,
@@ -123,7 +124,7 @@ async def free_device_cache(
             "request_id": request_id,
             "tokens": tokens,
             "control_timeout_ms": 15_000,
-            "source": "sustained_decode_kv_overlap",
+            "source": source,
         },
     )
     result = response.json()

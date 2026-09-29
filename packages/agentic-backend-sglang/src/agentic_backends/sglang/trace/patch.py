@@ -30,6 +30,7 @@ import queue
 import re
 import threading
 import time
+import traceback
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Callable
@@ -1662,9 +1663,18 @@ def _prepare_load_status(load_id: str) -> dict[str, Any]:
         return {"ok": False, "status": "load_not_found", "load_id": load_id}
 
     try:
-        started = bool(entry["start_event"].query())
-        finished = bool(entry["finish_event"].query())
-        cuda_elapsed_ms = float(entry["start_event"].elapsed_time(entry["finish_event"])) if finished else None
+        # SGLang's producer event spans all layer copies and is the authority
+        # for whether a native load has finished. The benchmark timing events
+        # measure duration, but must not release the next load early when a
+        # layer stream is still active.
+        started = bool(entry["native_start_event"].query())
+        finished = bool(entry["native_finish_event"].query())
+        timing_finished = bool(entry["finish_event"].query())
+        cuda_elapsed_ms = (
+            float(entry["start_event"].elapsed_time(entry["finish_event"]))
+            if finished and timing_finished
+            else None
+        )
     except Exception as exc:  # noqa: BLE001
         return {
             "ok": False,
@@ -1694,6 +1704,9 @@ def _prepare_load_status(load_id: str) -> dict[str, Any]:
             for key, value in current.items()
             if key not in {"start_event", "finish_event", "native_start_event", "native_finish_event"}
         }
+        snapshot["native_started"] = started
+        snapshot["native_finished"] = finished
+        snapshot["timing_finished"] = timing_finished
     if transition != previous:
         _write_event({"event": "agentic_kv.prepare_prefix.load_status", **snapshot, "status": transition})
     return {"ok": True, **snapshot, "status": transition, "observed_ns": observed_ns}
@@ -1724,6 +1737,21 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         }
 
     tree_cache = entry.get("tree_cache")
+    if tree_cache is not None:
+        try:
+            # The control command is executed on the scheduler thread. Retire
+            # completed native load ACKs here before allocating the next load
+            # in a sustained train, so finished prefixes do not remain locked
+            # and unevictable merely because HTTP status polling observed them
+            # before the scheduler's next normal HiCache maintenance pass.
+            tree_cache.loading_check()
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "ok": False,
+                "status": "load_cleanup_error",
+                "matched_key": matched_key,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
     if command.get("action") == "evict_device":
         try:
             from sglang.srt.mem_cache.base_prefix_cache import EvictParams
@@ -1837,6 +1865,7 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "matched_key": matched_key,
             "node_id": node_id,
             "error": f"{type(exc).__name__}: {exc}",
+            "error_traceback": traceback.format_exc(limit=12),
         }
     finally:
         if effective_threshold != original_threshold:
