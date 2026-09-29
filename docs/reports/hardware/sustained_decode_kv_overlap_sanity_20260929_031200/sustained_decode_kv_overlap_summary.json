@@ -1,0 +1,103 @@
+{
+  "conditions": [
+    {
+      "condition": "decode_control",
+      "label": "Decode control",
+      "load_start_sources": [
+        "unavailable"
+      ],
+      "median_cuda_load_duration_ms": null,
+      "median_loaded_tokens": null,
+      "median_overall_itl_ms": 337.482,
+      "median_overlap_duration_ms": null,
+      "median_total_decode_ms": 43711.889,
+      "median_ttft_ms": 548.031,
+      "regions": {
+        "after": {
+          "interval_count": 0,
+          "median_itl_ms": null,
+          "median_p95_itl_ms": null
+        },
+        "before": {
+          "interval_count": 108,
+          "median_itl_ms": 337.482,
+          "median_p95_itl_ms": 834.473
+        },
+        "during": {
+          "interval_count": 0,
+          "median_itl_ms": null,
+          "median_p95_itl_ms": null
+        }
+      },
+      "trials": 1,
+      "valid_overlap_trials": 1
+    },
+    {
+      "condition": "non_overlap_reload",
+      "label": "Reload before decode",
+      "load_start_sources": [
+        "load_id"
+      ],
+      "median_cuda_load_duration_ms": 154.412,
+      "median_loaded_tokens": 4039.0,
+      "median_overall_itl_ms": 336.138,
+      "median_overlap_duration_ms": 174.339,
+      "median_total_decode_ms": 43182.378,
+      "median_ttft_ms": 514.961,
+      "regions": {
+        "after": {
+          "interval_count": 108,
+          "median_itl_ms": 336.138,
+          "median_p95_itl_ms": 828.679
+        },
+        "before": {
+          "interval_count": 0,
+          "median_itl_ms": null,
+          "median_p95_itl_ms": null
+        },
+        "during": {
+          "interval_count": 0,
+          "median_itl_ms": null,
+          "median_p95_itl_ms": null
+        }
+      },
+      "trials": 1,
+      "valid_overlap_trials": 1
+    },
+    {
+      "condition": "direct_overlap_reload",
+      "label": "Reload during decode",
+      "load_start_sources": [
+        "load_id"
+      ],
+      "median_cuda_load_duration_ms": 153.039,
+      "median_loaded_tokens": 4039.0,
+      "median_overall_itl_ms": 336.059,
+      "median_overlap_duration_ms": 171.916,
+      "median_total_decode_ms": 43837.841,
+      "median_ttft_ms": 545.562,
+      "regions": {
+        "after": {
+          "interval_count": 84,
+          "median_itl_ms": 498.564,
+          "median_p95_itl_ms": 829.984
+        },
+        "before": {
+          "interval_count": 23,
+          "median_itl_ms": 168.096,
+          "median_p95_itl_ms": 169.69
+        },
+        "during": {
+          "interval_count": 1,
+          "median_itl_ms": 341.806,
+          "median_p95_itl_ms": 341.806
+        }
+      },
+      "trials": 1,
+      "valid_overlap_trials": 1
+    }
+  ],
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "sample_set_id": "sustained_decode_kv_overlap_sanity_20260929_031200_samples",
+  "schema_version": "sustained_decode_kv_overlap_report.v1"
+}

@@ -7,14 +7,14 @@
     "metric": "replay_ttft_ms",
     "sample_count": 4
   },
-  "control_probe": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/control/probe_run.json",
+  "control_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/control/probe_run.json",
   "interference_loads": {
     "queued_loads": 4,
     "ready_loads": 0,
     "trials": 4,
     "verified_loads": 4
   },
-  "interference_probe": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/interference/probe_run.json",
+  "interference_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/interference/probe_run.json",
   "lateness_comparison": {
     "control_median_ms": 0.0,
     "interference_median_ms": 0.0,

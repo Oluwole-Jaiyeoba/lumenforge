@@ -135,6 +135,7 @@ async def prepare_prefix(
     min_load_tokens: int | None,
     minimum_host_tokens: int,
 ) -> dict[str, Any]:
+    request_started_ns = time.time_ns()
     started = time.perf_counter()
     response = await client.post(
         url,
@@ -157,6 +158,8 @@ async def prepare_prefix(
     except json.JSONDecodeError:
         result = {"status": "non_json_response", "body": response.text[:500]}
     result["http_status"] = response.status_code
+    result["control_request_started_ns"] = request_started_ns
+    result["control_response_ns"] = time.time_ns()
     result["control_duration_ms"] = round((time.perf_counter() - started) * 1000, 3)
     return result
 

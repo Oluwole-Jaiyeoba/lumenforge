@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Sustained Decode KV Overlap</title>
+<style>
+body { font-family: Arial, sans-serif; max-width: 1180px; margin: 40px auto; color: #172033; line-height: 1.45; }
+h1 { margin-bottom: .15rem; } .sub { color: #52627a; }
+section { margin: 28px 0; padding: 20px; border: 1px solid #d8e0ea; border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d8e0ea; }
+th { background: #eef3f8; } .callout { font-size: 1.08rem; font-weight: 600; } .warn { color: #8a4b00; }
+</style></head><body>
+<h1>Sustained Decode Versus KV Reload</h1>
+<p class="sub">Equal frontend semantics. This isolates whether native host-to-device KV load-back slows an already-running decode.</p>
+<section><div class="callout">1/1 direct-overlap trials satisfied the ordering and token-interval gate.</div>
+<table><tr><th>Condition</th><th>Trials</th><th>TTFT</th><th>Total decode</th><th>Overall stream interval</th><th>Stream interval during reload</th><th>Observed load envelope</th><th>CUDA load duration</th><th>Loaded KV</th></tr><tr><td>Decode control</td><td>1</td><td>548.031 ms</td><td>43,711.889 ms</td><td>337.482 ms</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td></tr><tr><td>Reload before decode</td><td>1</td><td>514.961 ms</td><td>43,182.378 ms</td><td>336.138 ms</td><td>n/a</td><td>174.339 ms</td><td>154.412 ms</td><td>4,039.000 tokens</td></tr><tr><td>Reload during decode</td><td>1</td><td>545.562 ms</td><td>43,837.841 ms</td><td>336.059 ms</td><td>341.806 ms</td><td>171.916 ms</td><td>153.039 ms</td><td>4,039.000 tokens</td></tr></table></section>
+<section><h2>Direct-Overlap Decode Timing</h2>
+<table><tr><th>Region</th><th>Median stream-update interval</th><th>Median trial p95</th><th>Intervals observed</th></tr><tr><td>Before</td><td>168.096 ms</td><td>169.690 ms</td><td>23</td></tr><tr><td>During</td><td>341.806 ms</td><td>341.806 ms</td><td>1</td></tr><tr><td>After</td><td>498.564 ms</td><td>829.984 ms</td><td>84</td></tr></table></section>
+<section><h2>Validity Rule</h2><p>A direct-overlap trial is valid only when decode starts first, SGLang queues a native load, its CUDA start/finish events report positive physical duration, at least the configured number of stream intervals intersects the observed load envelope, the load finishes, and decode finishes last.</p></section>
+<section><h2>Interpretation Boundary</h2><p class="warn">The lightweight run uses SGLang's CUDA start/finish events and client-visible stream updates. A stream update is not assumed to equal exactly one generated token. The run proves software-visible temporal overlap, but it does not measure memory-controller bandwidth. A separate profiler run is required for physical bandwidth attribution, and its timing must not be pooled with this report.</p></section>
+</body></html>

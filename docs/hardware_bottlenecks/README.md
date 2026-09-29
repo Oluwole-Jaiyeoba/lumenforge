@@ -105,3 +105,45 @@ loads and the paired run manifest is complete.
 pass. The normal experiment leaves it unset and uses SGLang's native threshold.
 The earlier six-token result is documented as a small-copy validation, not as
 evidence of memory-bandwidth saturation.
+
+## Sustained decode overlap
+
+The next probe tests the collision directly. It keeps all requests equal at
+the frontend and compares three conditions from a fresh backend each time:
+
+1. `decode_control`: stage a host-resident donor prefix, but do not reload it.
+2. `non_overlap_reload`: finish reloading the donor before target decode starts.
+3. `direct_overlap_reload`: start target decode, wait for streamed output, then
+   reload the donor while decode is still producing tokens.
+
+Run it with:
+
+```bash
+export SGLANG_DOCKER_IMAGE='your-pinned-sglang-image'
+export AGENTIC_MODEL_CACHE='/absolute/path/to/model-cache'
+export BACKEND_RUNTIME_PROFILE='nvidia_standard'
+export REPORT_LABEL="sustained_decode_kv_overlap_$(date +%Y%m%d_%H%M%S)"
+bash infra/container/run_sustained_decode_kv_overlap_reference.sh \
+  Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The default is a one-trial sanity run. Use `TRIALS=6` or more only after it
+passes. Other useful knobs are `DECODE_TOKENS=256`, `WARMUP_CHUNKS=24`,
+`MINIMUM_OVERLAP_INTERVALS=1`, `DONOR_PROMPT_TOKENS=4090`, and
+`MINIMUM_HOST_TOKENS=512`. This uses the approximately 4K-token native load
+path already proven by the earlier movement experiment. `DEVICE_FREE_TOKENS`
+defaults to zero. A positive value applies the same optional native
+device-cache eviction setup in all three conditions; it is never part of the
+measured condition difference.
+
+The direct-overlap case fails unless SGLang's own per-load CUDA events show a
+completed reload with positive physical duration between decode start and
+decode finish, with at least the configured number of streamed output
+intervals intersecting the observed load envelope. A fast load may finish
+before the HTTP poller observes an intermediate `active` state; that does not
+invalidate its CUDA-event duration.
+The report compares client-visible stream-update intervals before, during, and
+after reload. It does not assume that every visible update equals exactly one
+generated token. This is lightweight timing evidence. Run the profiler separately before making a
+claim about transfer-engine or memory-controller bandwidth, and do not pool
+profiled timing with the lightweight run.

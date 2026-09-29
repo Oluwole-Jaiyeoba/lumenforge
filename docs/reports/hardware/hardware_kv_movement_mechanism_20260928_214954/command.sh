@@ -2,7 +2,7 @@
 MODEL='Qwen/Qwen2.5-Coder-7B-Instruct'
 BACKEND_RUNTIME_PROFILE='nvidia_standard'
 SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1'
-AGENTIC_MODEL_CACHE='/home/ec2-user/.cache/huggingface'
+AGENTIC_MODEL_CACHE='${HOME}/.cache/huggingface'
 REPORT_LABEL='hardware_kv_movement_mechanism_20260928_214954'
 SAMPLE_SET_ID='hardware_kv_movement_mechanism_20260928_214954_samples'
 TRIALS='4'

@@ -1,12 +1,11 @@
 {
   "artifact_locations": {
-    "command": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/command.sh",
-    "control_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/control/probe_run.json",
-    "control_trace": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/control/backend_trace.jsonl",
-    "interference_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/interference/probe_run.json",
-    "interference_trace": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/interference/backend_trace.jsonl",
-    "report": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/hardware_kv_movement_report.html",
-    "summary": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_large_final_20260928_224413/hardware_kv_movement_summary.json"
+    "command": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/command.sh",
+    "control_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/decode_control/probe_run.json",
+    "direct_overlap_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/direct_overlap_reload/probe_run.json",
+    "non_overlap_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/non_overlap_reload/probe_run.json",
+    "report": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/sustained_decode_kv_overlap_report.html",
+    "summary": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/sustained_decode_kv_overlap_summary.json"
   },
   "backend_name": "sglang",
   "backend_runtime_contract": {
@@ -245,30 +244,37 @@
   },
   "backend_version": "0.5.10.post1",
   "completion_status": "complete",
-  "created_at_ms": 1790636154803,
+  "created_at_ms": 1790651879362,
   "enabled_instrumentation": [
     "lightweight_backend_trace",
-    "prepared_prefix_control"
+    "cuda_event_load_status",
+    "streamed_decode_timing"
   ],
-  "experiment": "kv_movement_interference",
+  "experiment": "sustained_decode_kv_overlap",
   "git_commit": "",
   "hardware_profile": "nvidia_a10g_24gb",
   "harness_versions": {},
   "metadata": {},
   "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
   "package_versions": {},
-  "run_id": "hardware_kv_movement_large_final_20260928_224413",
+  "run_id": "sustained_decode_kv_overlap_sanity_20260929_031200",
   "schema_version": "agentic_run_manifest.v2",
   "seed": null,
   "workload": {
     "conditions": [
-      "control",
-      "interference"
+      "decode_control",
+      "non_overlap_reload",
+      "direct_overlap_reload"
     ],
+    "decode_tokens": 256,
+    "device_free_tokens": 0,
+    "donor_prompt_tokens": 4090,
     "frontend_priority": "none",
-    "sample_set_id": "hardware_kv_movement_large_final_20260928_224413_samples",
+    "minimum_overlap_intervals": 1,
+    "sample_set_id": "sustained_decode_kv_overlap_sanity_20260929_031200_samples",
     "seed": 7,
-    "trials": 4,
-    "workload_id": "hardware_kv_movement_v1"
+    "trials_per_condition": 1,
+    "warmup_chunks": 24,
+    "workload_id": "sustained_decode_kv_overlap_v1"
   }
 }

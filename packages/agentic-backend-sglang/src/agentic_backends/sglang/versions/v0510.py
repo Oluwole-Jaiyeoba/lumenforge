@@ -154,6 +154,8 @@ _SCHED = "sglang.srt.managers.scheduler"
 _BATCH = "sglang.srt.managers.schedule_batch"
 _RADIX = "sglang.srt.mem_cache.radix_cache"
 _HIRADIX = "sglang.srt.mem_cache.hiradix_cache"
+_CACHE_CONTROLLER = "sglang.srt.managers.cache_controller"
+_BASE_PREFIX_CACHE = "sglang.srt.mem_cache.base_prefix_cache"
 _PROTOCOL = "sglang.srt.entrypoints.openai.protocol"
 
 
@@ -177,7 +179,9 @@ SURFACE: tuple[SurfaceRequirement, ...] = tuple(
         SurfaceRequirement(kind=METHOD, module=_HIRADIX, class_name="HiRadixCache", name=name, feature=FEATURE_PREPARE_PREFIX)
         for name in ("load_back", "ready_to_load_host_cache", "loading_check")
     ]
-    + _attrs(_HIRADIX, "HiRadixCache", "ongoing_load_back", FEATURE_PREPARE_PREFIX)
+    + _attrs(_HIRADIX, "HiRadixCache", "ongoing_load_back cache_controller", FEATURE_PREPARE_PREFIX)
+    + _attrs(_CACHE_CONTROLLER, "HiCacheController", "layer_done_counter", FEATURE_PREPARE_PREFIX)
+    + [SurfaceRequirement(kind=CLASS, module=_BASE_PREFIX_CACHE, name="EvictParams", feature=FEATURE_PREPARE_PREFIX)]
     + _attrs(_RADIX, "TreeNode", "id evicted backuped host_value", FEATURE_PREPARE_PREFIX)
     # Optional launch choice radix-eviction-policy=priority (sglang_compat).
     + [

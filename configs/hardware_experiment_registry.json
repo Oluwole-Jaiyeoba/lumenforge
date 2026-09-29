@@ -36,6 +36,43 @@
       }
     },
     {
+      "id": "sustained_decode_kv_overlap",
+      "name": "Sustained Decode KV Overlap",
+      "status": "measured_pending_review",
+      "question": "Does native host-to-GPU KV load-back slow an already-running decode?",
+      "platform": "nvidia_standard; NVIDIA A10G 24 GB in this sanity run",
+      "backend": "SGLang 0.5.10.post1 in the pinned container runtime with the v0510 adapter",
+      "control": "Decode a fixed 256-token response after staging a host-resident donor prefix, without reloading that prefix during decode.",
+      "interference": "Start the same decode, wait for 24 visible streamed updates, then reload 4,039 donor-prefix KV tokens from host memory to GPU through SGLang's native HiCache path.",
+      "held_constant": "Model, prompt and output lengths, seed, backend flags, donor prefix, cache-staging procedure, and equal frontend request treatment.",
+      "measurements": [
+        "Decode time to first token and total decode duration",
+        "Visible streamed-update intervals before, during, and after load-back",
+        "Native CUDA-event load duration and loaded-token count",
+        "Software-timeline proof that load-back occurred after decode started and before it completed"
+      ],
+      "evidence_rule": "This sanity run proves native load-back and software-visible overlap. A repeated paired run is required before claiming a causal latency effect, and a separate profiler pass is required before claiming physical memory-bandwidth contention.",
+      "run_id": "sustained_decode_kv_overlap_sanity_20260929_031200",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' TRIALS=1 SEED=7 DECODE_TOKENS=256 WARMUP_CHUNKS=24 MINIMUM_OVERLAP_INTERVALS=1 DONOR_PROMPT_TOKENS=4090 EVICTION_PROMPT_TOKENS=8192 EVICTION_ROUNDS=8 MINIMUM_HOST_TOKENS=512 DEVICE_FREE_TOKENS=0 REPORT_LABEL='sustained_decode_kv_overlap_sanity_20260929_031200' bash infra/container/run_sustained_decode_kv_overlap_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/sustained_decode_kv_overlap_report.html",
+      "manifest_path": "docs/reports/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/sustained_decode_kv_overlap_summary.json",
+      "results": {
+        "trials per condition": "1",
+        "loaded donor KV": "4,039 tokens",
+        "native CUDA load duration, overlap": "153.039 ms",
+        "observed load envelope, overlap": "171.916 ms",
+        "decode TTFT, control": "548.031 ms",
+        "decode TTFT, overlap": "545.562 ms",
+        "total decode, control": "43,711.889 ms",
+        "total decode, reload before decode": "43,182.378 ms",
+        "total decode, reload during decode": "43,837.841 ms",
+        "visible update interval intersecting load": "341.806 ms; 1 interval",
+        "overlap proof": "1 of 1 direct-overlap trials passed",
+        "interpretation": "The timing gate worked and native KV movement overlapped an active decode. One sanity sample is insufficient to conclude whether the overlap materially slows decode."
+      }
+    },
+    {
       "id": "active_compute_blocking",
       "name": "Replay Behind Active Compute",
       "status": "planned",

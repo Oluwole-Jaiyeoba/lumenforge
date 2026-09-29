@@ -1,12 +1,12 @@
 {
   "artifact_locations": {
-    "command": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/command.sh",
-    "control_probe": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/control/probe_run.json",
-    "control_trace": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/control/backend_trace.jsonl",
-    "interference_probe": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/interference/probe_run.json",
-    "interference_trace": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/interference/backend_trace.jsonl",
-    "report": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/hardware_kv_movement_report.html",
-    "summary": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/hardware_kv_movement_summary.json"
+    "command": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/command.sh",
+    "control_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/control/probe_run.json",
+    "control_trace": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/control/backend_trace.jsonl",
+    "interference_probe": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/interference/probe_run.json",
+    "interference_trace": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/interference/backend_trace.jsonl",
+    "report": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/hardware_kv_movement_report.html",
+    "summary": "/workspace/agentic_hardware/sglang_direct_kv/artifacts/results/hardware/hardware_kv_movement_mechanism_20260928_214954/hardware_kv_movement_summary.json"
   },
   "backend_name": "sglang",
   "backend_runtime_contract": {

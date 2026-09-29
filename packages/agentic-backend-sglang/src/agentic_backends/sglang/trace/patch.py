@@ -53,6 +53,8 @@ _PRIORITY_REQUESTS_BY_ALIAS: dict[str, dict[str, Any]] = {}
 _PRIORITY_ADMISSION_SEQ = 0
 _PREPARABLE_PREFIXES: dict[str, dict[str, Any]] = {}
 _PREPARABLE_PREFIXES_LOCK = threading.Lock()
+_PREPARE_LOADS: dict[str, dict[str, Any]] = {}
+_PREPARE_LOADS_LOCK = threading.Lock()
 _PREPARE_COMMAND_QUEUE: queue.Queue[dict[str, Any]] = queue.Queue()
 _PREPARE_CONTROL_SERVER_STARTED = False
 _PREPARE_CONTROL_SERVER_LOCK = threading.Lock()
@@ -1651,6 +1653,52 @@ def _wait_for_prepared_load(tree_cache: Any, node_id: str, timeout_ms: int) -> s
         time.sleep(0.002)
 
 
+def _prepare_load_status(load_id: str) -> dict[str, Any]:
+    """Return CUDA-event-backed state for one native HiCache load-back."""
+
+    with _PREPARE_LOADS_LOCK:
+        entry = _PREPARE_LOADS.get(load_id)
+    if entry is None:
+        return {"ok": False, "status": "load_not_found", "load_id": load_id}
+
+    try:
+        started = bool(entry["start_event"].query())
+        finished = bool(entry["finish_event"].query())
+        cuda_elapsed_ms = float(entry["start_event"].elapsed_time(entry["finish_event"])) if finished else None
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "status": "load_status_error",
+            "load_id": load_id,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    observed_ns = time.time_ns()
+    transition = "queued"
+    with _PREPARE_LOADS_LOCK:
+        current = _PREPARE_LOADS.get(load_id, entry)
+        if started and not current.get("started_observed_ns"):
+            current["started_observed_ns"] = observed_ns
+        if finished and not current.get("finished_observed_ns"):
+            current["finished_observed_ns"] = observed_ns
+        if cuda_elapsed_ms is not None:
+            current["cuda_elapsed_ms"] = round(cuda_elapsed_ms, 6)
+        if finished:
+            transition = "finished"
+        elif started:
+            transition = "active"
+        previous = current.get("last_reported_status")
+        current["last_reported_status"] = transition
+        snapshot = {
+            key: value
+            for key, value in current.items()
+            if key not in {"start_event", "finish_event", "native_start_event", "native_finish_event"}
+        }
+    if transition != previous:
+        _write_event({"event": "agentic_kv.prepare_prefix.load_status", **snapshot, "status": transition})
+    return {"ok": True, **snapshot, "status": transition, "observed_ns": observed_ns}
+
+
 def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
     lookup_keys = _prepare_command_lookup_keys(command)
     raw_plan_only = command.get("plan_only")
@@ -1676,6 +1724,28 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         }
 
     tree_cache = entry.get("tree_cache")
+    if command.get("action") == "evict_device":
+        try:
+            from sglang.srt.mem_cache.base_prefix_cache import EvictParams
+
+            requested_tokens = max(1, int(command.get("tokens") or 1))
+            eviction = tree_cache.evict(EvictParams(num_tokens=requested_tokens))
+            evicted_tokens = int(eviction.num_tokens_evicted)
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "ok": False,
+                "status": "device_cache_evict_error",
+                "matched_key": matched_key,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        return {
+            "ok": True,
+            "status": "device_cache_evicted" if evicted_tokens > 0 else "device_cache_already_free",
+            "matched_key": matched_key,
+            "requested_tokens": requested_tokens,
+            "evicted_tokens": evicted_tokens,
+            "control_path": "hiradix.evict",
+        }
     try:
         minimum_host_tokens = int(command.get("minimum_host_tokens") or 1)
     except (TypeError, ValueError):
@@ -1742,6 +1812,21 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         effective_threshold = min(original_threshold, min_load_tokens)
         tree_cache.load_back_threshold = effective_threshold
 
+    try:
+        import torch
+
+        load_stream = tree_cache.cache_controller.load_stream
+        timing_start_event = torch.cuda.Event(enable_timing=True)
+        timing_finish_event = torch.cuda.Event(enable_timing=True)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "status": "load_timing_event_setup_error",
+            "matched_key": matched_key,
+            "node_id": node_id,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
     start_ns = time.time_ns()
     try:
         device_indices = tree_cache.load_back(node, mem_quota)
@@ -1770,13 +1855,54 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
+        with torch.cuda.stream(load_stream):
+            timing_start_event.record()
         producer_id = int(tree_cache.ready_to_load_host_cache())
+        with torch.cuda.stream(load_stream):
+            timing_finish_event.record()
     except Exception as exc:  # noqa: BLE001
         return {
             "ok": False,
             "status": "start_loading_error",
             "matched_key": matched_key,
             "node_id": node_id,
+            "loaded_tokens": int(len(device_indices)),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    load_id = str(command.get("load_id") or f"{command.get('request_id') or node_id}:{producer_id}:{start_ns}")
+    try:
+        producer_event = tree_cache.cache_controller.layer_done_counter.events[producer_id]
+        load_entry = {
+            "load_id": load_id,
+            "node_id": node_id,
+            "producer_id": producer_id,
+            "loaded_tokens": int(len(device_indices)),
+            "command_started_ns": start_ns,
+            "queued_ns": time.time_ns(),
+            "started_observed_ns": None,
+            "finished_observed_ns": None,
+            "cuda_elapsed_ms": None,
+            "last_reported_status": None,
+            "start_event": timing_start_event,
+            "finish_event": timing_finish_event,
+            "native_start_event": producer_event.start_event,
+            "native_finish_event": producer_event.finish_event,
+        }
+        with _PREPARE_LOADS_LOCK:
+            _PREPARE_LOADS[load_id] = load_entry
+            overflow = len(_PREPARE_LOADS) - _prefix_registry_max_entries()
+            if overflow > 0:
+                oldest = sorted(_PREPARE_LOADS.values(), key=lambda item: int(item.get("queued_ns") or 0))[:overflow]
+                for item in oldest:
+                    _PREPARE_LOADS.pop(str(item.get("load_id") or ""), None)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "status": "load_event_registration_error",
+            "matched_key": matched_key,
+            "node_id": node_id,
+            "producer_id": producer_id,
             "loaded_tokens": int(len(device_indices)),
             "error": f"{type(exc).__name__}: {exc}",
         }
@@ -1793,6 +1919,8 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         "node_id": node_id,
         "loaded_tokens": int(len(device_indices)),
         "producer_id": producer_id,
+        "load_id": load_id,
+        "command_started_ns": start_ns,
         "duration_ms": round(duration_ms, 3),
         "load_back_threshold_original": original_threshold,
         "load_back_threshold_effective": effective_threshold,
@@ -1849,11 +1977,14 @@ class _PreparePrefixControlHandler(BaseHTTPRequestHandler):
             return
         with _PREPARABLE_PREFIXES_LOCK:
             prefix_count = len(_PREPARABLE_PREFIXES)
+        with _PREPARE_LOADS_LOCK:
+            tracked_loads = len(_PREPARE_LOADS)
         self._send_json(
             200,
             {
                 "ok": True,
                 "prefix_registry_entries": prefix_count,
+                "tracked_loads": tracked_loads,
                 "queued_prepare_commands": _PREPARE_COMMAND_QUEUE.qsize(),
             },
         )
@@ -1876,6 +2007,14 @@ class _PreparePrefixControlHandler(BaseHTTPRequestHandler):
             return
         if not isinstance(payload, dict):
             self._send_json(400, {"ok": False, "error": "payload_must_be_object"})
+            return
+        if payload.get("action") == "load_status":
+            load_id = str(payload.get("load_id") or "")
+            if not load_id:
+                self._send_json(400, {"ok": False, "error": "load_id_required"})
+                return
+            result = _prepare_load_status(load_id)
+            self._send_json(200 if result.get("ok") else 404, result)
             return
         event = threading.Event()
         result_holder: dict[str, Any] = {}
