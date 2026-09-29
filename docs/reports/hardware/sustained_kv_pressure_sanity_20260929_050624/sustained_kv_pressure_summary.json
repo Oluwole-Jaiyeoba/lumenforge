@@ -1,0 +1,160 @@
+{
+  "conditions": [
+    {
+      "condition": "decode_control",
+      "label": "Decode control",
+      "median_completed_loads": 0.0,
+      "median_maximum_inter_load_gap_ms": null,
+      "median_observed_load_duty_cycle_pct": null,
+      "median_pressure_envelope_ms": 0.0,
+      "median_pressure_share_of_decode_pct": 0.0,
+      "median_total_cuda_load_ms": 0.0,
+      "median_total_decode_ms": 42457.482,
+      "median_total_loaded_tokens": 0.0,
+      "median_ttft_ms": 190.978,
+      "regions": {
+        "after": {
+          "interval_count": 0,
+          "median_interval_ms": null,
+          "median_max_interval_ms": null,
+          "median_p95_interval_ms": null,
+          "median_visible_updates_per_second": null
+        },
+        "before": {
+          "interval_count": 99,
+          "median_interval_ms": 496.087,
+          "median_max_interval_ms": 2808.322,
+          "median_p95_interval_ms": 823.461,
+          "median_visible_updates_per_second": 2.342
+        },
+        "between": {
+          "interval_count": 0,
+          "median_interval_ms": null,
+          "median_max_interval_ms": null,
+          "median_p95_interval_ms": null,
+          "median_visible_updates_per_second": null
+        },
+        "during": {
+          "interval_count": 0,
+          "median_interval_ms": null,
+          "median_max_interval_ms": null,
+          "median_p95_interval_ms": null,
+          "median_visible_updates_per_second": null
+        }
+      },
+      "trials": 1,
+      "valid_trials": 1
+    },
+    {
+      "condition": "single_reload",
+      "label": "Single KV reload",
+      "median_completed_loads": 1.0,
+      "median_maximum_inter_load_gap_ms": null,
+      "median_observed_load_duty_cycle_pct": 100.0,
+      "median_pressure_envelope_ms": 173.86,
+      "median_pressure_share_of_decode_pct": 0.405,
+      "median_total_cuda_load_ms": 161.962,
+      "median_total_decode_ms": 42960.249,
+      "median_total_loaded_tokens": 4036.0,
+      "median_ttft_ms": 195.851,
+      "regions": {
+        "after": {
+          "interval_count": 75,
+          "median_interval_ms": 501.762,
+          "median_max_interval_ms": 2824.007,
+          "median_p95_interval_ms": 831.595,
+          "median_visible_updates_per_second": 1.944
+        },
+        "before": {
+          "interval_count": 23,
+          "median_interval_ms": 165.687,
+          "median_max_interval_ms": 201.719,
+          "median_p95_interval_ms": 165.882,
+          "median_visible_updates_per_second": 5.983
+        },
+        "between": {
+          "interval_count": 0,
+          "median_interval_ms": null,
+          "median_max_interval_ms": null,
+          "median_p95_interval_ms": null,
+          "median_visible_updates_per_second": null
+        },
+        "during": {
+          "interval_count": 1,
+          "median_interval_ms": 340.216,
+          "median_max_interval_ms": 340.216,
+          "median_p95_interval_ms": 340.216,
+          "median_visible_updates_per_second": 2.939
+        }
+      },
+      "trials": 1,
+      "valid_trials": 1
+    },
+    {
+      "condition": "sustained_reload",
+      "label": "Sustained KV reload",
+      "median_completed_loads": 8.0,
+      "median_maximum_inter_load_gap_ms": 63.481,
+      "median_observed_load_duty_cycle_pct": 88.645,
+      "median_pressure_envelope_ms": 1565.692,
+      "median_pressure_share_of_decode_pct": 3.566,
+      "median_total_cuda_load_ms": 1297.49,
+      "median_total_decode_ms": 43903.307,
+      "median_total_loaded_tokens": 32707.0,
+      "median_ttft_ms": 190.721,
+      "regions": {
+        "after": {
+          "interval_count": 74,
+          "median_interval_ms": 496.905,
+          "median_max_interval_ms": 2871.1,
+          "median_p95_interval_ms": 822.154,
+          "median_visible_updates_per_second": 1.937
+        },
+        "before": {
+          "interval_count": 23,
+          "median_interval_ms": 163.561,
+          "median_max_interval_ms": 197.802,
+          "median_p95_interval_ms": 164.644,
+          "median_visible_updates_per_second": 6.06
+        },
+        "between": {
+          "interval_count": 0,
+          "median_interval_ms": null,
+          "median_max_interval_ms": null,
+          "median_p95_interval_ms": null,
+          "median_visible_updates_per_second": null
+        },
+        "during": {
+          "interval_count": 2,
+          "median_interval_ms": 857.003,
+          "median_max_interval_ms": 1199.472,
+          "median_p95_interval_ms": 1199.472,
+          "median_visible_updates_per_second": 1.167
+        }
+      },
+      "trials": 1,
+      "valid_trials": 1
+    }
+  ],
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "paired_decode_deltas": {
+    "single_reload": {
+      "changes_ms": [
+        502.767
+      ],
+      "mean_decode_change_ms": 502.767,
+      "median_decode_change_ms": 502.767,
+      "paired_samples": 1
+    },
+    "sustained_reload": {
+      "changes_ms": [
+        1445.825
+      ],
+      "mean_decode_change_ms": 1445.825,
+      "median_decode_change_ms": 1445.825,
+      "paired_samples": 1
+    }
+  },
+  "sample_set_id": "sustained_kv_pressure_sanity_20260929_050624_samples",
+  "schema_version": "sustained_kv_pressure_report.v1"
+}

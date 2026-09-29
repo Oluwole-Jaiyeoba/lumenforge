@@ -73,6 +73,44 @@
       }
     },
     {
+      "id": "sustained_kv_pressure",
+      "name": "Sustained KV Pressure During Decode",
+      "status": "measured_pending_review",
+      "question": "Does a sustained train of native host-to-GPU KV reloads measurably slow an already-running decode?",
+      "platform": "nvidia_standard; NVIDIA A10G 24 GB in this sanity run",
+      "backend": "SGLang 0.5.10.post1 in the pinned container runtime with the v0510 adapter",
+      "control": "Decode a fixed 256-token response after staging eight host-resident donor prefixes, without reloading donors during decode.",
+      "interference": "After 24 visible decode updates, reload either one donor or all eight donors sequentially through SGLang's native HiCache path.",
+      "held_constant": "Model, target prompt and output length, seed, backend flags, donor pool, cache-staging procedure, 40,000-token device-cache preparation, and equal frontend request treatment.",
+      "measurements": [
+        "Decode time to first token and total decode duration",
+        "Visible streamed-update intervals before, during, and after the reload train",
+        "Native CUDA-event duration and loaded-token count for every reload",
+        "Software-timeline proof that every reload window intersected active decode"
+      ],
+      "evidence_rule": "Every native load must finish inside decode, have positive CUDA duration, and intersect a client-visible decode interval. This one-pair sanity run proves the mechanism; repeated paired trials and a separate profiler pass are required for causal and physical-bandwidth claims.",
+      "run_id": "sustained_kv_pressure_sanity_20260929_050624",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' TRIALS=1 SEED=7 DECODE_TOKENS=256 WARMUP_CHUNKS=24 DONOR_COUNT=8 DONOR_PROMPT_TOKENS=4090 DEVICE_FREE_TOKENS=40000 MEM_FRACTION_STATIC=0.80 REPORT_LABEL='sustained_kv_pressure_sanity_20260929_050624' bash infra/container/run_sustained_kv_pressure_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/sustained_kv_pressure_sanity_20260929_050624/sustained_kv_pressure_report.html",
+      "manifest_path": "docs/reports/hardware/sustained_kv_pressure_sanity_20260929_050624/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/sustained_kv_pressure_sanity_20260929_050624/sustained_kv_pressure_summary.json",
+      "results": {
+        "trials per condition": "1",
+        "sustained native reloads": "8 of 8 passed",
+        "sustained loaded KV": "32,707 token slots",
+        "sustained CUDA load duration": "1,297.490 ms",
+        "sustained pressure envelope": "1,565.692 ms; 88.645% observed load duty cycle",
+        "total decode, control": "42,457.482 ms",
+        "total decode, single reload": "42,960.249 ms",
+        "total decode, sustained reload": "43,903.307 ms",
+        "paired decode change, single": "+502.767 ms",
+        "paired decode change, sustained": "+1,445.825 ms",
+        "TTFT, control / single / sustained": "190.978 / 195.851 / 190.721 ms",
+        "largest visible interval during sustained reload": "1,199.472 ms",
+        "interpretation": "The stronger mechanism pass produced a visible sustained-decode penalty while TTFT stayed similar. This is one paired sanity sample, so the magnitude is provisional until the repeated run."
+      }
+    },
+    {
       "id": "active_compute_blocking",
       "name": "Replay Behind Active Compute",
       "status": "planned",
