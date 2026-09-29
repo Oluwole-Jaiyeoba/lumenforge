@@ -211,11 +211,11 @@
       "limitations": "A natural overlap count is only a provisional mapping to the controlled pressure sweep. A profiler pass is still required to attribute physical bandwidth or copy-engine utilization.",
       "measurements": [
         "Per-replay time to first token and total decode duration",
-        "Native SGLang load-back events overlapping each replay",
-        "Session and replay correlation for every observed load-back",
+        "Native SGLang load-back events overlapping each post-first-token replay decode",
+        "Session and replay correlation, including whether the loading session differs from the decoding session",
         "Distribution of observed overlap counts against the controlled reference ranges"
       ],
-      "evidence_rule": "Only native hiradix.load_back.end events tagged with this workload and a replay phase count as natural reloads. The report must retain the event-to-session correlation and state whether no natural reloads were observed.",
+      "evidence_rule": "Only native hiradix.load_back.end events tagged with this workload and a replay phase count as natural reloads. Counts begin at the first streamed token, and the report must retain event-to-session correlation and state whether no natural reloads were observed.",
       "run_id": null,
       "command": null,
       "report_path": null,

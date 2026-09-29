@@ -47,6 +47,7 @@ def test_natural_reload_correlation_uses_only_replay_loads() -> None:
     )
     assert len(loads) == 1
     assert rows[0]["natural_reload_count"] == 1
+    assert rows[0]["cross_session_reload_count"] == 1
     assert rows[0]["natural_reload_sessions"] == ["other-session"]
     assert rows[0]["pressure_bucket"] == "low_like"
 

@@ -22,8 +22,10 @@ def test_report_labels_natural_reloads_without_claiming_injection() -> None:
                     "ttft_ms": 30.0,
                     "total_decode_ms": 100.0,
                     "natural_reload_count": 1,
+                    "cross_session_reload_count": 1,
                     "pressure_bucket": "low_like",
                     "natural_reload_sessions": ["session-1"],
+                    "cross_session_reload_sessions": ["session-1"],
                 }
             ],
             "interpretation": "Natural means ordinary replay requests caused the observed load-back event.",

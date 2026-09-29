@@ -251,11 +251,12 @@ tools, and resume through ordinary requests. It never calls the prepared-prefix
 control API and never injects a reload. SGLang may naturally reload an evicted,
 host-backed prefix when one of those sessions resumes.
 
-The report records each replay decode, any native `HiRadixCache.load_back`
-events that overlap it, and the session that caused each observed reload. It
-maps observed reload counts to the controlled reference buckets, while clearly
-marking that count-based mapping as provisional until a profiler pass measures
-natural CUDA-copy share directly.
+The report records each replay decode, native `HiRadixCache.load_back` events
+that overlap its post-first-token decode period, and the session that caused
+each observed reload. It distinguishes all reloads from reloads caused by a
+different session. It maps observed reload counts to the controlled reference
+buckets, while clearly marking that count-based mapping as provisional until a
+profiler pass measures natural CUDA-copy share directly.
 
 Run the first observation-only baseline with:
 

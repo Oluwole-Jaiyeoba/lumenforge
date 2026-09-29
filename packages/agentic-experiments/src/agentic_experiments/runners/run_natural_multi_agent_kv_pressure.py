@@ -119,6 +119,12 @@ def load_trace(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def load_events(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise RuntimeError(f"workload event log is missing: {path}")
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
 def native_loads(trace_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     loads: list[dict[str, Any]] = []
     for row in trace_rows:
@@ -161,7 +167,13 @@ def correlate(replays: list[dict[str, Any]], loads: list[dict[str, Any]]) -> lis
     for replay in replays:
         start_ns = int(replay["request_start_ns"])
         end_ns = int(replay["request_end_ns"])
-        overlaps = [load for load in loads if start_ns < int(load["end_ns"]) and end_ns > int(load["start_ns"])]
+        # Restores before the first token affect TTFT. This study isolates
+        # restores that overlap active decode, which starts at first token.
+        decode_start_ns = int(
+            replay.get("first_token_ns") or start_ns + int(float(replay["ttft_ms"]) * 1_000_000)
+        )
+        overlaps = [load for load in loads if decode_start_ns < int(load["end_ns"]) and end_ns > int(load["start_ns"])]
+        foreign_overlaps = [load for load in overlaps if load.get("session_id") != replay["session_id"]]
         observations.append(
             {
                 "session_id": replay["session_id"],
@@ -171,7 +183,9 @@ def correlate(replays: list[dict[str, Any]], loads: list[dict[str, Any]]) -> lis
                 "ttft_ms": replay["ttft_ms"],
                 "total_decode_ms": replay["total_latency_ms"],
                 "natural_reload_count": len(overlaps),
+                "cross_session_reload_count": len(foreign_overlaps),
                 "natural_reload_sessions": sorted({str(load.get("session_id") or "") for load in overlaps}),
+                "cross_session_reload_sessions": sorted({str(load.get("session_id") or "") for load in foreign_overlaps}),
                 "natural_reload_trace_duration_ms": round(sum(float(load["duration_ms"]) for load in overlaps), 3),
                 "pressure_bucket": bucket_for_load_count(len(overlaps)),
             }
@@ -195,6 +209,11 @@ async def main_async() -> None:
     parser.add_argument("--tool-wait-min-ms", type=int, default=400)
     parser.add_argument("--tool-wait-max-ms", type=int, default=2000)
     parser.add_argument("--timeout-s", type=float, default=900.0)
+    parser.add_argument(
+        "--rescore-events",
+        type=Path,
+        help="Rebuild the summary from an existing event log and backend trace without sending requests.",
+    )
     args = parser.parse_args()
     if min(args.session_count, args.tool_waits, args.session_prefix_tokens, args.replay_tokens) < 1:
         parser.error("session count, tool waits, prefix tokens, and replay tokens must be positive")
@@ -203,14 +222,17 @@ async def main_async() -> None:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     events = args.out_dir / "natural_multi_agent_events.jsonl"
-    events.write_text("", encoding="utf-8")
-    timeout = httpx.Timeout(args.timeout_s, connect=10.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        completed = await asyncio.gather(
-            *(run_session(client, args, events, index) for index in range(args.session_count))
-        )
-    replays = [row for session_rows in completed for row in session_rows if row["event"] == "natural_kv.replay_complete"]
-    await asyncio.sleep(1.0)
+    if args.rescore_events:
+        replays = [row for row in load_events(args.rescore_events) if row.get("event") == "natural_kv.replay_complete"]
+    else:
+        events.write_text("", encoding="utf-8")
+        timeout = httpx.Timeout(args.timeout_s, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            completed = await asyncio.gather(
+                *(run_session(client, args, events, index) for index in range(args.session_count))
+            )
+        replays = [row for session_rows in completed for row in session_rows if row["event"] == "natural_kv.replay_complete"]
+        await asyncio.sleep(1.0)
     loads = native_loads(load_trace(args.backend_trace))
     observations = correlate(replays, loads)
     buckets = {name: sum(row["pressure_bucket"] == name for row in observations) for name in ("control_like", "low_like", "medium_like", "high_like")}
@@ -230,7 +252,7 @@ async def main_async() -> None:
         "pressure_buckets": buckets,
         "observations": observations,
         "native_loads": loads,
-        "interpretation": "Natural means ordinary replay requests caused the observed SGLang load-back events; no prepared-prefix control requests were issued.",
+        "interpretation": "Natural means ordinary replay requests caused the observed SGLang load-back events; no prepared-prefix control requests were issued. Overlap counts begin after each replay's first token, so they describe active decode rather than that replay's own TTFT restore.",
     }
     (args.out_dir / "natural_multi_agent_kv_pressure_summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"

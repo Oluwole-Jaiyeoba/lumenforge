@@ -89,6 +89,7 @@ async def completion(
     started_ns = time.time_ns()
     started = time.perf_counter()
     first_token: float | None = None
+    first_token_ns: int | None = None
     chunks = 0
     payload = {
         "model": model,
@@ -110,13 +111,16 @@ async def completion(
             chunks += 1
             if first_token is None:
                 first_token = time.perf_counter()
+                first_token_ns = time.time_ns()
     ended = time.perf_counter()
     ended_ns = time.time_ns()
     if first_token is None:
         first_token = ended
+        first_token_ns = ended_ns
     return {
         "request_start_ns": started_ns,
         "request_end_ns": ended_ns,
+        "first_token_ns": first_token_ns,
         "ttft_ms": round((first_token - started) * 1000, 3),
         "total_latency_ms": round((ended - started) * 1000, 3),
         "stream_chunks": chunks,
