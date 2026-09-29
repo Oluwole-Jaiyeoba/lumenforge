@@ -195,3 +195,47 @@ paired decode-time changes, reload counts, moved tokens, CUDA duration,
 pressure duty cycle, and visible output timing before, during, between, and
 after reloads. This remains lightweight timing evidence; use a separate
 profiler pass for physical memory-bandwidth attribution.
+
+## KV pressure duty sweep
+
+`sustained_kv_pressure` proves that a short train of reloads can overlap with
+decode. The next controlled step is `kv_pressure_duty_sweep`: the same target
+decode is run under four independent conditions with no frontend priority
+labels:
+
+1. `decode_control`: no native reloads.
+2. `pressure_low`: a small native-reload budget.
+3. `pressure_medium`: a larger native-reload budget.
+4. `pressure_high`: the largest native-reload budget.
+
+The runner reuses a small donor pool. Before any donor is reused, it asks
+SGLang to evict its device copy and then requires a plan-only query to prove
+that the donor remains host-backed and eligible for a later native reload. If
+that proof fails, the experiment stops rather than pretending it created more
+host-to-GPU traffic.
+
+Run the first complete sweep with:
+
+```bash
+export SGLANG_DOCKER_IMAGE='your-pinned-sglang-image'
+export AGENTIC_MODEL_CACHE='/absolute/path/to/model-cache'
+export BACKEND_RUNTIME_PROFILE='nvidia_standard'
+export REPORT_LABEL="kv_pressure_duty_sweep_$(date +%Y%m%d_%H%M%S)"
+TRIALS=3 bash infra/container/run_kv_pressure_duty_sweep_reference.sh \
+  Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The default probe uses 384 decode tokens, eight host-backed donors, and reload
+budgets of 20, 60, and 100 for low, medium, and high pressure. The knobs
+`LOW_LOAD_COUNT`, `MEDIUM_LOAD_COUNT`, `HIGH_LOAD_COUNT`,
+`LOW_MIN_CUDA_SHARE_PCT`, `MEDIUM_MIN_CUDA_SHARE_PCT`, and
+`HIGH_MIN_CUDA_SHARE_PCT` allow calibration on another machine. The report
+treats measured CUDA-load share as authoritative: low, medium, and high are
+requested budgets, not an assumption that a certain amount of physical
+contention occurred.
+
+The sweep rejects any run where a requested load lacks positive CUDA duration,
+falls outside active decode, does not intersect a client-visible decode
+interval, or cannot be reconciled with the requested count. It records total
+decode, TTFT, total KV moved, native CUDA copy time, active-copy share of
+decode, pressure-envelope share, and the number of recycle proofs.

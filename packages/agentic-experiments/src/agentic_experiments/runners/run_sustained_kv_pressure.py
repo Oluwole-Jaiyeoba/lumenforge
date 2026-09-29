@@ -201,15 +201,18 @@ async def load_donor(
     events: Path,
     trial_id: str,
     donor: dict[str, Any],
+    *,
+    load_sequence: int | None = None,
 ) -> dict[str, Any]:
     index = int(donor["donor_index"])
+    sequence = index if load_sequence is None else load_sequence
     result = await prepare_prefix(
         client,
         url=args.prepare_control_url,
         session_id=donor["session_id"],
         prefix_id=donor["prefix_id"],
         p_hash=donor["prompt_hash"],
-        request_id=f"{trial_id}-load-{index:02d}",
+        request_id=f"{trial_id}-load-{sequence:03d}-donor-{index:02d}",
         plan_only=False,
         min_load_tokens=args.min_load_tokens,
         minimum_host_tokens=args.minimum_host_tokens,
@@ -225,12 +228,13 @@ async def load_donor(
         load_id=load_id,
         timeout_ms=args.load_timeout_ms,
         event_path=events,
-        trial_id=f"{trial_id}-load-{index:02d}",
+        trial_id=f"{trial_id}-load-{sequence:03d}-donor-{index:02d}",
     )
     start_ns = load_start_ns(result, final_status)
     finish_ns = int(final_status.get("observed_ns") or 0) or None
     record = {
         "donor_index": index,
+        "load_sequence": sequence,
         "load_id": load_id,
         "result": result,
         "status_history": history,
