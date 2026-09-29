@@ -241,3 +241,30 @@ falls outside active decode, does not intersect a client-visible decode
 interval, or cannot be reconciled with the requested count. It records total
 decode, TTFT, total KV moved, native CUDA copy time, active-copy share of
 decode, pressure-envelope share, and the number of recycle proofs.
+
+## Natural multi-agent KV pressure
+
+The controlled duty sweep deliberately injects native reloads to establish a
+reference curve. `natural_multi_agent_kv_pressure` is the separate realism
+baseline: equal-priority synthetic agent sessions build context, wait for
+tools, and resume through ordinary requests. It never calls the prepared-prefix
+control API and never injects a reload. SGLang may naturally reload an evicted,
+host-backed prefix when one of those sessions resumes.
+
+The report records each replay decode, any native `HiRadixCache.load_back`
+events that overlap it, and the session that caused each observed reload. It
+maps observed reload counts to the controlled reference buckets, while clearly
+marking that count-based mapping as provisional until a profiler pass measures
+natural CUDA-copy share directly.
+
+Run the first observation-only baseline with:
+
+```bash
+export SGLANG_DOCKER_IMAGE='your-pinned-sglang-image'
+export AGENTIC_MODEL_CACHE='/absolute/path/to/model-cache'
+export BACKEND_RUNTIME_PROFILE='nvidia_standard'
+export REPORT_LABEL="natural_multi_agent_kv_pressure_$(date +%Y%m%d_%H%M%S)"
+SESSION_COUNT=8 TOOL_WAITS=3 SESSION_PREFIX_TOKENS=8192 REPLAY_TOKENS=384 \
+  bash infra/container/run_natural_multi_agent_kv_pressure_reference.sh \
+  Qwen/Qwen2.5-Coder-7B-Instruct
+```

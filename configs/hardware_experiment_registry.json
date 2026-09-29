@@ -197,6 +197,33 @@
       }
     },
     {
+      "id": "natural_multi_agent_kv_pressure",
+      "name": "Natural Multi-Agent KV Pressure",
+      "status": "planned",
+      "question": "Under a production-shaped, equal-priority agent workload, how often do normal session replays naturally reload host-resident KV while another session is decoding?",
+      "platform": "nvidia_standard; record the exact GPU in the run manifest",
+      "backend": "pinned 0.5.10.post1 runtime and selected adapter",
+      "control": "Ordinary equal-priority session replays after tool waits. The runner does not issue prepared-prefix control requests or synthetic reload commands.",
+      "interference": "Natural cache pressure caused only by concurrent sessions building context, waiting for tools, and resuming through ordinary replay requests.",
+      "held_constant": "Model, session count, tool-wait distribution, context and output lengths, stagger, backend flags, and seed where applicable.",
+      "production_analogy": "Several coding-agent sessions pause for tools and then resume; some may need host-resident KV returned to GPU while another session is generating.",
+      "what_proves": "A measured distribution of native SGLang load-back overlap counts during ordinary replay decodes, not a synthetic transfer injection.",
+      "limitations": "A natural overlap count is only a provisional mapping to the controlled pressure sweep. A profiler pass is still required to attribute physical bandwidth or copy-engine utilization.",
+      "measurements": [
+        "Per-replay time to first token and total decode duration",
+        "Native SGLang load-back events overlapping each replay",
+        "Session and replay correlation for every observed load-back",
+        "Distribution of observed overlap counts against the controlled reference ranges"
+      ],
+      "evidence_rule": "Only native hiradix.load_back.end events tagged with this workload and a replay phase count as natural reloads. The report must retain the event-to-session correlation and state whether no natural reloads were observed.",
+      "run_id": null,
+      "command": null,
+      "report_path": null,
+      "manifest_path": null,
+      "evidence_path": null,
+      "results": {}
+    },
+    {
       "id": "active_compute_blocking",
       "name": "Replay Behind Active Compute",
       "status": "planned",
