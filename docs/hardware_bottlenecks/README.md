@@ -208,11 +208,13 @@ labels:
 3. `pressure_medium`: a larger native-reload budget.
 4. `pressure_high`: the largest native-reload budget.
 
-The runner reuses a small donor pool. Before any donor is reused, it asks
-SGLang to evict its device copy and then requires a plan-only query to prove
-that the donor remains host-backed and eligible for a later native reload. If
-that proof fails, the experiment stops rather than pretending it created more
-host-to-GPU traffic.
+The runner stages each donor by asking SGLang's native control path to evict
+its device copy, then requires a plan-only query to prove that the donor
+remains host-backed and eligible for a later native reload. It uses the same
+native evict-and-prove sequence before a donor is reused. If either proof
+fails, the experiment stops rather than pretending it created more
+host-to-GPU traffic. This avoids adding large unmeasured prompt work merely to
+stage the donor pool.
 
 Run the first complete sweep with:
 

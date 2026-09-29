@@ -164,6 +164,45 @@ async def prepare_prefix(
     return result
 
 
+async def evict_device_prefix(
+    client: httpx.AsyncClient,
+    *,
+    url: str,
+    session_id: str,
+    prefix_id: str,
+    p_hash: str,
+    request_id: str,
+    tokens: int,
+    source: str,
+) -> dict[str, Any]:
+    """Ask the backend to release a donor's device copy without new prompt work."""
+
+    request_started_ns = time.time_ns()
+    started = time.perf_counter()
+    response = await client.post(
+        url,
+        json={
+            "action": "evict_device",
+            "session_id": session_id,
+            "prefix_id": prefix_id,
+            "prompt_hash": p_hash,
+            "request_id": request_id,
+            "tokens": tokens,
+            "control_timeout_ms": 15_000,
+            "source": source,
+        },
+    )
+    try:
+        result = response.json()
+    except json.JSONDecodeError:
+        result = {"status": "non_json_response", "body": response.text[:500]}
+    result["http_status"] = response.status_code
+    result["control_request_started_ns"] = request_started_ns
+    result["control_response_ns"] = time.time_ns()
+    result["control_duration_ms"] = round((time.perf_counter() - started) * 1000, 3)
+    return result
+
+
 def eligible_host_prefix(plan: dict[str, Any]) -> bool:
     return (
         bool(plan.get("ok"))
@@ -217,22 +256,47 @@ async def stage_host_resident_prefix(
             return latest_plan, donor_session, donor_prefix, donor_hash
         if round_index == args.eviction_rounds:
             break
-        evictor_id = f"{trial_id}-evictor-{round_index:02d}"
-        evictor_prompt = make_prompt(evictor_id, args.eviction_prompt_tokens, unique=True)
-        await completion(
-            client,
-            base_url=args.base_url,
-            model=args.model,
-            prompt=evictor_prompt,
-            request_context=context(
-                session_id=evictor_id,
-                prefix_id=evictor_id,
-                phase="eviction_pressure",
-                request_id=evictor_id,
-                p_hash=prompt_hash(evictor_prompt),
-            ),
-            max_tokens=args.prime_max_tokens,
-        )
+        if getattr(args, "direct_device_evict_for_stage", False):
+            eviction = await evict_device_prefix(
+                client,
+                url=args.prepare_control_url,
+                session_id=donor_session,
+                prefix_id=donor_prefix,
+                p_hash=donor_hash,
+                request_id=f"{trial_id}-native-stage-evict-{round_index:02d}",
+                tokens=args.eviction_prompt_tokens,
+                source="hardware_kv_movement_interference.stage",
+            )
+            write_jsonl(
+                event_path,
+                {
+                    "event": "hardware_probe.donor_native_device_evict",
+                    "trial_id": trial_id,
+                    "round": round_index,
+                    "result": eviction,
+                },
+            )
+            if not eviction.get("ok"):
+                raise RuntimeError(
+                    f"{trial_id}: native donor device eviction failed: {json.dumps(eviction, sort_keys=True)}"
+                )
+        else:
+            evictor_id = f"{trial_id}-evictor-{round_index:02d}"
+            evictor_prompt = make_prompt(evictor_id, args.eviction_prompt_tokens, unique=True)
+            await completion(
+                client,
+                base_url=args.base_url,
+                model=args.model,
+                prompt=evictor_prompt,
+                request_context=context(
+                    session_id=evictor_id,
+                    prefix_id=evictor_id,
+                    phase="eviction_pressure",
+                    request_id=evictor_id,
+                    p_hash=prompt_hash(evictor_prompt),
+                ),
+                max_tokens=args.prime_max_tokens,
+            )
     raise RuntimeError(
         f"{trial_id}: donor prefix never became host-resident; final plan={json.dumps(latest_plan, sort_keys=True)}"
     )

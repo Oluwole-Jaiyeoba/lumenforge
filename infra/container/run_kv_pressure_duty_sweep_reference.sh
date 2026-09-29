@@ -210,6 +210,7 @@ run_condition() {
     --workload-id "${WORKLOAD_ID}" --seed "${SEED}" --decode-tokens "${DECODE_TOKENS}" --warmup-chunks "${WARMUP_CHUNKS}" \
     --donor-count "${DONOR_COUNT}" --donor-prompt-tokens "${DONOR_PROMPT_TOKENS}" \
     --eviction-prompt-tokens "${EVICTION_PROMPT_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}" \
+    --direct-device-evict-for-stage \
     --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --device-free-tokens "${DEVICE_FREE_TOKENS}" \
     --recycle-evict-tokens "${RECYCLE_EVICT_TOKENS}" --trials 1 --sample-offset "${sample_index}" "${append_arg[@]}"
   verify_trace "${trace_path}" "${count}"

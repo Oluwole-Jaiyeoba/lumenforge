@@ -270,6 +270,11 @@ async def main_async() -> None:
     parser.add_argument("--donor-prompt-tokens", type=int, default=8192)
     parser.add_argument("--eviction-prompt-tokens", type=int, default=8192)
     parser.add_argument("--eviction-rounds", type=int, default=8)
+    parser.add_argument(
+        "--direct-device-evict-for-stage",
+        action="store_true",
+        help="Stage donors with native device eviction, then prove host residency.",
+    )
     parser.add_argument("--minimum-host-tokens", type=int, default=512)
     parser.add_argument("--device-free-tokens", type=int, default=40_000)
     parser.add_argument("--recycle-evict-tokens", type=int, default=8192)
