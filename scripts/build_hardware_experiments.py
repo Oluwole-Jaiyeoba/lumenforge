@@ -71,6 +71,48 @@ def validate_registry(registry: dict[str, object], root: Path = ROOT) -> None:
         if manifest.get("completion_status") in (None, "", "created", "running"):
             raise ValueError(f"{experiment_id}: run manifest is not complete")
 
+    reference_results = registry.get("reference_results", [])
+    if not isinstance(reference_results, list):
+        raise ValueError("reference_results must be a list")
+    required_reference_fields = (
+        "experiment_id",
+        "condition",
+        "reloads",
+        "copy_share",
+        "total_decode",
+        "change",
+        "change_percent",
+        "ttft",
+        "trials",
+        "valid",
+    )
+    for row in reference_results:
+        if not isinstance(row, dict) or any(not row.get(field) for field in required_reference_fields):
+            raise ValueError("reference result is missing a required field")
+        if row["experiment_id"] not in ids:
+            raise ValueError(f"reference result names an unknown experiment: {row['experiment_id']}")
+
+
+def render_reference_results(rows: list[dict[str, object]], experiments: list[dict[str, object]]) -> str:
+    if not rows:
+        return ""
+    names = {str(item["id"]): str(item["name"]) for item in experiments}
+    body = "".join(
+        "<tr>"
+        f'<td><a href="#{escape(row["experiment_id"])}">{escape(names[str(row["experiment_id"])])}</a></td>'
+        f"<td>{escape(row['condition'])}</td><td>{escape(row['reloads'])}</td>"
+        f"<td>{escape(row['copy_share'])}</td><td>{escape(row['total_decode'])}</td>"
+        f"<td>{escape(row['change'])}</td><td>{escape(row['change_percent'])}</td>"
+        f"<td>{escape(row['ttft'])}</td><td>{escape(row['trials'])}</td><td>{escape(row['valid'])}</td>"
+        "</tr>"
+        for row in rows
+    )
+    return f"""<section class=\"reference-results\">
+<h2>Reference Results</h2>
+<p class=\"intro\">Completed, evidence-gated measurements. Changes compare each pressure condition with its paired control.</p>
+<div class=\"table-scroll\"><table><thead><tr><th>Experiment</th><th>Condition</th><th>Reloads</th><th>Copy share</th><th>Total decode</th><th>Change vs control</th><th>Change %</th><th>TTFT</th><th>Trials</th><th>Valid</th></tr></thead><tbody>{body}</tbody></table></div>
+</section>"""
+
 
 def render_experiment(item: dict[str, object]) -> str:
     status = str(item["status"])
@@ -95,9 +137,18 @@ def render_experiment(item: dict[str, object]) -> str:
             f'<pre><code>{escape(item["command"])}</code></pre>'
             f'<table><tbody>{rows}</tbody></table><p class="links">{links}</p>'
         )
+    standard_fields = "".join(
+        f"<dt>{escape(label)}</dt><dd>{escape(item[key])}</dd>"
+        for key, label in (
+            ("production_analogy", "Production analogy"),
+            ("what_proves", "What this establishes"),
+            ("limitations", "Limit"),
+        )
+        if item.get(key)
+    )
     return f"""<section class="experiment" id="{escape(item['id'])}">
 <div class="heading"><div><h2>{escape(item['name'])}</h2><p>{escape(item['question'])}</p></div><span class="status {escape(status)}">{escape(STATUS_LABELS[status])}</span></div>
-<dl><dt>Platform</dt><dd>{escape(item['platform'])}</dd><dt>Backend</dt><dd>{escape(item['backend'])}</dd><dt>Control</dt><dd>{escape(item['control'])}</dd><dt>Interference</dt><dd>{escape(item['interference'])}</dd><dt>Held constant</dt><dd>{escape(item['held_constant'])}</dd></dl>
+<dl><dt>Platform</dt><dd>{escape(item['platform'])}</dd><dt>Backend</dt><dd>{escape(item['backend'])}</dd><dt>Control</dt><dd>{escape(item['control'])}</dd><dt>Interference</dt><dd>{escape(item['interference'])}</dd><dt>Held constant</dt><dd>{escape(item['held_constant'])}</dd>{standard_fields}</dl>
 <h3>Measurements</h3><ul>{measurements}</ul><p class="evidence"><strong>Evidence rule:</strong> {escape(item['evidence_rule'])}</p>
 <h3>Result</h3>{result_html}</section>"""
 
@@ -109,6 +160,7 @@ def build(registry: dict[str, object]) -> str:
         for item in registry["experiments"]
     )
     experiments = "\n".join(render_experiment(item) for item in registry["experiments"])
+    reference_results = render_reference_results(registry.get("reference_results", []), registry["experiments"])
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(registry['title'])}</title><style>
@@ -116,8 +168,9 @@ def build(registry: dict[str, object]) -> str:
 body {{ margin: 0; line-height: 1.5; }} main {{ max-width: 1100px; margin: auto; padding: 32px 24px 72px; }}
 h1 {{ font-size: 30px; margin: 0 0 8px; }} h2 {{ font-size: 21px; margin: 0 0 4px; }} h3 {{ font-size: 15px; margin: 20px 0 4px; }}
 p {{ margin: 6px 0 12px; }} .intro {{ color: #526273; max-width: 850px; }} nav {{ display: flex; flex-wrap: wrap; gap: 18px; margin: 22px 0 32px; }}
-a {{ color: #08648b; }} .index {{ overflow-x: auto; }} table {{ border-collapse: collapse; width: 100%; }} th,td {{ text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #dfe5eb; }}
+a {{ color: #08648b; }} .index, .table-scroll {{ overflow-x: auto; }} table {{ border-collapse: collapse; width: 100%; }} th,td {{ text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #dfe5eb; }}
 .index th:nth-child(1) {{ min-width: 180px; }} .index th:nth-child(2) {{ min-width: 300px; }} .index th:nth-child(3) {{ min-width: 170px; }}
+.reference-results {{ margin: 28px 0 34px; padding: 18px; background: #fff; border: 1px solid #dfe5eb; }} .reference-results h2 {{ margin-bottom: 2px; }} .reference-results th {{ white-space: nowrap; background: #edf4f7; }} .reference-results td {{ white-space: nowrap; }}
 .experiment {{ border-top: 2px solid #9ab4c4; margin-top: 36px; padding-top: 22px; }} .heading {{ display: flex; align-items: start; justify-content: space-between; gap: 16px; }}
 .status {{ white-space: nowrap; font-size: 12px; font-weight: 650; padding: 5px 8px; border: 1px solid #b7c6d2; }} .validated {{ border-color: #478675; color: #14634d; }}
 .measured_pending_review {{ border-color: #a67937; color: #79500d; }} dl {{ display: grid; grid-template-columns: 125px minmax(0, 1fr); margin: 18px 0; }}
@@ -129,6 +182,7 @@ pre {{ overflow-x: auto; background: #1b2933; color: #f3f6f8; padding: 14px; }} 
 <h1>{escape(registry['title'])}</h1>
 <p class="intro">A separate research lane measuring GPU and memory bottlenecks before proposing hardware changes. Planned cases are not results. This page is generated from a structured registry.</p>
 <nav aria-label="Project lanes"><a href="CONTROLLER_EXPERIMENTS.html">Controller experiments</a><a href="HINT_BENCHMARK_RUNBOOK.html">Hint benchmark runbook</a><a href="ARCHITECTURE.md">Architecture</a></nav>
+{reference_results}
 <div class="index"><table><thead><tr><th>Experiment</th><th>Question</th><th>Status</th></tr></thead><tbody>{rows}</tbody></table></div>
 {experiments}
 </main></body></html>"""

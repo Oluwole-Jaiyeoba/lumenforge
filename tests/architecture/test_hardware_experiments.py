@@ -19,10 +19,11 @@ def registry() -> dict[str, object]:
     return json.loads((ROOT / "configs/hardware_experiment_registry.json").read_text(encoding="utf-8"))
 
 
-def test_page_is_current_and_cases_are_planned() -> None:
+def test_page_is_current_and_registry_is_valid() -> None:
     data = registry()
     validate_registry(data)
-    assert all(item["status"] == "planned" for item in data["experiments"])
+    assert any(item["status"] == "validated" for item in data["experiments"])
+    assert data["reference_results"]
     assert (ROOT / "HARDWARE_EXPERIMENTS.html").read_text(encoding="utf-8") == build(data)
 
 
@@ -36,14 +37,18 @@ def test_top_level_navigation_and_handoff_are_wired() -> None:
 
 def test_planned_case_cannot_claim_results() -> None:
     data = deepcopy(registry())
-    data["experiments"][0]["results"] = {"replay_ttft_ms": "1"}
+    planned = next(item for item in data["experiments"] if item["status"] == "planned")
+    planned["results"] = {"replay_ttft_ms": "1"}
     with pytest.raises(ValueError, match="planned case"):
         validate_registry(data)
 
 
 def test_validated_case_requires_real_evidence_files() -> None:
     data = deepcopy(registry())
-    data["experiments"][0].update(
+    planned = next(item for item in data["experiments"] if item["status"] == "planned")
+    data["experiments"] = [planned]
+    data["reference_results"] = []
+    planned.update(
         status="validated",
         run_id="run_1",
         command="run-probe",
@@ -64,7 +69,10 @@ def test_validated_case_rejects_mismatched_run_manifest(tmp_path: Path) -> None:
         ("evidence.csv", "sample_id,value_ms\n1,10\n"),
     ):
         (tmp_path / name).write_text(contents, encoding="utf-8")
-    data["experiments"][0].update(
+    planned = next(item for item in data["experiments"] if item["status"] == "planned")
+    data["experiments"] = [planned]
+    data["reference_results"] = []
+    planned.update(
         status="validated",
         run_id="run_1",
         command="run-probe",

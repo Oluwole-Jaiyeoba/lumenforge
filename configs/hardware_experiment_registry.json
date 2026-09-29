@@ -1,6 +1,56 @@
 {
   "schema_version": 1,
   "title": "Hardware Bottleneck Experiments",
+  "reference_results": [
+    {
+      "experiment_id": "kv_pressure_duty_sweep",
+      "condition": "Control",
+      "reloads": "0",
+      "copy_share": "0.0%",
+      "total_decode": "64.0 s",
+      "change": "--",
+      "change_percent": "--",
+      "ttft": "219.7 ms",
+      "trials": "3",
+      "valid": "3 / 3"
+    },
+    {
+      "experiment_id": "kv_pressure_duty_sweep",
+      "condition": "Low pressure",
+      "reloads": "20",
+      "copy_share": "7.7%",
+      "total_decode": "70.3 s",
+      "change": "+6.3 s",
+      "change_percent": "+9.8%",
+      "ttft": "219.1 ms",
+      "trials": "3",
+      "valid": "3 / 3"
+    },
+    {
+      "experiment_id": "kv_pressure_duty_sweep",
+      "condition": "Medium pressure",
+      "reloads": "60",
+      "copy_share": "20.2%",
+      "total_decode": "83.1 s",
+      "change": "+19.1 s",
+      "change_percent": "+29.9%",
+      "ttft": "221.8 ms",
+      "trials": "3",
+      "valid": "3 / 3"
+    },
+    {
+      "experiment_id": "kv_pressure_duty_sweep",
+      "condition": "High pressure",
+      "reloads": "100",
+      "copy_share": "29.6%",
+      "total_decode": "95.9 s",
+      "change": "+31.9 s",
+      "change_percent": "+49.9%",
+      "ttft": "220.9 ms",
+      "trials": "3",
+      "valid": "3 / 3"
+    }
+  ],
   "experiments": [
     {
       "id": "kv_movement_interference",
@@ -108,6 +158,42 @@
         "TTFT, control / single / sustained": "190.978 / 195.851 / 190.721 ms",
         "largest visible interval during sustained reload": "1,199.472 ms",
         "interpretation": "The stronger mechanism pass produced a visible sustained-decode penalty while TTFT stayed similar. This is one paired sanity sample, so the magnitude is provisional until the repeated run."
+      }
+    },
+    {
+      "id": "kv_pressure_duty_sweep",
+      "name": "KV Pressure Duty Sweep",
+      "status": "validated",
+      "question": "How does verified host-to-GPU KV reload pressure change the duration of an already-running decode?",
+      "platform": "nvidia_standard; NVIDIA A10G 24 GB",
+      "backend": "SGLang 0.5.10.post1 in the pinned container runtime with the v0510 adapter",
+      "control": "Decode a fixed 384-token response after staging eight host-resident donor prefixes, without native reloads during decode.",
+      "interference": "After 24 visible decode updates, reload 20, 60, or 100 host-backed donor prefixes through SGLang's native HiCache path.",
+      "held_constant": "Model, prompt and output length, seed, backend flags, donor pool, cache-staging method, device-cache preparation, and equal frontend request treatment.",
+      "production_analogy": "One agent is decoding while several other suspended agent sessions resume and need their host-resident KV context returned to GPU memory.",
+      "what_proves": "At higher measured native reload pressure, ongoing decode became consistently slower across three paired samples.",
+      "limitations": "This controlled workload proves interference from native KV reloads, but does not by itself isolate HBM bandwidth from copy-engine, cache, or stream-scheduling effects.",
+      "measurements": [
+        "Time to first token and total decode duration",
+        "Native CUDA load duration, copied token slots, and native-copy share of decode",
+        "Proof that each requested load completed during active decode",
+        "Paired decode-duration change versus the matching control sample"
+      ],
+      "evidence_rule": "Every requested native load must have positive CUDA duration, finish during active decode, intersect a visible decode interval, and retain a host-backed donor copy when recycled.",
+      "run_id": "kv_pressure_duty_sweep_20260929_155803",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' TRIALS=3 REPORT_LABEL='kv_pressure_duty_sweep_20260929_155803' bash infra/container/run_kv_pressure_duty_sweep_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/kv_pressure_duty_sweep_20260929_155803/kv_pressure_duty_sweep_report.html",
+      "manifest_path": "docs/reports/hardware/kv_pressure_duty_sweep_20260929_155803/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/kv_pressure_duty_sweep_20260929_155803/kv_pressure_duty_sweep_summary.json",
+      "results": {
+        "trials per condition": "3",
+        "control total decode": "63.953 s",
+        "low pressure, 20 reloads": "+6.296 s mean paired decode change; +9.8%",
+        "medium pressure, 60 reloads": "+19.128 s mean paired decode change; +29.9%",
+        "high pressure, 100 reloads": "+31.888 s mean paired decode change; +49.9%",
+        "TTFT across conditions": "219.125-221.761 ms; reloads began after first token",
+        "native CUDA load share": "7.690%, 20.177%, and 29.628% for low, medium, and high pressure",
+        "interpretation": "Increasing verified host-to-GPU KV reload pressure materially slowed ongoing decode while leaving TTFT essentially unchanged by design."
       }
     },
     {

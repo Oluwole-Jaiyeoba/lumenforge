@@ -1,0 +1,103 @@
+{
+  "conditions": [
+    {
+      "completed_loads": 0.0,
+      "condition": "decode_control",
+      "cuda_load_ms": 0.0,
+      "cuda_share_pct": 0.0,
+      "envelope_ms": 0.0,
+      "envelope_share_pct": 0.0,
+      "label": "Control: no KV reload",
+      "loaded_tokens": 0.0,
+      "recycle_proofs": 0.0,
+      "requested_loads": 0,
+      "total_decode_ms": 63952.812,
+      "trials": 3,
+      "ttft_ms": 219.671,
+      "valid_trials": 3
+    },
+    {
+      "completed_loads": 20.0,
+      "condition": "pressure_low",
+      "cuda_load_ms": 5413.193,
+      "cuda_share_pct": 7.69,
+      "envelope_ms": 7601.869,
+      "envelope_share_pct": 10.799,
+      "label": "Low KV pressure",
+      "loaded_tokens": 159635.0,
+      "recycle_proofs": 12.0,
+      "requested_loads": 20,
+      "total_decode_ms": 70321.893,
+      "trials": 3,
+      "ttft_ms": 219.125,
+      "valid_trials": 3
+    },
+    {
+      "completed_loads": 60.0,
+      "condition": "pressure_medium",
+      "cuda_load_ms": 16775.662,
+      "cuda_share_pct": 20.177,
+      "envelope_ms": 23423.499,
+      "envelope_share_pct": 28.173,
+      "label": "Medium KV pressure",
+      "loaded_tokens": 487195.0,
+      "recycle_proofs": 52.0,
+      "requested_loads": 60,
+      "total_decode_ms": 83139.547,
+      "trials": 3,
+      "ttft_ms": 221.761,
+      "valid_trials": 3
+    },
+    {
+      "completed_loads": 100.0,
+      "condition": "pressure_high",
+      "cuda_load_ms": 28423.567,
+      "cuda_share_pct": 29.628,
+      "envelope_ms": 39515.05,
+      "envelope_share_pct": 41.224,
+      "label": "High KV pressure",
+      "loaded_tokens": 814755.0,
+      "recycle_proofs": 92.0,
+      "requested_loads": 100,
+      "total_decode_ms": 95936.333,
+      "trials": 3,
+      "ttft_ms": 220.87,
+      "valid_trials": 3
+    }
+  ],
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "paired_decode_changes": {
+    "pressure_high": {
+      "changes_ms": [
+        31588.087,
+        32888.987,
+        31186.378
+      ],
+      "mean_decode_change_ms": 31887.817,
+      "median_decode_change_ms": 31588.087,
+      "paired_samples": 3
+    },
+    "pressure_low": {
+      "changes_ms": [
+        6369.081,
+        7079.699,
+        5440.446
+      ],
+      "mean_decode_change_ms": 6296.409,
+      "median_decode_change_ms": 6369.081,
+      "paired_samples": 3
+    },
+    "pressure_medium": {
+      "changes_ms": [
+        19188.973,
+        19823.27,
+        18370.915
+      ],
+      "mean_decode_change_ms": 19127.719,
+      "median_decode_change_ms": 19188.973,
+      "paired_samples": 3
+    }
+  },
+  "sample_set_id": "kv_pressure_duty_sweep_20260929_155803_samples",
+  "schema_version": "kv_pressure_duty_sweep_report.v1"
+}
