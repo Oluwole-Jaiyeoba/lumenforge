@@ -1,0 +1,556 @@
+{
+  "frontend_priority": "none",
+  "interpretation": "Natural means ordinary replay requests caused the observed SGLang load-back events; no prepared-prefix control requests were issued. Overlap counts begin after each replay's first token, so they describe active decode rather than that replay's own TTFT restore.",
+  "native_loads": [
+    {
+      "duration_ms": 9.549,
+      "end_ns": 1790703414573996334,
+      "node_id": 40,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+      "start_ns": 1790703414564447184
+    },
+    {
+      "duration_ms": 24.608,
+      "end_ns": 1790703418003908527,
+      "node_id": 44,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+      "start_ns": 1790703417979300348
+    },
+    {
+      "duration_ms": 24.533,
+      "end_ns": 1790703418049875265,
+      "node_id": 45,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+      "start_ns": 1790703418025342738
+    },
+    {
+      "duration_ms": 24.526,
+      "end_ns": 1790703418095861823,
+      "node_id": 46,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+      "start_ns": 1790703418071335647
+    },
+    {
+      "duration_ms": 24.738,
+      "end_ns": 1790703418142480083,
+      "node_id": 47,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+      "start_ns": 1790703418117741813
+    },
+    {
+      "duration_ms": 25.447,
+      "end_ns": 1790703421272579953,
+      "node_id": 48,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05",
+      "start_ns": 1790703421247133360
+    },
+    {
+      "duration_ms": 30.986,
+      "end_ns": 1790703526242852263,
+      "node_id": 55,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06",
+      "start_ns": 1790703526211866554
+    },
+    {
+      "duration_ms": 27.391,
+      "end_ns": 1790703526293513252,
+      "node_id": 64,
+      "phase": "replay_1",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07",
+      "start_ns": 1790703526266122377
+    },
+    {
+      "duration_ms": 26.837,
+      "end_ns": 1790703529441052838,
+      "node_id": 71,
+      "phase": "replay_2",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+      "start_ns": 1790703529414215472
+    },
+    {
+      "duration_ms": 26.897,
+      "end_ns": 1790703529489816370,
+      "node_id": 72,
+      "phase": "replay_2",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+      "start_ns": 1790703529462919113
+    },
+    {
+      "duration_ms": 30.169,
+      "end_ns": 1790703529541790259,
+      "node_id": 73,
+      "phase": "replay_2",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+      "start_ns": 1790703529511621247
+    },
+    {
+      "duration_ms": 26.874,
+      "end_ns": 1790703529590475060,
+      "node_id": 74,
+      "phase": "replay_2",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+      "start_ns": 1790703529563600805
+    },
+    {
+      "duration_ms": 28.761,
+      "end_ns": 1790703533121365213,
+      "node_id": 79,
+      "phase": "replay_3",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+      "start_ns": 1790703533092604043
+    },
+    {
+      "duration_ms": 26.777,
+      "end_ns": 1790703533170069385,
+      "node_id": 80,
+      "phase": "replay_3",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05",
+      "start_ns": 1790703533143292090
+    },
+    {
+      "duration_ms": 27.515,
+      "end_ns": 1790703535757701742,
+      "node_id": 85,
+      "phase": "replay_3",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+      "start_ns": 1790703535730186426
+    },
+    {
+      "duration_ms": 27.993,
+      "end_ns": 1790703535807440452,
+      "node_id": 86,
+      "phase": "replay_3",
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+      "start_ns": 1790703535779447438
+    }
+  ],
+  "native_reload_events": 16,
+  "observations": [
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.447,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 118239.153,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+      "tool_wait_ms": 1404,
+      "tool_wait_step": 1,
+      "ttft_ms": 13358.626
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.447,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 127580.657,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+      "tool_wait_ms": 902,
+      "tool_wait_step": 1,
+      "ttft_ms": 22700.163
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.447,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 122907.002,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+      "tool_wait_ms": 1153,
+      "tool_wait_step": 1,
+      "ttft_ms": 18026.635
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 113590.227,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05",
+      "tool_wait_ms": 1655,
+      "tool_wait_step": 1,
+      "ttft_ms": 10575.158
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.447,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 137009.735,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+      "tool_wait_ms": 400,
+      "tool_wait_step": 1,
+      "ttft_ms": 32129.69
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.447,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 132262.041,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+      "tool_wait_ms": 651,
+      "tool_wait_step": 1,
+      "ttft_ms": 27382.137
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 1851.335,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+      "tool_wait_ms": 420,
+      "tool_wait_step": 2,
+      "ttft_ms": 1850.508
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 1600.661,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05",
+      "tool_wait_ms": 671,
+      "tool_wait_step": 2,
+      "ttft_ms": 1600.16
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 4800.585,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+      "tool_wait_ms": 1770,
+      "tool_wait_step": 2,
+      "ttft_ms": 4799.365
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5553.007,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+      "tool_wait_ms": 1017,
+      "tool_wait_step": 2,
+      "ttft_ms": 5551.863
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5052.112,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+      "tool_wait_ms": 1519,
+      "tool_wait_step": 2,
+      "ttft_ms": 5051.082
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5303.21,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+      "tool_wait_ms": 1268,
+      "tool_wait_step": 2,
+      "ttft_ms": 5302.307
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5654.903,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+      "tool_wait_ms": 1037,
+      "tool_wait_step": 3,
+      "ttft_ms": 5654.268
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5405.173,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05",
+      "tool_wait_ms": 1288,
+      "tool_wait_step": 3,
+      "ttft_ms": 5404.725
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 3623.127,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+      "tool_wait_ms": 1634,
+      "tool_wait_step": 3,
+      "ttft_ms": 3621.865
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 4471.953,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+      "tool_wait_ms": 786,
+      "tool_wait_step": 3,
+      "ttft_ms": 4470.871
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 3372.63,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+      "tool_wait_ms": 1885,
+      "tool_wait_step": 3,
+      "ttft_ms": 3371.725
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 4721.129,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+      "tool_wait_ms": 535,
+      "tool_wait_step": 3,
+      "ttft_ms": 4720.413
+    },
+    {
+      "cross_session_reload_count": 8,
+      "cross_session_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_count": 8,
+      "natural_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 221.823,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 157424.718,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06",
+      "tool_wait_ms": 1906,
+      "tool_wait_step": 1,
+      "ttft_ms": 111208.175
+    },
+    {
+      "cross_session_reload_count": 8,
+      "cross_session_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_count": 8,
+      "natural_reload_sessions": [
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-00",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-01",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-02",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-03",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-04",
+        "natural_multi_agent_kv_pressure_reference_20260929_173509-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 221.823,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 152809.541,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07-replay-1",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07",
+      "tool_wait_ms": 556,
+      "tool_wait_step": 1,
+      "ttft_ms": 106593.551
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 314.67,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06",
+      "tool_wait_ms": 922,
+      "tool_wait_step": 2,
+      "ttft_ms": 314.401
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 558.669,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07-replay-2",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07",
+      "tool_wait_ms": 1173,
+      "tool_wait_step": 2,
+      "ttft_ms": 558.404
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 314.843,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-06",
+      "tool_wait_ms": 1539,
+      "tool_wait_step": 3,
+      "ttft_ms": 314.583
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 313.916,
+      "request_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07-replay-3",
+      "session_id": "natural_multi_agent_kv_pressure_reference_20260929_173509-session-07",
+      "tool_wait_ms": 1790,
+      "tool_wait_step": 3,
+      "ttft_ms": 313.645
+    }
+  ],
+  "pressure_buckets": {
+    "control_like": 17,
+    "high_like": 0,
+    "low_like": 7,
+    "medium_like": 0
+  },
+  "replay_count": 24,
+  "run_id": "natural_multi_agent_kv_pressure_reference_20260929_173509",
+  "schema_version": "natural_multi_agent_kv_pressure.v1",
+  "workload": {
+    "replay_tokens": 64,
+    "session_count": 8,
+    "session_prefix_tokens": 8192,
+    "tool_wait_range_ms": [
+      400,
+      2000
+    ],
+    "tool_waits_per_session": 3
+  }
+}

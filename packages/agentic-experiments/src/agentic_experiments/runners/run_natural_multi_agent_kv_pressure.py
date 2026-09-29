@@ -181,7 +181,7 @@ def correlate(replays: list[dict[str, Any]], loads: list[dict[str, Any]]) -> lis
                 "tool_wait_step": replay["tool_wait_step"],
                 "tool_wait_ms": replay["tool_wait_ms"],
                 "ttft_ms": replay["ttft_ms"],
-                "total_decode_ms": replay["total_latency_ms"],
+                "replay_duration_ms": replay["total_latency_ms"],
                 "natural_reload_count": len(overlaps),
                 "cross_session_reload_count": len(foreign_overlaps),
                 "natural_reload_sessions": sorted({str(load.get("session_id") or "") for load in overlaps}),

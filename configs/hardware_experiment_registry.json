@@ -199,7 +199,7 @@
     {
       "id": "natural_multi_agent_kv_pressure",
       "name": "Natural Multi-Agent KV Pressure",
-      "status": "planned",
+      "status": "measured_pending_review",
       "question": "Under a production-shaped, equal-priority agent workload, how often do normal session replays naturally reload host-resident KV while another session is decoding?",
       "platform": "nvidia_standard; record the exact GPU in the run manifest",
       "backend": "pinned 0.5.10.post1 runtime and selected adapter",
@@ -210,18 +210,25 @@
       "what_proves": "A measured distribution of native SGLang load-back overlap counts during ordinary replay decodes, not a synthetic transfer injection.",
       "limitations": "A natural overlap count is only a provisional mapping to the controlled pressure sweep. A profiler pass is still required to attribute physical bandwidth or copy-engine utilization.",
       "measurements": [
-        "Per-replay time to first token and total decode duration",
+        "Per-replay time to first token and end-to-end replay duration",
         "Native SGLang load-back events overlapping each post-first-token replay decode",
         "Session and replay correlation, including whether the loading session differs from the decoding session",
         "Distribution of observed overlap counts against the controlled reference ranges"
       ],
       "evidence_rule": "Only native hiradix.load_back.end events tagged with this workload and a replay phase count as natural reloads. Counts begin at the first streamed token, and the report must retain event-to-session correlation and state whether no natural reloads were observed.",
-      "run_id": null,
-      "command": null,
-      "report_path": null,
-      "manifest_path": null,
-      "evidence_path": null,
-      "results": {}
+      "run_id": "natural_multi_agent_kv_pressure_reference_20260929_173509",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' SESSION_COUNT=8 TOOL_WAITS=3 SESSION_PREFIX_TOKENS=8192 REPLAY_TOKENS=64 INITIAL_STAGGER_MS=75 TOOL_WAIT_MIN_MS=400 TOOL_WAIT_MAX_MS=2000 REPORT_LABEL='natural_multi_agent_kv_pressure_reference_20260929_173509' bash infra/container/run_natural_multi_agent_kv_pressure_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/natural_multi_agent_kv_pressure_reference_20260929_173509/natural_multi_agent_kv_pressure_report.html",
+      "manifest_path": "docs/reports/hardware/natural_multi_agent_kv_pressure_reference_20260929_173509/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/natural_multi_agent_kv_pressure_reference_20260929_173509/natural_multi_agent_kv_pressure_summary.json",
+      "results": {
+        "equal-priority sessions / replay turns": "8 sessions / 24 replays",
+        "native host-to-GPU load-backs": "16",
+        "post-first-token decode overlap": "7 of 24 replays (29.2%)",
+        "cross-session decode overlap": "7 of 24 replays (29.2%); every observed overlap came from another session",
+        "observed overlap buckets": "17 control-like, 7 low-like, 0 medium-like, 0 high-like",
+        "interpretation": "The ordinary multi-session workflow naturally produced cache reload pressure during active decoding. This first observation run measures occurrence and correlation, not a causal latency comparison."
+      }
     },
     {
       "id": "active_compute_blocking",
