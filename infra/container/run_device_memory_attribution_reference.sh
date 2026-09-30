@@ -18,6 +18,7 @@ TRIALS="${TRIALS:-1}"
 SEED="${SEED:-7}"
 DECODE_TOKENS="${DECODE_TOKENS:-128}"
 WARMUP_CHUNKS="${WARMUP_CHUNKS:-24}"
+TARGET_CONCURRENCY="${TARGET_CONCURRENCY:-1}"
 DONOR_PROMPT_TOKENS="${DONOR_PROMPT_TOKENS:-4090}"
 EVICTION_PROMPT_TOKENS="${EVICTION_PROMPT_TOKENS:-8192}"
 EVICTION_ROUNDS="${EVICTION_ROUNDS:-8}"
@@ -100,13 +101,21 @@ verify_profiler_output() {
 }
 
 summarize_profiler_timeline() {
-  local trial_dir="$1"
+  local trial_dir="$1" condition="$2"
   [[ "${PROFILE_TORCH}" == "1" ]] || return 0
   local trace
   trace="$(compgen -G "${trial_dir}/torch_cuda_profiles/torch_cuda_profile_*.json" | head -n 1)"
   python3 -m agentic_hardware_probes.torch_timeline \
     --trace "${trace}" \
     --out "${trial_dir}/torch_cuda_timeline_overlap.json"
+  if [[ "${REQUIRE_TORCH_GPU_COLLISION:-0}" == "1" && "${condition}" == "host_reload_collision" ]]; then
+    python3 - "${trial_dir}/torch_cuda_timeline_overlap.json" <<'PY'
+import json, sys
+summary = json.load(open(sys.argv[1], encoding="utf-8"))
+if not summary.get("actual_gpu_collision"):
+    raise SystemExit("Native reload was serialized before/after decode; no physical GPU copy/compute collision was observed.")
+PY
+  fi
 }
 
 run_condition() {
@@ -126,8 +135,8 @@ run_condition() {
     SERVER_PID="$!"; wait_for_server "${trial_dir}"
     append=(); (( index == 0 )) || append=(--append)
     min_load=(); [[ -z "${MIN_LOAD_TOKENS}" ]] || min_load=(--min-load-tokens "${MIN_LOAD_TOKENS}")
-    python3 -m agentic_experiments.runners.run_device_memory_attribution --condition "${condition}" --run-id "${REPORT_LABEL}_${condition}" --sample-set-id "${SAMPLE_SET_ID}" --out-dir "${condition_dir}" --model "${MODEL}" --hardware-profile "${HARDWARE_PROFILE}" --backend-version "${BACKEND_VERSION}" --seed "${SEED}" --decode-tokens "${DECODE_TOKENS}" --warmup-chunks "${WARMUP_CHUNKS}" --donor-prompt-tokens "${DONOR_PROMPT_TOKENS}" --eviction-prompt-tokens "${EVICTION_PROMPT_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --trials 1 --sample-offset "${index}" "${min_load[@]}" "${append[@]}"
-    verify_trace "${condition}" "${trace_path}"; cleanup_backend; verify_profiler_output "${trial_dir}"; summarize_profiler_timeline "${trial_dir}"
+    python3 -m agentic_experiments.runners.run_device_memory_attribution --condition "${condition}" --run-id "${REPORT_LABEL}_${condition}" --sample-set-id "${SAMPLE_SET_ID}" --out-dir "${condition_dir}" --model "${MODEL}" --hardware-profile "${HARDWARE_PROFILE}" --backend-version "${BACKEND_VERSION}" --seed "${SEED}" --decode-tokens "${DECODE_TOKENS}" --warmup-chunks "${WARMUP_CHUNKS}" --target-concurrency "${TARGET_CONCURRENCY}" --donor-prompt-tokens "${DONOR_PROMPT_TOKENS}" --eviction-prompt-tokens "${EVICTION_PROMPT_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --trials 1 --sample-offset "${index}" "${min_load[@]}" "${append[@]}"
+    verify_trace "${condition}" "${trace_path}"; cleanup_backend; verify_profiler_output "${trial_dir}"; summarize_profiler_timeline "${trial_dir}" "${condition}"
   done
 }
 
@@ -139,5 +148,5 @@ instrumentation=(--instrumentation "lightweight_backend_trace" --instrumentation
 if [[ "${PROFILE_TORCH}" == "1" ]]; then
   instrumentation+=(--instrumentation "torch_cuda_profiler")
 fi
-python3 "${REPO_ROOT}/scripts/create_run_manifest.py" --out "${RUN_ROOT}/run_manifest.json" --run-id "${REPORT_LABEL}" --experiment "device_memory_attribution" --model "${MODEL}" --hardware-profile "${HARDWARE_PROFILE}" --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" --workload-json "{\"sample_set_id\":\"${SAMPLE_SET_ID}\",\"trials_per_condition\":${TRIALS},\"seed\":${SEED},\"frontend_priority\":\"none\",\"conditions\":[\"target_only\",\"device_resident_control\",\"host_reload_collision\"],\"decode_tokens\":${DECODE_TOKENS},\"warmup_chunks\":${WARMUP_CHUNKS},\"profiler\":${PROFILE_TORCH}}" "${instrumentation[@]}" --artifact "report=${RUN_ROOT}/device_memory_attribution_report.html" --artifact "summary=${RUN_ROOT}/device_memory_attribution_summary.json" --completion-status complete
+python3 "${REPO_ROOT}/scripts/create_run_manifest.py" --out "${RUN_ROOT}/run_manifest.json" --run-id "${REPORT_LABEL}" --experiment "device_memory_attribution" --model "${MODEL}" --hardware-profile "${HARDWARE_PROFILE}" --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" --workload-json "{\"sample_set_id\":\"${SAMPLE_SET_ID}\",\"trials_per_condition\":${TRIALS},\"seed\":${SEED},\"frontend_priority\":\"none\",\"conditions\":[\"target_only\",\"device_resident_control\",\"host_reload_collision\"],\"decode_tokens\":${DECODE_TOKENS},\"warmup_chunks\":${WARMUP_CHUNKS},\"target_concurrency\":${TARGET_CONCURRENCY},\"profiler\":${PROFILE_TORCH}}" "${instrumentation[@]}" --artifact "report=${RUN_ROOT}/device_memory_attribution_report.html" --artifact "summary=${RUN_ROOT}/device_memory_attribution_summary.json" --completion-status complete
 echo "Complete: ${RUN_ROOT}/device_memory_attribution_report.html"

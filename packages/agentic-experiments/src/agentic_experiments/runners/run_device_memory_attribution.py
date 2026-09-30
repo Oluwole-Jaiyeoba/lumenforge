@@ -27,9 +27,9 @@ from .run_kv_movement_interference import (
 from .run_sustained_decode_kv_overlap import stream_decode, wait_for_load
 
 
-def target_prompt(trial_id: str) -> str:
+def target_prompt(trial_id: str, target_index: int) -> str:
     return (
-        f"Device-memory attribution target {trial_id}. Emit the word token followed by one space repeatedly. "
+        f"Device-memory attribution target {trial_id}-{target_index}. Emit the word token followed by one space repeatedly. "
         "Do not explain, summarize, number, punctuate, or stop early."
     )
 
@@ -72,18 +72,25 @@ async def run_trial(client: httpx.AsyncClient, args: argparse.Namespace, events:
         )
         write_jsonl(events, {"event": "device_memory_attribution.device_preload", "trial_id": trial_id, "result": preload_final})
 
-    active = asyncio.Event()
-    decode_task = asyncio.create_task(
-        stream_decode(
-            client, base_url=args.base_url, model=args.model, prompt=target_prompt(trial_id),
-            request_context=context(
-                session_id=f"{trial_id}-target", prefix_id=f"{trial_id}-target-prefix",
-                phase="device_memory_attribution", request_id=f"{trial_id}-target-decode",
-                p_hash=prompt_hash(target_prompt(trial_id)),
-            ), max_tokens=args.decode_tokens, warmup_chunks=args.warmup_chunks, warmup_ready=active,
+    active_events: list[asyncio.Event] = []
+    decode_tasks: list[asyncio.Task[dict[str, Any]]] = []
+    for target_index in range(args.target_concurrency):
+        prompt = target_prompt(trial_id, target_index)
+        active = asyncio.Event()
+        active_events.append(active)
+        decode_tasks.append(
+            asyncio.create_task(
+                stream_decode(
+                    client, base_url=args.base_url, model=args.model, prompt=prompt,
+                    request_context=context(
+                        session_id=f"{trial_id}-target-{target_index}", prefix_id=f"{trial_id}-target-{target_index}-prefix",
+                        phase="device_memory_attribution", request_id=f"{trial_id}-target-{target_index}-decode",
+                        p_hash=prompt_hash(prompt),
+                    ), max_tokens=args.decode_tokens, warmup_chunks=args.warmup_chunks, warmup_ready=active,
+                )
+            )
         )
-    )
-    await asyncio.wait_for(active.wait(), timeout=args.decode_timeout_s)
+    await asyncio.wait_for(asyncio.gather(*(active.wait() for active in active_events)), timeout=args.decode_timeout_s)
 
     collision_request: dict[str, Any] | None = None
     collision_final: dict[str, Any] | None = None
@@ -109,10 +116,12 @@ async def run_trial(client: httpx.AsyncClient, args: argparse.Namespace, events:
             and resident_probe.get("reason") == "No donor cache-path node was both evicted, host-backed, and large enough for this probe."
         )
         if not resident_probe.get("ok") and not resident_no_load:
-            decode_task.cancel()
+            for decode_task in decode_tasks:
+                decode_task.cancel()
             raise RuntimeError(f"{trial_id}: device-resident checkpoint failed: {json.dumps(resident_probe, sort_keys=True)}")
 
-    decode = await asyncio.wait_for(decode_task, timeout=args.decode_timeout_s)
+    target_decodes = await asyncio.wait_for(asyncio.gather(*decode_tasks), timeout=args.decode_timeout_s)
+    decode = target_decodes[0]
     active_status = next((row for row in collision_history if row.get("status") == "active"), None)
     load_started_ns = int((active_status or collision_final or {}).get("observed_ns") or 0) or None
     if active_status is None and collision_request:
@@ -141,6 +150,7 @@ async def run_trial(client: httpx.AsyncClient, args: argparse.Namespace, events:
         "collision_request": collision_request, "collision_final": collision_final,
         "collision_history": collision_history, "load_started_ns": load_started_ns,
         "load_finished_ns": load_finished_ns,
+        "target_concurrency": args.target_concurrency, "target_decodes": target_decodes,
         "native_overlap": native_overlap, "valid": valid,
         "cuda_load_duration_ms": (collision_final or {}).get("cuda_elapsed_ms"),
         "loaded_tokens": (collision_request or {}).get("loaded_tokens"),
@@ -169,6 +179,7 @@ async def main_async() -> None:
     parser.add_argument("--append", action="store_true")
     parser.add_argument("--decode-tokens", type=int, default=128)
     parser.add_argument("--warmup-chunks", type=int, default=24)
+    parser.add_argument("--target-concurrency", type=int, default=1)
     parser.add_argument("--donor-prompt-tokens", type=int, default=4090)
     parser.add_argument("--eviction-prompt-tokens", type=int, default=8192)
     parser.add_argument("--eviction-rounds", type=int, default=8)
@@ -178,8 +189,8 @@ async def main_async() -> None:
     parser.add_argument("--load-timeout-ms", type=int, default=30_000)
     parser.add_argument("--decode-timeout-s", type=float, default=180.0)
     args = parser.parse_args()
-    if args.trials < 1 or args.decode_tokens <= args.warmup_chunks or args.warmup_chunks < 1:
-        parser.error("trials must be positive and decode tokens must exceed warmup chunks")
+    if args.trials < 1 or args.decode_tokens <= args.warmup_chunks or args.warmup_chunks < 1 or args.target_concurrency < 1:
+        parser.error("trials and target concurrency must be positive, and decode tokens must exceed warmup chunks")
     args.out_dir.mkdir(parents=True, exist_ok=True)
     events = args.out_dir / "device_memory_attribution_events.jsonl"
     output = args.out_dir / "probe_run.json"
