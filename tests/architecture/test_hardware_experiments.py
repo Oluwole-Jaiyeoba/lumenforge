@@ -22,12 +22,11 @@ def registry() -> dict[str, object]:
 def test_page_is_current_and_registry_is_valid() -> None:
     data = registry()
     validate_registry(data)
-    assert any(item["status"] == "validated" for item in data["experiments"])
-    assert data["reference_results"]
     assert (ROOT / "HARDWARE_EXPERIMENTS.html").read_text(encoding="utf-8") == build(data)
     page = build(data)
-    assert "Completed Run Index" in page
-    assert "Numerical Results Ledger" in page
+    assert "Hardware Experiment Results Ledger" in page
+    assert "Reference Results" not in page
+    assert "Completed Run Index" not in page
     assert "natural_kv_pressure_comparison_20260929_180817" in page
     assert "paired sample 1" in page
 
@@ -52,7 +51,6 @@ def test_validated_case_requires_real_evidence_files() -> None:
     data = deepcopy(registry())
     planned = next(item for item in data["experiments"] if item["status"] == "planned")
     data["experiments"] = [planned]
-    data["reference_results"] = []
     planned.update(
         status="validated",
         run_id="run_1",
@@ -76,7 +74,6 @@ def test_validated_case_rejects_mismatched_run_manifest(tmp_path: Path) -> None:
         (tmp_path / name).write_text(contents, encoding="utf-8")
     planned = next(item for item in data["experiments"] if item["status"] == "planned")
     data["experiments"] = [planned]
-    data["reference_results"] = []
     planned.update(
         status="validated",
         run_id="run_1",

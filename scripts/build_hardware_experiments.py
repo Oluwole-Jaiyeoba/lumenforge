@@ -77,49 +77,6 @@ def validate_registry(registry: dict[str, object], root: Path = ROOT) -> None:
         if not isinstance(evidence, dict):
             raise ValueError(f"{experiment_id}: evidence must be a JSON object for the numerical ledger")
 
-    reference_results = registry.get("reference_results", [])
-    if not isinstance(reference_results, list):
-        raise ValueError("reference_results must be a list")
-    required_reference_fields = (
-        "experiment_id",
-        "condition",
-        "reloads",
-        "copy_share",
-        "total_decode",
-        "change",
-        "change_percent",
-        "ttft",
-        "trials",
-        "valid",
-    )
-    for row in reference_results:
-        if not isinstance(row, dict) or any(not row.get(field) for field in required_reference_fields):
-            raise ValueError("reference result is missing a required field")
-        if row["experiment_id"] not in ids:
-            raise ValueError(f"reference result names an unknown experiment: {row['experiment_id']}")
-
-
-def render_reference_results(rows: list[dict[str, object]], experiments: list[dict[str, object]]) -> str:
-    if not rows:
-        return ""
-    names = {str(item["id"]): str(item["name"]) for item in experiments}
-    body = "".join(
-        "<tr>"
-        f'<td><a href="#{escape(row["experiment_id"])}">{escape(names[str(row["experiment_id"])])}</a></td>'
-        f"<td>{escape(row['condition'])}</td><td>{escape(row['reloads'])}</td>"
-        f"<td>{escape(row['copy_share'])}</td><td>{escape(row['total_decode'])}</td>"
-        f"<td>{escape(row['change'])}</td><td>{escape(row['change_percent'])}</td>"
-        f"<td>{escape(row['ttft'])}</td><td>{escape(row['trials'])}</td><td>{escape(row['valid'])}</td>"
-        "</tr>"
-        for row in rows
-    )
-    return f"""<section class=\"reference-results\">
-<h2>Reference Results</h2>
-<p class=\"intro\">Completed, evidence-gated measurements. Changes compare each pressure condition with its paired control.</p>
-<div class=\"table-scroll\"><table><thead><tr><th>Experiment</th><th>Condition</th><th>Reloads</th><th>Copy share</th><th>Total decode</th><th>Change vs control</th><th>Change %</th><th>TTFT</th><th>Trials</th><th>Valid</th></tr></thead><tbody>{body}</tbody></table></div>
-</section>"""
-
-
 def metric_label(key: str) -> str:
     return key.replace("_", " ").replace("itl", "inter-token latency").replace("ttft", "TTFT")
 
@@ -301,130 +258,81 @@ def measurements_for(summary: dict[str, object]) -> list[dict[str, object]]:
     return condition_measurements(summary)
 
 
-def render_numerical_ledger(registry: dict[str, object], root: Path) -> str:
-    measured = [item for item in registry["experiments"] if item["status"] != "planned"]
-    sections: list[str] = []
-    for item in measured:
-        evidence_path = root / str(item["evidence_path"])
-        summary = json.loads(evidence_path.read_text(encoding="utf-8"))
-        rows = measurements_for(summary)
-        body = "".join(
-            "<tr>"
-            f"<td>{escape(row['condition'])}</td><td>{escape(row['metric'])}</td>"
-            f"<td>{escape(row['value'])}</td><td>{escape(row['unit'])}</td>"
-            f"<td>{escape(row['statistic'])}</td><td>{escape(row['sample_count'] if row['sample_count'] is not None else 'n/a')}</td>"
-            f"<td><code>{escape(row['provenance'])}</code></td></tr>"
-            for row in rows
-        )
-        sections.append(
-            f"<details><summary><strong>{escape(item['name'])}</strong> — <code>{escape(item['run_id'])}</code> "
-            f"({len(rows)} numerical values)</summary>"
-            f"<p><a href=\"{escape(item['evidence_path'])}\">Open raw evidence JSON</a> · "
-            f"<a href=\"{escape(item['report_path'])}\">Open report</a></p>"
-            "<div class=\"table-scroll\"><table><thead><tr><th>Condition / subgroup</th><th>Metric</th><th>Value</th><th>Unit</th><th>Statistic</th><th>N</th><th>JSON source</th></tr></thead>"
-            f"<tbody>{body}</tbody></table></div></details>"
-        )
-    return """<section class=\"numerical-ledger\">
-<h2>Numerical Results Ledger</h2>
-<p class=\"intro\">Every numeric measurement emitted by each completed run's summary evidence is listed below. This is not a hand-selected headline table. Individual replay and paired-trial values are retained where the summary provides them; linked evidence JSON contains the complete underlying record.</p>
-%s</section>""" % "\n".join(sections)
+def run_date(run_id: str) -> str:
+    match = re.search(r"_(\d{8})_\d{6}$", run_id)
+    if not match:
+        return "not recorded"
+    value = match.group(1)
+    return f"{value[:4]}-{value[4:6]}-{value[6:]}"
 
 
-def render_experiment(item: dict[str, object]) -> str:
-    status = str(item["status"])
-    measurements = "".join(f"<li>{escape(value)}</li>" for value in item["measurements"])
-    if status == "planned":
-        result_html = "<p class=\"pending\">No GPU measurements yet. A command and result will appear only after the run is implemented and evidence is reviewed.</p>"
-    else:
-        rows = "".join(
-            f"<tr><th>{escape(key.replace('_', ' '))}</th><td>{escape(value)}</td></tr>"
-            for key, value in item["results"].items()
-        )
-        links = "".join(
-            f'<a href="{escape(item[key])}">{label}</a>'
-            for key, label in (
-                ("report_path", "Report"),
-                ("manifest_path", "Run manifest"),
-                ("evidence_path", "Evidence"),
+def recorded_model(manifest: dict[str, object], evidence: dict[str, object]) -> str:
+    model = manifest.get("model") or evidence.get("model")
+    if isinstance(model, str) and model:
+        return model
+    if isinstance(model, dict):
+        for key in ("name", "model", "model_id"):
+            value = model.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return "not recorded"
+
+
+def comparison_basis(experiment_id: str) -> str:
+    if experiment_id in {"natural_multi_agent_kv_pressure", "natural_kv_pressure_performance_comparison"}:
+        return "Natural workload: no overlap versus reload overlap"
+    return "Controlled workload: control versus reload pressure"
+
+
+def render_results_ledger(registry: dict[str, object], root: Path) -> str:
+    body: list[str] = []
+    for item in registry["experiments"]:
+        if item["status"] == "planned":
+            continue
+        manifest = json.loads((root / str(item["manifest_path"])).read_text(encoding="utf-8"))
+        evidence = json.loads((root / str(item["evidence_path"])).read_text(encoding="utf-8"))
+        for row in measurements_for(evidence):
+            source = (
+                f'<a href="{escape(item["evidence_path"])}">JSON</a> · '
+                f'<a href="{escape(item["report_path"])}">report</a> · '
+                f'<code>{escape(row["provenance"])}</code>'
             )
-        )
-        result_html = (
-            f'<p><strong>Run:</strong> <code>{escape(item["run_id"])}</code></p>'
-            f'<pre><code>{escape(item["command"])}</code></pre>'
-            f'<table><tbody>{rows}</tbody></table><p class="links">{links}</p>'
-        )
-    standard_fields = "".join(
-        f"<dt>{escape(label)}</dt><dd>{escape(item[key])}</dd>"
-        for key, label in (
-            ("production_analogy", "Production analogy"),
-            ("what_proves", "What this establishes"),
-            ("limitations", "Limit"),
-        )
-        if item.get(key)
-    )
-    return f"""<section class="experiment" id="{escape(item['id'])}">
-<div class="heading"><div><h2>{escape(item['name'])}</h2><p>{escape(item['question'])}</p></div><span class="status {escape(status)}">{escape(STATUS_LABELS[status])}</span></div>
-<dl><dt>Platform</dt><dd>{escape(item['platform'])}</dd><dt>Backend</dt><dd>{escape(item['backend'])}</dd><dt>Control</dt><dd>{escape(item['control'])}</dd><dt>Interference</dt><dd>{escape(item['interference'])}</dd><dt>Held constant</dt><dd>{escape(item['held_constant'])}</dd>{standard_fields}</dl>
-<h3>Measurements</h3><ul>{measurements}</ul><p class="evidence"><strong>Evidence rule:</strong> {escape(item['evidence_rule'])}</p>
-<h3>Result</h3>{result_html}</section>"""
-
-
-def render_run_index(experiments: list[dict[str, object]]) -> str:
-    measured = [item for item in experiments if item["status"] != "planned"]
-    body = "".join(
-        "<tr>"
-        f'<td><a href="#{escape(item["id"])}">{escape(item["name"])}</a></td>'
-        f"<td><code>{escape(item['run_id'])}</code></td><td>{escape(item['platform'])}</td>"
-        f'<td><a href="{escape(item["evidence_path"])}">Evidence JSON</a> · '
-        f'<a href="{escape(item["manifest_path"])}">Manifest</a> · '
-        f'<a href="{escape(item["report_path"])}">Report</a></td></tr>'
-        for item in measured
-    )
-    return f"""<section class="run-index">
-<h2>Completed Run Index</h2>
-<p class="intro">Every completed hardware run with its stable identifier and source records.</p>
-<div class="table-scroll"><table><thead><tr><th>Experiment</th><th>Run ID</th><th>Platform</th><th>Source records</th></tr></thead><tbody>{body}</tbody></table></div>
+            body.append(
+                "<tr>"
+                f"<td>{escape(run_date(str(item['run_id'])))}</td>"
+                f"<td><code>{escape(item['run_id'])}</code></td>"
+                f"<td>{escape(item['name'])}</td><td>{escape(row['condition'])}</td>"
+                f"<td>{escape(row['metric'])}</td><td>{escape(row['value'])}</td>"
+                f"<td>{escape(row['unit'])}</td><td>{escape(row['statistic'])}</td>"
+                f"<td>{escape(row['sample_count'] if row['sample_count'] is not None else 'n/a')}</td>"
+                f"<td>{escape(item['platform'])}</td><td>{escape(recorded_model(manifest, evidence))}</td>"
+                f"<td>{escape(comparison_basis(str(item['id'])))}</td><td>{source}</td></tr>"
+            )
+    return f"""<section class="results-ledger">
+<h2>Hardware Experiment Results Ledger</h2>
+<p class="intro">One historical table for every completed hardware experiment. Each row is a numerical value from a run's evidence summary; values are not hand-selected. The source column links to the full evidence and run report.</p>
+<div class="table-scroll"><table><thead><tr><th>Run date</th><th>Run ID</th><th>Experiment</th><th>Condition / subgroup</th><th>Metric</th><th>Value</th><th>Unit</th><th>Statistic</th><th>N</th><th>Platform</th><th>Model</th><th>Comparison basis</th><th>Source</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>
 </section>"""
 
 
 def build(registry: dict[str, object], root: Path = ROOT) -> str:
-    rows = "".join(
-        f'<tr><td><a href="#{escape(item["id"])}">{escape(item["name"])}</a></td>'
-        f'<td>{escape(item["question"])}</td><td>{escape(STATUS_LABELS[item["status"]])}</td></tr>'
-        for item in registry["experiments"]
-    )
-    experiments = "\n".join(render_experiment(item) for item in registry["experiments"])
-    reference_results = render_reference_results(registry.get("reference_results", []), registry["experiments"])
-    run_index = render_run_index(registry["experiments"])
-    numerical_ledger = render_numerical_ledger(registry, root)
+    results_ledger = render_results_ledger(registry, root)
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(registry['title'])}</title><style>
 :root {{ font-family: system-ui, sans-serif; color: #182331; background: #f6f8fa; }}
 body {{ margin: 0; line-height: 1.5; }} main {{ max-width: 1100px; margin: auto; padding: 32px 24px 72px; }}
-h1 {{ font-size: 30px; margin: 0 0 8px; }} h2 {{ font-size: 21px; margin: 0 0 4px; }} h3 {{ font-size: 15px; margin: 20px 0 4px; }}
+h1 {{ font-size: 30px; margin: 0 0 8px; }} h2 {{ font-size: 21px; margin: 0 0 4px; }}
 p {{ margin: 6px 0 12px; }} .intro {{ color: #526273; max-width: 850px; }} nav {{ display: flex; flex-wrap: wrap; gap: 18px; margin: 22px 0 32px; }}
 a {{ color: #08648b; }} .index, .table-scroll {{ overflow-x: auto; }} table {{ border-collapse: collapse; width: 100%; }} th,td {{ text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #dfe5eb; }}
-.index th:nth-child(1) {{ min-width: 180px; }} .index th:nth-child(2) {{ min-width: 300px; }} .index th:nth-child(3) {{ min-width: 170px; }}
-.reference-results {{ margin: 28px 0 34px; padding: 18px; background: #fff; border: 1px solid #dfe5eb; }} .reference-results h2 {{ margin-bottom: 2px; }} .reference-results th {{ white-space: nowrap; background: #edf4f7; }} .reference-results td {{ white-space: nowrap; }}
-.run-index, .numerical-ledger {{ margin: 28px 0 34px; padding: 18px; background: #fff; border: 1px solid #dfe5eb; }} .run-index h2, .numerical-ledger h2 {{ margin-bottom: 2px; }}
-.numerical-ledger details {{ border-top: 1px solid #dfe5eb; padding: 12px 0; }} .numerical-ledger details:last-child {{ padding-bottom: 0; }} .numerical-ledger summary {{ cursor: pointer; color: #243645; }} .numerical-ledger table {{ font-size: 13px; }} .numerical-ledger th {{ white-space: nowrap; background: #edf4f7; }} .numerical-ledger td:nth-child(3), .numerical-ledger td:nth-child(6) {{ font-variant-numeric: tabular-nums; white-space: nowrap; }}
-.experiment {{ border-top: 2px solid #9ab4c4; margin-top: 36px; padding-top: 22px; }} .heading {{ display: flex; align-items: start; justify-content: space-between; gap: 16px; }}
-.status {{ white-space: nowrap; font-size: 12px; font-weight: 650; padding: 5px 8px; border: 1px solid #b7c6d2; }} .validated {{ border-color: #478675; color: #14634d; }}
-.measured_pending_review {{ border-color: #a67937; color: #79500d; }} dl {{ display: grid; grid-template-columns: 125px minmax(0, 1fr); margin: 18px 0; }}
-dt,dd {{ margin: 0; padding: 9px 0; border-bottom: 1px solid #dfe5eb; }} dt {{ font-weight: 650; color: #465666; }} ul {{ margin: 8px 0 16px; padding-left: 22px; }}
-.evidence {{ border-left: 3px solid #4d8998; padding-left: 12px; }} .pending {{ color: #5e6872; }} .links {{ display: flex; gap: 18px; flex-wrap: wrap; }}
-pre {{ overflow-x: auto; background: #1b2933; color: #f3f6f8; padding: 14px; }} code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
-@media (max-width: 640px) {{ main {{ padding: 22px 16px 48px; }} .heading {{ display: block; }} .status {{ display: inline-block; margin: 8px 0; }} dl {{ grid-template-columns: 100px minmax(0, 1fr); }} }}
+.results-ledger {{ margin: 28px 0 34px; padding: 18px; background: #fff; border: 1px solid #dfe5eb; }} .results-ledger h2 {{ margin-bottom: 2px; }} .results-ledger table {{ font-size: 13px; }} .results-ledger th {{ white-space: nowrap; background: #edf4f7; }} .results-ledger td:nth-child(1), .results-ledger td:nth-child(6), .results-ledger td:nth-child(9) {{ font-variant-numeric: tabular-nums; white-space: nowrap; }} .results-ledger td:nth-child(2), .results-ledger td:nth-child(3), .results-ledger td:nth-child(10), .results-ledger td:nth-child(11), .results-ledger td:nth-child(12) {{ min-width: 170px; }}
+code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+@media (max-width: 640px) {{ main {{ padding: 22px 16px 48px; }} }}
 </style></head><body><main>
 <h1>{escape(registry['title'])}</h1>
 <p class="intro">A separate research lane measuring GPU and memory bottlenecks before proposing hardware changes. Planned cases are not results. This page is generated from a structured registry.</p>
 <nav aria-label="Project lanes"><a href="CONTROLLER_EXPERIMENTS.html">Controller experiments</a><a href="HINT_BENCHMARK_RUNBOOK.html">Hint benchmark runbook</a><a href="ARCHITECTURE.md">Architecture</a></nav>
-{reference_results}
-{run_index}
-{numerical_ledger}
-<div class="index"><table><thead><tr><th>Experiment</th><th>Question</th><th>Status</th></tr></thead><tbody>{rows}</tbody></table></div>
-{experiments}
+{results_ledger}
 </main></body></html>"""
 
 
