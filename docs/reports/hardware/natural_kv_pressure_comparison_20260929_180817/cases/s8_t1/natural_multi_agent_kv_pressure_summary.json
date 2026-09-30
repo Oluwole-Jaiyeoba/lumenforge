@@ -1,0 +1,556 @@
+{
+  "frontend_priority": "none",
+  "interpretation": "Natural means ordinary replay requests caused the observed SGLang load-back events; no prepared-prefix control requests were issued. Overlap counts begin after each replay's first token, so they describe active decode rather than that replay's own TTFT restore.",
+  "native_loads": [
+    {
+      "duration_ms": 9.376,
+      "end_ns": 1790705935287627316,
+      "node_id": 40,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+      "start_ns": 1790705935278251289
+    },
+    {
+      "duration_ms": 24.336,
+      "end_ns": 1790705938705343711,
+      "node_id": 44,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+      "start_ns": 1790705938681007959
+    },
+    {
+      "duration_ms": 24.425,
+      "end_ns": 1790705938751048204,
+      "node_id": 45,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+      "start_ns": 1790705938726622970
+    },
+    {
+      "duration_ms": 24.321,
+      "end_ns": 1790705938796775187,
+      "node_id": 46,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+      "start_ns": 1790705938772454384
+    },
+    {
+      "duration_ms": 24.349,
+      "end_ns": 1790705938842544490,
+      "node_id": 47,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+      "start_ns": 1790705938818195168
+    },
+    {
+      "duration_ms": 25.192,
+      "end_ns": 1790705942068655539,
+      "node_id": 48,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05",
+      "start_ns": 1790705942043463292
+    },
+    {
+      "duration_ms": 30.439,
+      "end_ns": 1790706046175639233,
+      "node_id": 55,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06",
+      "start_ns": 1790706046145200592
+    },
+    {
+      "duration_ms": 27.148,
+      "end_ns": 1790706046225562660,
+      "node_id": 64,
+      "phase": "replay_1",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07",
+      "start_ns": 1790706046198414178
+    },
+    {
+      "duration_ms": 26.482,
+      "end_ns": 1790706049372197897,
+      "node_id": 71,
+      "phase": "replay_2",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+      "start_ns": 1790706049345716086
+    },
+    {
+      "duration_ms": 26.59,
+      "end_ns": 1790706049420608838,
+      "node_id": 72,
+      "phase": "replay_2",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+      "start_ns": 1790706049394019306
+    },
+    {
+      "duration_ms": 30.102,
+      "end_ns": 1790706049472464799,
+      "node_id": 73,
+      "phase": "replay_2",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+      "start_ns": 1790706049442362704
+    },
+    {
+      "duration_ms": 26.637,
+      "end_ns": 1790706049520815778,
+      "node_id": 74,
+      "phase": "replay_2",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+      "start_ns": 1790706049494178384
+    },
+    {
+      "duration_ms": 28.511,
+      "end_ns": 1790706053139250921,
+      "node_id": 79,
+      "phase": "replay_3",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+      "start_ns": 1790706053110739864
+    },
+    {
+      "duration_ms": 26.583,
+      "end_ns": 1790706053187668092,
+      "node_id": 80,
+      "phase": "replay_3",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05",
+      "start_ns": 1790706053161085320
+    },
+    {
+      "duration_ms": 27.925,
+      "end_ns": 1790706055800283858,
+      "node_id": 85,
+      "phase": "replay_3",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+      "start_ns": 1790706055772359152
+    },
+    {
+      "duration_ms": 27.394,
+      "end_ns": 1790706055849521664,
+      "node_id": 86,
+      "phase": "replay_3",
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+      "start_ns": 1790706055822127737
+    }
+  ],
+  "native_reload_events": 16,
+  "observations": [
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.192,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 136163.017,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+      "tool_wait_ms": 400,
+      "tool_wait_step": 1,
+      "ttft_ms": 32133.143
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5631.035,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+      "tool_wait_ms": 1017,
+      "tool_wait_step": 2,
+      "ttft_ms": 5630.038
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 3671.194,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+      "tool_wait_ms": 1634,
+      "tool_wait_step": 3,
+      "ttft_ms": 3670.212
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.192,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 131422.197,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+      "tool_wait_ms": 651,
+      "tool_wait_step": 1,
+      "ttft_ms": 27391.837
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5379.901,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+      "tool_wait_ms": 1268,
+      "tool_wait_step": 2,
+      "ttft_ms": 5378.791
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 3420.961,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+      "tool_wait_ms": 1885,
+      "tool_wait_step": 3,
+      "ttft_ms": 3419.805
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.192,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 126758.077,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+      "tool_wait_ms": 902,
+      "tool_wait_step": 1,
+      "ttft_ms": 22727.678
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5129.135,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+      "tool_wait_ms": 1519,
+      "tool_wait_step": 2,
+      "ttft_ms": 5128.267
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 4769.062,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+      "tool_wait_ms": 535,
+      "tool_wait_step": 3,
+      "ttft_ms": 4767.736
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.192,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 122098.33,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+      "tool_wait_ms": 1153,
+      "tool_wait_step": 1,
+      "ttft_ms": 18068.558
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 4876.435,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+      "tool_wait_ms": 1770,
+      "tool_wait_step": 2,
+      "ttft_ms": 4875.258
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 4520.739,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+      "tool_wait_ms": 786,
+      "tool_wait_step": 3,
+      "ttft_ms": 4519.952
+    },
+    {
+      "cross_session_reload_count": 1,
+      "cross_session_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_count": 1,
+      "natural_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 25.192,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 117441.352,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+      "tool_wait_ms": 1404,
+      "tool_wait_step": 1,
+      "ttft_ms": 13411.445
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 1840.377,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+      "tool_wait_ms": 420,
+      "tool_wait_step": 2,
+      "ttft_ms": 1839.774
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5762.371,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+      "tool_wait_ms": 1037,
+      "tool_wait_step": 3,
+      "ttft_ms": 5761.946
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 112796.637,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05",
+      "tool_wait_ms": 1655,
+      "tool_wait_step": 1,
+      "ttft_ms": 10635.457
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 1589.979,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05",
+      "tool_wait_ms": 671,
+      "tool_wait_step": 2,
+      "ttft_ms": 1588.572
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 5511.858,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05",
+      "tool_wait_ms": 1288,
+      "tool_wait_step": 3,
+      "ttft_ms": 5511.133
+    },
+    {
+      "cross_session_reload_count": 8,
+      "cross_session_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_count": 8,
+      "natural_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 220.224,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 156736.226,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06",
+      "tool_wait_ms": 1906,
+      "tool_wait_step": 1,
+      "ttft_ms": 110422.781
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 314.668,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06",
+      "tool_wait_ms": 922,
+      "tool_wait_step": 2,
+      "ttft_ms": 314.376
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 315.909,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-06",
+      "tool_wait_ms": 1539,
+      "tool_wait_step": 3,
+      "ttft_ms": 315.63
+    },
+    {
+      "cross_session_reload_count": 8,
+      "cross_session_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_count": 8,
+      "natural_reload_sessions": [
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-00",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-01",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-02",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-03",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-04",
+        "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-05"
+      ],
+      "natural_reload_trace_duration_ms": 220.224,
+      "pressure_bucket": "low_like",
+      "replay_duration_ms": 152046.742,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07-replay-1",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07",
+      "tool_wait_ms": 556,
+      "tool_wait_step": 1,
+      "ttft_ms": 105733.253
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 560.378,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07-replay-2",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07",
+      "tool_wait_ms": 1173,
+      "tool_wait_step": 2,
+      "ttft_ms": 560.1
+    },
+    {
+      "cross_session_reload_count": 0,
+      "cross_session_reload_sessions": [],
+      "natural_reload_count": 0,
+      "natural_reload_sessions": [],
+      "natural_reload_trace_duration_ms": 0,
+      "pressure_bucket": "control_like",
+      "replay_duration_ms": 313.013,
+      "request_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07-replay-3",
+      "session_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1-session-07",
+      "tool_wait_ms": 1790,
+      "tool_wait_step": 3,
+      "ttft_ms": 312.733
+    }
+  ],
+  "pressure_buckets": {
+    "control_like": 17,
+    "high_like": 0,
+    "low_like": 7,
+    "medium_like": 0
+  },
+  "replay_count": 24,
+  "run_id": "natural_kv_pressure_comparison_20260929_180817_s8_t1",
+  "schema_version": "natural_multi_agent_kv_pressure.v1",
+  "workload": {
+    "replay_tokens": 64,
+    "session_count": 8,
+    "session_prefix_tokens": 8192,
+    "tool_wait_range_ms": [
+      400,
+      2000
+    ],
+    "tool_waits_per_session": 3
+  }
+}

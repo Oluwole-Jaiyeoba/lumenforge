@@ -231,6 +231,40 @@
       }
     },
     {
+      "id": "natural_kv_pressure_performance_comparison",
+      "name": "Natural KV Reload-Overlap Performance Comparison",
+      "status": "measured_pending_review",
+      "question": "As equal-priority agent-session count rises, are ordinary replays that overlap another session's native KV reload slower than replays without such overlap?",
+      "platform": "nvidia_standard; exact GPU and backend runtime are recorded in the run manifest",
+      "backend": "pinned 0.5.10.post1 runtime and selected adapter",
+      "control": "Within the same equal-priority workload, replays with no post-first-token cross-session native load-back overlap.",
+      "interference": "Observed, not injected: another ordinary session's host-to-GPU KV load-back overlaps an active replay after its first token.",
+      "held_constant": "Model, backend flags, session shape, three tool waits per session, context length, replay length, stagger, and equal frontend request semantics.",
+      "production_analogy": "Multiple coding-agent sessions pause for tools and resume concurrently; a replay may be active while another suspended session restores its host-resident context to GPU memory.",
+      "what_proves": "Across repeated production-shaped workloads, higher session counts produced cross-session native reload overlaps whose replay group had substantially higher observed TTFT and full replay duration.",
+      "limitations": "This is observational: queue pressure or other shared state can contribute to both reload overlap and slow replay. The controlled reload-duty sweep remains the causal interference experiment.",
+      "measurements": [
+        "Three trials each at 4, 8, and 12 equal-priority sessions",
+        "Per-replay TTFT and full replay duration",
+        "Native host-to-GPU load-back events and their session identity",
+        "Replay groups with and without post-first-token cross-session load-back overlap"
+      ],
+      "evidence_rule": "A collision is counted only when a native replay-phase hiradix.load_back.end interval from a different session intersects the target replay after its first token and before its response completes. Empty overlap groups remain explicitly reported as n/a.",
+      "run_id": "natural_kv_pressure_comparison_20260929_180817",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' SESSION_LEVELS='4 8 12' TRIALS=3 TOOL_WAITS=3 SESSION_PREFIX_TOKENS=8192 REPLAY_TOKENS=64 INITIAL_STAGGER_MS=75 TOOL_WAIT_MIN_MS=400 TOOL_WAIT_MAX_MS=2000 CONNECT_TIMEOUT_S=120 REPORT_LABEL='natural_kv_pressure_comparison_20260929_180817' bash infra/container/run_natural_kv_pressure_comparison.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/natural_kv_pressure_comparison_20260929_180817/natural_kv_pressure_comparison_report.html",
+      "manifest_path": "docs/reports/hardware/natural_kv_pressure_comparison_20260929_180817/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/natural_kv_pressure_comparison_20260929_180817/natural_kv_pressure_comparison_summary.json",
+      "results": {
+        "coverage": "3 trials each: 36 replays at 4 sessions, 72 at 8 sessions, and 108 at 12 sessions",
+        "4-session overlap": "0 of 36 cross-session overlaps; median no-overlap TTFT 1.286 s",
+        "8-session overlap": "21 of 72 cross-session overlaps (29.2%); median TTFT 27.392 s with overlap versus 4.494 s without",
+        "12-session overlap": "15 of 108 cross-session overlaps (13.9%); median TTFT 43.346 s with overlap versus 13.265 s without",
+        "full replay duration": "At 8 sessions: 131.422 s with overlap versus 4.495 s without; at 12 sessions: 150.319 s with overlap versus 13.267 s without",
+        "interpretation": "Natural KV reload overlap appears in the higher-session workloads and is strongly associated with slower replays. This result does not isolate reload overlap from queue congestion."
+      }
+    },
+    {
       "id": "active_compute_blocking",
       "name": "Replay Behind Active Compute",
       "status": "planned",

@@ -1,0 +1,33 @@
+{
+  "artifact_locations": {
+    "report": "sglang_direct_kv/artifacts/results/hardware/natural_kv_pressure_comparison_20260929_180817/natural_kv_pressure_comparison_report.html",
+    "summary": "sglang_direct_kv/artifacts/results/hardware/natural_kv_pressure_comparison_20260929_180817/natural_kv_pressure_comparison_summary.json"
+  },
+  "backend_name": "",
+  "backend_runtime_contract": {},
+  "backend_version": "",
+  "completion_status": "complete",
+  "created_at_ms": 1790785945046,
+  "enabled_instrumentation": [
+    "lightweight_backend_trace",
+    "natural_session_timeline"
+  ],
+  "experiment": "natural_kv_pressure_comparison",
+  "git_commit": "",
+  "hardware_profile": "nvidia_standard",
+  "harness_versions": {},
+  "metadata": {},
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "package_versions": {},
+  "run_id": "natural_kv_pressure_comparison_20260929_180817",
+  "schema_version": "agentic_run_manifest.v2",
+  "seed": null,
+  "workload": {
+    "frontend_priority": "none",
+    "replay_tokens": 64,
+    "session_levels": "4 8 12",
+    "session_prefix_tokens": 8192,
+    "tool_waits": 3,
+    "trials": 3
+  }
+}

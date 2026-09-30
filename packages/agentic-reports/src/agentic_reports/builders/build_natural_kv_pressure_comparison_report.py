@@ -27,12 +27,14 @@ def fmt(value: float | None) -> str:
 def group_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
     ttft = [float(row["ttft_ms"]) for row in rows]
     duration = [float(row["replay_duration_ms"]) for row in rows]
+    p95_ttft = percentile(ttft, 0.95)
+    p95_duration = percentile(duration, 0.95)
     return {
         "replays": len(rows),
         "median_ttft_ms": round(float(median(ttft)), 3) if ttft else None,
-        "p95_ttft_ms": round(float(percentile(ttft, 0.95)), 3),
+        "p95_ttft_ms": round(float(p95_ttft), 3) if p95_ttft is not None else None,
         "median_replay_duration_ms": round(float(median(duration)), 3) if duration else None,
-        "p95_replay_duration_ms": round(float(percentile(duration, 0.95)), 3),
+        "p95_replay_duration_ms": round(float(p95_duration), 3) if p95_duration is not None else None,
     }
 
 

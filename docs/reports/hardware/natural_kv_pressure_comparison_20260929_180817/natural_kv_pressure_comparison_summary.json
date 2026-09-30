@@ -1,0 +1,87 @@
+{
+  "interpretation": "This is an observational comparison. A cross-session overlap is a native host-to-GPU load-back after another replay's first token; it is not by itself a causal latency estimate.",
+  "levels": [
+    {
+      "all_replays": {
+        "median_replay_duration_ms": 1286.208,
+        "median_ttft_ms": 1285.523,
+        "p95_replay_duration_ms": 86320.502,
+        "p95_ttft_ms": 12090.515,
+        "replays": 36
+      },
+      "cross_session_overlap": {
+        "median_replay_duration_ms": null,
+        "median_ttft_ms": null,
+        "p95_replay_duration_ms": null,
+        "p95_ttft_ms": null,
+        "replays": 0
+      },
+      "cross_session_overlap_pct": 0.0,
+      "native_reload_events": 0,
+      "no_cross_session_overlap": {
+        "median_replay_duration_ms": 1286.208,
+        "median_ttft_ms": 1285.523,
+        "p95_replay_duration_ms": 86320.502,
+        "p95_ttft_ms": 12090.515,
+        "replays": 36
+      },
+      "session_count": 4,
+      "trials": 3
+    },
+    {
+      "all_replays": {
+        "median_replay_duration_ms": 5277.544,
+        "median_ttft_ms": 5276.466,
+        "p95_replay_duration_ms": 153597.395,
+        "p95_ttft_ms": 107122.391,
+        "replays": 72
+      },
+      "cross_session_overlap": {
+        "median_replay_duration_ms": 131422.197,
+        "median_ttft_ms": 27391.837,
+        "p95_replay_duration_ms": 156736.226,
+        "p95_ttft_ms": 110422.781,
+        "replays": 21
+      },
+      "cross_session_overlap_pct": 29.2,
+      "native_reload_events": 48,
+      "no_cross_session_overlap": {
+        "median_replay_duration_ms": 4495.334,
+        "median_ttft_ms": 4494.272,
+        "p95_replay_duration_ms": 112406.467,
+        "p95_ttft_ms": 10622.59,
+        "replays": 51
+      },
+      "session_count": 8,
+      "trials": 3
+    },
+    {
+      "all_replays": {
+        "median_replay_duration_ms": 59593.455,
+        "median_ttft_ms": 21946.066,
+        "p95_replay_duration_ms": 229676.243,
+        "p95_ttft_ms": 130791.909,
+        "replays": 108
+      },
+      "cross_session_overlap": {
+        "median_replay_duration_ms": 150318.834,
+        "median_ttft_ms": 43346.126,
+        "p95_replay_duration_ms": 160546.063,
+        "p95_ttft_ms": 53407.972,
+        "replays": 15
+      },
+      "cross_session_overlap_pct": 13.9,
+      "native_reload_events": 108,
+      "no_cross_session_overlap": {
+        "median_replay_duration_ms": 13266.806,
+        "median_ttft_ms": 13265.457,
+        "p95_replay_duration_ms": 230676.186,
+        "p95_ttft_ms": 131552.702,
+        "replays": 93
+      },
+      "session_count": 12,
+      "trials": 3
+    }
+  ],
+  "schema_version": "natural_kv_pressure_comparison.v1"
+}
