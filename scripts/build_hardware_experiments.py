@@ -73,189 +73,56 @@ def validate_registry(registry: dict[str, object], root: Path = ROOT) -> None:
         try:
             evidence = json.loads((root / item["evidence_path"]).read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise ValueError(f"{experiment_id}: evidence must be JSON for the numerical ledger") from exc
+            raise ValueError(f"{experiment_id}: evidence must be JSON for the results ledger") from exc
         if not isinstance(evidence, dict):
-            raise ValueError(f"{experiment_id}: evidence must be a JSON object for the numerical ledger")
+            raise ValueError(f"{experiment_id}: evidence must be a JSON object for the results ledger")
+        manager_summary = item.get("manager_summary")
+        if not isinstance(manager_summary, list) or not manager_summary:
+            raise ValueError(f"{experiment_id}: completed experiment needs a manager_summary")
+        for row in manager_summary:
+            if not isinstance(row, dict) or any(not row.get(key) for key in ("condition", "study_type", "collision_intensity", "outcome", "unit", "sample_count_path")):
+                raise ValueError(f"{experiment_id}: invalid manager_summary row")
+            has_comparison = bool(row.get("baseline_path") and row.get("collision_path"))
+            has_observation = bool(row.get("observed_path"))
+            if has_comparison == has_observation:
+                raise ValueError(f"{experiment_id}: summary row needs either a comparison or an observation")
+            for key in ("sample_count_path", "baseline_path", "collision_path", "observed_path"):
+                path = row.get(key)
+                if path and not isinstance(value_at_path(evidence, str(path)), (int, float)):
+                    raise ValueError(f"{experiment_id}: {key} must resolve to a number")
 
-def metric_label(key: str) -> str:
-    return key.replace("_", " ").replace("itl", "inter-token latency").replace("ttft", "TTFT")
+def value_at_path(document: object, path: str) -> object:
+    """Read a simple dotted evidence path, including list indexes such as conditions[1].ttft_ms."""
 
-
-def metric_unit(key: str) -> str:
-    key = key.lower()
-    if key.endswith("_ms") or "duration_ms" in key:
-        return "ms"
-    if key.endswith("_pct") or "share" in key or "duty_cycle" in key:
-        return "%"
-    if "tokens" in key:
-        return "tokens"
-    if "loads" in key or "events" in key or "replays" in key or "trials" in key or "count" in key:
-        return "count"
-    if "updates_per_second" in key:
-        return "updates/s"
-    return "value"
-
-
-def metric_statistic(key: str) -> str:
-    key = key.lower()
-    for marker, label in (("p95", "p95"), ("median", "median"), ("mean", "mean"), ("max", "maximum")):
-        if marker in key:
-            return label
-    if key.startswith("valid_"):
-        return "accepted count"
-    return "reported value"
-
-
-def add_metric(
-    rows: list[dict[str, object]],
-    *,
-    condition: str,
-    metric: str,
-    value: int | float,
-    sample_count: int | float | None,
-    provenance: str,
-) -> None:
-    rows.append(
-        {
-            "condition": condition,
-            "metric": metric_label(metric),
-            "value": value,
-            "unit": metric_unit(metric),
-            "statistic": metric_statistic(metric),
-            "sample_count": sample_count,
-            "provenance": provenance,
-        }
-    )
+    value = document
+    for part in path.split("."):
+        match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?", part)
+        if not match:
+            raise ValueError(f"invalid evidence path: {path}")
+        key, index = match.groups()
+        if not isinstance(value, dict) or key not in value:
+            raise ValueError(f"evidence path not found: {path}")
+        value = value[key]
+        if index is not None:
+            if not isinstance(value, list) or int(index) >= len(value):
+                raise ValueError(f"evidence path not found: {path}")
+            value = value[int(index)]
+    return value
 
 
-def is_number(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+def format_value(value: float | int, unit: str) -> str:
+    if unit == "ms":
+        return f"{value / 1000:.1f} s" if abs(value) >= 1000 else f"{value:.1f} ms"
+    if unit == "%":
+        return f"{value:.1f}%"
+    if unit == "count":
+        return f"{value:,.0f}"
+    return f"{value:.1f} {unit}"
 
 
-def condition_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
-    """Extract every numeric condition field plus region metrics from known summaries."""
-
-    rows: list[dict[str, object]] = []
-    for condition in summary.get("conditions", []):
-        if not isinstance(condition, dict):
-            continue
-        label = str(condition.get("label") or condition.get("condition") or "Condition")
-        sample_count = condition.get("replays") or condition.get("trials")
-        for key, value in condition.items():
-            if is_number(value):
-                add_metric(rows, condition=label, metric=key, value=value, sample_count=sample_count, provenance=f"conditions.{key}")
-        regions = condition.get("regions")
-        if isinstance(regions, dict):
-            for region_name, region in regions.items():
-                if not isinstance(region, dict):
-                    continue
-                region_count = region.get("interval_count")
-                for key, value in region.items():
-                    if is_number(value):
-                        add_metric(
-                            rows,
-                            condition=f"{label} / {region_name}",
-                            metric=key,
-                            value=value,
-                            sample_count=region_count if is_number(region_count) else sample_count,
-                            provenance=f"conditions.regions.{region_name}.{key}",
-                        )
-    for paired_key in ("paired_decode_changes", "paired_decode_deltas"):
-        paired = summary.get(paired_key)
-        if not isinstance(paired, dict):
-            continue
-        for condition, values in paired.items():
-            if not isinstance(values, dict):
-                continue
-            sample_count = values.get("paired_samples")
-            for key, value in values.items():
-                if is_number(value):
-                    add_metric(rows, condition=str(condition), metric=key, value=value, sample_count=sample_count, provenance=f"{paired_key}.{condition}.{key}")
-                elif key == "changes_ms" and isinstance(value, list):
-                    for sample_index, sample in enumerate(value, start=1):
-                        if is_number(sample):
-                            add_metric(rows, condition=f"{condition} / paired sample {sample_index}", metric="decode_change_ms", value=sample, sample_count=1, provenance=f"{paired_key}.{condition}.changes_ms[{sample_index - 1}]")
-    return rows
-
-
-def natural_comparison_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for level in summary.get("levels", []):
-        if not isinstance(level, dict):
-            continue
-        sessions = level.get("session_count")
-        prefix = f"{sessions} sessions"
-        total_replays = level.get("all_replays", {}).get("replays") if isinstance(level.get("all_replays"), dict) else None
-        for key in ("trials", "native_reload_events", "cross_session_overlap_pct"):
-            value = level.get(key)
-            if is_number(value):
-                add_metric(rows, condition=prefix, metric=key, value=value, sample_count=total_replays if is_number(total_replays) else None, provenance=f"levels.{key}")
-        for group_key, group_label in (
-            ("all_replays", "all replays"),
-            ("no_cross_session_overlap", "no cross-session overlap"),
-            ("cross_session_overlap", "cross-session overlap"),
-        ):
-            group = level.get(group_key)
-            if not isinstance(group, dict):
-                continue
-            sample_count = group.get("replays")
-            for key, value in group.items():
-                if is_number(value):
-                    add_metric(rows, condition=f"{prefix} / {group_label}", metric=key, value=value, sample_count=sample_count if is_number(sample_count) else None, provenance=f"levels.{group_key}.{key}")
-    return rows
-
-
-def natural_observation_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    replay_count = summary.get("replay_count")
-    for key in ("replay_count", "native_reload_events"):
-        value = summary.get(key)
-        if is_number(value):
-            add_metric(rows, condition="Run total", metric=key, value=value, sample_count=replay_count if is_number(replay_count) else None, provenance=key)
-    buckets = summary.get("pressure_buckets")
-    if isinstance(buckets, dict):
-        for key, value in buckets.items():
-            if is_number(value):
-                add_metric(rows, condition="Run total", metric=f"{key}_replays", value=value, sample_count=replay_count if is_number(replay_count) else None, provenance=f"pressure_buckets.{key}")
-    for observation in summary.get("observations", []):
-        if not isinstance(observation, dict):
-            continue
-        request_id = str(observation.get("request_id") or "replay")
-        for key, value in observation.items():
-            if is_number(value) and not key.endswith("_ns"):
-                add_metric(rows, condition=request_id, metric=key, value=value, sample_count=1, provenance=f"observations.{key}")
-    for load_index, native_load in enumerate(summary.get("native_loads", []), start=1):
-        if not isinstance(native_load, dict):
-            continue
-        label = f"native reload {load_index}"
-        for key, value in native_load.items():
-            if is_number(value) and not key.endswith("_ns"):
-                add_metric(rows, condition=label, metric=key, value=value, sample_count=1, provenance=f"native_loads[{load_index - 1}].{key}")
-    return rows
-
-
-def movement_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for section_name in ("comparison", "lateness_comparison", "interference_loads", "software_visible_h2d"):
-        section = summary.get(section_name)
-        if not isinstance(section, dict):
-            continue
-        sample_count = section.get("sample_count") or section.get("trials")
-        for key, value in section.items():
-            if is_number(value):
-                add_metric(rows, condition=section_name.replace("_", " "), metric=key, value=value, sample_count=sample_count if is_number(sample_count) else None, provenance=f"{section_name}.{key}")
-    return rows
-
-
-def measurements_for(summary: dict[str, object]) -> list[dict[str, object]]:
-    schema = str(summary.get("schema_version", ""))
-    if schema == "natural_kv_pressure_comparison.v1":
-        return natural_comparison_measurements(summary)
-    if schema == "natural_multi_agent_kv_pressure.v1":
-        return natural_observation_measurements(summary)
-    if schema == "hardware_kv_movement_report.v1":
-        return movement_measurements(summary)
-    return condition_measurements(summary)
+def format_impact(difference: float, percent: float | None, unit: str) -> str:
+    absolute = format_value(difference, unit)
+    return absolute if percent is None else f"{absolute} ({percent:+.1f}%)"
 
 
 def run_date(run_id: str) -> str:
@@ -278,12 +145,6 @@ def recorded_model(manifest: dict[str, object], evidence: dict[str, object]) -> 
     return "not recorded"
 
 
-def comparison_basis(experiment_id: str) -> str:
-    if experiment_id in {"natural_multi_agent_kv_pressure", "natural_kv_pressure_performance_comparison"}:
-        return "Natural workload: no overlap versus reload overlap"
-    return "Controlled workload: control versus reload pressure"
-
-
 def render_results_ledger(registry: dict[str, object], root: Path) -> str:
     body: list[str] = []
     for item in registry["experiments"]:
@@ -291,27 +152,48 @@ def render_results_ledger(registry: dict[str, object], root: Path) -> str:
             continue
         manifest = json.loads((root / str(item["manifest_path"])).read_text(encoding="utf-8"))
         evidence = json.loads((root / str(item["evidence_path"])).read_text(encoding="utf-8"))
-        for row in measurements_for(evidence):
+        for row in item["manager_summary"]:
+            sample_count = value_at_path(evidence, row["sample_count_path"])
+            baseline_path = row.get("baseline_path")
+            collision_path = row.get("collision_path")
+            observed_path = row.get("observed_path")
+            if baseline_path and collision_path:
+                baseline = value_at_path(evidence, baseline_path)
+                collision = value_at_path(evidence, collision_path)
+                difference = collision - baseline
+                percent = difference / baseline * 100 if baseline else None
+                baseline_text = format_value(baseline, row["unit"])
+                collision_text = format_value(collision, row["unit"])
+                impact_text = format_impact(difference, percent, row["unit"])
+                impact_class = "impact-slower" if difference > 0 else "impact-faster" if difference < 0 else "impact-neutral"
+                source_path = collision_path
+            else:
+                observed = value_at_path(evidence, observed_path)
+                baseline_text = "n/a"
+                collision_text = format_value(observed, row["unit"])
+                impact_text = "n/a: occurrence-only run"
+                impact_class = "impact-neutral"
+                source_path = observed_path
             source = (
                 f'<a href="{escape(item["evidence_path"])}">JSON</a> · '
                 f'<a href="{escape(item["report_path"])}">report</a> · '
-                f'<code>{escape(row["provenance"])}</code>'
+                f'<code>{escape(source_path)}</code>'
             )
             body.append(
                 "<tr>"
                 f"<td>{escape(run_date(str(item['run_id'])))}</td>"
-                f"<td><code>{escape(item['run_id'])}</code></td>"
                 f"<td>{escape(item['name'])}</td><td>{escape(row['condition'])}</td>"
-                f"<td>{escape(row['metric'])}</td><td>{escape(row['value'])}</td>"
-                f"<td>{escape(row['unit'])}</td><td>{escape(row['statistic'])}</td>"
-                f"<td>{escape(row['sample_count'] if row['sample_count'] is not None else 'n/a')}</td>"
-                f"<td>{escape(item['platform'])}</td><td>{escape(recorded_model(manifest, evidence))}</td>"
-                f"<td>{escape(comparison_basis(str(item['id'])))}</td><td>{source}</td></tr>"
+                f"<td>{escape(row['study_type'])}</td><td>{escape(row['collision_intensity'])}</td>"
+                f"<td>{escape(row['outcome'])}</td><td>{escape(baseline_text)}</td>"
+                f"<td>{escape(collision_text)}</td><td class=\"{impact_class}\">{escape(impact_text)}</td>"
+                f"<td>{escape(format_value(sample_count, 'count'))}</td>"
+                f"<td>{escape(item['platform'])}<br><span class=\"model\">{escape(recorded_model(manifest, evidence))}</span></td>"
+                f"<td>{source}</td></tr>"
             )
     return f"""<section class="results-ledger">
-<h2>Hardware Experiment Results Ledger</h2>
-<p class="intro">One historical table for every completed hardware experiment. Each row is a numerical value from a run's evidence summary; values are not hand-selected. The source column links to the full evidence and run report.</p>
-<div class="table-scroll"><table><thead><tr><th>Run date</th><th>Run ID</th><th>Experiment</th><th>Condition / subgroup</th><th>Metric</th><th>Value</th><th>Unit</th><th>Statistic</th><th>N</th><th>Platform</th><th>Model</th><th>Comparison basis</th><th>Source</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>
+<h2>Collision Impact Summary</h2>
+<p class="intro">One row per meaningful collision condition. Controlled rows compare matched no-collision and collision runs. Observational rows show what occurred naturally and are not causal comparisons.</p>
+<div class="table-scroll"><table><thead><tr><th>Run date</th><th>Experiment</th><th>Condition</th><th>Study type</th><th>Collision intensity</th><th>Main outcome</th><th>No collision</th><th>With collision</th><th>Impact</th><th>N</th><th>Runtime</th><th>Evidence</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>
 </section>"""
 
 
@@ -325,7 +207,7 @@ body {{ margin: 0; line-height: 1.5; }} main {{ max-width: 1100px; margin: auto;
 h1 {{ font-size: 30px; margin: 0 0 8px; }} h2 {{ font-size: 21px; margin: 0 0 4px; }}
 p {{ margin: 6px 0 12px; }} .intro {{ color: #526273; max-width: 850px; }} nav {{ display: flex; flex-wrap: wrap; gap: 18px; margin: 22px 0 32px; }}
 a {{ color: #08648b; }} .index, .table-scroll {{ overflow-x: auto; }} table {{ border-collapse: collapse; width: 100%; }} th,td {{ text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #dfe5eb; }}
-.results-ledger {{ margin: 28px 0 34px; padding: 18px; background: #fff; border: 1px solid #dfe5eb; }} .results-ledger h2 {{ margin-bottom: 2px; }} .results-ledger table {{ font-size: 13px; }} .results-ledger th {{ white-space: nowrap; background: #edf4f7; }} .results-ledger td:nth-child(1), .results-ledger td:nth-child(6), .results-ledger td:nth-child(9) {{ font-variant-numeric: tabular-nums; white-space: nowrap; }} .results-ledger td:nth-child(2), .results-ledger td:nth-child(3), .results-ledger td:nth-child(10), .results-ledger td:nth-child(11), .results-ledger td:nth-child(12) {{ min-width: 170px; }}
+.results-ledger {{ margin: 28px 0 34px; padding: 20px; background: #fff; border: 1px solid #d7e2e8; box-shadow: 0 8px 20px rgba(29, 77, 94, .08); }} .results-ledger h2 {{ margin-bottom: 2px; color: #0d5167; }} .results-ledger table {{ font-size: 13px; }} .results-ledger th {{ white-space: nowrap; background: #dff3f0; color: #114957; }} .results-ledger tr:nth-child(even) {{ background: #f7fbfc; }} .results-ledger tr:hover {{ background: #fff8dc; }} .results-ledger td:nth-child(1), .results-ledger td:nth-child(7), .results-ledger td:nth-child(8), .results-ledger td:nth-child(9), .results-ledger td:nth-child(10) {{ font-variant-numeric: tabular-nums; white-space: nowrap; }} .results-ledger td:nth-child(2) {{ min-width: 170px; font-weight: 650; color: #243d4a; }} .results-ledger td:nth-child(5), .results-ledger td:nth-child(11) {{ min-width: 150px; }} .results-ledger .model {{ color: #58717c; }} .impact-slower {{ color: #a83b1d; font-weight: 700; background: #fff0e8; }} .impact-faster {{ color: #176b54; font-weight: 700; background: #e8f8ef; }} .impact-neutral {{ color: #566875; background: #eef3f5; }}
 code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
 @media (max-width: 640px) {{ main {{ padding: 22px 16px 48px; }} }}
 </style></head><body><main>

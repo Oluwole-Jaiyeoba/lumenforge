@@ -24,11 +24,12 @@ def test_page_is_current_and_registry_is_valid() -> None:
     validate_registry(data)
     assert (ROOT / "HARDWARE_EXPERIMENTS.html").read_text(encoding="utf-8") == build(data)
     page = build(data)
-    assert "Hardware Experiment Results Ledger" in page
+    assert "Collision Impact Summary" in page
     assert "Reference Results" not in page
     assert "Completed Run Index" not in page
     assert "natural_kv_pressure_comparison_20260929_180817" in page
-    assert "paired sample 1" in page
+    assert "20 reloads; 7.7% CUDA-copy share" in page
+    assert "21 of 72 replay overlaps (29.2%)" in page
 
 
 def test_top_level_navigation_and_handoff_are_wired() -> None:
@@ -44,6 +45,14 @@ def test_planned_case_cannot_claim_results() -> None:
     planned = next(item for item in data["experiments"] if item["status"] == "planned")
     planned["results"] = {"replay_ttft_ms": "1"}
     with pytest.raises(ValueError, match="planned case"):
+        validate_registry(data)
+
+
+def test_completed_case_requires_manager_summary() -> None:
+    data = deepcopy(registry())
+    completed = next(item for item in data["experiments"] if item["status"] != "planned")
+    del completed["manager_summary"]
+    with pytest.raises(ValueError, match="manager_summary"):
         validate_registry(data)
 
 

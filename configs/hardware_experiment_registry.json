@@ -24,6 +24,18 @@
       "report_path": "docs/reports/hardware/hardware_kv_movement_large_final_20260928_224413/hardware_kv_movement_report.html",
       "manifest_path": "docs/reports/hardware/hardware_kv_movement_large_final_20260928_224413/run_manifest.json",
       "evidence_path": "docs/reports/hardware/hardware_kv_movement_large_final_20260928_224413/hardware_kv_movement_summary.json",
+      "manager_summary": [
+        {
+          "condition": "Single verified reload",
+          "study_type": "Controlled",
+          "collision_intensity": "4 verified reloads; 4,040 tokens each",
+          "outcome": "Replay TTFT",
+          "unit": "ms",
+          "baseline_path": "comparison.control_median_ms",
+          "collision_path": "comparison.interference_median_ms",
+          "sample_count_path": "comparison.sample_count"
+        }
+      ],
       "results": {
         "sample pairs": "4",
         "replay TTFT, control median": "193.357 ms",
@@ -57,6 +69,18 @@
       "report_path": "docs/reports/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/sustained_decode_kv_overlap_report.html",
       "manifest_path": "docs/reports/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/run_manifest.json",
       "evidence_path": "docs/reports/hardware/sustained_decode_kv_overlap_sanity_20260929_031200/sustained_decode_kv_overlap_summary.json",
+      "manager_summary": [
+        {
+          "condition": "Reload during decode",
+          "study_type": "Controlled sanity",
+          "collision_intensity": "1 native reload; 4,039 tokens",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].median_total_decode_ms",
+          "collision_path": "conditions[2].median_total_decode_ms",
+          "sample_count_path": "conditions[2].valid_overlap_trials"
+        }
+      ],
       "results": {
         "trials per condition": "1",
         "loaded donor KV": "4,039 tokens",
@@ -94,6 +118,28 @@
       "report_path": "docs/reports/hardware/sustained_kv_pressure_sanity_20260929_050624/sustained_kv_pressure_report.html",
       "manifest_path": "docs/reports/hardware/sustained_kv_pressure_sanity_20260929_050624/run_manifest.json",
       "evidence_path": "docs/reports/hardware/sustained_kv_pressure_sanity_20260929_050624/sustained_kv_pressure_summary.json",
+      "manager_summary": [
+        {
+          "condition": "Single reload",
+          "study_type": "Controlled sanity",
+          "collision_intensity": "1 reload; 4,036 tokens; 0.4% decode share",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].median_total_decode_ms",
+          "collision_path": "conditions[1].median_total_decode_ms",
+          "sample_count_path": "conditions[1].valid_trials"
+        },
+        {
+          "condition": "Sustained reloads",
+          "study_type": "Controlled sanity",
+          "collision_intensity": "8 reloads; 32,707 tokens; 3.6% decode share",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].median_total_decode_ms",
+          "collision_path": "conditions[2].median_total_decode_ms",
+          "sample_count_path": "conditions[2].valid_trials"
+        }
+      ],
       "results": {
         "trials per condition": "1",
         "sustained native reloads": "8 of 8 passed",
@@ -135,6 +181,38 @@
       "report_path": "docs/reports/hardware/kv_pressure_duty_sweep_20260929_155803/kv_pressure_duty_sweep_report.html",
       "manifest_path": "docs/reports/hardware/kv_pressure_duty_sweep_20260929_155803/run_manifest.json",
       "evidence_path": "docs/reports/hardware/kv_pressure_duty_sweep_20260929_155803/kv_pressure_duty_sweep_summary.json",
+      "manager_summary": [
+        {
+          "condition": "Low pressure",
+          "study_type": "Controlled",
+          "collision_intensity": "20 reloads; 7.7% CUDA-copy share",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].total_decode_ms",
+          "collision_path": "conditions[1].total_decode_ms",
+          "sample_count_path": "conditions[1].valid_trials"
+        },
+        {
+          "condition": "Medium pressure",
+          "study_type": "Controlled",
+          "collision_intensity": "60 reloads; 20.2% CUDA-copy share",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].total_decode_ms",
+          "collision_path": "conditions[2].total_decode_ms",
+          "sample_count_path": "conditions[2].valid_trials"
+        },
+        {
+          "condition": "High pressure",
+          "study_type": "Controlled",
+          "collision_intensity": "100 reloads; 29.6% CUDA-copy share",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].total_decode_ms",
+          "collision_path": "conditions[3].total_decode_ms",
+          "sample_count_path": "conditions[3].valid_trials"
+        }
+      ],
       "results": {
         "trials per condition": "3",
         "control total decode": "63.953 s",
@@ -171,6 +249,17 @@
       "report_path": "docs/reports/hardware/natural_multi_agent_kv_pressure_reference_20260929_173509/natural_multi_agent_kv_pressure_report.html",
       "manifest_path": "docs/reports/hardware/natural_multi_agent_kv_pressure_reference_20260929_173509/run_manifest.json",
       "evidence_path": "docs/reports/hardware/natural_multi_agent_kv_pressure_reference_20260929_173509/natural_multi_agent_kv_pressure_summary.json",
+      "manager_summary": [
+        {
+          "condition": "8 equal-priority sessions",
+          "study_type": "Observational",
+          "collision_intensity": "16 native reloads; 7 of 24 replays overlapped (29.2%)",
+          "outcome": "Replays with natural reload overlap",
+          "unit": "count",
+          "observed_path": "pressure_buckets.low_like",
+          "sample_count_path": "replay_count"
+        }
+      ],
       "results": {
         "equal-priority sessions / replay turns": "8 sessions / 24 replays",
         "native host-to-GPU load-backs": "16",
@@ -205,6 +294,57 @@
       "report_path": "docs/reports/hardware/natural_kv_pressure_comparison_20260929_180817/natural_kv_pressure_comparison_report.html",
       "manifest_path": "docs/reports/hardware/natural_kv_pressure_comparison_20260929_180817/run_manifest.json",
       "evidence_path": "docs/reports/hardware/natural_kv_pressure_comparison_20260929_180817/natural_kv_pressure_comparison_summary.json",
+      "manager_summary": [
+        {
+          "condition": "4 sessions",
+          "study_type": "Observational",
+          "collision_intensity": "0 reload overlaps (0.0%)",
+          "outcome": "Replays with cross-session overlap",
+          "unit": "count",
+          "observed_path": "levels[0].cross_session_overlap.replays",
+          "sample_count_path": "levels[0].all_replays.replays"
+        },
+        {
+          "condition": "8 sessions",
+          "study_type": "Observational",
+          "collision_intensity": "21 of 72 replay overlaps (29.2%)",
+          "outcome": "Median replay TTFT",
+          "unit": "ms",
+          "baseline_path": "levels[1].no_cross_session_overlap.median_ttft_ms",
+          "collision_path": "levels[1].cross_session_overlap.median_ttft_ms",
+          "sample_count_path": "levels[1].cross_session_overlap.replays"
+        },
+        {
+          "condition": "8 sessions",
+          "study_type": "Observational",
+          "collision_intensity": "21 of 72 replay overlaps (29.2%)",
+          "outcome": "Median full replay duration",
+          "unit": "ms",
+          "baseline_path": "levels[1].no_cross_session_overlap.median_replay_duration_ms",
+          "collision_path": "levels[1].cross_session_overlap.median_replay_duration_ms",
+          "sample_count_path": "levels[1].cross_session_overlap.replays"
+        },
+        {
+          "condition": "12 sessions",
+          "study_type": "Observational",
+          "collision_intensity": "15 of 108 replay overlaps (13.9%)",
+          "outcome": "Median replay TTFT",
+          "unit": "ms",
+          "baseline_path": "levels[2].no_cross_session_overlap.median_ttft_ms",
+          "collision_path": "levels[2].cross_session_overlap.median_ttft_ms",
+          "sample_count_path": "levels[2].cross_session_overlap.replays"
+        },
+        {
+          "condition": "12 sessions",
+          "study_type": "Observational",
+          "collision_intensity": "15 of 108 replay overlaps (13.9%)",
+          "outcome": "Median full replay duration",
+          "unit": "ms",
+          "baseline_path": "levels[2].no_cross_session_overlap.median_replay_duration_ms",
+          "collision_path": "levels[2].cross_session_overlap.median_replay_duration_ms",
+          "sample_count_path": "levels[2].cross_session_overlap.replays"
+        }
+      ],
       "results": {
         "coverage": "3 trials each: 36 replays at 4 sessions, 72 at 8 sessions, and 108 at 12 sessions",
         "4-session overlap": "0 of 36 cross-session overlaps; median no-overlap TTFT 1.286 s",
