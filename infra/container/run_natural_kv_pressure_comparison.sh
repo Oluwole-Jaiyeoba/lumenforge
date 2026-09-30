@@ -11,6 +11,7 @@ DIRECT_ROOT="${REPO_ROOT}/sglang_direct_kv"
 REPORT_LABEL="${REPORT_LABEL:-natural_kv_pressure_comparison_$(date +%Y%m%d_%H%M%S)}"
 SESSION_LEVELS="${SESSION_LEVELS:-4 8 12}"
 TRIALS="${TRIALS:-3}"
+RESUME="${RESUME:-1}"
 TOOL_WAITS="${TOOL_WAITS:-3}"
 SESSION_PREFIX_TOKENS="${SESSION_PREFIX_TOKENS:-8192}"
 REPLAY_TOKENS="${REPLAY_TOKENS:-64}"
@@ -28,6 +29,10 @@ for sessions in ${SESSION_LEVELS}; do
   for ((trial = 1; trial <= TRIALS; trial++)); do
     case_id="s${sessions}_t${trial}"
     case_label="${REPORT_LABEL}_${case_id}"
+    if [[ "${RESUME}" == "1" && -s "${CASES_ROOT}/${case_id}/natural_multi_agent_kv_pressure_summary.json" ]]; then
+      echo "Skipping completed ${case_id}."
+      continue
+    fi
     echo "Starting ${case_id}: ${sessions} equal-priority sessions, trial ${trial}/${TRIALS}"
     REPORT_LABEL="${case_label}" \
     SESSION_COUNT="${sessions}" TOOL_WAITS="${TOOL_WAITS}" \

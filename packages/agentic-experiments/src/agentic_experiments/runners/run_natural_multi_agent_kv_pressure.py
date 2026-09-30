@@ -210,6 +210,12 @@ async def main_async() -> None:
     parser.add_argument("--tool-wait-max-ms", type=int, default=2000)
     parser.add_argument("--timeout-s", type=float, default=900.0)
     parser.add_argument(
+        "--connect-timeout-s",
+        type=float,
+        default=60.0,
+        help="Maximum time to wait for a new backend connection under queue pressure.",
+    )
+    parser.add_argument(
         "--rescore-events",
         type=Path,
         help="Rebuild the summary from an existing event log and backend trace without sending requests.",
@@ -226,7 +232,7 @@ async def main_async() -> None:
         replays = [row for row in load_events(args.rescore_events) if row.get("event") == "natural_kv.replay_complete"]
     else:
         events.write_text("", encoding="utf-8")
-        timeout = httpx.Timeout(args.timeout_s, connect=10.0)
+        timeout = httpx.Timeout(args.timeout_s, connect=args.connect_timeout_s)
         async with httpx.AsyncClient(timeout=timeout) as client:
             completed = await asyncio.gather(
                 *(run_session(client, args, events, index) for index in range(args.session_count))
