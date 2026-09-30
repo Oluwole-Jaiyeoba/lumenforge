@@ -103,12 +103,16 @@ run_condition() {
   local condition="$1"
   local condition_dir="${RUN_ROOT}/${condition}"
   rm -rf "${condition_dir}"; mkdir -p "${condition_dir}"
+  local profiler_start_events="${AGENTIC_KV_TORCH_PROFILER_START_EVENTS:-scheduler.run_batch}"
+  if [[ "${PROFILE_TORCH}" == "1" && "${condition}" == "host_reload_collision" && -z "${AGENTIC_KV_TORCH_PROFILER_START_EVENTS:-}" ]]; then
+    profiler_start_events="hostpool.load_to_device_per_layer"
+  fi
   for ((index=0; index<TRIALS; index++)); do
     local trial_dir="${condition_dir}/trial_$(printf '%03d' "${index}")"
     local trace_path="${trial_dir}/backend_trace.jsonl"
     mkdir -p "${trial_dir}"
     echo "Starting ${condition}, sample ${index}/${TRIALS}..."
-    ( cd "${DIRECT_ROOT}"; export AGENTIC_KV_TRACE_ENABLE=1 AGENTIC_KV_TRACE_PATH="${trace_path}" AGENTIC_KV_TRACE_SCHEDULER=1 AGENTIC_KV_TRACE_KV_POOL=1 AGENTIC_KV_COPY_TELEMETRY_ENABLE=1 AGENTIC_KV_COPY_TELEMETRY_PATH="${trial_dir}/kv_copy_telemetry.jsonl" AGENTIC_KV_PREPARE_CONTROL_ENABLE=1 AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1 AGENTIC_KV_PREPARE_CONTROL_PORT=31991 AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=30000 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}" MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}" AGENTIC_KV_TORCH_PROFILER_ENABLE="${PROFILE_TORCH}" AGENTIC_KV_TORCH_PROFILER_DIR="${trial_dir}/torch_cuda_profiles" AGENTIC_KV_TORCH_PROFILER_START_EVENTS="${AGENTIC_KV_TORCH_PROFILER_START_EVENTS:-scheduler.run_batch}" AGENTIC_KV_TORCH_PROFILER_STOP_AFTER_EVENTS="${AGENTIC_KV_TORCH_PROFILER_STOP_AFTER_EVENTS:-512}"; bash scripts/run_sglang_hicache_server.sh "${MODEL}" ) >"${trial_dir}/server.log" 2>&1 &
+    ( cd "${DIRECT_ROOT}"; export AGENTIC_KV_TRACE_ENABLE=1 AGENTIC_KV_TRACE_PATH="${trace_path}" AGENTIC_KV_TRACE_SCHEDULER=1 AGENTIC_KV_TRACE_KV_POOL=1 AGENTIC_KV_COPY_TELEMETRY_ENABLE=1 AGENTIC_KV_COPY_TELEMETRY_PATH="${trial_dir}/kv_copy_telemetry.jsonl" AGENTIC_KV_PREPARE_CONTROL_ENABLE=1 AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1 AGENTIC_KV_PREPARE_CONTROL_PORT=31991 AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=30000 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}" MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}" AGENTIC_KV_TORCH_PROFILER_ENABLE="${PROFILE_TORCH}" AGENTIC_KV_TORCH_PROFILER_DIR="${trial_dir}/torch_cuda_profiles" AGENTIC_KV_TORCH_PROFILER_START_EVENTS="${profiler_start_events}" AGENTIC_KV_TORCH_PROFILER_STOP_AFTER_EVENTS="${AGENTIC_KV_TORCH_PROFILER_STOP_AFTER_EVENTS:-64}" AGENTIC_KV_TORCH_PROFILER_PROFILE_MEMORY="${AGENTIC_KV_TORCH_PROFILER_PROFILE_MEMORY:-0}"; bash scripts/run_sglang_hicache_server.sh "${MODEL}" ) >"${trial_dir}/server.log" 2>&1 &
     SERVER_PID="$!"; wait_for_server "${trial_dir}"
     append=(); (( index == 0 )) || append=(--append)
     min_load=(); [[ -z "${MIN_LOAD_TOKENS}" ]] || min_load=(--min-load-tokens "${MIN_LOAD_TOKENS}")
