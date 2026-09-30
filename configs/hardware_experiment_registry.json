@@ -377,6 +377,61 @@
       "manifest_path": null,
       "evidence_path": null,
       "results": {}
+    },
+    {
+      "id": "device_memory_attribution",
+      "name": "Native KV Reload Attribution",
+      "status": "measured_pending_review",
+      "question": "Can a measured slowdown during active decode be separated from coordinator overhead and tied to SGLang's native host-to-device KV load-back?",
+      "platform": "nvidia_standard; describe results as device-memory attribution until repeated on HBM hardware",
+      "backend": "pinned 0.5.10.post1 runtime and selected adapter",
+      "control": "A staged host-resident donor exists but no donor action occurs after target decode begins.",
+      "interference": "Reload the same donor through SGLang's native HiCache load-back path after target decode has emitted its warmup stream updates.",
+      "held_constant": "Model, target prompt and output length, donor staging, seed, backend flags, and equal frontend request treatment.",
+      "measurements": [
+        "Target TTFT and total decode duration",
+        "Native CUDA-event load duration and loaded-token count",
+        "Strict ordering of decode start, native load start/end, and decode completion",
+        "A device-resident coordinator control that performs no host-to-device load after decode starts"
+      ],
+      "evidence_rule": "The host-reload case is accepted only when native SGLang load-back has positive CUDA duration and begins and ends inside active target decode. Profiler data remains a separate lane.",
+      "run_id": "device_memory_attribution_pilot_20260930_181509",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' BACKEND_RUNTIME_PROFILE='nvidia_standard' TRIALS=1 SEED=7 DECODE_TOKENS=128 WARMUP_CHUNKS=24 REPORT_LABEL='device_memory_attribution_pilot_20260930_181509' bash infra/container/run_device_memory_attribution_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/device_memory_attribution_pilot_20260930_181509/device_memory_attribution_report.html",
+      "manifest_path": "docs/reports/hardware/device_memory_attribution_pilot_20260930_181509/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/device_memory_attribution_pilot_20260930_181509/device_memory_attribution_summary.json",
+      "manager_summary": [
+        {
+          "condition": "Device-resident control",
+          "study_type": "Controlled pilot",
+          "collision_intensity": "No post-start host-to-device reload",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].median_total_decode_ms",
+          "collision_path": "conditions[1].median_total_decode_ms",
+          "sample_count_path": "conditions[1].valid_trials"
+        },
+        {
+          "condition": "Host reload during decode",
+          "study_type": "Controlled pilot",
+          "collision_intensity": "1 native reload; 4,039 tokens; 153.843 ms CUDA load",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].median_total_decode_ms",
+          "collision_path": "conditions[2].median_total_decode_ms",
+          "sample_count_path": "conditions[2].valid_trials"
+        }
+      ],
+      "results": {
+        "trials per condition": "1",
+        "target-only total decode": "21,989.166 ms",
+        "device-resident control total decode": "22,067.164 ms; +77.998 ms paired change",
+        "host reload total decode": "22,529.189 ms; +540.023 ms paired change",
+        "host-reload proof": "1 of 1: native load began and ended during target decode",
+        "native host-to-device load": "4,039 tokens; 153.843 ms CUDA duration",
+        "TTFT, target-only / device-resident / host reload": "541.995 / 507.861 / 547.268 ms",
+        "interpretation": "The strict software-timeline gate passed. This one-pair pilot separates the post-start host reload from the device-resident coordinator checkpoint, but repeated pairs and a profiler pass are still required for a physical bandwidth conclusion."
+      }
     }
   ]
 }
