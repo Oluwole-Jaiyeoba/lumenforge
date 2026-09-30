@@ -25,6 +25,11 @@ def test_page_is_current_and_registry_is_valid() -> None:
     assert any(item["status"] == "validated" for item in data["experiments"])
     assert data["reference_results"]
     assert (ROOT / "HARDWARE_EXPERIMENTS.html").read_text(encoding="utf-8") == build(data)
+    page = build(data)
+    assert "Completed Run Index" in page
+    assert "Numerical Results Ledger" in page
+    assert "natural_kv_pressure_comparison_20260929_180817" in page
+    assert "paired sample 1" in page
 
 
 def test_top_level_navigation_and_handoff_are_wired() -> None:

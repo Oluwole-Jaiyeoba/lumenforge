@@ -70,6 +70,12 @@ def validate_registry(registry: dict[str, object], root: Path = ROOT) -> None:
             raise ValueError(f"{experiment_id}: run manifest ID does not match registry")
         if manifest.get("completion_status") in (None, "", "created", "running"):
             raise ValueError(f"{experiment_id}: run manifest is not complete")
+        try:
+            evidence = json.loads((root / item["evidence_path"]).read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{experiment_id}: evidence must be JSON for the numerical ledger") from exc
+        if not isinstance(evidence, dict):
+            raise ValueError(f"{experiment_id}: evidence must be a JSON object for the numerical ledger")
 
     reference_results = registry.get("reference_results", [])
     if not isinstance(reference_results, list):
@@ -114,6 +120,216 @@ def render_reference_results(rows: list[dict[str, object]], experiments: list[di
 </section>"""
 
 
+def metric_label(key: str) -> str:
+    return key.replace("_", " ").replace("itl", "inter-token latency").replace("ttft", "TTFT")
+
+
+def metric_unit(key: str) -> str:
+    key = key.lower()
+    if key.endswith("_ms") or "duration_ms" in key:
+        return "ms"
+    if key.endswith("_pct") or "share" in key or "duty_cycle" in key:
+        return "%"
+    if "tokens" in key:
+        return "tokens"
+    if "loads" in key or "events" in key or "replays" in key or "trials" in key or "count" in key:
+        return "count"
+    if "updates_per_second" in key:
+        return "updates/s"
+    return "value"
+
+
+def metric_statistic(key: str) -> str:
+    key = key.lower()
+    for marker, label in (("p95", "p95"), ("median", "median"), ("mean", "mean"), ("max", "maximum")):
+        if marker in key:
+            return label
+    if key.startswith("valid_"):
+        return "accepted count"
+    return "reported value"
+
+
+def add_metric(
+    rows: list[dict[str, object]],
+    *,
+    condition: str,
+    metric: str,
+    value: int | float,
+    sample_count: int | float | None,
+    provenance: str,
+) -> None:
+    rows.append(
+        {
+            "condition": condition,
+            "metric": metric_label(metric),
+            "value": value,
+            "unit": metric_unit(metric),
+            "statistic": metric_statistic(metric),
+            "sample_count": sample_count,
+            "provenance": provenance,
+        }
+    )
+
+
+def is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def condition_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
+    """Extract every numeric condition field plus region metrics from known summaries."""
+
+    rows: list[dict[str, object]] = []
+    for condition in summary.get("conditions", []):
+        if not isinstance(condition, dict):
+            continue
+        label = str(condition.get("label") or condition.get("condition") or "Condition")
+        sample_count = condition.get("replays") or condition.get("trials")
+        for key, value in condition.items():
+            if is_number(value):
+                add_metric(rows, condition=label, metric=key, value=value, sample_count=sample_count, provenance=f"conditions.{key}")
+        regions = condition.get("regions")
+        if isinstance(regions, dict):
+            for region_name, region in regions.items():
+                if not isinstance(region, dict):
+                    continue
+                region_count = region.get("interval_count")
+                for key, value in region.items():
+                    if is_number(value):
+                        add_metric(
+                            rows,
+                            condition=f"{label} / {region_name}",
+                            metric=key,
+                            value=value,
+                            sample_count=region_count if is_number(region_count) else sample_count,
+                            provenance=f"conditions.regions.{region_name}.{key}",
+                        )
+    for paired_key in ("paired_decode_changes", "paired_decode_deltas"):
+        paired = summary.get(paired_key)
+        if not isinstance(paired, dict):
+            continue
+        for condition, values in paired.items():
+            if not isinstance(values, dict):
+                continue
+            sample_count = values.get("paired_samples")
+            for key, value in values.items():
+                if is_number(value):
+                    add_metric(rows, condition=str(condition), metric=key, value=value, sample_count=sample_count, provenance=f"{paired_key}.{condition}.{key}")
+                elif key == "changes_ms" and isinstance(value, list):
+                    for sample_index, sample in enumerate(value, start=1):
+                        if is_number(sample):
+                            add_metric(rows, condition=f"{condition} / paired sample {sample_index}", metric="decode_change_ms", value=sample, sample_count=1, provenance=f"{paired_key}.{condition}.changes_ms[{sample_index - 1}]")
+    return rows
+
+
+def natural_comparison_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for level in summary.get("levels", []):
+        if not isinstance(level, dict):
+            continue
+        sessions = level.get("session_count")
+        prefix = f"{sessions} sessions"
+        total_replays = level.get("all_replays", {}).get("replays") if isinstance(level.get("all_replays"), dict) else None
+        for key in ("trials", "native_reload_events", "cross_session_overlap_pct"):
+            value = level.get(key)
+            if is_number(value):
+                add_metric(rows, condition=prefix, metric=key, value=value, sample_count=total_replays if is_number(total_replays) else None, provenance=f"levels.{key}")
+        for group_key, group_label in (
+            ("all_replays", "all replays"),
+            ("no_cross_session_overlap", "no cross-session overlap"),
+            ("cross_session_overlap", "cross-session overlap"),
+        ):
+            group = level.get(group_key)
+            if not isinstance(group, dict):
+                continue
+            sample_count = group.get("replays")
+            for key, value in group.items():
+                if is_number(value):
+                    add_metric(rows, condition=f"{prefix} / {group_label}", metric=key, value=value, sample_count=sample_count if is_number(sample_count) else None, provenance=f"levels.{group_key}.{key}")
+    return rows
+
+
+def natural_observation_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    replay_count = summary.get("replay_count")
+    for key in ("replay_count", "native_reload_events"):
+        value = summary.get(key)
+        if is_number(value):
+            add_metric(rows, condition="Run total", metric=key, value=value, sample_count=replay_count if is_number(replay_count) else None, provenance=key)
+    buckets = summary.get("pressure_buckets")
+    if isinstance(buckets, dict):
+        for key, value in buckets.items():
+            if is_number(value):
+                add_metric(rows, condition="Run total", metric=f"{key}_replays", value=value, sample_count=replay_count if is_number(replay_count) else None, provenance=f"pressure_buckets.{key}")
+    for observation in summary.get("observations", []):
+        if not isinstance(observation, dict):
+            continue
+        request_id = str(observation.get("request_id") or "replay")
+        for key, value in observation.items():
+            if is_number(value) and not key.endswith("_ns"):
+                add_metric(rows, condition=request_id, metric=key, value=value, sample_count=1, provenance=f"observations.{key}")
+    for load_index, native_load in enumerate(summary.get("native_loads", []), start=1):
+        if not isinstance(native_load, dict):
+            continue
+        label = f"native reload {load_index}"
+        for key, value in native_load.items():
+            if is_number(value) and not key.endswith("_ns"):
+                add_metric(rows, condition=label, metric=key, value=value, sample_count=1, provenance=f"native_loads[{load_index - 1}].{key}")
+    return rows
+
+
+def movement_measurements(summary: dict[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for section_name in ("comparison", "lateness_comparison", "interference_loads", "software_visible_h2d"):
+        section = summary.get(section_name)
+        if not isinstance(section, dict):
+            continue
+        sample_count = section.get("sample_count") or section.get("trials")
+        for key, value in section.items():
+            if is_number(value):
+                add_metric(rows, condition=section_name.replace("_", " "), metric=key, value=value, sample_count=sample_count if is_number(sample_count) else None, provenance=f"{section_name}.{key}")
+    return rows
+
+
+def measurements_for(summary: dict[str, object]) -> list[dict[str, object]]:
+    schema = str(summary.get("schema_version", ""))
+    if schema == "natural_kv_pressure_comparison.v1":
+        return natural_comparison_measurements(summary)
+    if schema == "natural_multi_agent_kv_pressure.v1":
+        return natural_observation_measurements(summary)
+    if schema == "hardware_kv_movement_report.v1":
+        return movement_measurements(summary)
+    return condition_measurements(summary)
+
+
+def render_numerical_ledger(registry: dict[str, object], root: Path) -> str:
+    measured = [item for item in registry["experiments"] if item["status"] != "planned"]
+    sections: list[str] = []
+    for item in measured:
+        evidence_path = root / str(item["evidence_path"])
+        summary = json.loads(evidence_path.read_text(encoding="utf-8"))
+        rows = measurements_for(summary)
+        body = "".join(
+            "<tr>"
+            f"<td>{escape(row['condition'])}</td><td>{escape(row['metric'])}</td>"
+            f"<td>{escape(row['value'])}</td><td>{escape(row['unit'])}</td>"
+            f"<td>{escape(row['statistic'])}</td><td>{escape(row['sample_count'] if row['sample_count'] is not None else 'n/a')}</td>"
+            f"<td><code>{escape(row['provenance'])}</code></td></tr>"
+            for row in rows
+        )
+        sections.append(
+            f"<details><summary><strong>{escape(item['name'])}</strong> — <code>{escape(item['run_id'])}</code> "
+            f"({len(rows)} numerical values)</summary>"
+            f"<p><a href=\"{escape(item['evidence_path'])}\">Open raw evidence JSON</a> · "
+            f"<a href=\"{escape(item['report_path'])}\">Open report</a></p>"
+            "<div class=\"table-scroll\"><table><thead><tr><th>Condition / subgroup</th><th>Metric</th><th>Value</th><th>Unit</th><th>Statistic</th><th>N</th><th>JSON source</th></tr></thead>"
+            f"<tbody>{body}</tbody></table></div></details>"
+        )
+    return """<section class=\"numerical-ledger\">
+<h2>Numerical Results Ledger</h2>
+<p class=\"intro\">Every numeric measurement emitted by each completed run's summary evidence is listed below. This is not a hand-selected headline table. Individual replay and paired-trial values are retained where the summary provides them; linked evidence JSON contains the complete underlying record.</p>
+%s</section>""" % "\n".join(sections)
+
+
 def render_experiment(item: dict[str, object]) -> str:
     status = str(item["status"])
     measurements = "".join(f"<li>{escape(value)}</li>" for value in item["measurements"])
@@ -153,7 +369,25 @@ def render_experiment(item: dict[str, object]) -> str:
 <h3>Result</h3>{result_html}</section>"""
 
 
-def build(registry: dict[str, object]) -> str:
+def render_run_index(experiments: list[dict[str, object]]) -> str:
+    measured = [item for item in experiments if item["status"] != "planned"]
+    body = "".join(
+        "<tr>"
+        f'<td><a href="#{escape(item["id"])}">{escape(item["name"])}</a></td>'
+        f"<td><code>{escape(item['run_id'])}</code></td><td>{escape(item['platform'])}</td>"
+        f'<td><a href="{escape(item["evidence_path"])}">Evidence JSON</a> · '
+        f'<a href="{escape(item["manifest_path"])}">Manifest</a> · '
+        f'<a href="{escape(item["report_path"])}">Report</a></td></tr>'
+        for item in measured
+    )
+    return f"""<section class="run-index">
+<h2>Completed Run Index</h2>
+<p class="intro">Every completed hardware run with its stable identifier and source records.</p>
+<div class="table-scroll"><table><thead><tr><th>Experiment</th><th>Run ID</th><th>Platform</th><th>Source records</th></tr></thead><tbody>{body}</tbody></table></div>
+</section>"""
+
+
+def build(registry: dict[str, object], root: Path = ROOT) -> str:
     rows = "".join(
         f'<tr><td><a href="#{escape(item["id"])}">{escape(item["name"])}</a></td>'
         f'<td>{escape(item["question"])}</td><td>{escape(STATUS_LABELS[item["status"]])}</td></tr>'
@@ -161,6 +395,8 @@ def build(registry: dict[str, object]) -> str:
     )
     experiments = "\n".join(render_experiment(item) for item in registry["experiments"])
     reference_results = render_reference_results(registry.get("reference_results", []), registry["experiments"])
+    run_index = render_run_index(registry["experiments"])
+    numerical_ledger = render_numerical_ledger(registry, root)
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(registry['title'])}</title><style>
@@ -171,6 +407,8 @@ p {{ margin: 6px 0 12px; }} .intro {{ color: #526273; max-width: 850px; }} nav {
 a {{ color: #08648b; }} .index, .table-scroll {{ overflow-x: auto; }} table {{ border-collapse: collapse; width: 100%; }} th,td {{ text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #dfe5eb; }}
 .index th:nth-child(1) {{ min-width: 180px; }} .index th:nth-child(2) {{ min-width: 300px; }} .index th:nth-child(3) {{ min-width: 170px; }}
 .reference-results {{ margin: 28px 0 34px; padding: 18px; background: #fff; border: 1px solid #dfe5eb; }} .reference-results h2 {{ margin-bottom: 2px; }} .reference-results th {{ white-space: nowrap; background: #edf4f7; }} .reference-results td {{ white-space: nowrap; }}
+.run-index, .numerical-ledger {{ margin: 28px 0 34px; padding: 18px; background: #fff; border: 1px solid #dfe5eb; }} .run-index h2, .numerical-ledger h2 {{ margin-bottom: 2px; }}
+.numerical-ledger details {{ border-top: 1px solid #dfe5eb; padding: 12px 0; }} .numerical-ledger details:last-child {{ padding-bottom: 0; }} .numerical-ledger summary {{ cursor: pointer; color: #243645; }} .numerical-ledger table {{ font-size: 13px; }} .numerical-ledger th {{ white-space: nowrap; background: #edf4f7; }} .numerical-ledger td:nth-child(3), .numerical-ledger td:nth-child(6) {{ font-variant-numeric: tabular-nums; white-space: nowrap; }}
 .experiment {{ border-top: 2px solid #9ab4c4; margin-top: 36px; padding-top: 22px; }} .heading {{ display: flex; align-items: start; justify-content: space-between; gap: 16px; }}
 .status {{ white-space: nowrap; font-size: 12px; font-weight: 650; padding: 5px 8px; border: 1px solid #b7c6d2; }} .validated {{ border-color: #478675; color: #14634d; }}
 .measured_pending_review {{ border-color: #a67937; color: #79500d; }} dl {{ display: grid; grid-template-columns: 125px minmax(0, 1fr); margin: 18px 0; }}
@@ -183,6 +421,8 @@ pre {{ overflow-x: auto; background: #1b2933; color: #f3f6f8; padding: 14px; }} 
 <p class="intro">A separate research lane measuring GPU and memory bottlenecks before proposing hardware changes. Planned cases are not results. This page is generated from a structured registry.</p>
 <nav aria-label="Project lanes"><a href="CONTROLLER_EXPERIMENTS.html">Controller experiments</a><a href="HINT_BENCHMARK_RUNBOOK.html">Hint benchmark runbook</a><a href="ARCHITECTURE.md">Architecture</a></nav>
 {reference_results}
+{run_index}
+{numerical_ledger}
 <div class="index"><table><thead><tr><th>Experiment</th><th>Question</th><th>Status</th></tr></thead><tbody>{rows}</tbody></table></div>
 {experiments}
 </main></body></html>"""
@@ -196,7 +436,7 @@ def main() -> None:
     args = parser.parse_args()
     registry = json.loads(args.registry.read_text(encoding="utf-8"))
     validate_registry(registry)
-    rendered = build(registry)
+    rendered = build(registry, ROOT)
     if args.check:
         if not args.out.is_file() or args.out.read_text(encoding="utf-8") != rendered:
             parser.error(f"{args.out} is stale; rebuild it from the registry")
