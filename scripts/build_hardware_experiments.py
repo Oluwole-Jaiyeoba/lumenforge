@@ -133,6 +133,11 @@ def run_date(run_id: str) -> str:
     return f"{value[:4]}-{value[4:6]}-{value[6:]}"
 
 
+def run_sort_key(run_id: str) -> str:
+    match = re.search(r"_(\d{8}_\d{6})$", run_id)
+    return match.group(1) if match else ""
+
+
 def recorded_model(manifest: dict[str, object], evidence: dict[str, object]) -> str:
     model = manifest.get("model") or evidence.get("model")
     if isinstance(model, str) and model:
@@ -147,9 +152,12 @@ def recorded_model(manifest: dict[str, object], evidence: dict[str, object]) -> 
 
 def render_results_ledger(registry: dict[str, object], root: Path) -> str:
     body: list[str] = []
-    for item in registry["experiments"]:
-        if item["status"] == "planned":
-            continue
+    completed = sorted(
+        (item for item in registry["experiments"] if item["status"] != "planned"),
+        key=lambda item: run_sort_key(str(item["run_id"])),
+        reverse=True,
+    )
+    for item in completed:
         manifest = json.loads((root / str(item["manifest_path"])).read_text(encoding="utf-8"))
         evidence = json.loads((root / str(item["evidence_path"])).read_text(encoding="utf-8"))
         for row in item["manager_summary"]:

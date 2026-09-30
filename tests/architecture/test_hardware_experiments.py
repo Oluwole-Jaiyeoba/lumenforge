@@ -30,6 +30,7 @@ def test_page_is_current_and_registry_is_valid() -> None:
     assert "natural_kv_pressure_comparison_20260929_180817" in page
     assert "20 reloads; 7.7% CUDA-copy share" in page
     assert "21 of 72 replay overlaps (29.2%)" in page
+    assert page.index("Natural KV Reload-Overlap Performance Comparison") < page.index("KV Pressure Duty Sweep")
 
 
 def test_top_level_navigation_and_handoff_are_wired() -> None:
