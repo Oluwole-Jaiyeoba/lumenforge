@@ -90,6 +90,15 @@ if condition == "host_reload_collision":
 PY
 }
 
+verify_profiler_output() {
+  local trial_dir="$1"
+  [[ "${PROFILE_TORCH}" == "1" ]] || return 0
+  compgen -G "${trial_dir}/torch_cuda_profiles/torch_cuda_profile_*.json" >/dev/null || {
+    echo "Torch CUDA profiler was enabled but exported no timeline: ${trial_dir}" >&2
+    return 1
+  }
+}
+
 run_condition() {
   local condition="$1"
   local condition_dir="${RUN_ROOT}/${condition}"
@@ -99,12 +108,12 @@ run_condition() {
     local trace_path="${trial_dir}/backend_trace.jsonl"
     mkdir -p "${trial_dir}"
     echo "Starting ${condition}, sample ${index}/${TRIALS}..."
-    ( cd "${DIRECT_ROOT}"; export AGENTIC_KV_TRACE_ENABLE=1 AGENTIC_KV_TRACE_PATH="${trace_path}" AGENTIC_KV_TRACE_SCHEDULER=1 AGENTIC_KV_TRACE_KV_POOL=1 AGENTIC_KV_COPY_TELEMETRY_ENABLE=1 AGENTIC_KV_COPY_TELEMETRY_PATH="${trial_dir}/kv_copy_telemetry.jsonl" AGENTIC_KV_PREPARE_CONTROL_ENABLE=1 AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1 AGENTIC_KV_PREPARE_CONTROL_PORT=31991 AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=30000 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}" MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}" AGENTIC_KV_TORCH_PROFILER_ENABLE="${PROFILE_TORCH}" AGENTIC_KV_TORCH_PROFILER_DIR="${trial_dir}/torch_cuda_profiles" AGENTIC_KV_TORCH_PROFILER_START_EVENTS="${AGENTIC_KV_TORCH_PROFILER_START_EVENTS:-scheduler_batch_run}"; bash scripts/run_sglang_hicache_server.sh "${MODEL}" ) >"${trial_dir}/server.log" 2>&1 &
+    ( cd "${DIRECT_ROOT}"; export AGENTIC_KV_TRACE_ENABLE=1 AGENTIC_KV_TRACE_PATH="${trace_path}" AGENTIC_KV_TRACE_SCHEDULER=1 AGENTIC_KV_TRACE_KV_POOL=1 AGENTIC_KV_COPY_TELEMETRY_ENABLE=1 AGENTIC_KV_COPY_TELEMETRY_PATH="${trial_dir}/kv_copy_telemetry.jsonl" AGENTIC_KV_PREPARE_CONTROL_ENABLE=1 AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1 AGENTIC_KV_PREPARE_CONTROL_PORT=31991 AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=30000 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}" MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}" AGENTIC_KV_TORCH_PROFILER_ENABLE="${PROFILE_TORCH}" AGENTIC_KV_TORCH_PROFILER_DIR="${trial_dir}/torch_cuda_profiles" AGENTIC_KV_TORCH_PROFILER_START_EVENTS="${AGENTIC_KV_TORCH_PROFILER_START_EVENTS:-scheduler.run_batch}" AGENTIC_KV_TORCH_PROFILER_STOP_AFTER_EVENTS="${AGENTIC_KV_TORCH_PROFILER_STOP_AFTER_EVENTS:-512}"; bash scripts/run_sglang_hicache_server.sh "${MODEL}" ) >"${trial_dir}/server.log" 2>&1 &
     SERVER_PID="$!"; wait_for_server "${trial_dir}"
     append=(); (( index == 0 )) || append=(--append)
     min_load=(); [[ -z "${MIN_LOAD_TOKENS}" ]] || min_load=(--min-load-tokens "${MIN_LOAD_TOKENS}")
     python3 -m agentic_experiments.runners.run_device_memory_attribution --condition "${condition}" --run-id "${REPORT_LABEL}_${condition}" --sample-set-id "${SAMPLE_SET_ID}" --out-dir "${condition_dir}" --model "${MODEL}" --hardware-profile "${HARDWARE_PROFILE}" --backend-version "${BACKEND_VERSION}" --seed "${SEED}" --decode-tokens "${DECODE_TOKENS}" --warmup-chunks "${WARMUP_CHUNKS}" --donor-prompt-tokens "${DONOR_PROMPT_TOKENS}" --eviction-prompt-tokens "${EVICTION_PROMPT_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --trials 1 --sample-offset "${index}" "${min_load[@]}" "${append[@]}"
-    verify_trace "${condition}" "${trace_path}"; cleanup_backend
+    verify_trace "${condition}" "${trace_path}"; cleanup_backend; verify_profiler_output "${trial_dir}"
   done
 }
 
