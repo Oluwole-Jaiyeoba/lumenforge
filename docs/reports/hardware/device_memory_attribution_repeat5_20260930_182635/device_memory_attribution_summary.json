@@ -1,0 +1,52 @@
+{
+  "conditions": [
+    {
+      "condition": "target_only",
+      "label": "Target only",
+      "median_loaded_tokens": null,
+      "median_native_load_ms": null,
+      "median_total_decode_ms": 22064.54,
+      "median_ttft_ms": 545.54,
+      "native_overlap_trials": 0,
+      "trials": 5,
+      "valid_trials": 5
+    },
+    {
+      "condition": "device_resident_control",
+      "label": "Device-resident control",
+      "median_loaded_tokens": null,
+      "median_native_load_ms": null,
+      "median_total_decode_ms": 22128.967,
+      "median_ttft_ms": 510.629,
+      "native_overlap_trials": 0,
+      "trials": 5,
+      "valid_trials": 5
+    },
+    {
+      "condition": "host_reload_collision",
+      "label": "Host reload during decode",
+      "median_loaded_tokens": 4039.0,
+      "median_native_load_ms": 152.482,
+      "median_total_decode_ms": 22303.166,
+      "median_ttft_ms": 543.373,
+      "native_overlap_trials": 5,
+      "trials": 5,
+      "valid_trials": 5
+    }
+  ],
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "paired_decode_change_vs_target_only": {
+    "device_resident_control": {
+      "mean_delta_ms": 23.067,
+      "median_delta_ms": -62.262,
+      "pairs": 5
+    },
+    "host_reload_collision": {
+      "mean_delta_ms": 160.511,
+      "median_delta_ms": 268.909,
+      "pairs": 5
+    }
+  },
+  "sample_set_id": "device_memory_attribution_repeat5_20260930_182635_samples",
+  "schema_version": "device_memory_attribution_report.v1"
+}
