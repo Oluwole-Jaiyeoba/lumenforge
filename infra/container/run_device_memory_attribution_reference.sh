@@ -23,6 +23,9 @@ EVICTION_PROMPT_TOKENS="${EVICTION_PROMPT_TOKENS:-8192}"
 EVICTION_ROUNDS="${EVICTION_ROUNDS:-8}"
 MINIMUM_HOST_TOKENS="${MINIMUM_HOST_TOKENS:-512}"
 MIN_LOAD_TOKENS="${MIN_LOAD_TOKENS:-}"
+# This is deliberately opt-in. Profiler traces are diagnostic evidence and
+# must never be pooled with normal timing results.
+PROFILE_TORCH="${PROFILE_TORCH:-0}"
 SERVER_PID=""
 
 [[ -f "${PROFILE_PATH}" ]] || { echo "Backend runtime profile not found: ${PROFILE_PATH}" >&2; exit 2; }
@@ -96,7 +99,7 @@ run_condition() {
     local trace_path="${trial_dir}/backend_trace.jsonl"
     mkdir -p "${trial_dir}"
     echo "Starting ${condition}, sample ${index}/${TRIALS}..."
-    ( cd "${DIRECT_ROOT}"; export AGENTIC_KV_TRACE_ENABLE=1 AGENTIC_KV_TRACE_PATH="${trace_path}" AGENTIC_KV_TRACE_SCHEDULER=1 AGENTIC_KV_TRACE_KV_POOL=1 AGENTIC_KV_COPY_TELEMETRY_ENABLE=1 AGENTIC_KV_COPY_TELEMETRY_PATH="${trial_dir}/kv_copy_telemetry.jsonl" AGENTIC_KV_PREPARE_CONTROL_ENABLE=1 AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1 AGENTIC_KV_PREPARE_CONTROL_PORT=31991 AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=30000 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}" MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"; bash scripts/run_sglang_hicache_server.sh "${MODEL}" ) >"${trial_dir}/server.log" 2>&1 &
+    ( cd "${DIRECT_ROOT}"; export AGENTIC_KV_TRACE_ENABLE=1 AGENTIC_KV_TRACE_PATH="${trace_path}" AGENTIC_KV_TRACE_SCHEDULER=1 AGENTIC_KV_TRACE_KV_POOL=1 AGENTIC_KV_COPY_TELEMETRY_ENABLE=1 AGENTIC_KV_COPY_TELEMETRY_PATH="${trial_dir}/kv_copy_telemetry.jsonl" AGENTIC_KV_PREPARE_CONTROL_ENABLE=1 AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1 AGENTIC_KV_PREPARE_CONTROL_PORT=31991 AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS=30000 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}" MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}" AGENTIC_KV_TORCH_PROFILER_ENABLE="${PROFILE_TORCH}" AGENTIC_KV_TORCH_PROFILER_DIR="${trial_dir}/torch_cuda_profiles" AGENTIC_KV_TORCH_PROFILER_START_EVENTS="${AGENTIC_KV_TORCH_PROFILER_START_EVENTS:-scheduler_batch_run}"; bash scripts/run_sglang_hicache_server.sh "${MODEL}" ) >"${trial_dir}/server.log" 2>&1 &
     SERVER_PID="$!"; wait_for_server "${trial_dir}"
     append=(); (( index == 0 )) || append=(--append)
     min_load=(); [[ -z "${MIN_LOAD_TOKENS}" ]] || min_load=(--min-load-tokens "${MIN_LOAD_TOKENS}")
@@ -109,5 +112,9 @@ run_condition target_only
 run_condition device_resident_control
 run_condition host_reload_collision
 python3 -m agentic_reports.builders.build_device_memory_attribution_report --target-only "${RUN_ROOT}/target_only/probe_run.json" --device-resident "${RUN_ROOT}/device_resident_control/probe_run.json" --host-reload "${RUN_ROOT}/host_reload_collision/probe_run.json" --out "${RUN_ROOT}/device_memory_attribution_report.html" --summary-out "${RUN_ROOT}/device_memory_attribution_summary.json"
-python3 "${REPO_ROOT}/scripts/create_run_manifest.py" --out "${RUN_ROOT}/run_manifest.json" --run-id "${REPORT_LABEL}" --experiment "device_memory_attribution" --model "${MODEL}" --hardware-profile "${HARDWARE_PROFILE}" --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" --workload-json "{\"sample_set_id\":\"${SAMPLE_SET_ID}\",\"trials_per_condition\":${TRIALS},\"seed\":${SEED},\"frontend_priority\":\"none\",\"conditions\":[\"target_only\",\"device_resident_control\",\"host_reload_collision\"],\"decode_tokens\":${DECODE_TOKENS},\"warmup_chunks\":${WARMUP_CHUNKS}}" --instrumentation "lightweight_backend_trace" --instrumentation "cuda_event_load_status" --instrumentation "streamed_decode_timing" --artifact "report=${RUN_ROOT}/device_memory_attribution_report.html" --artifact "summary=${RUN_ROOT}/device_memory_attribution_summary.json" --completion-status complete
+instrumentation=(--instrumentation "lightweight_backend_trace" --instrumentation "cuda_event_load_status" --instrumentation "streamed_decode_timing")
+if [[ "${PROFILE_TORCH}" == "1" ]]; then
+  instrumentation+=(--instrumentation "torch_cuda_profiler")
+fi
+python3 "${REPO_ROOT}/scripts/create_run_manifest.py" --out "${RUN_ROOT}/run_manifest.json" --run-id "${REPORT_LABEL}" --experiment "device_memory_attribution" --model "${MODEL}" --hardware-profile "${HARDWARE_PROFILE}" --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" --workload-json "{\"sample_set_id\":\"${SAMPLE_SET_ID}\",\"trials_per_condition\":${TRIALS},\"seed\":${SEED},\"frontend_priority\":\"none\",\"conditions\":[\"target_only\",\"device_resident_control\",\"host_reload_collision\"],\"decode_tokens\":${DECODE_TOKENS},\"warmup_chunks\":${WARMUP_CHUNKS},\"profiler\":${PROFILE_TORCH}}" "${instrumentation[@]}" --artifact "report=${RUN_ROOT}/device_memory_attribution_report.html" --artifact "summary=${RUN_ROOT}/device_memory_attribution_summary.json" --completion-status complete
 echo "Complete: ${RUN_ROOT}/device_memory_attribution_report.html"
