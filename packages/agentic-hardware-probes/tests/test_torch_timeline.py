@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from agentic_hardware_probes import summarize_timeline
+from agentic_hardware_probes.torch_timeline import summarize_timeline
 
 
 def test_classifies_copy_compute_overlap(tmp_path) -> None:
