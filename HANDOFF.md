@@ -1,8 +1,8 @@
 # Codex Handoff
 
-Updated: 2026-09-28
+Updated: 2026-10-01
 
-## Three Research Lanes
+## Four Research Lanes
 
 - [`HINT_BENCHMARK_RUNBOOK.html`](HINT_BENCHMARK_RUNBOOK.html) records which
   native harness signals can be reproduced. It is not performance evidence.
@@ -17,6 +17,10 @@ Updated: 2026-09-28
   SGLang-visible H2D events as proof of physical GPU saturation. The first
   platform is the accessible standard-NVIDIA remote GPU; GH200 requires a
   separate run and manifest.
+- [`WORK_AUDIT.html`](WORK_AUDIT.html) tracks when agentic cache work happens.
+  The first A10G/v0510 validation is only an event-linkage check. See
+  [`docs/work_audit/README.md`](docs/work_audit/README.md); do not convert its
+  host-residency observation into a claim of avoidable work.
 
 The hardware registry is `configs/hardware_experiment_registry.json`; regenerate
 its root HTML with `python3 scripts/build_hardware_experiments.py`. A result

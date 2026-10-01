@@ -12,7 +12,7 @@ The full package inventory lives in
 
 ## Main Workstreams
 
-This repository contains three related but distinct research lanes:
+This repository contains four related but distinct research lanes:
 
 1. **Controller experiments** study how harness knowledge and backend
    observations can improve scheduling, replay deadlines, KV-cache management,
@@ -26,9 +26,13 @@ This repository contains three related but distinct research lanes:
    queue and submit gaps. Its evidence index is
    [`HARDWARE_EXPERIMENTS.html`](HARDWARE_EXPERIMENTS.html). Planned cases are
    not hardware results.
+4. **Agentic work audit** records when reusable cache work occurs across a
+   tool wait and replay, then asks whether that timing was useful. Its index is
+   [`WORK_AUDIT.html`](WORK_AUDIT.html). Initial validation proves event
+   linkage only; it does not calculate avoidable work or a hardware bottleneck.
 
 Hint-emission evidence is not controller-performance evidence, and a controller
-win does not prove a physical GPU bottleneck. Keep the three claims, runs, and
+win does not prove a physical GPU bottleneck. Keep the four claims, runs, and
 reports separate even when they share normalized observations.
 
 ## Implemented Package Boundaries
@@ -46,6 +50,7 @@ The portable package split is implemented and enforced by architecture tests:
 | `agentic-experiments` | Composition and experiment orchestration. |
 | `agentic-reports` | Normalized analysis, audits, and report generation. |
 | `agentic-hardware-probes` | Backend-neutral paired-measurement contracts for controlled hardware studies. |
+| `agentic-work-audit` | Backend-neutral work timeline and conservative evidence grading. |
 
 The dependency direction is:
 
@@ -60,6 +65,8 @@ agentic-experiments composes the path.
 agentic-reports reads normalized artifacts from the path.
 agentic-hardware-probes compares matched timing samples; physical capture stays
 behind the backend adapter or machine-specific profiler tooling.
+agentic-work-audit consumes normalized events; only agentic-backend-sglang
+translates version-specific hooks into those events.
 ```
 
 Rules:
@@ -245,7 +252,7 @@ and follow the explicit
 
 Before committing an architectural change, confirm:
 
-- Does it preserve the three research lanes and their evidence boundaries?
+- Does it preserve the four research lanes and their evidence boundaries?
 - Is portable logic outside the SGLang adapter and deployment layers?
 - Is machine/vendor/version variation represented as configuration or an
   adapter rather than policy duplication?

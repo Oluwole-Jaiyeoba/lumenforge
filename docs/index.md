@@ -1,6 +1,6 @@
 # Documentation Index
 
-The repository root contains the active architecture, handoff, and three
+The repository root contains the active architecture, handoff, and four
 human-readable workstream entry points. Supporting documentation lives under
 `docs/`.
 
@@ -14,6 +14,7 @@ human-readable workstream entry points. Supporting documentation lives under
 - [Controller experiments](../CONTROLLER_EXPERIMENTS.html)
 - [Hint benchmark runbook](../HINT_BENCHMARK_RUNBOOK.html)
 - [Hardware bottleneck experiments](../HARDWARE_EXPERIMENTS.html)
+- [Agentic work audit](../WORK_AUDIT.html)
 
 ## Architecture (`docs/architecture/`)
 
@@ -47,6 +48,11 @@ human-readable workstream entry points. Supporting documentation lives under
 
 - [Hardware experiment index](../HARDWARE_EXPERIMENTS.html)
 - [Measurement protocol and package boundaries](hardware_bottlenecks/README.md)
+
+## Agentic work audit (`docs/work_audit/`)
+
+- [Validation protocol and package boundaries](work_audit/README.md)
+- [Live validation index](../WORK_AUDIT.html)
 
 ## Packages (`docs/packages/`, `docs/compatibility/`)
 

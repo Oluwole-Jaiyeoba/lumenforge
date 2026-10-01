@@ -9,6 +9,7 @@ INSTALL_SGLANG_TESTBED="${INSTALL_SGLANG_TESTBED:-1}"
 package_paths=(
   "packages/agentic-core"
   "packages/agentic-backend-api"
+  "packages/agentic-work-audit"
   "packages/agentic-controller"
   "packages/agentic-harnesses"
   "packages/agentic-prompt-codec"

@@ -3,7 +3,7 @@
 Portable infrastructure for harness-aware scheduling, KV-cache control, and
 agentic inference experiments.
 
-## Three Research Lanes
+## Four Research Lanes
 
 - [Controller Experiments](CONTROLLER_EXPERIMENTS.html): controller scheduling,
   KV-cache, replay deadline, TTFT, and workload-duration results.
@@ -12,6 +12,9 @@ agentic inference experiments.
 - [Hardware Bottleneck Experiments](HARDWARE_EXPERIMENTS.html): controlled GPU
   compute and memory-movement measurements. The first cases are planned, not
   measured results; see [the lane protocol](docs/hardware_bottlenecks/README.md).
+- [Agentic Work Audit](WORK_AUDIT.html): when cache work happens, whether a
+  replay reuses it, and which opportunities remain unproven; see
+  [the validation protocol](docs/work_audit/README.md).
 
 The active Scenario 1 controller experiment gives every request equal application
 importance. Harnesses expose expected tool-return times; the controller derives
