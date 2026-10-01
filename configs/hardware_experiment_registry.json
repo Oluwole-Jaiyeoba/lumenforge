@@ -3,6 +3,56 @@
   "title": "Hardware Bottleneck Experiments",
   "experiments": [
     {
+      "id": "independent_gpu_copy_contention",
+      "name": "Independent GPU Copy Contention",
+      "status": "measured_pending_review",
+      "question": "Can a separate host-to-GPU copy process physically overlap SGLang decode and slow it without adding SGLang queue work?",
+      "platform": "nvidia_standard; NVIDIA A10G 24 GB GDDR6",
+      "backend": "SGLang 0.5.10.post1 in the pinned Docker runtime",
+      "control": "Decode a fixed 320-token response while an independent worker holds the same buffers but remains idle for five seconds.",
+      "interference": "The same decode while the worker repeatedly copies a 128 MiB pinned host buffer to a separate GPU buffer for five seconds.",
+      "held_constant": "Model, request shape, GPU allocations, backend configuration, and copy-window timing; order was idle, copy, copy, idle.",
+      "measurements": [
+        "Decode duration after first token and visible chunk gaps inside the copy window",
+        "Independent pinned-host-to-GPU copy count and bytes",
+        "Separate profiler pass comparing backend GPU kernels and worker GPU copy events on a shared trace clock"
+      ],
+      "evidence_rule": "Timing comparisons use only unprofiled paired trials. The profiled diagnostic is used only for GPU-time overlap proof and does not establish an HBM-specific bandwidth cause on this GDDR6 GPU.",
+      "run_id": "gpu_copy_contention_20261001_154937",
+      "command": "SGLANG_DOCKER_IMAGE='agentic-sglang-standard:0.5.10.post1' AGENTIC_MODEL_CACHE=/path/to/huggingface/cache MODES=idle,copy,copy,idle DECODE_TOKENS=320 COPY_WINDOW_S=5 bash infra/container/run_gpu_copy_contention_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/gpu_copy_contention_20261001_154937/report.html",
+      "manifest_path": "docs/reports/hardware/gpu_copy_contention_20261001_154937/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/gpu_copy_contention_20261001_154937/summary.json",
+      "manager_summary": [
+        {
+          "condition": "Five-second copy window",
+          "study_type": "Controlled pilot",
+          "collision_intensity": "999 x 128 MiB host-to-device copies across 2 trials; GPU overlap verified separately",
+          "outcome": "Decode after first token",
+          "unit": "ms",
+          "baseline_path": "conditions.idle.median_decode_after_first_token_ms",
+          "collision_path": "conditions.copy.median_decode_after_first_token_ms",
+          "sample_count_path": "conditions.copy.trials"
+        },
+        {
+          "condition": "Five-second copy window",
+          "study_type": "Controlled pilot",
+          "collision_intensity": "Continuous host-to-device copy pressure; GPU overlap verified separately",
+          "outcome": "Mean streamed-chunk gap in window",
+          "unit": "ms",
+          "baseline_path": "conditions.idle.median_window_chunk_gap_ms",
+          "collision_path": "conditions.copy.median_window_chunk_gap_ms",
+          "sample_count_path": "conditions.copy.trials"
+        }
+      ],
+      "results": {
+        "decode after first token": "+199.4 ms (+1.9%)",
+        "streamed-chunk gap in copy window": "+1.38 ms (+4.1%)",
+        "physical GPU overlap": "56,483 backend kernels intersected copy events on a shared GPU trace clock",
+        "interpretation": "An independent GPU copy process can physically overlap SGLang decode and modestly slow it. The source of the slowdown has not been isolated to device-memory bandwidth."
+      }
+    },
+    {
       "id": "kv_movement_interference",
       "name": "KV Movement Interference",
       "status": "measured_pending_review",

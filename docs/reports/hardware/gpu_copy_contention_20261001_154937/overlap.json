@@ -1,0 +1,14 @@
+{
+  "backend_kernel_events": 397910,
+  "backend_kernels_in_copy_window": 56762,
+  "backend_kernels_overlapping_copies": 56483,
+  "backend_trace": "sglang_direct_kv/artifacts/results/hardware/gpu_copy_profile_20261001_160036/backend_profiles/torch_cuda_profile_pid56_1790870540_event_limit_1024.json",
+  "copy_events": 499,
+  "copy_window_duration_ms": 5005.366,
+  "physical_overlap_observed": true,
+  "schema_version": "gpu_trace_overlap.v1",
+  "summed_kernel_copy_overlap_ms": 783.209,
+  "total_copy_gpu_time_ms": 4978.684,
+  "trace_base_time_ns": 1790857026000000000,
+  "worker_trace": "sglang_direct_kv/artifacts/results/hardware/gpu_copy_profile_20261001_160036/copy_worker_profile.json"
+}

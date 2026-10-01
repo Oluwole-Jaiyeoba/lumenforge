@@ -7,9 +7,10 @@ import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 
-def serve(port: int, buffer_mib: int) -> None:
+def serve(port: int, buffer_mib: int, profile_path: Path | None = None) -> None:
     import torch
 
     if not torch.cuda.is_available():
@@ -26,6 +27,12 @@ def serve(port: int, buffer_mib: int) -> None:
     lock = threading.Lock()
 
     def run_window(mode: str, duration_s: float) -> None:
+        profiler = None
+        if profile_path is not None:
+            from torch.profiler import ProfilerActivity, profile
+
+            profiler = profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA])
+            profiler.__enter__()
         started_ns = time.time_ns()
         deadline = time.monotonic() + duration_s
         copies = 0
@@ -37,10 +44,16 @@ def serve(port: int, buffer_mib: int) -> None:
                 copies += 1
             else:
                 time.sleep(min(0.05, max(0, deadline - time.monotonic())))
+        finished_ns = time.time_ns()
+        if profiler is not None:
+            profiler.__exit__(None, None, None)
+            profile_path.parent.mkdir(parents=True, exist_ok=True)
+            profiler.export_chrome_trace(str(profile_path))
         with lock:
             state.update(
                 status="finished", mode=mode, started_ns=started_ns,
-                finished_ns=time.time_ns(), copies=copies, bytes_copied=copies * nbytes,
+                finished_ns=finished_ns, copies=copies, bytes_copied=copies * nbytes,
+                profile_path=str(profile_path) if profile_path is not None else None,
             )
 
     class Handler(BaseHTTPRequestHandler):
@@ -92,10 +105,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=31992)
     parser.add_argument("--buffer-mib", type=int, default=128)
+    parser.add_argument("--profile-path", type=Path)
     args = parser.parse_args()
     if not 1 <= args.buffer_mib <= 1024:
         parser.error("buffer-mib must be between 1 and 1024")
-    serve(args.port, args.buffer_mib)
+    serve(args.port, args.buffer_mib, args.profile_path)
 
 
 if __name__ == "__main__":

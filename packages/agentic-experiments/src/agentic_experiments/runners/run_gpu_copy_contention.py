@@ -48,7 +48,7 @@ async def trial(client: httpx.AsyncClient, args: argparse.Namespace, mode: str, 
     except BaseException:
         decode_task.cancel()
         raise
-    deadline = time.monotonic() + args.window_s + 5
+    deadline = time.monotonic() + args.window_s + 30
     while True:
         response = await client.get(f"{args.worker_url}/status")
         response.raise_for_status()
@@ -63,8 +63,12 @@ async def trial(client: httpx.AsyncClient, args: argparse.Namespace, mode: str, 
     gaps = window_gaps_ms(decode["chunk_times_ns"], pressure["started_ns"], pressure["finished_ns"])
     if len(gaps) < 3:
         raise RuntimeError("Too few decode chunks fell inside the pressure window")
+    after_first_token_ms = None
+    if decode["ttft_ms"] is not None:
+        after_first_token_ms = round(decode["total_latency_ms"] - decode["ttft_ms"], 3)
     return {
         "mode": mode, "index": index, "decode": decode, "pressure": pressure,
+        "decode_after_first_token_ms": after_first_token_ms,
         "window_chunk_gaps_ms": gaps,
         "window_mean_chunk_gap_ms": round(statistics.mean(gaps), 3),
         "window_median_chunk_gap_ms": round(statistics.median(gaps), 3),
@@ -76,6 +80,12 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     if not modes or any(mode not in {"idle", "copy"} for mode in modes):
         raise ValueError("modes must be a comma-separated sequence of idle and copy")
     async with httpx.AsyncClient(timeout=httpx.Timeout(args.timeout_s + 20, connect=10.0)) as client:
+        await stream_decode(
+            client, base_url=args.base_url, model=args.model,
+            prompt="Warm up the model by writing a short sentence.",
+            request_context={"session_id": "copy-contention-warmup", "agent_phase": "warmup"},
+            max_tokens=8, warmup_chunks=1, warmup_ready=asyncio.Event(),
+        )
         rows = []
         for index, mode in enumerate(modes):
             row = await trial(client, args, mode, index)
@@ -96,6 +106,9 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             result[f"{mode}_summary"] = {
                 "trials": len(subset),
                 "median_total_latency_ms": round(statistics.median(row["decode"]["total_latency_ms"] for row in subset), 3),
+                "median_decode_after_first_token_ms": round(
+                    statistics.median(row["decode_after_first_token_ms"] for row in subset), 3
+                ),
                 "median_window_mean_chunk_gap_ms": round(statistics.median(row["window_mean_chunk_gap_ms"] for row in subset), 3),
                 "total_copies": sum(row["pressure"]["copies"] for row in subset),
                 "total_bytes_copied": sum(row["pressure"]["bytes_copied"] for row in subset),

@@ -1,0 +1,34 @@
+{
+  "schema_version": "agentic_run_manifest.v2",
+  "run_id": "gpu_copy_contention_20261001_154937",
+  "completion_status": "complete",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "backend_name": "sglang",
+  "backend_version": "0.5.10.post1",
+  "container_image": "agentic-sglang-standard:0.5.10.post1",
+  "gpu": "NVIDIA A10G 24 GB GDDR6",
+  "paired_run_id": "gpu_copy_pair_20261001_154937",
+  "profile_run_id": "gpu_copy_profile_20261001_160036",
+  "commands": {
+    "timing": "REPORT_LABEL=gpu_copy_pair_20261001_154937 SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 AGENTIC_MODEL_CACHE=/path/to/huggingface/cache MODES=idle,copy,copy,idle DECODE_TOKENS=320 COPY_WINDOW_S=5 bash infra/container/run_gpu_copy_contention_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+    "overlap_diagnostic": "REPORT_LABEL=gpu_copy_profile_20261001_160036 SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 AGENTIC_MODEL_CACHE=/path/to/huggingface/cache PROFILE_TORCH=1 MODES=copy DECODE_TOKENS=320 COPY_WINDOW_S=5 bash infra/container/run_gpu_copy_contention_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct"
+  },
+  "configuration": {
+    "decode_tokens": 320,
+    "warmup_chunks": 16,
+    "copy_window_s": 5,
+    "copy_buffer_mib": 128,
+    "mode_order": ["idle", "copy", "copy", "idle"],
+    "profiling_disabled_for_timing": true,
+    "backend_priority_scheduling": false,
+    "backend_overlap_schedule": false
+  },
+  "profile_diagnostic": {
+    "mode_order": ["copy"],
+    "status": "partial_trace_exported; request timed out under profiler overhead",
+    "backend_gpu_kernel_trace_available": true,
+    "worker_gpu_copy_trace_available": true,
+    "raw_gpu_traces_retained_on_remote_host": true,
+    "reduced_gpu_event_witness": "witness.json.gz"
+  }
+}

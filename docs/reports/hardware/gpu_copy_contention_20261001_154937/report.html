@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Independent GPU Copy Contention Pilot</title>
+<style>
+body { font: 16px/1.5 system-ui, sans-serif; color: #1c2932; background: #f7fafb; margin: 0; }
+main { max-width: 850px; margin: auto; padding: 28px 22px 60px; }
+h1 { font-size: 28px; margin-bottom: 4px; }
+h2 { font-size: 20px; margin-top: 30px; }
+p { max-width: 75ch; }
+table { border-collapse: collapse; width: 100%; background: white; }
+th, td { padding: 11px 13px; text-align: left; border-bottom: 1px solid #d9e4e8; }
+th { background: #dff3f0; }
+.change { color: #a34623; font-weight: 700; }
+.note { border-left: 4px solid #168b87; padding: 8px 16px; background: #ecf8f5; }
+code { font-family: ui-monospace, Menlo, monospace; }
+a { color: #08648b; }
+</style>
+</head>
+<body><main>
+<h1>Independent GPU Copy Contention</h1>
+<p>NVIDIA A10G, Qwen2.5-Coder-7B, SGLang 0.5.10.post1. Two idle and two copy-pressure trials; a separate trace-only run checked physical GPU overlap.</p>
+<h2>Paired Timing</h2>
+<table><thead><tr><th>Metric</th><th>Idle</th><th>Copy pressure</th><th>Change</th></tr></thead><tbody>
+<tr><td>Median decode after first token</td><td>10,720.2 ms</td><td>10,919.6 ms</td><td class="change">+199.4 ms (+1.9%)</td></tr>
+<tr><td>Median chunk gap within five-second window</td><td>33.59 ms</td><td>34.97 ms</td><td class="change">+1.38 ms (+4.1%)</td></tr>
+<tr><td>Median whole-request time</td><td>10,920.9 ms</td><td>10,961.1 ms</td><td>+40.2 ms (+0.4%)</td></tr>
+</tbody></table>
+<p>The copy worker moved 134.1 billion bytes across the two pressure trials using 999 separate 128 MiB pinned-host-to-GPU copies. Each trial used the same GPU buffer allocation in both modes.</p>
+<h2>GPU Timeline</h2>
+<p>The two profiler traces shared the same clock base. During one five-second copy window, 499 GPU copy events were recorded. Of 56,762 SGLang kernels in that window, 56,483 overlapped a copy event in device time. The trace proves physical overlap, unlike the earlier SGLang-managed reload case that serialized the operations.</p>
+<p class="note">The profiled request timed out because profiling added severe overhead. Its trace is used only for overlap proof; every timing value above comes from the unprofiled paired run. <a href="https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/A10-Product-Brief.pdf">NVIDIA lists the A10's memory as GDDR6</a>, not HBM. These data do not yet isolate device-memory bandwidth from PCIe, copy-engine, or other shared-resource contention.</p>
+<p><a href="summary.json">Summary JSON</a> · <a href="paired_results.json">Trial-level timings</a> · <a href="overlap.json">Overlap analysis</a> · <a href="witness.json.gz">Reduced GPU event witness (gzip)</a> · <a href="run_manifest.json">Run configuration</a></p>
+</main></body></html>

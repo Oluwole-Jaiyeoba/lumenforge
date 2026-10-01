@@ -1,0 +1,40 @@
+{
+  "schema_version": "gpu_copy_contention_summary.v1",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "runtime": "NVIDIA A10G 24 GB; SGLang 0.5.10.post1; Docker",
+  "study_type": "Controlled pilot plus separate profiler diagnostic",
+  "paired_run_id": "gpu_copy_pair_20261001_154937",
+  "profile_run_id": "gpu_copy_profile_20261001_160036",
+  "conditions": {
+    "idle": {
+      "trials": 2,
+      "median_decode_after_first_token_ms": 10720.2435,
+      "median_window_chunk_gap_ms": 33.5905,
+      "median_total_request_ms": 10920.901
+    },
+    "copy": {
+      "trials": 2,
+      "median_decode_after_first_token_ms": 10919.6175,
+      "median_window_chunk_gap_ms": 34.9735,
+      "median_total_request_ms": 10961.063,
+      "copies": 999,
+      "bytes_copied": 134083510272
+    }
+  },
+  "physical_overlap": {
+    "clock_base_matched": true,
+    "worker_gpu_copy_events": 499,
+    "backend_kernels_in_copy_window": 56762,
+    "backend_kernels_overlapping_copies": 56483,
+    "summed_kernel_copy_overlap_ms": 783.209,
+    "copy_window_duration_ms": 5005.366,
+    "profile_request_status": "timed_out_after_overlap_window"
+  },
+  "limitations": [
+    "Two unprofiled trials per condition are a pilot, not a stable population estimate.",
+    "The profiler diagnostic has severe overhead and is used only to prove GPU-time overlap, not to estimate slowdown.",
+    "The independent copy worker transfers synthetic bytes, not a naturally resumed session's KV blocks.",
+    "Overlap and slowdown do not isolate device-memory bandwidth from copy-engine, PCIe, or other shared-resource effects.",
+    "This A10G has GDDR6, not HBM; repeat on GH200 before making an HBM-specific claim."
+  ]
+}
