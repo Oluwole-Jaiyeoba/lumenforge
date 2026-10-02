@@ -136,6 +136,14 @@ defaults to zero. A positive value applies the same optional native
 device-cache eviction setup in all three conditions; it is never part of the
 measured condition difference.
 
+Each trial uses the shared `copy_timing` instrumentation profile and writes
+`instrumentation_audit.json`, `normalized_backend_evidence.jsonl`, and
+`backend_evidence_join.json` beside its raw backend trace. Missing required
+hooks or donor copy evidence fails the trial. The control checks hook
+installation without requiring a reload. These joins establish when backend
+copy hooks completed relative to the client-visible decode interval; they do
+not by themselves establish HBM bandwidth contention.
+
 The direct-overlap case fails unless SGLang's own per-load CUDA events show a
 completed reload with positive physical duration between decode start and
 decode finish, with at least the configured number of streamed output

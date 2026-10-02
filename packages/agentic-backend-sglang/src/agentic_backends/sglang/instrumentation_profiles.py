@@ -25,6 +25,7 @@ _VALUES = {
     "cache_debug": (1, 1, 1, 1, 1, 1, 1),
     "full_debug": (1, 1, 1, 1, 1, 1, 1),
     "controller_queue": (1, 0, 1, 0, 0, 0, 0),
+    "request_boundary": (1, 0, 0, 0, 0, 0, 0),
     "kv_lifecycle": (1, 0, 0, 0, 0, 0, 0),
     "copy_timing": (1, 1, 0, 0, 0, 0, 1),
 }

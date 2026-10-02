@@ -15,8 +15,8 @@ names, hook installation, version adapters, and raw-to-stable translation.
 
 ## Profiles and Gates
 
-The shared catalog defines `controller_queue`, `kv_lifecycle`, `copy_timing`,
-and `full_debug`. SGLang launch flags are resolved only in
+The shared catalog defines `request_boundary`, `controller_queue`,
+`kv_lifecycle`, `copy_timing`, and `full_debug`. SGLang launch flags are resolved only in
 `agentic_backends.sglang.instrumentation_profiles`. Historical launcher names
 (`minimal`, `deadline`, `controller_decision`, `idle_gap`, `cache_debug`,
 `full_debug`) keep their existing flag defaults. Unknown names fail.
@@ -39,6 +39,10 @@ python3 -m agentic_backends.sglang.trace_contract \
 
 The command exits nonzero when the installation adapter differs, a required
 hook is absent, a required event did not occur, or its proof fields are empty.
+`--events-out` exports recognized events in the backend-neutral schema; use
+repeatable `--export-signal` arguments to keep the file small. The
+`--installation-only` option checks hook installation without requiring a
+workload event, and must not be described as live behavior proof.
 If the trace contains `trace.install.summary`, `--installation` can be omitted;
 the audit will use that run's embedded installation record.
 The inventory includes all adapter targets, even unobserved and raw-only
@@ -143,8 +147,38 @@ trace produced the same validation summary after excluding only source-file
 path spelling; no outcome metric changed.
 
 The hardware probe lane's independent CUDA copy test has no SGLang hooks to
-centralize. Its future SGLang-correlated runs should use this trace gate and
-the same normalized evidence. The hint suite observes native harness requests;
-it should use this gate only for backend-facing validation, never to relabel a
-translated or injected hint as a native harness emission. Architecture tests
-reject new hook tables outside the backend package.
+centralize. Its sustained-decode SGLang-correlated launcher now resolves the
+`copy_timing` profile, checks installed hooks before each trial, gates live
+copy evidence after reload trials, and writes normalized events plus
+`backend_evidence_join.json` for each trial. The control checks installation
+only. The join requires target acceptance and donor copy completion in the
+expected client-decode interval. It does not prove GPU-kernel overlap or HBM
+contention. Independent GPU profiler evidence remains separate.
+
+The hint suite observes native harness requests. For a backend-facing run,
+gate the trace with `request_boundary` and export `request.accepted` events:
+
+```bash
+python3 -m agentic_backends.sglang.trace_contract \
+  --adapter v0510 --profile request_boundary \
+  --trace /path/to/backend_trace.jsonl \
+  --out /path/to/backend_audit.json \
+  --events-out /path/to/backend_events.jsonl \
+  --export-signal request.accepted
+python3 -m agentic_experiments.runners.audit_hint_backend_evidence \
+  --hint-observations /path/to/observed_hint_evidence.jsonl \
+  --backend-audit /path/to/backend_audit.json \
+  --backend-events /path/to/backend_events.jsonl \
+  --request-map /path/to/request_map.json \
+  --out /path/to/hint_backend_audit.json
+```
+
+The request map is an array of
+`{"scenario_id":"...","payload_index":1,"backend_request_id":"...","correlation_id":"..."}`.
+Only an ID independently present in the captured native request and backend
+event proves same-request linkage. Without it, the output says `external_mapping_only` and
+`same_request_proven=false`. Even a matched request does not prove a hint was
+translated or affected scheduling/cache behavior; those need separate
+downstream value and effect evidence. Native hint observations never come from
+the backend trace. Architecture tests reject new hook tables outside the
+backend package.

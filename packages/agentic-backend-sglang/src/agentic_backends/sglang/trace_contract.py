@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+from dataclasses import asdict
 import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
-from agentic_instrumentation import PROFILES, SIGNALS
+from agentic_instrumentation import EvidenceEvent, PROFILES, SIGNALS
 
 from .evidence import normalize_trace_event
 from .instrumentation_profiles import validate_installation
@@ -61,7 +62,10 @@ def hook_inventory(adapter_name: str, observed: dict[str, dict[str, Any]] | None
     return result
 
 
-def inspect_trace(rows: Iterable[dict[str, Any]], adapter_name: str) -> dict[str, Any]:
+def inspect_trace(
+    rows: Iterable[dict[str, Any]], adapter_name: str,
+    event_sink: Callable[[EvidenceEvent], None] | None = None,
+) -> dict[str, Any]:
     observed: dict[str, dict[str, Any]] = defaultdict(lambda: {"count": 0, "fields": set(), "context_fields": set()})
     prefixes = {item["source_event_prefix"] for item in hook_inventory(adapter_name)}
     signal_counts: Counter[str] = Counter()
@@ -74,6 +78,8 @@ def inspect_trace(rows: Iterable[dict[str, Any]], adapter_name: str) -> dict[str
                             "installed_hooks": row.get("installed_hooks") or [],
                             "missing_required_hooks": row.get("missing_required_hooks") or []}
         event = normalize_trace_event(row, adapter_name)
+        if event is not None and event_sink is not None:
+            event_sink(event)
         source = str(row.get("source_event") or row.get("event") or "")
         prefix = source.rsplit(".", 1)[0]
         if prefix not in prefixes:
@@ -106,7 +112,10 @@ def inspect_trace(rows: Iterable[dict[str, Any]], adapter_name: str) -> dict[str
     }
 
 
-def validate_bundle(profile: str, adapter_name: str, installation: dict[str, Any], inspection: dict[str, Any]) -> dict[str, Any]:
+def validate_bundle(
+    profile: str, adapter_name: str, installation: dict[str, Any],
+    inspection: dict[str, Any], *, installation_only: bool = False,
+) -> dict[str, Any]:
     install = validate_installation(profile, adapter_name, installation)
     required = PROFILES[profile].required_signals
     counts = inspection["signal_counts"]
@@ -116,7 +125,8 @@ def validate_bundle(profile: str, adapter_name: str, installation: dict[str, Any
     return {
         "profile": profile,
         "adapter": adapter_name,
-        "valid": install["valid"] and not missing_events and not missing_fields,
+        "validation_level": "installation_only" if installation_only else "live_evidence",
+        "valid": install["valid"] and (installation_only or (not missing_events and not missing_fields)),
         "installation": install,
         "missing_events": missing_events,
         "invalid_fields": missing_fields,
@@ -141,8 +151,18 @@ def main() -> int:
     parser.add_argument("--installation", type=Path)
     parser.add_argument("--trace", type=Path, required=True)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--installation-only", action="store_true",
+                        help="Check installed hooks without requiring workload events (for a no-load control case).")
+    parser.add_argument("--events-out", type=Path, help="Export recognized events in the shared evidence schema.")
+    parser.add_argument("--export-signal", action="append", choices=sorted(SIGNALS),
+                        help="Limit --events-out to these signals; repeat for more than one.")
     args = parser.parse_args()
-    inspection = inspect_trace(_read_jsonl(args.trace), args.adapter)
+    if args.export_signal and not args.events_out:
+        parser.error("--export-signal requires --events-out")
+    events = []
+    selected = set(args.export_signal or SIGNALS)
+    inspection = inspect_trace(_read_jsonl(args.trace), args.adapter,
+                               lambda event: events.append(event) if args.events_out and event.signal_id in selected else None)
     installation = (json.loads(args.installation.read_text(encoding="utf-8")) if args.installation
                     else inspection["embedded_installation"])
     if not installation:
@@ -150,7 +170,12 @@ def main() -> int:
     output = {"schema_version": "agentic.instrumentation.audit.v1", "trace": str(args.trace),
               "installation_report": str(args.installation) if args.installation else "embedded trace.install.summary",
               "inspection": inspection,
-              "gate": validate_bundle(args.profile, args.adapter, installation, inspection)}
+              "gate": validate_bundle(args.profile, args.adapter, installation, inspection,
+                                      installation_only=args.installation_only)}
+    if args.events_out and output["gate"]["valid"]:
+        args.events_out.parent.mkdir(parents=True, exist_ok=True)
+        args.events_out.write_text("".join(json.dumps(asdict(event), sort_keys=True) + "\n" for event in events),
+                                   encoding="utf-8")
     encoded = json.dumps(output, indent=2, sort_keys=True) + "\n"
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)

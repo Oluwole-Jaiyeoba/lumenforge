@@ -45,3 +45,30 @@ def test_sanitized_reference_trace_preserves_load_semantics():
         "request.accepted": 1, "batch.scheduled": 1, "batch.completed": 1,
         "kv.load_gpu": 1, "kv.layer_copy": 1, "kv.prefix_match": 1,
     }
+
+
+def test_copy_gate_requires_live_copy_but_control_can_check_install_only():
+    installed = []
+    for hook_id in ("kv_gpu_load", "kv_layer_copy"):
+        installed.extend(item["target"] for item in resolve_hook(hook_id, "v0510")["targets"])
+    installation = {"adapter": "v0510", "installed_hooks": installed}
+    empty = inspect_trace([], "v0510")
+    assert not validate_bundle("copy_timing", "v0510", installation, empty)["valid"]
+    gate = validate_bundle("copy_timing", "v0510", installation, empty, installation_only=True)
+    assert gate["valid"] and gate["validation_level"] == "installation_only"
+    installation["installed_hooks"] = []
+    assert not validate_bundle("copy_timing", "v0510", installation, empty, installation_only=True)["valid"]
+
+
+def test_request_boundary_needs_acceptance_with_request_identity():
+    installed = [item["target"] for item in resolve_hook("request_lifecycle", "v0510")["targets"]]
+    installation = {"adapter": "v0510", "installed_hooks": installed}
+    missing_identity = inspect_trace([{"event": "scheduler.handle_generate_request.end", "ts_ns": 1}], "v0510")
+    assert not validate_bundle("request_boundary", "v0510", installation, missing_identity)["valid"]
+    emitted = []
+    valid = inspect_trace([{"event": "scheduler.handle_generate_request.end", "ts_ns": 1,
+                            "kv_context": {"agent_request_id": "request-1", "agent_correlation_id": "corr-1"}}],
+                          "v0510", emitted.append)
+    assert validate_bundle("request_boundary", "v0510", installation, valid)["valid"]
+    assert emitted[0].request_id == "request-1"
+    assert emitted[0].correlation_id == "corr-1"

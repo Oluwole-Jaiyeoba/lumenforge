@@ -313,6 +313,7 @@ async def run_trial(client: httpx.AsyncClient, args: argparse.Namespace, events:
         "sample_id": f"trial_{index:03d}",
         "condition": args.condition,
         "request_id": request_id,
+        "donor_session_id": donor_session,
         "decode": decode,
         "regions": regions,
         "donor_plan": plan,

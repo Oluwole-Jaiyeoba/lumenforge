@@ -54,6 +54,7 @@ class Profile:
 
 PROFILES: dict[str, Profile] = {
     item.name: item for item in (
+        Profile("request_boundary", ("request.accepted",), "Backend request acceptance for hint-boundary audits"),
         Profile("controller_queue", ("request.accepted", "batch.scheduled", "batch.completed"), "Queue and replay timing"),
         Profile("kv_lifecycle", ("kv.load_gpu", "kv.prefix_match"), "Cache movement and replay match"),
         Profile("copy_timing", ("kv.load_gpu", "kv.layer_copy"), "Host-to-device copy detail"),

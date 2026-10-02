@@ -95,7 +95,7 @@ def normalize_trace_event(row: dict[str, Any], adapter_name: str = "v0510") -> E
         source=f"sglang_{adapter_name}",
         session_id=session,
         request_id=request,
-        correlation_id=str(context.get("correlation_id") or ""),
+        correlation_id=str(context.get("agent_correlation_id") or context.get("correlation_id") or ""),
         phase=str(context.get("agent_phase") or ""),
         payload=payload,
     )
