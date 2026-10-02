@@ -16,6 +16,14 @@ benchmark, controller comparison, and hardware bottleneck lanes.
 - `packages/agentic-experiments/.../run_work_audit_validation.py` runs the
   small validation. `packages/agentic-reports/.../build_work_audit_report.py`
   builds the top-level `KV_LIFECYCLE_AUDIT.html` index from saved summaries.
+  It keeps one row per archived run, ordered by the first request's UTC date
+  and time. Expand a row for setup, pair-level measurements, limits, a
+  reconstructed command, and immutable evidence links. If the request time is
+  missing, the page labels a manifest completion-time fallback rather than
+  presenting it as the experiment start.
+  New run manifests also record the effective prompt target, output cap,
+  minimum host prefix, eviction attempts, host-cache size, and GPU memory
+  fraction. Archived runs lacking these fields leave them unrecorded.
 - The imported `hicache_audit.zip` is reference material, not an installed
   plugin. Its proposed UnifiedRadixCache hooks are not assumed to exist in
   SGLang 0.5.10.post1.
@@ -234,8 +242,9 @@ with sampled tracing. Once replay was submitted, its TTFT was similar in both
 conditions (sampled late-minus-early differences: -4.178, +0.988, +6.364,
 +1.014 ms). Each measured case loaded 4096 tokens. Exact-index runs linked
 2047–2048 loaded GPU slots to the first replay's matched prefix; sampled
-runs report that slot lineage as **unknown**, not zero reuse. [The timing
-table](../../KV_LIFECYCLE_AUDIT.html) links each pair to its summary and raw evidence.
+runs report that slot lineage as **unknown**, not zero reuse. [The run
+index](../../KV_LIFECYCLE_AUDIT.html) keeps each experiment in one row and
+shows paired measurements and raw evidence when expanded.
 
 The exact-index runs measured about 221–236 ms of load-control-call time and
 about 205–216 ms of native CUDA load time, whereas sampled runs measured

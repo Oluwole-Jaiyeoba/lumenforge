@@ -20,6 +20,12 @@ WARMUP_PAIRS="${WORK_AUDIT_WARMUP_PAIRS:-1}"
 WAIT_MS="${WORK_AUDIT_WAIT_MS:-$( [[ "${STUDY}" == "timing" ]] && echo 2000 || echo 500 )}"
 EXACT_INDICES="${WORK_AUDIT_EXACT_INDICES:-256}"
 REQUIRE_SLOT_PROOF="${WORK_AUDIT_REQUIRE_SLOT_PROOF:-0}"
+PROMPT_WORDS="${WORK_AUDIT_PROMPT_WORDS:-4090}"
+MAX_OUTPUT_TOKENS="${WORK_AUDIT_MAX_OUTPUT_TOKENS:-16}"
+MINIMUM_HOST_TOKENS="${WORK_AUDIT_MINIMUM_HOST_TOKENS:-512}"
+EVICTION_ROUNDS="${WORK_AUDIT_EVICTION_ROUNDS:-4}"
+HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
+MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"
 RESULTS_BASE="${DIRECT_ROOT}/artifacts/results/work_audit"
 RUN_ROOT="${RESULTS_BASE}/${RUN_ID}"
 SERVER_PID=""
@@ -34,6 +40,9 @@ SERVER_PID=""
   echo "WORK_AUDIT_SECOND_REPLAY must be 0 or 1" >&2; exit 2;
 }
 [[ "${WAIT_MS}" =~ ^[1-9][0-9]*$ ]] || { echo "WORK_AUDIT_WAIT_MS must be positive" >&2; exit 2; }
+for value in "${PROMPT_WORDS}" "${MAX_OUTPUT_TOKENS}" "${MINIMUM_HOST_TOKENS}" "${EVICTION_ROUNDS}"; do
+  [[ "${value}" =~ ^[1-9][0-9]*$ ]] || { echo "Work-audit request settings must be positive integers" >&2; exit 2; }
+done
 if [[ "${STUDY}" == "validation" ]]; then
   [[ "${CASE_ORDER}" == "warm-host" || "${CASE_ORDER}" == "host-warm" ]] || {
     echo "WORK_AUDIT_CASE_ORDER must be warm-host or host-warm for validation" >&2; exit 2;
@@ -124,8 +133,7 @@ echo "Starting pinned backend for ${RUN_ID}"
   export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
   export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
   export AGENTIC_KV_PREPARE_CONTROL_PORT=31991
-  export HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
-  export MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"
+  export HICACHE_SIZE_GB MEM_FRACTION_STATIC
   bash scripts/run_sglang_hicache_server.sh "${MODEL}"
 ) >"${RUN_ROOT}/server.log" 2>&1 &
 SERVER_PID="$!"
@@ -174,11 +182,15 @@ if [[ "${STUDY}" == "timing" ]]; then
   python3 -m agentic_experiments.runners.run_work_audit_timing \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
     --case-order "${CASE_ORDER}" --pairs "${PAIRS}" --warmup-pairs "${WARMUP_PAIRS}" \
-    --wait-ms "${WAIT_MS}"
+    --wait-ms "${WAIT_MS}" --prompt-tokens "${PROMPT_WORDS}" \
+    --max-tokens "${MAX_OUTPUT_TOKENS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
+    --eviction-rounds "${EVICTION_ROUNDS}"
 else
   python3 -m agentic_experiments.runners.run_work_audit_validation \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" --case-order "${CASE_ORDER}" \
-    --wait-ms "${WAIT_MS}" \
+    --wait-ms "${WAIT_MS}" --prompt-tokens "${PROMPT_WORDS}" \
+    --max-tokens "${MAX_OUTPUT_TOKENS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
+    --eviction-rounds "${EVICTION_ROUNDS}" \
     "${SECOND_REPLAY_RUN_ARGS[@]}"
 fi
 python3 -m agentic_backends.sglang.trace_contract \
@@ -205,9 +217,6 @@ else
     --harness "${RUN_ROOT}/harness_events.jsonl" \
     --summary "${RUN_ROOT}/summary.json" --out "${RUN_ROOT}/block_audit.json"
 fi
-python3 -m agentic_reports.builders.build_work_audit_report \
-  --results-dir "${RESULTS_BASE}" --out "${RUN_ROOT}/report.html"
-
 HARDWARE_PROFILE="$(python3 - "${PROFILE_PATH}" <<'PY'
 import json
 import sys
@@ -224,9 +233,11 @@ python3 "${ROOT}/scripts/create_run_manifest.py" \
   --experiment "agentic_work_audit_${STUDY}" --model "${MODEL}" \
   --hardware-profile "${HARDWARE_PROFILE}" \
   --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
-  --workload-json "{\"cases\":[\"${CASE_ORDER%-*}\",\"${CASE_ORDER#*-}\"],\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"replays_per_case\":$( [[ "${STUDY}" == "timing" ]] && echo 2 || echo $((SECOND_REPLAY + 1)) ),\"pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${PAIRS}" || echo 1 ),\"warmup_pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${WARMUP_PAIRS}" || echo 0 ),\"tool_wait_ms\":${WAIT_MS},\"exact_trace_indices\":$( [[ "${STUDY}" == "timing" ]] && echo "${EXACT_INDICES}" || echo 256 ),\"slot_proof_required\":$( [[ "${STUDY}" == "timing" ]] && [[ "${REQUIRE_SLOT_PROOF}" == "1" ]] && echo true || echo false )}" \
+  --workload-json "{\"cases\":[\"${CASE_ORDER%-*}\",\"${CASE_ORDER#*-}\"],\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"replays_per_case\":$( [[ "${STUDY}" == "timing" ]] && echo 2 || echo $((SECOND_REPLAY + 1)) ),\"pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${PAIRS}" || echo 1 ),\"warmup_pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${WARMUP_PAIRS}" || echo 0 ),\"tool_wait_ms\":${WAIT_MS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC},\"exact_trace_indices\":$( [[ "${STUDY}" == "timing" ]] && echo "${EXACT_INDICES}" || echo 256 ),\"slot_proof_required\":$( [[ "${STUDY}" == "timing" ]] && [[ "${REQUIRE_SLOT_PROOF}" == "1" ]] && echo true || echo false )}" \
   --instrumentation "v0510_backend_trace" --instrumentation "work_audit_event_join" \
   --instrumentation "logical_block_lifecycle_reuse" --instrumentation "${TRACE_PROFILE}" \
   "${MANIFEST_ARTIFACTS[@]}" \
   --completion-status complete
+python3 -m agentic_reports.builders.build_work_audit_report \
+  --results-dir "${RESULTS_BASE}" --out "${RUN_ROOT}/report.html"
 echo "Validated: ${RUN_ROOT}/summary.json"
