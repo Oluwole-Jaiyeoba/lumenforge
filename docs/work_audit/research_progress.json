@@ -2,24 +2,36 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ4",
+      "short_question": "What happens when equal-importance sessions overlap?",
       "evidence_date_utc": "2026-10-02",
       "question": "Can a small, equal-importance, concurrent workload link tool waits, one controlled host eviction/load, replays, and an ending session?",
       "answer": "Yes. The three-session A10G trace passed the identity and ordering gates. The 900 ms and 2500 ms tool waits overlapped; the long session was explicitly evicted to host, loaded, and replayed; the third session ended without replay.",
       "unknown": "The eviction enforced a synthetic two-prefix policy, not natural capacity pressure. Different-session TTFTs do not prove a causal eviction penalty, and avoidable work needs a matched same-capacity counterfactual.",
       "evidence_run_ids": [
         "work_audit_multisession_20261002_01"
+      ],
+      "related_run_ids": [
+        "work_audit_multisession_20261002_01"
       ]
     },
     {
+      "id": "RQ3",
+      "short_question": "Does nonblocking late loading remove the delay?",
       "evidence_date_utc": "2026-10-02",
       "question": "Does not waiting for the late-load control response remove the observed tool-return-to-first-token penalty?",
       "answer": "In one warmed triple, nonblocking submission removed the roughly 170 ms client submission gap, but first token still arrived 243.659 ms after tool return versus 88.159 ms with early loading. The delay appeared in replay TTFT instead.",
       "unknown": "The native load was accepted after nonblocking replay submission, so the strict comparable delta was withheld. More order-balanced runs are needed; the full-task comparison was also withheld because second-replay TTFT drifted.",
       "evidence_run_ids": [
         "work_audit_nonblocking_20261002_01"
+      ],
+      "related_run_ids": [
+        "work_audit_nonblocking_20261002_01"
       ]
     },
     {
+      "id": "RQ2",
+      "short_question": "Does loading during the tool wait help?",
       "evidence_date_utc": "2026-10-02",
       "question": "In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?",
       "answer": "In these sampled runs, yes: late preparation added 166-178 ms across four comparable pairs. Most of that difference occurred before replay submission.",
@@ -27,6 +39,34 @@
       "evidence_run_ids": [
         "work_audit_timing_sampled_early_late_20261002",
         "work_audit_timing_sampled_late_early_20261002"
+      ],
+      "related_run_ids": [
+        "work_audit_timing_exact_early_late_20261002",
+        "work_audit_timing_exact_late_early_20261002",
+        "work_audit_timing_sampled_early_late_20261002",
+        "work_audit_timing_sampled_late_early_20261002"
+      ]
+    },
+    {
+      "id": "RQ1",
+      "short_question": "Can we trace one session's KV lifecycle reliably?",
+      "evidence_date_utc": "2026-10-02",
+      "question": "Can host residency, GPU eviction and load-back, and replay be linked to the same session across one or two tool waits?",
+      "answer": "Yes for these controlled A10G validations: the host-backed runs linked eviction, host residency, native load, layer copies, and replay to a session. Two-replay probes also checked a later replay's cache match.",
+      "unknown": "A matched prefix does not prove exact model-kernel consumption. These sequential validations do not show a policy speedup, natural capacity pressure, or avoidable work.",
+      "evidence_run_ids": [
+        "work_audit_a10g_20261001_final",
+        "work_audit_two_replays_20261002",
+        "work_audit_two_replays_20261002_reverse",
+        "work_audit_two_replays_lean_pump_20261002",
+        "work_audit_two_replays_lean_reverse_20261002"
+      ],
+      "related_run_ids": [
+        "work_audit_a10g_20261001_final",
+        "work_audit_two_replays_20261002",
+        "work_audit_two_replays_20261002_reverse",
+        "work_audit_two_replays_lean_pump_20261002",
+        "work_audit_two_replays_lean_reverse_20261002"
       ]
     }
   ]

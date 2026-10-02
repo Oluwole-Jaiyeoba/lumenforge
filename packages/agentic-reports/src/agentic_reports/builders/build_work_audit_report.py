@@ -271,6 +271,24 @@ def _multisession_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
+def _question_index(milestones: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
+    by_id: dict[str, dict] = {}
+    by_run: dict[str, str] = {}
+    for milestone in milestones:
+        question_id = milestone.get("id")
+        if not question_id or not milestone.get("short_question") or question_id in by_id:
+            raise ValueError("Research progress needs unique IDs and short questions")
+        by_id[question_id] = milestone
+        related = milestone.get("related_run_ids") or milestone.get("evidence_run_ids") or []
+        if not set(milestone.get("evidence_run_ids") or []).issubset(related):
+            raise ValueError(f"Supporting runs must belong to {question_id}")
+        for run_id in related:
+            if run_id in by_run:
+                raise ValueError(f"Run {run_id} belongs to more than one research question")
+            by_run[run_id] = question_id
+    return by_id, by_run
+
+
 def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
     if not milestones:
         return ""
@@ -282,8 +300,10 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
                 evidence.append(f'<a href="#run-{_esc(quote(run, safe=""))}">{_esc(run)}</a>')
             else:
                 evidence.append(f"{_esc(run)} (not archived here)")
+        question_id = str(milestone.get("id") or "")
         rows.append(
-            f"<tr><td data-label='Question'><small>Evidence through {_esc(milestone.get('evidence_date_utc'))} UTC</small>"
+            f"<tr id='rq-{_esc(quote(question_id, safe=''))}'><td data-label='Question'>"
+            f"<small>{_esc(question_id)} · Evidence through {_esc(milestone.get('evidence_date_utc'))} UTC</small>"
             f"{_esc(milestone.get('question'))}</td>"
             f"<td data-label='Answer supported by evidence'>{_esc(milestone.get('answer'))}"
             f"<small>Supporting runs: {' · '.join(evidence) if evidence else 'not recorded'}</small></td>"
@@ -300,6 +320,7 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = None) -> str:
     ordered = sorted(summaries, key=lambda item: (_time(item[1])[0], item[0].parent.name), reverse=True)
     run_ids = {str(summary.get("run_id") or path.parent.name) for path, summary in ordered}
+    questions, run_questions = _question_index(milestones or [])
     rows: list[str] = []
     for path, summary in ordered:
         _, date, time, source = _time(summary)
@@ -307,12 +328,25 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         multisession = summary.get("schema") == "agentic_work_audit.multisession.v1"
         run = str(summary.get("run_id") or path.parent.name)
         kind = "Concurrent timeline" if multisession else "Early vs late" if timing else "Lifecycle validation"
-        question = (
+        manifest_question_id = ((summary.get("_manifest") or {}).get("workload") or {}).get("research_question_id")
+        archived_question_id = run_questions.get(run)
+        if manifest_question_id and archived_question_id and manifest_question_id != archived_question_id:
+            raise ValueError(f"Run {run} has conflicting research question IDs")
+        question_id = manifest_question_id or archived_question_id
+        milestone = questions.get(question_id)
+        fallback_question = (
             "When differently timed but equally important agent sessions overlap, which cache events "
             "happen before or after each replay becomes ready?" if multisession else
             "Does loading host KV during the tool wait reduce tool-return-to-first-token time "
             "versus loading after the wait?" if timing else
             "Can host residency, native load-back, and replay be linked to the same session?"
+        )
+        question = milestone["question"] if milestone else fallback_question
+        question_cell = (
+            f'<a href="#rq-{_esc(quote(str(question_id), safe=""))}">'
+            f'<strong>{_esc(question_id)}</strong><span>{_esc(milestone["short_question"])}</span></a>'
+            if milestone else f'<span class="unmapped">Unmapped research question'
+            f'{" (" + _esc(question_id) + ")" if question_id else ""}</span>'
         )
         setup, method = _setup(summary, timing)
         result, findings = (_multisession_result(summary) if multisession else
@@ -323,7 +357,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         rows.append(
             f"<tr id='run-{_esc(quote(run, safe=''))}'><td title='{_esc(source)}'>{_esc(date)}</td>"
             f"<td title='{_esc(source)}'>{_esc(time)}</td>"
-            f"<td><strong>{kind}</strong><small>{_esc(run)}</small></td><td>{setup}</td>"
+            f"<td><strong>{kind}</strong><small>{_esc(run)}</small></td>"
+            f"<td class='question-cell'>{question_cell}</td><td>{setup}</td>"
             f"<td>{result}</td><td><span class='status {_esc(status)}'>{_esc(status)}</span></td>"
             f"<td><details><summary>View</summary><div class='detail'>"
             f"<p><strong>Question tested.</strong> {_esc(question)}</p>"
@@ -333,7 +368,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             "</div></details></td></tr>"
         )
     if not rows:
-        rows.append("<tr><td colspan='7'>No saved run summaries are archived yet.</td></tr>")
+        rows.append("<tr><td colspan='8'>No saved run summaries are archived yet.</td></tr>")
     progress_html = _progress_html(milestones or [], run_ids)
     return """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>KV Lifecycle Audit</title>
@@ -357,10 +392,14 @@ h1{font-size:1.7rem;margin:0 0 8px;letter-spacing:0}p{color:#3d5260}
 .progress-table small{margin:0 0 4px}.progress-table td:nth-child(2) small{margin-top:8px}
 .progress-table a{overflow-wrap:anywhere}
 .intro{max-width:90ch;margin:0 0 20px}.table-scroll{overflow-x:auto;border:1px solid #d7e2e6;background:#fff}
-table{border-collapse:collapse;width:100%;min-width:1100px}th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #e5ecef}
+table{border-collapse:collapse;width:100%;min-width:1320px}th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #e5ecef}
 th{background:#e4f0ef;color:#204a4a;font-size:.88rem;white-space:nowrap}td:nth-child(1),td:nth-child(2){white-space:nowrap;font-variant-numeric:tabular-nums}
 tbody tr:hover{background:#f8fbfa}
-td:nth-child(3){min-width:165px}td:nth-child(4){min-width:210px}td:nth-child(5){min-width:260px}
+td:nth-child(3){min-width:165px}td:nth-child(5){min-width:210px}td:nth-child(6){min-width:260px}
+.question-cell{min-width:225px;max-width:285px;white-space:normal}
+.question-cell a{display:block;text-decoration:none}.question-cell a:hover{text-decoration:underline}
+.question-cell strong{display:block;color:#17685e}.question-cell span{display:block;margin-top:3px}
+.unmapped{color:#8a551d}
 small{display:block;color:#5a6c77;overflow-wrap:anywhere;font-size:.8rem;margin-top:3px}
 .status{display:inline-block;font-weight:650}.validated{color:#126746}.failed{color:#b63839}
 details{min-width:56px}summary{cursor:pointer;color:#086780;font-weight:650;list-style:none}summary::-webkit-details-marker{display:none}
@@ -385,8 +424,8 @@ body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-colu
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """
-<p class="intro">One row per saved experiment, newest first. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Timing runs compare early and late host-KV preparation. Lifecycle runs check that cache events can be linked to a replay; their TTFTs are not a policy win.</p>
-<div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Setup</th><th>Main result</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
+<p class="intro">One row per saved experiment, newest first. The research-question link opens the corresponding answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Timing runs compare early and late host-KV preparation. Lifecycle runs check that cache events can be linked to a replay; their TTFTs are not a policy win.</p>
+<div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
 </body></html>"""
 
 

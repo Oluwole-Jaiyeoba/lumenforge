@@ -3,6 +3,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from agentic_reports.builders.build_work_audit_report import main, render
 
 
@@ -44,11 +46,13 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     out = tmp_path / "index.html"
     progress = tmp_path / "progress.json"
     progress.write_text(json.dumps({"milestones": [{
+        "id": "RQ1", "short_question": "Does early KV preparation help?",
         "evidence_date_utc": "2026-10-02",
         "question": "Does early KV preparation help?",
         "answer": "Yes in this controlled test.",
         "unknown": "Whether other sessions are delayed.",
         "evidence_run_ids": ["first", "second"],
+        "related_run_ids": ["first", "second"],
     }]}), encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["report", "--results-dir", str(runs),
                                       "--progress-file", str(progress), "--out", str(out)])
@@ -74,6 +78,9 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     assert "Yes in this controlled test." in page
     assert 'href="#run-first"' in page and 'href="#run-second"' in page
     assert "Question tested." in page
+    assert "<th>Research question</th>" in page
+    assert page.count('href="#rq-RQ1"') == 2
+    assert 'id=\'rq-RQ1\'' in page
 
 
 def test_timing_details_keep_pair_metrics_separate():
@@ -134,16 +141,42 @@ def test_future_manifest_shows_effective_request_settings():
 
 def test_progress_keeps_milestone_order_and_marks_unarchived_evidence():
     milestones = [
-        {"question": "New question", "answer": "New answer", "unknown": "Next test",
-         "evidence_run_ids": ["missing"]},
-        {"question": "Older question", "answer": "Older answer", "unknown": "Old limit",
-         "evidence_run_ids": ["saved"]},
+        {"id": "RQ2", "short_question": "New question", "question": "New question",
+         "answer": "New answer", "unknown": "Next test", "evidence_run_ids": ["missing"]},
+        {"id": "RQ1", "short_question": "Older question", "question": "Older question",
+         "answer": "Older answer", "unknown": "Old limit", "evidence_run_ids": ["saved"]},
     ]
     page = render([(Path("runs/saved/summary.json"), {"run_id": "saved"})], milestones)
     assert page.index("New question") < page.index("Older question")
     assert "missing (not archived here)" in page
     assert 'href="#run-saved"' in page
     assert "Question tested." in page
+    assert 'href="#rq-RQ1"' in page
+
+
+def test_manifest_question_id_links_without_archived_run_mapping():
+    manifest = _manifest()
+    manifest["workload"]["research_question_id"] = "RQ1"
+    milestone = {"id": "RQ1", "short_question": "Can we trace the KV lifecycle?",
+                 "question": "Can host residency and replay be linked?", "answer": "Yes.",
+                 "unknown": "Kernel use.", "evidence_run_ids": []}
+    page = render([(Path("runs/future/summary.json"), {
+        "run_id": "future", "_manifest": manifest,
+    })], [milestone])
+    assert 'href="#rq-RQ1"' in page
+    assert "Can we trace the KV lifecycle?" in page
+    assert "Can host residency and replay be linked?" in page
+
+
+def test_conflicting_question_assignments_fail_loudly():
+    manifest = _manifest()
+    manifest["workload"]["research_question_id"] = "RQ2"
+    milestone = {"id": "RQ1", "short_question": "Lifecycle", "question": "Lifecycle?",
+                 "evidence_run_ids": ["saved"]}
+    with pytest.raises(ValueError, match="conflicting research question IDs"):
+        render([(Path("runs/saved/summary.json"), {
+            "run_id": "saved", "_manifest": manifest,
+        })], [milestone])
 
 
 def test_nonblocking_timing_run_exposes_comparability_and_cache_reuse():

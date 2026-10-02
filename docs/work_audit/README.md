@@ -32,7 +32,14 @@ linked evidence and a feasible comparison.
   fraction. Archived runs lacking these fields leave them unrecorded.
 - `docs/work_audit/research_progress.json` records answered research questions,
   supported conclusions, remaining uncertainty, and the archived runs behind
-  each conclusion. Prepend new milestones after checking their evidence; do
+  each conclusion. Each question has a stable `id` and short table label.
+  `related_run_ids` maps older runs to the question they tested, while
+  `evidence_run_ids` lists only runs supporting the stated answer. New run
+  manifests record `workload.research_question_id`; the report rejects a
+  conflicting archived mapping and leaves unknown IDs visibly unmapped.
+  Set `WORK_AUDIT_RESEARCH_QUESTION_ID` when a new protocol studies a
+  different question from its study's default. Prepend new milestones after
+  checking their evidence; do
   not rewrite older conclusions without explicitly correcting them. Regenerate
   the top-level page from the repo root with:
 
