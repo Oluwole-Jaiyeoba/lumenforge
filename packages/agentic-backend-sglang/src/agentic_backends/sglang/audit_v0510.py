@@ -14,6 +14,8 @@ from typing import Any
 from agentic_work_audit.events import AuditEvent
 from agentic_instrumentation import EvidenceEvent
 
+from .evidence import normalize_trace_event
+
 
 # A native load emits nested cache calls and one copy event per model layer.
 # Keep these roles here so report code does not depend on private hook names.
@@ -58,30 +60,8 @@ def _agent(row: dict[str, Any]) -> tuple[str, str]:
 
 def normalize_lifecycle_evidence(row: dict[str, Any]) -> EvidenceEvent | None:
     """Map one pinned raw cache event to the shared evidence contract."""
-    name = str(row.get("event") or "")
-    signal = SIGNAL_BY_EVENT.get(name)
-    ts = int(row.get("ts_ns") or 0)
-    if not signal or ts <= 0:
-        return None
-    session, request = _agent(row)
-    context = row.get("kv_context") if isinstance(row.get("kv_context"), dict) else row
-    result = row.get("result")
-    matched = None
-    if signal == "kv.prefix_match" and isinstance(result, list) and len(result) > 1:
-        node = result[1]
-        if isinstance(node, dict):
-            matched = node.get("value")
-    return EvidenceEvent(
-        signal_id=signal, time_ns=ts, source="sglang_v0510", session_id=session,
-        request_id=request, correlation_id=str(context.get("correlation_id") or ""),
-        phase=str(context.get("agent_phase") or ""),
-        payload={
-            "node_id": context.get("node_id"),
-            "host_indices": context.get("host_indices"),
-            "device_indices": context.get("device_indices"),
-            "matched_indices": matched,
-        },
-    )
+    event = normalize_trace_event(row, "v0510")
+    return event if event is not None and event.signal_id in SIGNAL_BY_EVENT.values() else None
 
 
 def translate_trace(path: Path) -> list[AuditEvent]:

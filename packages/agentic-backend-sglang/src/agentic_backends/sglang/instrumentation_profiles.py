@@ -32,7 +32,7 @@ _VALUES = {
 _HOOK_IDS = {
     "request.accepted": "request_lifecycle",
     "batch.scheduled": "scheduler_batch_observation",
-    "request.completed": "request_completion_timing",
+    "batch.completed": "request_completion_timing",
     "kv.write_host": "kv_host_write",
     "kv.evict_gpu": "kv_gpu_evict",
     "kv.evict_host": "kv_host_evict",
@@ -53,6 +53,9 @@ def validate_installation(name: str, adapter: str, installation: dict[str, Any])
     """Require at least one installed adapter target for each profile signal."""
     if name not in PROFILES:
         raise ValueError(f"Unknown shared evidence profile {name!r}")
+    if installation.get("adapter") != adapter:
+        return {"profile": name, "adapter": adapter, "valid": False,
+                "missing": [{"signal": "adapter", "reason": f"installation reports {installation.get('adapter')!r}"}]}
     installed = set(installation.get("installed_hooks") or [])
     missing = []
     for signal in PROFILES[name].required_signals:

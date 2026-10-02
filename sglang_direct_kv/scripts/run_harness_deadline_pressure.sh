@@ -203,6 +203,7 @@ run_instrumentation_preflight() {
       --sentinel-trace "${CONTROLLER_INSTRUMENTATION_SENTINEL_TRACE}" \
       --controller-probe-report "${CONTROLLER_INSTRUMENTATION_CONTROLLER_PROBE}" \
       --controller-mode "${mode:-controller_scheduler_priority}" \
+      --shared-profile controller_queue \
       --timeout "${CONTROLLER_INSTRUMENTATION_TIMEOUT_SECS}" \
       --trace-wait "${CONTROLLER_INSTRUMENTATION_TRACE_WAIT_SECS}" \
       --policy "${CONTROLLER_INSTRUMENTATION_POLICY}" \

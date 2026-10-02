@@ -17,7 +17,7 @@ import json
 import unittest
 from pathlib import Path
 
-from boundaries import ALLOWLIST_PATH, LEGACY_SGLANG_ALLOWLIST_PATH, scan
+from boundaries import ALLOWLIST_PATH, LEGACY_SGLANG_ALLOWLIST_PATH, PACKAGES, REPO, iter_py, scan
 
 RESULT = scan()
 
@@ -46,6 +46,26 @@ class BoundaryTest(unittest.TestCase):
     def test_no_new_testbed_files_touch_sglang_internals(self) -> None:
         allowed = set(json.loads(LEGACY_SGLANG_ALLOWLIST_PATH.read_text())["files"])
         self.assertEqual(sorted(set(RESULT["legacy_sglang_internal_users"]) - allowed), [])
+
+    def test_no_lane_local_backend_hook_tables(self) -> None:
+        violations = []
+        for name, (relative, _) in PACKAGES.items():
+            if name == "agentic_backends":
+                continue
+            for path in iter_py(REPO / relative):
+                source = path.read_text(encoding="utf-8")
+                if "SGLangHookTarget" in source or "HOOK_TARGETS" in source:
+                    violations.append(str(path.relative_to(REPO)))
+        legacy_shim = "sglang_direct_kv/src/agentic_kv/sglang_adapters/__init__.py"
+        for relative in ("sglang_direct_kv/src", "sglang_direct_kv/scripts"):
+            for path in iter_py(REPO / relative):
+                name = str(path.relative_to(REPO))
+                if name == legacy_shim:
+                    continue
+                source = path.read_text(encoding="utf-8")
+                if "SGLangHookTarget" in source or "HOOK_TARGETS" in source:
+                    violations.append(name)
+        self.assertEqual(violations, [])
 
 
 if __name__ == "__main__":

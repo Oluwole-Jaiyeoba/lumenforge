@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .hook_registry import resolve_hook
+from .trace_contract import inspect_trace, validate_bundle
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -201,6 +202,14 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
     sentinel_trace.parent.mkdir(parents=True, exist_ok=True)
     sentinel_trace.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in trace_rows), encoding="utf-8")
     controller_probe = _controller_probe(args)
+    shared_profile = getattr(args, "shared_profile", None)
+    if shared_profile:
+        adapter_name = str(installation.get("adapter") or "")
+        shared = (validate_bundle(shared_profile, adapter_name, installation,
+                                  inspect_trace(backend_rows, adapter_name))
+                  if adapter_name else {"valid": False, "reason": "installation adapter missing"})
+        checks.append({"id": f"shared_profile:{shared_profile}", "kind": "shared_evidence",
+                       "passed": shared["valid"], "details": shared})
     for entry in contract.get("required", []):
         if entry.get("hook_id"):
             checks.append(_check_trace(entry, backend_rows, source_prefixes[entry["id"]], source=True))
@@ -248,6 +257,7 @@ def main() -> int:
     parser.add_argument("--sentinel-trace")
     parser.add_argument("--controller-probe-report")
     parser.add_argument("--controller-mode", default="controller_scheduler_priority")
+    parser.add_argument("--shared-profile", choices=("controller_queue", "kv_lifecycle", "copy_timing", "full_debug"))
     parser.add_argument("--timeout", type=float, default=30)
     parser.add_argument("--trace-wait", type=float, default=15)
     parser.add_argument("--policy", choices=("strict", "observe_only"), default="strict")

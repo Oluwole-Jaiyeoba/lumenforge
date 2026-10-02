@@ -13522,7 +13522,18 @@ def main() -> None:
     all_gaps: list[dict[str, Any]] = []
     all_trace_rows: list[dict[str, Any]] = []
     all_runtime_telemetry_rows: list[dict[str, Any]] = []
+    installed_adapters: set[str] = set()
+    cases_without_adapter: list[str] = []
     for mode, case_dir in discover_cases(args.root):
+        installation_path = case_dir / "hook_installation_report.json"
+        if installation_path.exists():
+            installation = json.loads(installation_path.read_text(encoding="utf-8"))
+            if installation.get("adapter"):
+                installed_adapters.add(str(installation["adapter"]))
+            else:
+                cases_without_adapter.append(case_dir.name)
+        else:
+            cases_without_adapter.append(case_dir.name)
         gaps, trace_rows = build_gaps_for_case(case_dir, mode)
         case_id = case_dir.name
         runtime_rows = read_jsonl(case_dir / "runtime_telemetry.jsonl")
@@ -13545,7 +13556,12 @@ def main() -> None:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     ledger = build_replay_path_ledger(all_gaps)
-    normalized_kv_events = normalize_sglang_trace_events(all_trace_rows)
+    if len(installed_adapters) > 1:
+        raise ValueError(f"cannot combine SGLang adapters in one KV report: {sorted(installed_adapters)}")
+    if installed_adapters and cases_without_adapter:
+        raise ValueError(f"missing SGLang adapter for cases: {cases_without_adapter}")
+    normalized_kv_events = normalize_sglang_trace_events(
+        all_trace_rows, adapter_name=next(iter(installed_adapters)) if installed_adapters else None)
     kv_ledger = build_block_ledger(normalized_kv_events)
     kv_block_rows = block_ledger_rows(kv_ledger)
     kv_block_lifecycle_by_gap = block_lifecycle_by_gap_rows(all_gaps, kv_block_rows)

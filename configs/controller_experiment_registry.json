@@ -40,6 +40,37 @@
       "reproduction_command": "SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 AGENTIC_MODEL_CACHE=/path/to/model/cache REPORT_LABEL=scenario1_equal_$(date +%Y%m%d_%H%M%S) UPDATE_LATEST=0 bash infra/container/run_scenario1_hybrid_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct"
     },
     {
+      "id": "scenario1_shared_instrumentation_20261002",
+      "scenario": "Scenario 1: Shared Instrumentation Regression",
+      "status": "completed_reference_check",
+      "question": "Does the equal-importance controller experiment still run and pass the shared instrumentation gate?",
+      "controller_capability": "Ready-time ordering and GPU backfill only; the front end supplies no importance class.",
+      "priority_contract": "All 16 sessions have equal application importance; both workload roles have replay deadlines. The controller alone derives backend queue ranks.",
+      "comparison": "no_prefetch vs controller_ready_time_gpu_backfill",
+      "workload": "DeepAgents; P3; 16 sessions x 2 replay steps = 32 deadline-bearing replays per mode; identical seeded workload shape.",
+      "parameters": {
+        "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "hardware_profile": "nvidia_a10g_24gb",
+        "sglang_version": "0.5.10.post1",
+        "seed": "20260916",
+        "tool_wait_profile": "very_short 20% (100-500 ms), short 35% (1-5 s), medium 30% (10-30 s), long 15% (60-120 s)",
+        "p3": "tool_wait_ms=50, target_prompt_tokens=4096, filler_sessions=15, filler_prompt_tokens=1536, concurrency=6",
+        "instrumentation": "strict static and live preflights; shared controller_queue gate passed in both cases; 45 adapter hooks inventoried"
+      },
+      "spec_path": "configs/experiment_specs/scenario1_ready_time_reference.env",
+      "run_label": "scenario1_shared_instrumentation_20261002",
+      "report_path": "docs/reports/scenario1_shared_instrumentation_20261002/master_report.html",
+      "evidence_path": "docs/reports/scenario1_shared_instrumentation_20261002/all_replay_summary.csv",
+      "results": {
+        "total_replay_ttft": "99.79 s -> 67.65 s (32.2% lower)",
+        "total_replay_deadline_debt": "231.05 s -> 162.22 s (29.8% lower)",
+        "median_replay_ttft": "2.76 s -> 1.96 s",
+        "replay_coverage": "32/32 requests per mode, including both workload-generation roles",
+        "mechanism_proof": "No front-end priority in either mode; strict preflight and shared controller_queue evidence gate passed for both cases."
+      },
+      "reproduction_command": "SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 AGENTIC_MODEL_CACHE=/path/to/model/cache REPORT_LABEL=scenario1_shared_recheck_$(date +%Y%m%d_%H%M%S) UPDATE_LATEST=0 bash infra/container/run_scenario1_hybrid_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct"
+    },
+    {
       "id": "scenario1_ready_time_reference",
       "scenario": "Scenario 1: Better Deadline Scheduling",
       "status": "historical_reference",

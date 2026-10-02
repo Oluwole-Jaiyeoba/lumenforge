@@ -1,0 +1,6 @@
+{"event":"scheduler.handle_generate_request.end","ts_ns":10,"agent_session_id":"sample","agent_request_id":"sample-initial"}
+{"event":"scheduler.get_next_batch_to_run.end","ts_ns":11}
+{"event":"scheduler.process_batch_result.end","ts_ns":12}
+{"event":"hicache.load.end","ts_ns":20,"kv_context":{"agent_session_id":"sample","device_indices":{"values":[5,6]}}}
+{"event":"hostpool.load_to_device_per_layer.end","ts_ns":21,"kv_context":{"agent_session_id":"sample","device_indices":{"values":[5,6]},"layer_id":0}}
+{"event":"hiradix.match_prefix.end","ts_ns":30,"agent_session_id":"sample","agent_request_id":"sample-replay","result":[{"value":{"values":[5,6]}},{"value":{"values":[5,6]}}]}

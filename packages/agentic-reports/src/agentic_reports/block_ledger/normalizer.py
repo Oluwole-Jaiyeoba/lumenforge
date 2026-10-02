@@ -13,7 +13,9 @@ from agentic_reports.evidence_schema import (
     request_identity,
     request_or_context_value,
 )
-from agentic_backends.sglang.hooks import get_raw_event_map
+from agentic_backends.sglang.evidence import normalize_trace_event
+from agentic_backends.sglang.hooks import get_raw_event_map, select_adapter_name
+from agentic_backends.sglang.versions import get_adapter
 
 from .events import KVEventType, NormalizedKVEvent
 
@@ -26,16 +28,24 @@ EVENT_MAP: dict[str, KVEventType] = {
 
 def normalize_sglang_trace_events(
     trace_rows: Iterable[dict[str, Any]], *, version: str | None = None,
+    adapter_name: str | None = None,
 ) -> list[NormalizedKVEvent]:
+    if version is not None and adapter_name is not None:
+        raise ValueError("pass version or adapter_name, not both")
     rows = list(trace_rows)
-    event_map = EVENT_MAP if version is None else {
-        source: KVEventType(stable) for source, stable in get_raw_event_map(version).items()
-    }
+    if adapter_name is not None:
+        event_map = {source: KVEventType(stable) for source, stable in get_adapter(adapter_name).raw_event_map.items()}
+    else:
+        event_map = EVENT_MAP if version is None else {
+            source: KVEventType(stable) for source, stable in get_raw_event_map(version).items()
+        }
+        adapter_name = select_adapter_name(version)
     base_ts = min((int(row["ts_ns"]) for row in rows if row.get("ts_ns")), default=0)
     events: list[NormalizedKVEvent] = []
     for row in rows:
         source_event = str(row.get("event") or "")
-        event_type = event_map.get(source_event)
+        evidence = normalize_trace_event(row, adapter_name) if source_event in event_map else None
+        event_type = KVEventType(evidence.payload["kv_event_type"]) if evidence and evidence.payload.get("kv_event_type") else None
         if event_type is None:
             continue
         context = context_from_trace_event(row)

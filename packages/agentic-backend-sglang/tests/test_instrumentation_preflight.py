@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from agentic_backends.sglang.instrumentation_preflight import _send_sentinel, run_preflight
+from agentic_backends.sglang.hook_registry import resolve_hook
 
 
 SCHEDULER_HOOK = "sglang.srt.managers.scheduler.Scheduler.process_batch_result"
@@ -91,6 +92,27 @@ class InstrumentationPreflightTest(unittest.TestCase):
             result = run_preflight(args)
         self.assertFalse(result["valid"])
         self.assertTrue(result["experiment_allowed"])
+
+    def test_shared_queue_profile_rejects_missing_request_identity(self) -> None:
+        args = self._args("live")
+        args.shared_profile = "controller_queue"
+        installed = [item["target"] for hook_id in ("request_lifecycle", "scheduler_batch_observation", "request_completion_timing")
+                     for item in resolve_hook(hook_id, "v0510")["targets"]]
+        Path(args.installation_report).write_text(json.dumps({"adapter": "v0510", "installed_hooks": installed}), encoding="utf-8")
+        Path(args.gateway_trace).write_text("\n".join(json.dumps(row) for row in [
+            {"ts_ns": 2, "event": "m27.request.start"},
+            {"ts_ns": 3, "event": "m27.request.end", "ttft_ms": 1},
+        ]) + "\n", encoding="utf-8")
+        Path(args.backend_trace).write_text("\n".join(json.dumps(row) for row in [
+            {"ts_ns": 4, "source_event": "scheduler.handle_generate_request.end"},
+            {"ts_ns": 5, "source_event": "scheduler.get_next_batch_to_run.end"},
+            {"ts_ns": 6, "source_event": "scheduler.process_batch_result.end"},
+        ]) + "\n", encoding="utf-8")
+        with patch("agentic_backends.sglang.instrumentation_preflight._send_sentinel", return_value={"sent": True, "started_ns": 1}), patch("agentic_backends.sglang.instrumentation_preflight._controller_probe", return_value=self._controller_rows()):
+            result = run_preflight(args)
+        self.assertFalse(result["valid"])
+        shared = next(item for item in result["checks"] if item["id"] == "shared_profile:controller_queue")
+        self.assertEqual(shared["details"]["invalid_fields"], ["request.accepted"])
 
     def test_sentinel_retry_uses_fresh_request_identity(self) -> None:
         response = MagicMock()

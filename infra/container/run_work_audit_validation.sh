@@ -113,6 +113,10 @@ PY
 
 python3 -m agentic_experiments.runners.run_work_audit_validation \
   --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}"
+python3 -m agentic_backends.sglang.trace_contract \
+  --adapter v0510 --profile kv_lifecycle \
+  --trace "${RUN_ROOT}/backend_trace.jsonl" \
+  --out "${RUN_ROOT}/instrumentation_audit.json"
 python3 -m agentic_experiments.runners.analyze_work_audit_validation \
   --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
   --harness "${RUN_ROOT}/harness_events.jsonl" --out-dir "${RUN_ROOT}"
@@ -137,6 +141,7 @@ python3 "${ROOT}/scripts/create_run_manifest.py" \
   --workload-json '{"cases":["warm","host"],"frontend_priority":"none","purpose":"evidence_validation"}' \
   --instrumentation "v0510_backend_trace" --instrumentation "work_audit_event_join" \
   --instrumentation "logical_block_lifecycle_reuse" \
+  --artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json" \
   --artifact "summary=${RUN_ROOT}/summary.json" \
   --artifact "block_audit=${RUN_ROOT}/block_audit.json" \
   --artifact "report=${RUN_ROOT}/report.html" \

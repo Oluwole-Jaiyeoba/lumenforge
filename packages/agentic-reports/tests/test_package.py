@@ -3,7 +3,7 @@ import pkgutil
 import unittest
 
 import agentic_reports
-from agentic_reports.block_ledger import KVEventType, NormalizedKVEvent, block_ledger_rows, build_block_ledger
+from agentic_reports.block_ledger import KVEventType, NormalizedKVEvent, block_ledger_rows, build_block_ledger, normalize_sglang_trace_events
 
 
 class PackageTest(unittest.TestCase):
@@ -30,6 +30,15 @@ class PackageTest(unittest.TestCase):
         )
         rows = block_ledger_rows(build_block_ledger([event]))
         self.assertTrue(rows)
+
+    def test_trace_normalizer_uses_recorded_adapter(self) -> None:
+        row = {"event": "hicache.load.end", "ts_ns": 20,
+               "kv_context": {"agent_session_id": "s1", "device_indices": {"values": [1]}}}
+        result = normalize_sglang_trace_events([row], adapter_name="v0510")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].event_type, KVEventType.LOAD_GPU)
+        with self.assertRaises(ValueError):
+            normalize_sglang_trace_events([row], version="0.5.10.post1", adapter_name="v0510")
 
 
 if __name__ == "__main__":
