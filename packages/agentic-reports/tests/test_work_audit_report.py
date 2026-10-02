@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agentic_reports.builders.build_work_audit_report import main, render
+from agentic_reports.builders.build_work_audit_report import _run_finding, main, render
 
 
 def _manifest(order=("warm", "host")):
@@ -28,7 +28,8 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
         run = runs / name
         run.mkdir(parents=True)
         (run / "summary.json").write_text(json.dumps({
-            "run_id": name, "status": "validated",
+            "schema": "agentic_work_audit.validation.v1", "run_id": name,
+            "status": "validated",
             "cases": [
                 {"case_type": "warm_control", "replay_ttft_ms": 10},
                 {"case_type": "host_backed", "replay_ttft_ms": 11},
@@ -79,8 +80,10 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     assert 'href="#run-first"' in page and 'href="#run-second"' in page
     assert "Question tested." in page
     assert "<th>Research question</th>" in page
+    assert "<th>Main result</th><th>Finding</th><th>Evidence gate</th>" in page
     assert page.count('href="#rq-RQ1"') == 2
     assert 'id=\'rq-RQ1\'' in page
+    assert page.count("this was not a policy-speed comparison") == 2
 
 
 def test_timing_details_keep_pair_metrics_separate():
@@ -322,3 +325,64 @@ def test_three_window_report_shows_raw_session_and_workflow_metrics():
     assert "90.0 ms" in page
     assert "observing that replay finish" in page
     assert "WORK_AUDIT_STUDY=multisession_window" in page
+
+
+def test_findings_reflect_supported_outcomes_and_withheld_comparisons():
+    window = {
+        "schema": "agentic_work_audit.multisession_window.v1", "status": "validated",
+        "pairs": [{"comparable": True, "post_vs_late_long_saved_ms": 188,
+                   "post_vs_early_short_saved_ms": 204,
+                   "post_vs_late_workflow_saved_ms": 208}],
+    }
+    assert _run_finding(window) == (
+        "Post-short loading improved long replay and workflow time versus late loading, "
+        "while sparing the short session versus early loading."
+    )
+    assert "mixed effects" in _run_finding({
+        **window, "pairs": [{**window["pairs"][0], "post_vs_early_short_saved_ms": -2}],
+    })
+    assert "conclusion is withheld" in _run_finding({
+        **window, "pairs": [{"comparable": False}],
+    })
+    assert "no performance conclusion" in _run_finding({**window, "status": "failed"})
+
+    comparison = {
+        "schema": "agentic_work_audit.multisession_comparison.v1", "status": "validated",
+        "pairs": [{"comparable": True, "long_due_to_token_saved_ms": 201,
+                   "short_due_to_finish_change_ms": 178,
+                   "workflow_makespan_saved_ms": 212}],
+    }
+    assert "but delayed the short session" in _run_finding(comparison)
+
+    timing = {
+        "schema": "agentic_work_audit.timing.v1", "status": "validated",
+        "pairs": [{"comparable": True,
+                   "late_minus_early_first_token_after_due_ms": 170}],
+    }
+    assert "first token sooner" in _run_finding(timing)
+    nonblocking = {**timing, "cases": [{"condition": "late_nonblocking"}],
+                   "pairs": [{**timing["pairs"][0], "nonblocking_comparable": False}]}
+    assert "strict nonblocking comparison was withheld" in _run_finding(nonblocking)
+    nonblocking["pairs"][0]["pair"] = 1
+    nonblocking["cases"] = [
+        {"pair": 1, "condition": "late_nonblocking", "submission_after_due_ms": 0.5},
+        {"pair": 1, "condition": "late", "submission_after_due_ms": 170},
+    ]
+    assert "shortened the client gap" in _run_finding(nonblocking)
+
+
+def test_nonperformance_runs_do_not_claim_a_speedup():
+    assert "not a policy-speed comparison" in _run_finding({
+        "schema": "agentic_work_audit.validation.v1", "status": "validated",
+        "cases": [{"case_type": "host_backed"}],
+    })
+    assert "finding is withheld" in _run_finding({
+        "schema": "agentic_work_audit.validation.v1", "status": "validated",
+    })
+    assert "linked overlapping tool waits" in _run_finding({
+        "schema": "agentic_work_audit.multisession.v1", "status": "validated",
+        "sessions": {"short": {"replay_ttft_ms": 80}, "long": {"replay_ttft_ms": 200}},
+    })
+    assert "no cross-session finding" in _run_finding({
+        "schema": "agentic_work_audit.multisession.v1", "status": "validated",
+    })

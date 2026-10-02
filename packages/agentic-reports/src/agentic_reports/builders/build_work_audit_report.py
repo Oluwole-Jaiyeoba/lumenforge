@@ -494,6 +494,71 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
     )
 
 
+def _run_finding(summary: dict) -> str:
+    status = summary.get("status")
+    if status == "failed":
+        return "Evidence checks failed; no performance conclusion is supported."
+    if status != "validated":
+        return "Evidence status is unavailable; no finding is claimed."
+
+    schema = summary.get("schema")
+    pairs = summary.get("pairs") or []
+    if schema in ("agentic_work_audit.multisession_window.v1",
+                  "agentic_work_audit.multisession_comparison.v1"):
+        if not pairs or not all(pair.get("comparable") for pair in pairs):
+            return "The matched comparison was not fully validated; its conclusion is withheld."
+        if schema == "agentic_work_audit.multisession_window.v1":
+            if all(all(isinstance(pair.get(key), (int, float)) and pair[key] > 0 for key in (
+                "post_vs_late_long_saved_ms", "post_vs_early_short_saved_ms",
+                "post_vs_late_workflow_saved_ms")) for pair in pairs):
+                return ("Post-short loading improved long replay and workflow time versus late loading, "
+                        "while sparing the short session versus early loading.")
+            return "The three load schedules had mixed effects across the measured trials."
+        if all(all(isinstance(pair.get(key), (int, float)) and pair[key] > 0 for key in (
+            "long_due_to_token_saved_ms", "short_due_to_finish_change_ms",
+            "workflow_makespan_saved_ms")) for pair in pairs):
+            return "Early loading sped the long replay and whole workflow, but delayed the short session."
+        return "Early and late loading had mixed effects across the measured sessions."
+
+    if schema == "agentic_work_audit.timing.v1":
+        if any(case.get("condition") == "late_nonblocking" for case in summary.get("cases") or []):
+            if pairs and all(pair.get("nonblocking_comparable") is False for pair in pairs):
+                cases = {(case.get("pair"), case.get("condition")): case
+                         for case in summary.get("cases") or []}
+                gaps = [
+                    (cases.get((pair.get("pair"), "late_nonblocking"), {}).get("submission_after_due_ms"),
+                     cases.get((pair.get("pair"), "late"), {}).get("submission_after_due_ms"))
+                    for pair in pairs
+                ]
+                if gaps and all(isinstance(new, (int, float)) and
+                                isinstance(old, (int, float)) and new < old
+                                for new, old in gaps):
+                    return ("Nonblocking submission shortened the client gap, but the strict "
+                            "nonblocking comparison was withheld.")
+                return "The strict nonblocking comparison was withheld despite observed timings."
+            if pairs and any(pair.get("nonblocking_comparable") is False for pair in pairs):
+                return "Some nonblocking comparisons were withheld; see the per-trial evidence."
+            return "Nonblocking loading was measured; see the matched per-mode timings."
+        comparable = [pair for pair in pairs if pair.get("comparable")]
+        if comparable and all(isinstance(pair.get("late_minus_early_first_token_after_due_ms"),
+                                      (int, float)) and
+                              pair["late_minus_early_first_token_after_due_ms"] > 0
+                              for pair in comparable):
+            return "Loading during the tool wait brought the first token sooner in every matched trial."
+        return "The early-versus-late first-token comparison did not show a consistent gain."
+
+    if schema == "agentic_work_audit.multisession.v1":
+        sessions = summary.get("sessions") or {}
+        if not (sessions.get("short") and sessions.get("long")):
+            return "The saved timeline lacks both replay sessions; no cross-session finding is claimed."
+        return "The trace linked overlapping tool waits, host-KV movement, and replays across separate sessions."
+    if schema == "agentic_work_audit.validation.v1":
+        if not any(case.get("case_type") == "host_backed" for case in summary.get("cases") or []):
+            return "No host-backed case is recorded; a KV load-back finding is withheld."
+        return "Host-backed KV movement and replay were linked; this was not a policy-speed comparison."
+    return "No run-specific interpretation is available for this evidence format."
+
+
 def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = None) -> str:
     ordered = sorted(summaries, key=lambda item: (_time(item[1])[0], item[0].parent.name), reverse=True)
     run_ids = {str(summary.get("run_id") or path.parent.name) for path, summary in ordered}
@@ -539,6 +604,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
                             _multisession_result(summary) if multisession else
                             _timing_result(summary) if timing else _lifecycle_result(summary))
         status = str(summary.get("status") or "unknown")
+        finding = _run_finding(summary)
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
                          [*(summary.get("failures") or []), *(summary.get("limitations") or [])])
         rows.append(
@@ -546,7 +612,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             f"<td title='{_esc(source)}'>{_esc(time)}</td>"
             f"<td><strong>{kind}</strong><small>{_esc(run)}</small></td>"
             f"<td class='question-cell'>{question_cell}</td><td>{setup}</td>"
-            f"<td>{result}</td><td><span class='status {_esc(status)}'>{_esc(status)}</span></td>"
+            f"<td>{result}</td><td class='finding-cell'>{_esc(finding)}</td>"
+            f"<td><span class='status {_esc(status)}'>{_esc(status)}</span></td>"
             f"<td><details><summary>View</summary><div class='detail'>"
             f"<p><strong>Question tested.</strong> {_esc(question)}</p>"
             f"<p>{method}</p>{findings}{_reproduction(summary, timing)}"
@@ -555,7 +622,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             "</div></details></td></tr>"
         )
     if not rows:
-        rows.append("<tr><td colspan='8'>No saved run summaries are archived yet.</td></tr>")
+        rows.append("<tr><td colspan='9'>No saved run summaries are archived yet.</td></tr>")
     progress_html = _progress_html(milestones or [], run_ids)
     return """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>KV Lifecycle Audit</title>
@@ -583,6 +650,7 @@ table{border-collapse:collapse;width:100%;min-width:1320px}th,td{padding:12px 14
 th{background:#e4f0ef;color:#204a4a;font-size:.88rem;white-space:nowrap}td:nth-child(1),td:nth-child(2){white-space:nowrap;font-variant-numeric:tabular-nums}
 tbody tr:hover{background:#f8fbfa}
 td:nth-child(3){min-width:165px}td:nth-child(5){min-width:210px}td:nth-child(6){min-width:260px}
+.finding-cell{min-width:215px;max-width:265px;white-space:normal;background:#f1f8f5;border-left:3px solid #46a58b;color:#24544b;font-weight:600}
 .question-cell{min-width:225px;max-width:285px;white-space:normal}
 .question-cell a{display:block;text-decoration:none}.question-cell a:hover{text-decoration:underline}
 .question-cell strong{display:block;color:#17685e}.question-cell span{display:block;margin-top:3px}
@@ -616,8 +684,8 @@ body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-colu
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """
-<p class="intro">One row per saved experiment, newest first. The research-question link opens the corresponding answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Timing runs compare early and late host-KV preparation; concurrent runs also show the other session's cost. Lifecycle runs check that cache events can be linked to a replay; their TTFTs are not a policy win.</p>
-<div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
+<p class="intro">One row per saved experiment, newest first. Main result shows the measurements; Finding states the run-specific deduction. The research-question link opens the broader answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Lifecycle timing is not a policy win.</p>
+<div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Finding</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
 </body></html>"""
 
 
