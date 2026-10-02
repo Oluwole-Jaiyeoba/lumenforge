@@ -76,7 +76,9 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
         (name for name in manifest.get("enabled_instrumentation") or [] if name.startswith("kv_lifecycle")),
         None,
     )
-    if summary.get("schema") == "agentic_work_audit.multisession_comparison.v1":
+    if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
+                                 "agentic_work_audit.multisession_window.v1"):
+        window = summary.get("schema") == "agentic_work_audit.multisession_window.v1"
         brief = (f"3 equal-importance sessions · {_esc(workload.get('pairs'))} measured pair(s) · "
                  f"{_esc(workload.get('short_wait_ms'))} / {_esc(workload.get('long_wait_ms'))} ms waits")
         detail = (
@@ -84,10 +86,12 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
             f"{_esc(manifest.get('model'))}; SGLang {_esc(manifest.get('backend_version'))}; "
             f"trace {_esc(profile)}. Each case started three equal-importance sessions; "
             "two waited for tools and one ended. The long prefix was explicitly evicted to host. "
-            "The ended session's prefix was released in both modes before an early load, "
+            "The ended session's prefix was released in every mode before load-back, "
             "enforcing a logical two-prefix budget. Only load timing changed: late control "
             "submitted at tool return without blocking replay, or early control submitted "
             f"at {_esc(workload.get('early_at_ms'))} ms during the long tool wait. "
+            + ("The third mode requested load immediately after observing the short replay finish, "
+               "before long tool return. " if window else "") +
             f"{_esc(workload.get('warmup_pairs'))} warmup pair(s) were excluded. "
             "Condition order reversed on alternate trials. "
             f"Prompt target: {_esc(workload.get('prompt_words_target'))} words; "
@@ -144,10 +148,12 @@ def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     cases = workload.get("cases") or []
-    if summary.get("schema") == "agentic_work_audit.multisession_comparison.v1":
+    if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
+                                 "agentic_work_audit.multisession_window.v1"):
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
-            "WORK_AUDIT_STUDY": "multisession_compare",
+            "WORK_AUDIT_STUDY": ("multisession_window" if summary.get("schema") ==
+                                 "agentic_work_audit.multisession_window.v1" else "multisession_compare"),
             "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
             "WORK_AUDIT_CASE_ORDER": "-".join(map(str, cases)),
             "WORK_AUDIT_PAIRS": workload.get("pairs"),
@@ -352,6 +358,42 @@ def _multisession_comparison_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
+def _multisession_window_result(summary: dict) -> tuple[str, str]:
+    pairs = summary.get("pairs") or []
+    headline = (f"{summary.get('comparable_pairs', 0)}/{len(pairs)} matched triplets · "
+                f"post-short long replay {_direction(summary.get('median_post_vs_late_long_saved_ms'), 'faster', 'slower')} "
+                "vs late; short completion "
+                f"{_direction(summary.get('median_post_vs_early_short_saved_ms'), 'faster', 'slower')} vs early")
+    rows = []
+    for pair in pairs:
+        if pair.get("comparable"):
+            metrics = "".join(
+                f"<td>{_ms(pair.get(f'{mode}_{metric}'))}</td>"
+                for metric in ("long_due_to_token_ms", "short_due_to_finish_ms", "workflow_makespan_ms")
+                for mode in ("late", "early", "post_short")
+            )
+        else:
+            metrics = "<td>withheld</td>" * 9
+        rows.append(f"<tr><td>{_esc(pair.get('pair'))}</td>{metrics}"
+                    f"<td>{_esc('; '.join(pair.get('reasons') or []) or 'passed')}</td></tr>")
+    detail = (
+        "<p><strong>Three load schedules.</strong> Late requests the native load at long tool return; "
+        "early requests it during the short session's replay; post-short requests it only after "
+        "observing that replay finish. Values are milliseconds. Lower is better in all three measures. "
+        "Due→token starts when the long tool returns; due→finish starts when the short tool returns. "
+        "Workflow is measured from the first initial request through the last replay completion.</p>"
+        "<div class='detail-scroll'><table class='pair-table'><thead><tr><th rowspan='2'>Triplet</th>"
+        "<th colspan='3'>Long due→token</th><th colspan='3'>Short due→finish</th>"
+        "<th colspan='3'>Whole workflow</th><th rowspan='2'>Evidence gate</th></tr><tr>"
+        + "<th>Late</th><th>Early</th><th>Post-short</th>" * 3 +
+        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+        "<p><strong>Limit.</strong> Post-short uses an observed client completion event; it does not "
+        "show that a controller can predict that time. Capacity eviction was explicit, and "
+        "request overlap does not establish kernel or HBM contention.</p>"
+    )
+    return headline, detail
+
+
 def _question_index(milestones: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
     by_id: dict[str, dict] = {}
     by_run: dict[str, str] = {}
@@ -411,8 +453,10 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         timing = summary.get("schema") == "agentic_work_audit.timing.v1"
         multisession = summary.get("schema") == "agentic_work_audit.multisession.v1"
         comparison = summary.get("schema") == "agentic_work_audit.multisession_comparison.v1"
+        window = summary.get("schema") == "agentic_work_audit.multisession_window.v1"
         run = str(summary.get("run_id") or path.parent.name)
-        kind = ("Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
+        kind = ("Three concurrent load windows" if window else
+                "Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
                 else "Early vs late" if timing else "Lifecycle validation")
         manifest_question_id = ((summary.get("_manifest") or {}).get("workload") or {}).get("research_question_id")
         archived_question_id = run_questions.get(run)
@@ -421,6 +465,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         question_id = manifest_question_id or archived_question_id
         milestone = questions.get(question_id)
         fallback_question = (
+            "Can loading after the short replay finishes preserve the long replay benefit without "
+            "delaying the short session?" if window else
             "Under the same logical cache budget, does early preparation help the returning "
             "session without delaying another session?" if comparison else
             "When differently timed but equally important agent sessions overlap, which cache events "
@@ -437,7 +483,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             f'{" (" + _esc(question_id) + ")" if question_id else ""}</span>'
         )
         setup, method = _setup(summary, timing)
-        result, findings = (_multisession_comparison_result(summary) if comparison else
+        result, findings = (_multisession_window_result(summary) if window else
+                            _multisession_comparison_result(summary) if comparison else
                             _multisession_result(summary) if multisession else
                             _timing_result(summary) if timing else _lifecycle_result(summary))
         status = str(summary.get("status") or "unknown")
@@ -509,7 +556,7 @@ body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-colu
 <h2>Five audit ledgers</h2><ul class="scope">
 <li><strong>Host backups</strong><span>Host residency and load-back observed; useful versus insurance versus wasted backup not yet graded.</span></li>
 <li><strong>GPU evictions</strong><span>Forced eviction observed; capacity necessity and avoidability not yet graded.</span></li>
-<li><strong>Session resumes</strong><span>Controlled early/late timing and a small concurrent tradeoff measured; natural capacity effects remain unmeasured.</span></li>
+<li><strong>Session resumes</strong><span>Controlled early, late, and after-short timing measured; natural capacity effects remain unmeasured.</span></li>
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """

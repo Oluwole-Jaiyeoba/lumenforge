@@ -2,6 +2,20 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ6",
+      "short_question": "Can we load after the short replay finishes?",
+      "evidence_date_utc": "2026-10-02",
+      "question": "Under the same equal-importance, logical two-prefix workload, can loading just after the short replay completes preserve the long replay benefit while avoiding the short-session penalty?",
+      "answer": "In two warmed, order-balanced A10G triplets, post-short loading saved 188.2 and 525.5 ms in long replay tool-return-to-first-token time versus nonblocking late loading. The short session finished 203.7 and 208.6 ms sooner than with early loading; its completion was close to the late control. Whole workflows finished 208.1 and 510.1 ms sooner than late. All three-mode evidence gates passed.",
+      "unknown": "The post-short trigger used the observed client completion event, not a prediction available to a production controller. The two-prefix budget was explicit, not natural capacity pressure. Two synthetic triplets do not establish a general policy win or identify GPU bandwidth versus backend scheduling as the cause.",
+      "evidence_run_ids": [
+        "work_audit_post_short_20261002_01"
+      ],
+      "related_run_ids": [
+        "work_audit_post_short_20261002_01"
+      ]
+    },
+    {
       "id": "RQ5",
       "short_question": "Does early loading help the whole shared system?",
       "evidence_date_utc": "2026-10-02",

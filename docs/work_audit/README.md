@@ -395,15 +395,47 @@ the short request's lifetime. This proves a controlled tradeoff, not whether
 the short-session delay came from GPU bandwidth, backend scheduling, or both.
 The result is too small and synthetic to establish a universal policy win.
 
+## After-Short Load Window
+
+RQ6 compares the same three-session, equal-importance workload with a third
+load schedule. Late loading starts when the long tool returns; early loading
+starts 1200 ms into that wait; **post-short** loading starts only after the
+short replay actually finishes. The long tool wait is 2500 ms. If post-short
+load-back does not complete before that return, the case fails instead of
+quietly becoming a late load. The ended session releases its prefix in all
+three modes. One warmup triplet is discarded; two measured triplets alternate
+condition order. The pinned backend is SGLang `0.5.10.post1` with the lean KV
+lifecycle trace.
+
+```bash
+SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 \
+  AGENTIC_MODEL_CACHE=/home/ec2-user/.cache/huggingface \
+  WORK_AUDIT_STUDY=multisession_window \
+  WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
+  WORK_AUDIT_CASE_ORDER=late_nonblocking-early-post_short \
+  WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 \
+  WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=2500 \
+  WORK_AUDIT_EARLY_AT_MS=1200 \
+  WORK_AUDIT_RUN_ID=work_audit_post_short_20261002_01 \
+  bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The [archived A10G run](../reports/work_audit/work_audit_post_short_20261002_01/summary.json)
+validated both measured triplets. Long tool-return-to-first-token time was
+277.6/607.0 ms late, 82.4/81.8 ms early, and 89.4/81.4 ms post-short.
+Short tool-return-to-completion time was 817.8/820.3 ms late,
+1014.9/1040.4 ms early, and 811.2/831.8 ms post-short. Whole-workflow
+durations were 8110.6/8463.7 ms late, 7901.8/7945.7 ms early, and
+7902.5/7953.6 ms post-short. These are individual triplet results, not
+averages across a production workload. The post-short trigger used the
+**observed** completion of the short replay; a production controller would
+need a reliable way to identify or predict such a window. The test does not
+isolate GPU bandwidth from backend scheduling or demonstrate natural cache
+capacity pressure.
+
 ## Next Phases
 
-1. Repeat the nonblocking control in reverse order and with more pairs to
-   assess run-to-run variation and the placement of native load acceptance.
-2. RQ5 now measures both sessions' costs under a logical two-prefix budget.
-   Test natural capacity pressure only when the current scheduling tradeoff
-   has been understood; no task receives frontend semantic priority.
-3. Extend the logical-block ledger toward exact physical-block reuse and a
-   complete residency timeline; matched GPU slots alone do not prove model
-   consumption.
-4. Translate and validate hooks for another SGLang release only after the
-   new adapter reproduces the same event contract and fails closed on drift.
+1. Test whether a controller can make a similar load-timing choice using
+   only information it has before the short replay finishes.
+2. Then test under naturally arising cache capacity pressure. Keep frontend
+   importance equal and separate observed work from avoidable work.

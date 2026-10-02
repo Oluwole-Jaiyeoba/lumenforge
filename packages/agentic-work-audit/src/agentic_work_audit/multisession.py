@@ -114,12 +114,16 @@ def analyze_multisession(
     load_overlapped_short_request = bool(requested and load and short_replay and short_finished and
                                          requested.ts_ns < short_finished.ts_ns and
                                          load.ts_ns > short_replay.ts_ns)
-    if condition == "early":
+    if condition in ("early", "post_short"):
         if not all((host, ended_eviction, requested, accepted, load, long_end)) or not (
             host.ts_ns < ended_eviction.ts_ns <= requested.ts_ns <= accepted.ts_ns <=
             load.ts_ns < long_end.ts_ns
         ):
-            failures.append("early native load did not finish between slot release and tool return")
+            failures.append(f"{condition} native load did not finish between slot release and tool return")
+        if condition == "post_short" and (not short_finished or not requested or
+                                          short_finished.ts_ns > requested.ts_ns or
+                                          load_overlapped_short_request):
+            failures.append("post-short load did not start after the short replay finished")
     elif condition == "late_nonblocking":
         if not all((host, requested, long_end)) or not (
             host.ts_ns < long_end.ts_ns <= requested.ts_ns
@@ -279,5 +283,96 @@ def compare_multisession_pairs(cases: list[dict[str, Any]], run_id: str) -> dict
             "The two-prefix cap is a test policy enforced by explicit evictions, not measured physical occupancy.",
             "Session-specific prompts have equal shape but are not byte-identical.",
             "The comparison is concurrent but synthetic and does not establish a production effect.",
+        ],
+    }
+
+
+def compare_multisession_windows(cases: list[dict[str, Any]], run_id: str) -> dict[str, Any]:
+    """Gate three timing policies together and expose each session's raw outcome."""
+    baseline = compare_multisession_pairs(
+        [case for case in cases if case["load_timing"] in ("early", "late_nonblocking")], run_id
+    )
+    failures = list(baseline["failures"])
+    post_by_pair: dict[int, dict[str, Any]] = {}
+    for case in cases:
+        if case["load_timing"] == "post_short":
+            if case["pair"] in post_by_pair:
+                failures.append(f"pair {case['pair']}: duplicate post-short case")
+            post_by_pair[case["pair"]] = case
+    pairs: list[dict[str, Any]] = []
+    for pair in baseline["pairs"]:
+        number = pair["pair"]
+        post = post_by_pair.get(number)
+        early = next((case for case in cases if case["pair"] == number and
+                      case["load_timing"] == "early"), None)
+        late = next((case for case in cases if case["pair"] == number and
+                     case["load_timing"] == "late_nonblocking"), None)
+        reasons = list(pair["reasons"])
+        if not post:
+            reasons.append("missing post-short case")
+        elif post["status"] != "validated":
+            reasons.append("post-short evidence gate failed")
+        elif not reasons and early and late:
+            for reference in (early, late):
+                initial_delta = abs(post["initial_phase_ms"] - reference["initial_phase_ms"])
+                if initial_delta > max(1000, 0.2 * min(post["initial_phase_ms"], reference["initial_phase_ms"])):
+                    reasons.append(f"post-short initial phase differs from {reference['load_timing']} "
+                                   f"by {initial_delta:.1f} ms")
+                for label in ("short", "long"):
+                    wait_delta = abs(post["sessions"][label]["observed_tool_wait_ms"] -
+                                     reference["sessions"][label]["observed_tool_wait_ms"])
+                    if wait_delta > 100:
+                        reasons.append(f"post-short {label} wait differs from "
+                                       f"{reference['load_timing']} by {wait_delta:.1f} ms")
+        result: dict[str, Any] = {
+            "pair": number, "comparable": not reasons, "reasons": reasons,
+            "late_case_id": late["run_id"] if late else None,
+            "early_case_id": early["run_id"] if early else None,
+            "post_short_case_id": post["run_id"] if post else None,
+        }
+        if reasons:
+            failures.append(f"pair {number}: {', '.join(reasons)}")
+        elif post and early and late:
+            for mode, case in (("late", late), ("early", early), ("post_short", post)):
+                result[f"{mode}_long_due_to_token_ms"] = case["sessions"]["long"]["first_token_after_tool_ms"]
+                result[f"{mode}_short_due_to_finish_ms"] = case["sessions"]["short"]["completion_after_tool_ms"]
+                result[f"{mode}_workflow_makespan_ms"] = case["workflow_makespan_ms"]
+                result[f"{mode}_initial_phase_ms"] = case["initial_phase_ms"]
+            result["post_vs_late_long_saved_ms"] = round(
+                late["sessions"]["long"]["first_token_after_tool_ms"] -
+                post["sessions"]["long"]["first_token_after_tool_ms"], 3)
+            result["post_vs_early_short_saved_ms"] = round(
+                early["sessions"]["short"]["completion_after_tool_ms"] -
+                post["sessions"]["short"]["completion_after_tool_ms"], 3)
+            result["post_vs_late_workflow_saved_ms"] = round(
+                late["workflow_makespan_ms"] - post["workflow_makespan_ms"], 3)
+        pairs.append(result)
+    extra = sorted(set(post_by_pair) - {pair["pair"] for pair in pairs})
+    if extra:
+        failures.append(f"unexpected post-short pairs: {extra}")
+    comparable = [pair for pair in pairs if pair["comparable"]]
+    if not comparable:
+        failures.append("no comparable three-mode pairs")
+    return {
+        "schema": "agentic_work_audit.multisession_window.v1",
+        "run_id": run_id,
+        "status": "validated" if not failures and len(comparable) == len(pairs) else "failed",
+        "failures": failures,
+        "pairs": pairs,
+        "comparable_pairs": len(comparable),
+        "median_post_vs_late_long_saved_ms": (
+            round(median(pair["post_vs_late_long_saved_ms"] for pair in comparable), 3)
+            if comparable else None),
+        "median_post_vs_early_short_saved_ms": (
+            round(median(pair["post_vs_early_short_saved_ms"] for pair in comparable), 3)
+            if comparable else None),
+        "median_post_vs_late_workflow_saved_ms": (
+            round(median(pair["post_vs_late_workflow_saved_ms"] for pair in comparable), 3)
+            if comparable else None),
+        "limitations": [
+            "The after-short policy uses an observed client completion event, not a production prediction.",
+            "The two-prefix cap is enforced by explicit evictions, not measured physical occupancy.",
+            "Session-specific prompts have equal shape but are not byte-identical.",
+            "Request-level overlap does not establish GPU kernel or HBM bandwidth contention.",
         ],
     }

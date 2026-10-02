@@ -64,7 +64,7 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
         "Host backups", "GPU evictions", "Session resumes", "HBM occupancy", "GPU time",
     ))
     assert "not yet graded" in page
-    assert "natural capacity effects remain unmeasured" in page
+    assert "after-short timing measured; natural capacity effects remain unmeasured" in page
     assert "<th>Date</th><th>Time (UTC)</th>" in page
     assert page.index("second</small>") < page.index("first</small>")
     assert "14:30:02" in page and "14:30:01" in page
@@ -247,3 +247,30 @@ def test_concurrent_comparison_shows_both_session_effects_and_reproduction():
     assert "8.0 ms" in page
     assert "WORK_AUDIT_STUDY=multisession_compare" in page
     assert "WORK_AUDIT_EARLY_AT_MS=1200" in page
+
+
+def test_three_window_report_shows_raw_session_and_workflow_metrics():
+    manifest = _manifest(("late_nonblocking", "early", "post_short"))
+    manifest["workload"].update({"pairs": 2, "short_wait_ms": 900,
+                                 "long_wait_ms": 2500, "early_at_ms": 1200})
+    summary = {
+        "schema": "agentic_work_audit.multisession_window.v1", "run_id": "windows",
+        "status": "validated", "_manifest": manifest, "comparable_pairs": 1,
+        "median_post_vs_late_long_saved_ms": 160,
+        "median_post_vs_early_short_saved_ms": 80,
+        "pairs": [{"pair": 1, "comparable": True,
+                   "late_long_due_to_token_ms": 250, "early_long_due_to_token_ms": 50,
+                   "post_short_long_due_to_token_ms": 90,
+                   "late_short_due_to_finish_ms": 100, "early_short_due_to_finish_ms": 180,
+                   "post_short_short_due_to_finish_ms": 100,
+                   "late_workflow_makespan_ms": 4000,
+                   "early_workflow_makespan_ms": 3900,
+                   "post_short_workflow_makespan_ms": 3950}],
+    }
+    page = render([(Path("runs/windows/summary.json"), summary)])
+    assert "Three concurrent load windows" in page
+    assert "post-short long replay 160.0 ms faster vs late" in page
+    assert "Short due→finish" in page and "Whole workflow" in page
+    assert "250.0 ms" in page and "90.0 ms" in page
+    assert "observing that replay finish" in page
+    assert "WORK_AUDIT_STUDY=multisession_window" in page

@@ -1,5 +1,7 @@
 from agentic_work_audit.events import AuditEvent
-from agentic_work_audit.multisession import analyze_multisession, compare_multisession_pairs
+from agentic_work_audit.multisession import (
+    analyze_multisession, compare_multisession_pairs, compare_multisession_windows,
+)
 
 
 def event(kind, tick, label="", request="", **evidence):
@@ -121,3 +123,51 @@ def test_pair_comparison_rejects_cold_start_drift():
     assert result["status"] == "failed"
     assert result["comparable_pairs"] == 0
     assert any("initial phases differ" in reason for reason in result["pairs"][0]["reasons"])
+
+
+def test_post_short_requires_load_after_short_finish_and_before_long_return():
+    rows = [row for row in sample() if row.kind not in (
+        "load_requested", "load_accepted", "layer_copy", "load_complete")]
+    rows += [event("load_requested", 12.1, "long", "initial"),
+             event("load_accepted", 12.2, "long", "initial"),
+             event("layer_copy", 12.3, "long", "initial"),
+             event("load_complete", 12.4, "long", "initial")]
+    good = analyze_multisession(rows, "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                condition="post_short", require_end_eviction=True)
+    assert good["status"] == "validated"
+    assert not good["load_overlapped_short_request"]
+    early_request = [event("load_requested", 11.9, "long", "initial") if row.kind ==
+                     "load_requested" else row for row in rows]
+    bad = analyze_multisession(early_request, "run", expected_runtime=("0.5.10.post1", "v0510"),
+                               condition="post_short", require_end_eviction=True)
+    assert bad["status"] == "failed"
+    assert any("after the short replay finished" in reason for reason in bad["failures"])
+
+
+def test_three_mode_comparison_keeps_raw_outcomes_and_gates_post_short():
+    late = analyze_multisession(sample(), "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                require_end_eviction=True)
+    early = {**late, "load_timing": "early", "run_id": "early",
+             "load_overlapped_short_request": True,
+             "sessions": {"short": {**late["sessions"]["short"], "completion_after_tool_ms": 10},
+                          "long": {**late["sessions"]["long"], "first_token_after_tool_ms": 4}},
+             "workflow_makespan_ms": late["workflow_makespan_ms"] - 3}
+    post = {**late, "load_timing": "post_short", "run_id": "post",
+            "sessions": {"short": {**late["sessions"]["short"], "completion_after_tool_ms": 5},
+                         "long": {**late["sessions"]["long"], "first_token_after_tool_ms": 5}},
+            "workflow_makespan_ms": late["workflow_makespan_ms"] - 2}
+    for case in (late, early, post):
+        case["pair"] = 1
+    result = compare_multisession_windows([late, early, post], "study")
+    assert result["status"] == "validated"
+    pair = result["pairs"][0]
+    assert pair["post_vs_late_long_saved_ms"] == 2
+    assert pair["post_vs_early_short_saved_ms"] == 5
+    assert pair["post_vs_late_workflow_saved_ms"] == 2
+    assert pair["post_short_short_due_to_finish_ms"] == 5
+    post["status"] = "failed"
+    assert compare_multisession_windows([late, early, post], "study")["status"] == "failed"
+    post["status"] = "validated"
+    duplicate = compare_multisession_windows([late, early, post, post], "study")
+    assert duplicate["status"] == "failed"
+    assert any("duplicate post-short" in reason for reason in duplicate["failures"])

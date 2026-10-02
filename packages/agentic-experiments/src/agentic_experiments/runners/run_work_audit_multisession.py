@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Matched early/late KV preparation with three equal-importance sessions."""
+"""Compare KV load timings across three equal-importance sessions."""
 
 from __future__ import annotations
 
@@ -124,15 +124,18 @@ async def one_case(client: httpx.AsyncClient, args: argparse.Namespace, log: Eve
                          cuda_elapsed_ms=status.get("cuda_elapsed_ms"))
                 return accepted, status
 
-            if condition == "early":
+            if condition in ("early", "post_short"):
                 await end_task
-                await asyncio.sleep(max(0, started + args.early_at_ms / 1000 -
-                                        asyncio.get_running_loop().time()))
+                if condition == "post_short":
+                    await short_task
+                else:
+                    await asyncio.sleep(max(0, started + args.early_at_ms / 1000 -
+                                            asyncio.get_running_loop().time()))
                 if asyncio.get_running_loop().time() >= long_due:
-                    raise RuntimeError("early preparation missed the tool-return window")
+                    raise RuntimeError(f"{condition} preparation missed the tool-return window")
                 accepted, status = await load()
                 if asyncio.get_running_loop().time() >= long_due:
-                    raise RuntimeError("early native load did not finish before tool return")
+                    raise RuntimeError(f"{condition} native load did not finish before tool return")
             await asyncio.sleep(max(0, long_due - asyncio.get_running_loop().time()))
             log.emit("tool_end", session, ids["long"])
             if condition == "late_nonblocking":
@@ -216,8 +219,11 @@ async def main_async() -> None:
     parser.add_argument("--eviction-rounds", type=int, default=4)
     parser.add_argument("--pairs", type=int, default=2)
     parser.add_argument("--warmup-pairs", type=int, default=1)
-    parser.add_argument("--case-order", choices=("early-late_nonblocking", "late_nonblocking-early",
-                                                 "long-short-ends"), default="late_nonblocking-early")
+    parser.add_argument("--case-order", choices=(
+        "early-late_nonblocking", "late_nonblocking-early",
+        "late_nonblocking-early-post_short", "post_short-early-late_nonblocking",
+        "long-short-ends",
+    ), default="late_nonblocking-early")
     args = parser.parse_args()
     if (not (0 < args.short_wait_ms < args.early_at_ms < args.long_wait_ms) or
             args.pairs < 1 or args.warmup_pairs < 0):

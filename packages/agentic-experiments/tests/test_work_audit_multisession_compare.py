@@ -8,7 +8,7 @@ from agentic_work_audit import read_events
 from agentic_experiments.runners import run_work_audit_multisession as study
 
 
-@pytest.mark.parametrize("condition", ["early", "late_nonblocking"])
+@pytest.mark.parametrize("condition", ["early", "late_nonblocking", "post_short"])
 def test_multisession_comparison_releases_slot_and_times_load(tmp_path, monkeypatch, condition):
     async def fake_completion(client, **kwargs):
         now = time.time_ns()
@@ -52,6 +52,9 @@ def test_multisession_comparison_releases_slot_and_times_load(tmp_path, monkeypa
     assert at("session_end") <= at("ended_prefix_evict_proof")
     assert at("ended_prefix_evict_proof") < at("load_requested")
     if condition == "early":
+        assert at("load_requested") < at("tool_end", "long")
+    elif condition == "post_short":
+        assert at("replay_finished", "short") <= at("load_requested")
         assert at("load_requested") < at("tool_end", "long")
     else:
         assert at("tool_end", "long") <= at("load_requested")
