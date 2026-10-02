@@ -8,6 +8,7 @@ import html
 import json
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 
 def _esc(value: object) -> str:
@@ -179,24 +180,58 @@ def _lifecycle_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
-def render(summaries: list[tuple[Path, dict]]) -> str:
+def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
+    if not milestones:
+        return ""
+    rows = []
+    for milestone in milestones:
+        evidence = []
+        for run in milestone.get("evidence_run_ids") or []:
+            if run in run_ids:
+                evidence.append(f'<a href="#run-{_esc(quote(run, safe=""))}">{_esc(run)}</a>')
+            else:
+                evidence.append(f"{_esc(run)} (not archived here)")
+        rows.append(
+            f"<tr><td data-label='Question'><small>Evidence through {_esc(milestone.get('evidence_date_utc'))} UTC</small>"
+            f"{_esc(milestone.get('question'))}</td>"
+            f"<td data-label='Answer supported by evidence'>{_esc(milestone.get('answer'))}"
+            f"<small>Supporting runs: {' · '.join(evidence) if evidence else 'not recorded'}</small></td>"
+            f"<td data-label='Still unknown'>{_esc(milestone.get('unknown'))}</td></tr>"
+        )
+    return (
+        '<section class="progress"><h2>Research progress</h2>'
+        '<div class="table-scroll"><table class="progress-table"><thead><tr>'
+        '<th>Question</th><th>Answer supported by evidence</th><th>Still unknown</th>'
+        '</tr></thead><tbody>' + "".join(rows) + '</tbody></table></div></section>'
+    )
+
+
+def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = None) -> str:
     ordered = sorted(summaries, key=lambda item: (_time(item[1])[0], item[0].parent.name), reverse=True)
+    run_ids = {str(summary.get("run_id") or path.parent.name) for path, summary in ordered}
     rows: list[str] = []
     for path, summary in ordered:
         _, date, time, source = _time(summary)
         timing = summary.get("schema") == "agentic_work_audit.timing.v1"
         run = str(summary.get("run_id") or path.parent.name)
         kind = "Early vs late" if timing else "Lifecycle validation"
+        question = (
+            "Does loading host KV during the tool wait reduce tool-return-to-first-token time "
+            "versus loading after the wait?" if timing else
+            "Can host residency, native load-back, and replay be linked to the same session?"
+        )
         setup, method = _setup(summary, timing)
         result, findings = _timing_result(summary) if timing else _lifecycle_result(summary)
         status = str(summary.get("status") or "unknown")
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
                          [*(summary.get("failures") or []), *(summary.get("limitations") or [])])
         rows.append(
-            f"<tr><td title='{_esc(source)}'>{_esc(date)}</td><td title='{_esc(source)}'>{_esc(time)}</td>"
+            f"<tr id='run-{_esc(quote(run, safe=''))}'><td title='{_esc(source)}'>{_esc(date)}</td>"
+            f"<td title='{_esc(source)}'>{_esc(time)}</td>"
             f"<td><strong>{kind}</strong><small>{_esc(run)}</small></td><td>{setup}</td>"
             f"<td>{result}</td><td><span class='status {_esc(status)}'>{_esc(status)}</span></td>"
             f"<td><details><summary>View</summary><div class='detail'>"
+            f"<p><strong>Question tested.</strong> {_esc(question)}</p>"
             f"<p>{method}</p>{findings}{_reproduction(summary, timing)}"
             f"{'<p><strong>Run-specific limits.</strong></p><ul>' + limits + '</ul>' if limits else ''}"
             f"<p><strong>Evidence.</strong> {_links(path, summary)}</p>"
@@ -204,20 +239,32 @@ def render(summaries: list[tuple[Path, dict]]) -> str:
         )
     if not rows:
         rows.append("<tr><td colspan='7'>No saved run summaries are archived yet.</td></tr>")
+    progress_html = _progress_html(milestones or [], run_ids)
     return """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>KV Lifecycle Audit</title>
 <style>
-:root{font-family:system-ui,-apple-system,sans-serif;color:#182733;background:#f5f8f9}
+:root{font-family:system-ui,-apple-system,sans-serif;color:#182733;background:#f7f9f8}
 body{max-width:1500px;margin:auto;padding:28px 24px 64px;line-height:1.45}
 h1{font-size:1.7rem;margin:0 0 8px;letter-spacing:0}p{color:#3d5260}
-.purpose{border-top:3px solid #137a78;padding:10px 0 16px;margin:16px 0 18px}
-.purpose h2{font-size:1.05rem;margin:8px 0 6px}.purpose p{max-width:105ch;margin:5px 0 10px}
+.purpose{border-top:4px solid #d36650;padding:10px 0 16px;margin:16px 0 18px}
+.purpose h2{font-size:1.05rem;margin:8px 0 6px;color:#234150}.purpose p{max-width:105ch;margin:5px 0 10px}
 .scope{list-style:none;margin:8px 0 0;padding:0;max-width:1100px}
 .scope li{display:grid;grid-template-columns:175px minmax(0,1fr);gap:16px;padding:7px 0;border-bottom:1px solid #d7e2e6;color:#3d5260}
 .scope strong{color:#182733}
+.scope li:nth-child(3){border-left:3px solid #198e7d;padding-left:10px;background:#edf7f2}
+.progress{margin:0 0 24px}.progress h2{font-size:1.1rem;margin:0 0 8px;color:#234150}
+.progress-table{min-width:850px}.progress-table td{white-space:normal!important;min-width:0!important;max-width:520px}
+.progress-table td:first-child{width:32%}.progress-table td:nth-child(2){width:35%}
+.progress-table th:nth-child(2){background:#dcefe8;color:#185b4f}
+.progress-table th:nth-child(3){background:#f4eace;color:#6c541e}
+.progress-table td:nth-child(2){background:#f2faf6;border-left:3px solid #37a48a}
+.progress-table td:nth-child(3){background:#fffaf0}
+.progress-table small{margin:0 0 4px}.progress-table td:nth-child(2) small{margin-top:8px}
+.progress-table a{overflow-wrap:anywhere}
 .intro{max-width:90ch;margin:0 0 20px}.table-scroll{overflow-x:auto;border:1px solid #d7e2e6;background:#fff}
 table{border-collapse:collapse;width:100%;min-width:1100px}th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #e5ecef}
 th{background:#e4f0ef;color:#204a4a;font-size:.88rem;white-space:nowrap}td:nth-child(1),td:nth-child(2){white-space:nowrap;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:#f8fbfa}
 td:nth-child(3){min-width:165px}td:nth-child(4){min-width:210px}td:nth-child(5){min-width:260px}
 small{display:block;color:#5a6c77;overflow-wrap:anywhere;font-size:.8rem;margin-top:3px}
 .status{display:inline-block;font-weight:650}.validated{color:#126746}.failed{color:#b63839}
@@ -226,7 +273,12 @@ details{min-width:56px}summary{cursor:pointer;color:#086780;font-weight:650;list
 .pair-table{min-width:650px;font-size:.88rem}.pair-table th,.pair-table td{padding:7px 9px}
 pre{overflow-x:auto;background:#edf4f5;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}
 a{color:#086780}a:hover{text-decoration:underline}
-@media(max-width:760px){body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-columns:1fr;gap:2px}}
+@media(max-width:760px){
+body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-columns:1fr;gap:2px}
+.progress-table{min-width:0}.progress-table thead{display:none}.progress-table tr{display:block;border-bottom:1px solid #d7e2e6}
+.progress-table td{display:block;width:auto!important;max-width:none!important;border-bottom:0;padding:10px 12px}
+.progress-table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#234150;font-size:.82rem;font-weight:700}
+}
 </style></head><body><h1>KV Lifecycle Audit</h1>
 <section class="purpose" aria-labelledby="research-question"><h2 id="research-question">Research question</h2>
 <p><strong>Given what the harness knew at the time, was the GPU or memory system doing the wrong work at the wrong time?</strong></p>
@@ -237,7 +289,7 @@ a{color:#086780}a:hover{text-decoration:underline}
 <li><strong>Session resumes</strong><span>Partial live timing evidence for prepared-during-wait versus after-wait load; competing-session cost unmeasured.</span></li>
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
-</ul></section>
+</ul></section>""" + progress_html + """
 <p class="intro">One row per saved experiment, newest first. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Timing runs compare early and late host-KV preparation. Lifecycle runs check that cache events can be linked to a replay; their TTFTs are not a policy win.</p>
 <div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Setup</th><th>Main result</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
 </body></html>"""
@@ -247,6 +299,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results-dir", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--progress-file", type=Path)
     args = parser.parse_args()
     summaries = []
     for path in args.results_dir.glob("*/summary.json"):
@@ -264,7 +317,10 @@ def main() -> None:
         summary["_files"] = {evidence.name for evidence in path.parent.iterdir() if evidence.is_file()}
         summaries.append((Path(os.path.relpath(path, args.out.parent)), summary))
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(render(summaries), encoding="utf-8")
+    milestones = []
+    if args.progress_file:
+        milestones = json.loads(args.progress_file.read_text(encoding="utf-8"))["milestones"]
+    args.out.write_text(render(summaries, milestones), encoding="utf-8")
     print(f"Wrote {args.out} with {len(summaries)} saved run(s)")
 
 

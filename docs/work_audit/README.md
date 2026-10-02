@@ -30,6 +30,18 @@ linked evidence and a feasible comparison.
   New run manifests also record the effective prompt target, output cap,
   minimum host prefix, eviction attempts, host-cache size, and GPU memory
   fraction. Archived runs lacking these fields leave them unrecorded.
+- `docs/work_audit/research_progress.json` records answered research questions,
+  supported conclusions, remaining uncertainty, and the archived runs behind
+  each conclusion. Prepend new milestones after checking their evidence; do
+  not rewrite older conclusions without explicitly correcting them. Regenerate
+  the top-level page from the repo root with:
+
+```bash
+PYTHONPATH="$(printf '%s:' packages/*/src)" python3 -m agentic_reports.builders.build_work_audit_report \
+  --results-dir docs/reports/work_audit \
+  --progress-file docs/work_audit/research_progress.json \
+  --out KV_LIFECYCLE_AUDIT.html
+```
 - The imported `hicache_audit.zip` is reference material, not an installed
   plugin. Its proposed UnifiedRadixCache hooks are not assumed to exist in
   SGLang 0.5.10.post1.

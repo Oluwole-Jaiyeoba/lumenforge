@@ -42,7 +42,16 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
                                                "planned_pre_replay_loaded_tokens": 4096}],
         }), encoding="utf-8")
     out = tmp_path / "index.html"
-    monkeypatch.setattr(sys, "argv", ["report", "--results-dir", str(runs), "--out", str(out)])
+    progress = tmp_path / "progress.json"
+    progress.write_text(json.dumps({"milestones": [{
+        "evidence_date_utc": "2026-10-02",
+        "question": "Does early KV preparation help?",
+        "answer": "Yes in this controlled test.",
+        "unknown": "Whether other sessions are delayed.",
+        "evidence_run_ids": ["first", "second"],
+    }]}), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["report", "--results-dir", str(runs),
+                                      "--progress-file", str(progress), "--out", str(out)])
     main()
     page = out.read_text(encoding="utf-8")
     assert "Given what the harness knew at the time" in page
@@ -60,6 +69,11 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     assert 'href="runs/second/block_audit.json"' in page
     assert "Reconstructed command" in page
     assert "frontend priority: none" in page
+    assert "Research progress" in page
+    assert "Does early KV preparation help?" in page
+    assert "Yes in this controlled test." in page
+    assert 'href="#run-first"' in page and 'href="#run-second"' in page
+    assert "Question tested." in page
 
 
 def test_timing_details_keep_pair_metrics_separate():
@@ -116,3 +130,17 @@ def test_future_manifest_shows_effective_request_settings():
     assert "output cap: 16 tokens" in page
     assert "WORK_AUDIT_EVICTION_ROUNDS=4" in page
     assert "MEM_FRACTION_STATIC=0.7" in page
+
+
+def test_progress_keeps_milestone_order_and_marks_unarchived_evidence():
+    milestones = [
+        {"question": "New question", "answer": "New answer", "unknown": "Next test",
+         "evidence_run_ids": ["missing"]},
+        {"question": "Older question", "answer": "Older answer", "unknown": "Old limit",
+         "evidence_run_ids": ["saved"]},
+    ]
+    page = render([(Path("runs/saved/summary.json"), {"run_id": "saved"})], milestones)
+    assert page.index("New question") < page.index("Older question")
+    assert "missing (not archived here)" in page
+    assert 'href="#run-saved"' in page
+    assert "Question tested." in page

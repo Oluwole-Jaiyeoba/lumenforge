@@ -1,0 +1,15 @@
+{
+  "schema": "agentic_work_audit.progress.v1",
+  "milestones": [
+    {
+      "evidence_date_utc": "2026-10-02",
+      "question": "In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?",
+      "answer": "In these sampled runs, yes: late preparation added 166-178 ms across four comparable pairs. Most of that difference occurred before replay submission.",
+      "unknown": "How much remains with a nonblocking control call, and whether preparing early delays other sessions. These runs do not establish a production or hardware benefit.",
+      "evidence_run_ids": [
+        "work_audit_timing_sampled_early_late_20261002",
+        "work_audit_timing_sampled_late_early_20261002"
+      ]
+    }
+  ]
+}
