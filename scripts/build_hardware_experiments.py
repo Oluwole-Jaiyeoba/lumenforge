@@ -221,7 +221,7 @@ code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
 </style></head><body><main>
 <h1>{escape(registry['title'])}</h1>
 <p class="intro">A separate research lane measuring GPU and memory bottlenecks before proposing hardware changes. Planned cases are not results. This page is generated from a structured registry.</p>
-<nav aria-label="Project lanes"><a href="CONTROLLER_EXPERIMENTS.html">Controller experiments</a><a href="HINT_BENCHMARK_RUNBOOK.html">Hint benchmark runbook</a><a href="ARCHITECTURE.md">Architecture</a></nav>
+<nav aria-label="Project lanes"><a href="CONTROLLER_EXPERIMENTS.html">Controller Policy Results</a><a href="HINT_BENCHMARK_RUNBOOK.html">Harness Signal Benchmark</a><a href="ARCHITECTURE.md">Architecture</a></nav>
 {results_ledger}
 </main></body></html>"""
 

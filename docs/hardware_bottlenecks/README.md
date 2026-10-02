@@ -1,4 +1,4 @@
-# Hardware Bottleneck Characterization
+# GPU Interference
 
 This is the third research lane. It measures where GPU compute and memory
 movement delay agentic replays before proposing hardware changes. It is not a

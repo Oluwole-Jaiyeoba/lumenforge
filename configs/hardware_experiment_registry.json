@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "title": "Hardware Bottleneck Experiments",
+  "title": "GPU Interference",
   "experiments": [
     {
       "id": "shared_evidence_live_20261002",

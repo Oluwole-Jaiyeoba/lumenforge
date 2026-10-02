@@ -1,4 +1,4 @@
-# Hint Benchmark Runbook
+# Harness Signal Benchmark
 
 Compact command table for the Agentic Hint Benchmark Suite.
 

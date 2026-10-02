@@ -1,4 +1,4 @@
-# Agentic Work Audit
+# KV Lifecycle Audit
 
 This fourth research lane asks whether cache and GPU work occurs at a useful
 time in an agentic tool-wait/replay lifecycle. It is separate from the hint

@@ -5,14 +5,14 @@ agentic inference experiments.
 
 ## Four Research Lanes
 
-- [Controller Experiments](CONTROLLER_EXPERIMENTS.html): controller scheduling,
+- [Controller Policy Results](CONTROLLER_EXPERIMENTS.html): controller scheduling,
   KV-cache, replay deadline, TTFT, and workload-duration results.
-- [Hint Benchmark Runbook](HINT_BENCHMARK_RUNBOOK.html): reproducible harness
+- [Harness Signal Benchmark](HINT_BENCHMARK_RUNBOOK.html): reproducible harness
   signal-emission experiments and the commands used to observe them.
-- [Hardware Bottleneck Experiments](HARDWARE_EXPERIMENTS.html): controlled GPU
+- [GPU Interference](HARDWARE_EXPERIMENTS.html): controlled GPU
   compute and memory-movement measurements. The first cases are planned, not
   measured results; see [the lane protocol](docs/hardware_bottlenecks/README.md).
-- [Agentic Work Audit](WORK_AUDIT.html): when cache work happens, whether a
+- [KV Lifecycle Audit](WORK_AUDIT.html): when cache work happens, whether a
   replay reuses it, and which opportunities remain unproven; see
   [the validation protocol](docs/work_audit/README.md).
 

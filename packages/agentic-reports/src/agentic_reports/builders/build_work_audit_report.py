@@ -171,7 +171,7 @@ def render(summaries: list[tuple[Path, dict]]) -> str:
         )
     return """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Agentic Work Audit</title><style>
+<title>KV Lifecycle Audit</title><style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#182332;background:#f5f8fb}
 body{max-width:1500px;margin:0 auto;padding:32px 24px 64px;line-height:1.45}
 h1{font-size:1.8rem;margin:0 0 8px}h2{font-size:1.2rem;margin-top:28px}
@@ -182,7 +182,7 @@ th{background:#e6f2f4;color:#1b4550;font-size:.88rem}tr:last-child td{border-bot
 .validated{color:#14664d;font-weight:700}.failed{color:#ac4138;font-weight:700}
 details{background:#fff;border-top:1px solid #dce6ed;padding:12px 15px}summary{cursor:pointer;font-weight:600}
 code{font-size:.95em}
-</style></head><body><h1>Agentic Work Audit</h1>
+</style></head><body><h1>KV Lifecycle Audit</h1>
 <p>This lane checks when cache and GPU work happens across tool waits and replays. Lifecycle runs validate event linkage; timing runs compare early and late preparation on the pinned backend. Neither establishes production waste or a system-wide controller benefit. Cases run sequentially, with order reversed in separate runs. Trace profiles and exact-index capture have different overhead; do not compare their absolute TTFTs as a workload result. Per-layer copies are not additional logical loads.</p>
 """ + timing_html + """<h2>Lifecycle Validation Runs</h2><div class="table-scroll"><table><thead><tr>
 <th>Run</th><th>Trace gate</th><th>Block gate</th><th>Case order</th><th>Trace profile</th>

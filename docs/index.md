@@ -11,10 +11,10 @@ human-readable workstream entry points. Supporting documentation lives under
 - [Project overview](project/overview.md)
 - [SGLang-portability restructuring](architecture/README_RESTRUCTURING.md) -- read before changing code
 - [Architecture map](architecture/ARCHITECTURE_MAP.md)
-- [Controller experiments](../CONTROLLER_EXPERIMENTS.html)
-- [Hint benchmark runbook](../HINT_BENCHMARK_RUNBOOK.html)
-- [Hardware bottleneck experiments](../HARDWARE_EXPERIMENTS.html)
-- [Agentic work audit](../WORK_AUDIT.html)
+- [Controller Policy Results](../CONTROLLER_EXPERIMENTS.html)
+- [Harness Signal Benchmark](../HINT_BENCHMARK_RUNBOOK.html)
+- [GPU Interference](../HARDWARE_EXPERIMENTS.html)
+- [KV Lifecycle Audit](../WORK_AUDIT.html)
 
 ## Architecture (`docs/architecture/`)
 
@@ -37,19 +37,19 @@ human-readable workstream entry points. Supporting documentation lives under
 - [Harness-aware scenarios (package)](testbeds/agentic_harness_scenarios.md)
 - [Harness-aware scenarios (experiment design)](testbeds/HARNESS_AWARE_SCENARIOS.md)
 
-## Hint benchmark (`docs/hint_benchmark/`)
+## Harness Signal Benchmark (`docs/hint_benchmark/`)
 
 - [Hint benchmarking suite](hint_benchmark/HINT_BENCHMARKING_SUITE.md)
-- [Hint benchmark runbook source](hint_benchmark/HINT_BENCHMARK_RUNBOOK.md)
-- [Hint benchmark runbook HTML](../HINT_BENCHMARK_RUNBOOK.html)
+- [Harness Signal Benchmark source](hint_benchmark/HINT_BENCHMARK_RUNBOOK.md)
+- [Harness Signal Benchmark](../HINT_BENCHMARK_RUNBOOK.html)
 - [Hint signal findings](hint_benchmark/HINT_SIGNAL_FINDINGS.md)
 
-## Hardware bottlenecks (`docs/hardware_bottlenecks/`)
+## GPU Interference (`docs/hardware_bottlenecks/`)
 
-- [Hardware experiment index](../HARDWARE_EXPERIMENTS.html)
+- [GPU Interference](../HARDWARE_EXPERIMENTS.html)
 - [Measurement protocol and package boundaries](hardware_bottlenecks/README.md)
 
-## Agentic work audit (`docs/work_audit/`)
+## KV Lifecycle Audit (`docs/work_audit/`)
 
 - [Validation protocol and package boundaries](work_audit/README.md)
 - [Live validation index](../WORK_AUDIT.html)

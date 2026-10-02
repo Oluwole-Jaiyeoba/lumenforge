@@ -105,7 +105,7 @@ details {{ margin-top: 15px; border-top: 1px solid #e5eaf2; padding-top: 14px; }
 </style></head><body><main>
 <h1>{text(registry['title'])}</h1><p class="lede">A reproducible record of controller experiments. The JSON registry is the machine-readable source of truth; this page is generated from it.</p>
 <section class="notice"><h2>Active Protocol</h2><p>Scenario 1 gives every request equal application importance. Harnesses provide expected tool-return times; the controller derives temporary backend queue ranks. Historical records below are retained as evidence, not as current reproduction instructions.</p></section>
-<section class="notice"><h2>Other Research Lanes</h2><p><a href="HINT_BENCHMARK_RUNBOOK.html">Hint Benchmark Runbook</a> records native harness signal emission. <a href="HARDWARE_EXPERIMENTS.html">Hardware Bottleneck Experiments</a> tracks controlled GPU measurements. Neither is evidence for the controller results below.</p></section>
+<section class="notice"><h2>Other Research Lanes</h2><p><a href="HINT_BENCHMARK_RUNBOOK.html">Harness Signal Benchmark</a> records native harness signal emission. <a href="HARDWARE_EXPERIMENTS.html">GPU Interference</a> tracks controlled GPU measurements. Neither is evidence for the controller results below.</p></section>
 <section class="notice"><h2>Comparison Safety</h2><ul>{rules}</ul></section>
 <section class="registry"><h2>Controller Experiment Index</h2><table><thead><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Comparison</th></tr></thead><tbody>{rows}</tbody></table></section>
 {cards}

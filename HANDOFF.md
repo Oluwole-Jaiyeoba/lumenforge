@@ -8,21 +8,21 @@ shared signal catalog, profile and gates; do not install lane-local hooks.
 
 ## Four Research Lanes
 
-- [`HINT_BENCHMARK_RUNBOOK.html`](HINT_BENCHMARK_RUNBOOK.html) records which
+- [Harness Signal Benchmark](HINT_BENCHMARK_RUNBOOK.html) records which
   native harness signals can be reproduced. It is not performance evidence.
-- [`CONTROLLER_EXPERIMENTS.html`](CONTROLLER_EXPERIMENTS.html) records controller
+- [Controller Policy Results](CONTROLLER_EXPERIMENTS.html) records controller
   protocols and results. Its active equal-importance Scenario 1 is described
   below.
-- [`HARDWARE_EXPERIMENTS.html`](HARDWARE_EXPERIMENTS.html) tracks controlled GPU
-  bottleneck experiments. The initial KV-movement and active-compute cases are
-  **planned, not measured**. Read
+- [GPU Interference](HARDWARE_EXPERIMENTS.html) tracks controlled GPU
+  compute and memory-movement experiments. Read
   [`docs/hardware_bottlenecks/README.md`](docs/hardware_bottlenecks/README.md)
   before implementing or running them. Do not interpret controller wins or
   SGLang-visible H2D events as proof of physical GPU saturation. The first
   platform is the accessible standard-NVIDIA remote GPU; GH200 requires a
   separate run and manifest.
-- [`WORK_AUDIT.html`](WORK_AUDIT.html) tracks when agentic cache work happens.
-  The first A10G/v0510 validation is only an event-linkage check. See
+- [KV Lifecycle Audit](WORK_AUDIT.html) tracks when agentic cache work happens.
+  Its lifecycle validation checks event linkage; its paired timing study
+  compares early and late KV preparation. See
   [`docs/work_audit/README.md`](docs/work_audit/README.md); do not convert its
   host-residency observation into a claim of avoidable work.
 

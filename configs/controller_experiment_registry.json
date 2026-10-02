@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "title": "Agentic Hardware Controller Experiments",
+  "title": "Controller Policy Results",
   "comparison_safety_rules": [
     "Compared modes must use the same workload timeline and request population.",
     "The active Scenario 1 protocol forbids application-level priority classes; numeric backend ranks may only be derived from replay-ready time.",
