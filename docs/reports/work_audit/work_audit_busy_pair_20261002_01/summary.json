@@ -1,0 +1,155 @@
+{
+  "limitations": [
+    "Synthetic coding-task prompts and tool waits, not measured production trajectories.",
+    "Arms use fresh backends and identical recipes, but concurrent batch and eviction paths may diverge.",
+    "A changed latency is not by itself proof of HBM contention or avoidable KV movement.",
+    "Native load completion is observed by polling and may lag physical CUDA completion."
+  ],
+  "median_total_replay_ttft_saved_ms": -25878.901,
+  "median_total_return_to_first_token_saved_ms": -25878.379,
+  "median_workflow_saved_ms": -1175.407,
+  "pairs": [
+    {
+      "baseline": {
+        "native_load_events": 35,
+        "return_to_first_token": {
+          "max_ms": 29763.369,
+          "median_ms": 4855.562,
+          "p95_ms": 26817.829
+        },
+        "total_replay_ttft_ms": 335409.961,
+        "total_return_to_first_token_ms": 335418.666,
+        "workflow_makespan_ms": 78052.156
+      },
+      "baseline_run_id": "work_audit_busy_pair_20261002_01_seed1_baseline",
+      "controller": {
+        "controller_load_attempts": 7,
+        "controller_loads_finished_after_tool_return": 1,
+        "controller_loads_finished_before_tool_return": 6,
+        "controller_plan_checks": 103,
+        "native_load_events": 43,
+        "return_to_first_token": {
+          "max_ms": 29768.447,
+          "median_ms": 5833.386,
+          "p95_ms": 26819.646
+        },
+        "total_replay_ttft_ms": 362379.375,
+        "total_return_to_first_token_ms": 362387.722,
+        "workflow_makespan_ms": 80071.508
+      },
+      "controller_run_id": "work_audit_busy_pair_20261002_01_seed1_controller",
+      "eligible_host_checks": 39,
+      "evidence_gate": "comparable",
+      "evidence_reasons": [],
+      "per_session_return_to_first_token_saved_ms": {
+        "busy-seed1-session-00": -3199.944,
+        "busy-seed1-session-01": -2313.284,
+        "busy-seed1-session-02": -2307.521,
+        "busy-seed1-session-03": -109.519,
+        "busy-seed1-session-04": -2630.176,
+        "busy-seed1-session-05": -2623.217,
+        "busy-seed1-session-06": -3466.198,
+        "busy-seed1-session-07": -3457.454,
+        "busy-seed1-session-08": -2626.871,
+        "busy-seed1-session-09": -1406.277,
+        "busy-seed1-session-10": -1406.008,
+        "busy-seed1-session-11": -1422.587
+      },
+      "replay_count": 36,
+      "seed": 1,
+      "sessions_harmed": 12,
+      "sessions_helped": 0,
+      "sessions_unchanged": 0,
+      "total_replay_ttft_saved_ms": -26969.414,
+      "total_return_to_first_token_saved_ms": -26969.056,
+      "workflow_saved_ms": -2019.352,
+      "workload": {
+        "estimated_load_ms": 250.0,
+        "margin_ms": 150.0,
+        "minimum_host_tokens": 512,
+        "prefix_tokens": 8192,
+        "replay_tokens": 64,
+        "session_count": 12,
+        "stagger_ms": 75,
+        "tool_waits_per_session": 3,
+        "wait_range_ms": [
+          800,
+          3500
+        ]
+      }
+    },
+    {
+      "baseline": {
+        "native_load_events": 36,
+        "return_to_first_token": {
+          "max_ms": 29593.015,
+          "median_ms": 4577.688,
+          "p95_ms": 26654.825
+        },
+        "total_replay_ttft_ms": 334372.138,
+        "total_return_to_first_token_ms": 334381.508,
+        "workflow_makespan_ms": 79541.331
+      },
+      "baseline_run_id": "work_audit_busy_pair_20261002_01_seed2_baseline",
+      "controller": {
+        "controller_load_attempts": 11,
+        "controller_loads_finished_after_tool_return": 1,
+        "controller_loads_finished_before_tool_return": 6,
+        "controller_plan_checks": 98,
+        "native_load_events": 47,
+        "return_to_first_token": {
+          "max_ms": 29623.765,
+          "median_ms": 5303.459,
+          "p95_ms": 26685.77
+        },
+        "total_replay_ttft_ms": 359160.526,
+        "total_return_to_first_token_ms": 359169.21,
+        "workflow_makespan_ms": 79872.793
+      },
+      "controller_run_id": "work_audit_busy_pair_20261002_01_seed2_controller",
+      "eligible_host_checks": 31,
+      "evidence_gate": "comparable",
+      "evidence_reasons": [],
+      "per_session_return_to_first_token_saved_ms": {
+        "busy-seed2-session-00": -1516.564,
+        "busy-seed2-session-01": -4044.599,
+        "busy-seed2-session-02": -2366.389,
+        "busy-seed2-session-03": -2363.853,
+        "busy-seed2-session-04": -2362.484,
+        "busy-seed2-session-05": -2354.337,
+        "busy-seed2-session-06": -202.57,
+        "busy-seed2-session-07": -1825.995,
+        "busy-seed2-session-08": -2300.842,
+        "busy-seed2-session-09": -1817.674,
+        "busy-seed2-session-10": -1813.193,
+        "busy-seed2-session-11": -1819.202
+      },
+      "replay_count": 36,
+      "seed": 2,
+      "sessions_harmed": 12,
+      "sessions_helped": 0,
+      "sessions_unchanged": 0,
+      "total_replay_ttft_saved_ms": -24788.388,
+      "total_return_to_first_token_saved_ms": -24787.702,
+      "workflow_saved_ms": -331.462,
+      "workload": {
+        "estimated_load_ms": 250.0,
+        "margin_ms": 150.0,
+        "minimum_host_tokens": 512,
+        "prefix_tokens": 8192,
+        "replay_tokens": 64,
+        "session_count": 12,
+        "stagger_ms": 75,
+        "tool_waits_per_session": 3,
+        "wait_range_ms": [
+          800,
+          3500
+        ]
+      }
+    }
+  ],
+  "run_id": "work_audit_busy_pair_20261002_01",
+  "schema": "agentic_work_audit.busy_comparison.v1",
+  "seed_count": 2,
+  "status": "validated"
+}

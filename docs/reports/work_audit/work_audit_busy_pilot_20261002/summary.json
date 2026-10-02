@@ -1,0 +1,86 @@
+{
+  "limitations": [
+    "Synthetic coding-task prompts and tool waits, not measured production trajectories.",
+    "Arms use fresh backends and identical recipes, but concurrent batch and eviction paths may diverge.",
+    "A changed latency is not by itself proof of HBM contention or avoidable KV movement.",
+    "Native load completion is observed by polling and may lag physical CUDA completion."
+  ],
+  "median_total_replay_ttft_saved_ms": -20687.764,
+  "median_total_return_to_first_token_saved_ms": -20687.738,
+  "median_workflow_saved_ms": -149.323,
+  "pairs": [
+    {
+      "baseline": {
+        "native_load_events": 35,
+        "return_to_first_token": {
+          "max_ms": 29772.368,
+          "median_ms": 4801.065,
+          "p95_ms": 26826.383
+        },
+        "total_replay_ttft_ms": 335038.734,
+        "total_return_to_first_token_ms": 335047.482,
+        "workflow_makespan_ms": 79697.623
+      },
+      "baseline_run_id": "work_audit_busy_pilot_20261002_seed1_baseline",
+      "controller": {
+        "controller_load_attempts": 7,
+        "controller_loads_finished_after_tool_return": 1,
+        "controller_loads_finished_before_tool_return": 4,
+        "controller_plan_checks": 102,
+        "native_load_events": 43,
+        "return_to_first_token": {
+          "max_ms": 29788.508,
+          "median_ms": 5556.974,
+          "p95_ms": 26839.907
+        },
+        "total_replay_ttft_ms": 355726.498,
+        "total_return_to_first_token_ms": 355735.22,
+        "workflow_makespan_ms": 79846.946
+      },
+      "controller_run_id": "work_audit_busy_pilot_20261002_seed1_controller",
+      "eligible_host_checks": 39,
+      "evidence_gate": "comparable",
+      "evidence_reasons": [],
+      "per_session_return_to_first_token_saved_ms": {
+        "busy-seed1-session-00": -2996.351,
+        "busy-seed1-session-01": -2154.258,
+        "busy-seed1-session-02": -2152.607,
+        "busy-seed1-session-03": 112.982,
+        "busy-seed1-session-04": 116.129,
+        "busy-seed1-session-05": -2488.318,
+        "busy-seed1-session-06": -2420.549,
+        "busy-seed1-session-07": -2873.704,
+        "busy-seed1-session-08": -2412.238,
+        "busy-seed1-session-09": -1138.251,
+        "busy-seed1-session-10": -1142.825,
+        "busy-seed1-session-11": -1137.748
+      },
+      "replay_count": 36,
+      "seed": 1,
+      "sessions_harmed": 10,
+      "sessions_helped": 2,
+      "sessions_unchanged": 0,
+      "total_replay_ttft_saved_ms": -20687.764,
+      "total_return_to_first_token_saved_ms": -20687.738,
+      "workflow_saved_ms": -149.323,
+      "workload": {
+        "estimated_load_ms": 250.0,
+        "margin_ms": 150.0,
+        "minimum_host_tokens": 512,
+        "prefix_tokens": 8192,
+        "replay_tokens": 64,
+        "session_count": 12,
+        "stagger_ms": 75,
+        "tool_waits_per_session": 3,
+        "wait_range_ms": [
+          800,
+          3500
+        ]
+      }
+    }
+  ],
+  "run_id": "work_audit_busy_pilot_20261002",
+  "schema": "agentic_work_audit.busy_comparison.v1",
+  "seed_count": 1,
+  "status": "validated"
+}

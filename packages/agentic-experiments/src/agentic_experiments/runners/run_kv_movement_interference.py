@@ -138,6 +138,7 @@ async def prepare_prefix(
     plan_only: bool,
     min_load_tokens: int | None,
     minimum_host_tokens: int,
+    source: str = "hardware_kv_movement_interference",
 ) -> dict[str, Any]:
     request_started_ns = time.time_ns()
     started = time.perf_counter()
@@ -152,7 +153,7 @@ async def prepare_prefix(
             "wait": False,
             "wait_timeout_ms": 10_000,
             "control_timeout_ms": 15_000,
-            "source": "hardware_kv_movement_interference",
+            "source": source,
             "min_load_tokens": min_load_tokens,
             "minimum_host_tokens": minimum_host_tokens,
         },

@@ -8,6 +8,37 @@ import pytest
 from agentic_reports.builders.build_work_audit_report import _run_finding, main, render
 
 
+def test_busy_audit_report_keeps_pair_numbers_and_limits_visible():
+    arm = {"workflow_makespan_ms": 1000, "total_replay_ttft_ms": 300,
+           "total_return_to_first_token_ms": 320,
+           "return_to_first_token": {"p95_ms": 320}, "native_load_events": 1}
+    controlled = {**arm, "workflow_makespan_ms": 900, "total_replay_ttft_ms": 200,
+                  "controller_plan_checks": 3,
+                  "controller_load_attempts": 1,
+                  "controller_loads_finished_before_tool_return": 1,
+                  "controller_loads_finished_after_tool_return": 0}
+    summary = {"schema": "agentic_work_audit.busy_comparison.v1", "run_id": "busy",
+               "status": "validated", "seed_count": 1, "median_workflow_saved_ms": 100,
+               "median_total_replay_ttft_saved_ms": 100,
+               "_manifest": {**_manifest(), "workload": {
+                   "research_question_id": "RQ8", "session_count": 12,
+                   "tool_waits_per_session": 3, "prefix_tokens": 8192,
+                   "replay_tokens": 64, "wait_range_ms": [800, 3500],
+                   "seeds": [1], "hicache_size_gb": 8, "mem_fraction_static": .8}},
+               "pairs": [{"seed": 1, "baseline": arm, "controller": controlled,
+                          "workflow_saved_ms": 100, "total_replay_ttft_saved_ms": 100,
+                          "eligible_host_checks": 1, "sessions_helped": 10,
+                          "sessions_harmed": 2, "evidence_gate": "comparable",
+                          "evidence_reasons": []}]}
+    page = render([(Path("runs/busy/summary.json"), summary)])
+    assert "Busy workload · controller KV timing" in page
+    assert "Seed 1 · Ordinary replay" in page
+    assert "Seed 1 · Controller-timed KV" in page
+    assert "10 sessions helped, 2 harmed" in page
+    assert "infra/container/run_work_audit_busy.sh" in page
+    assert "not an isolated hardware-bandwidth measurement" in page
+
+
 def _manifest(order=("warm", "host")):
     return {
         "hardware_profile": "nvidia_a10g_24gb",
@@ -65,7 +96,7 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
         "Host backups", "GPU evictions", "Session resumes", "HBM occupancy", "GPU time",
     ))
     assert "not yet graded" in page
-    assert "after-short timing measured; natural capacity effects remain unmeasured" in page
+    assert "RQ8 tests a busy workload with natural cache pressure" in page
     assert "<th>Date</th><th>Time (UTC)</th>" in page
     assert page.index("second</small>") < page.index("first</small>")
     assert "14:30:02" in page and "14:30:01" in page

@@ -2,6 +2,21 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ8",
+      "short_question": "Does timed KV preparation help a busy system?",
+      "evidence_date_utc": "2026-10-02",
+      "question": "With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?",
+      "answer": "No in this two-seed A10G comparison. The controller confirmed six KV loads before tool return in each seed, but summed replay TTFT was 26.97 and 24.79 seconds higher than ordinary replay. Whole-workload completion was 2.02 and 0.33 seconds slower. All 12 sessions had higher summed tool-return-to-first-token time in both seeds. The one-seed pilot showed the same direction but is not independent evidence because seed 1 was repeated.",
+      "unknown": "This comparison includes 98-102 extra host-residency control checks per controller arm. It does not isolate the cost of the checks from the cost of early KV movement or prove that a prepared prefix was consumed by the following replay. Prompts and tool waits are synthetic, and two seeds do not establish a universal result.",
+      "evidence_run_ids": [
+        "work_audit_busy_pair_20261002_01"
+      ],
+      "related_run_ids": [
+        "work_audit_busy_pair_20261002_01",
+        "work_audit_busy_pilot_20261002"
+      ]
+    },
+    {
       "id": "RQ7",
       "short_question": "Can a controller choose the quiet load window?",
       "evidence_date_utc": "2026-10-02",

@@ -469,9 +469,31 @@ decisions with zero measured tool-return overshoots. These are small synthetic
 samples; the policy is invoked by the audit runner, not yet deployed in the
 production gateway, and the capacity eviction is explicit.
 
-## Next Phases
+## Busy-Workload Comparison (RQ8)
 
-1. Test defer behavior under a genuinely short remaining window and assess
-   whether the load estimate is calibrated across runs.
-2. Then test under naturally arising cache pressure. Keep frontend importance
-   equal and separate observed work from avoidable work.
+`infra/container/run_work_audit_busy.sh` starts a fresh pinned backend for
+each arm. Each seed runs 12 equally important sessions, three tool waits per
+session, and growing 8192-token coding-task contexts. The baseline uses
+ordinary SGLang cache handling. The controller arm checks host residency up
+to three times per wait and requests native load-back when its 250 ms estimate
+plus 150 ms margin fits before the expected tool return. It does not force
+eviction or delay replay submission for the control response. Seed parity
+reverses arm order. Both arms use `kv_lifecycle_lean` tracing.
+
+```bash
+SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 \
+  AGENTIC_MODEL_CACHE=/path/to/model/cache \
+  WORK_AUDIT_RUN_ID=work_audit_busy_$(date +%Y%m%d_%H%M%S) \
+  WORK_AUDIT_SEEDS="1 2" \
+  bash infra/container/run_work_audit_busy.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The [archived two-seed comparison](../reports/work_audit/work_audit_busy_pair_20261002_01/summary.json)
+includes each arm's metrics, harness timeline, hook gate, and compressed raw
+trace. The one-seed pilot is archived separately and is not counted as an
+independent seed. In both paired seeds the controller completed six loads
+before tool return, but summed replay TTFT rose by 26.97 and 24.79 seconds,
+and whole-workload completion rose by 2.02 and 0.33 seconds. All 12 sessions
+had higher summed return-to-first-token time in both seeds. This is a result
+about the controller implementation including its control checks, not a
+measurement of early-copy cost alone or GPU bandwidth contention.

@@ -75,6 +75,17 @@ def _pair_gates(pairs: list[dict], *, nonblocking: bool = False) -> str:
 
 
 def _first_request_ns(path: Path) -> int | None:
+    if path.exists():
+        summary = json.loads(path.read_text(encoding="utf-8"))
+        if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+            starts = []
+            for events in path.parent.glob("arms/*/harness_events.jsonl"):
+                with events.open(encoding="utf-8") as handle:
+                    for line in handle:
+                        row = json.loads(line)
+                        if row.get("kind") == "initial_finished" and isinstance(row.get("request_start_ns"), int):
+                            starts.append(row["request_start_ns"])
+            return min(starts) if starts else None
     for filename in ("harness_events.jsonl", "normalized_events.jsonl"):
         events = path.with_name(filename)
         if not events.exists():
@@ -103,6 +114,20 @@ def _time(summary: dict) -> tuple[int, str, str, str]:
 
 
 def _links(path: Path, summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+        base = path.parent.as_posix()
+        links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>',
+                 f'<a href="{_esc(base)}/run_manifest.json">Run manifest</a>']
+        for pair in summary.get("pairs") or []:
+            for mode in ("baseline", "controller"):
+                arm = f"seed{pair['seed']}_{mode}"
+                for name, label in (("summary.json", "metrics"),
+                                    ("harness_events.jsonl", "timeline"),
+                                    ("instrumentation_audit.json", "hook gate"),
+                                    ("backend_trace.jsonl.gz", "raw trace")):
+                    links.append(f'<a href="{_esc(base)}/arms/{_esc(arm)}/{name}">'
+                                 f'{_esc(arm)} {label}</a>')
+        return " · ".join(links)
     labels = (
         ("summary.json", "Summary JSON"), ("run_manifest.json", "Run manifest"),
         ("instrumentation_audit.json", "Trace gate"), ("block_audit.json", "Block audit"),
@@ -118,6 +143,23 @@ def _links(path: Path, summary: dict) -> str:
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
+    if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+        brief = (f"{_esc(workload.get('session_count'))} sessions × "
+                 f"{_esc(workload.get('tool_waits_per_session'))} tool waits; "
+                 f"{_esc(summary.get('seed_count'))} paired seeds; natural capacity pressure")
+        detail = (f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
+                  f"{_esc(manifest.get('model'))}; backend {_esc(manifest.get('backend_version'))}. "
+                  f"Fresh backend per arm, order reversed by seed. Prefix target "
+                  f"{_esc(workload.get('prefix_tokens'))} tokens, replay cap "
+                  f"{_esc(workload.get('replay_tokens'))} tokens, tool waits "
+                  f"{_esc(workload.get('wait_range_ms'))} ms, host cache "
+                  f"{_esc(workload.get(CACHE_SIZE_FIELD))} GB, GPU memory fraction "
+                  f"{_esc(workload.get('mem_fraction_static'))}. "
+                  "Controller requires a host-resident prefix and at least "
+                  f"{_esc(workload.get('estimated_load_ms'))} + {_esc(workload.get('load_margin_ms'))} "
+                  "ms before expected tool return. No frontend importance ranks or forced eviction; "
+                  "lean KV trace.")
+        return brief, detail
     order = " → ".join(map(str, workload.get("cases") or [])) or "not recorded"
     profile = summary.get("_trace_profile") or next(
         (name for name in manifest.get("enabled_instrumentation") or [] if name.startswith("kv_lifecycle")),
@@ -202,6 +244,29 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
+    if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+        settings = {
+            "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+            "WORK_AUDIT_SEEDS": " ".join(map(str, workload.get("seeds") or [])),
+            "WORK_AUDIT_SESSION_COUNT": workload.get("session_count"),
+            "WORK_AUDIT_TOOL_WAITS": workload.get("tool_waits_per_session"),
+            "WORK_AUDIT_PREFIX_TOKENS": workload.get("prefix_tokens"),
+            "WORK_AUDIT_REPLAY_TOKENS": workload.get("replay_tokens"),
+            "WORK_AUDIT_WAIT_MIN_MS": (workload.get("wait_range_ms") or [None, None])[0],
+            "WORK_AUDIT_WAIT_MAX_MS": (workload.get("wait_range_ms") or [None, None])[1],
+            "WORK_AUDIT_ESTIMATED_LOAD_MS": workload.get("estimated_load_ms"),
+            "WORK_AUDIT_MARGIN_MS": workload.get("load_margin_ms"),
+            "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
+            "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
+            "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
+        }
+        prefix = " ".join(f"{key}='{value}'" for key, value in settings.items() if value is not None)
+        command = f"{prefix} bash infra/container/run_work_audit_busy.sh {manifest.get('model') or '<model>'}"
+        return ("<p><strong>Runner.</strong> "
+                "<code>infra/container/run_work_audit_busy.sh</code> orchestrates fresh backends; "
+                "<code>agentic_experiments.runners.run_busy_kv_audit</code> drives each arm. "
+                "Set the container image and model cache on the target host.</p>"
+                f"<pre><code>{_esc(command)}</code></pre>")
     cases = workload.get("cases") or []
     if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
                                  "agentic_work_audit.multisession_window.v1",
@@ -489,6 +554,48 @@ def _controller_window_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
+def _busy_result(summary: dict) -> tuple[str, str]:
+    pairs = summary.get("pairs") or []
+    headline = (f"{summary.get('seed_count', 0)} paired seeds · "
+                f"workflow {_direction(summary.get('median_workflow_saved_ms'), 'faster', 'slower')}; "
+                f"total replay TTFT {_direction(summary.get('median_total_replay_ttft_saved_ms'), 'lower', 'higher')}")
+    rows = []
+    for pair in pairs:
+        for label, arm in (("Ordinary replay", pair["baseline"]),
+                           ("Controller-timed KV", pair["controller"])):
+            rows.append((f"Seed {pair['seed']} · {label}",
+                         _seconds(arm["workflow_makespan_ms"]),
+                         _seconds(arm["total_replay_ttft_ms"]),
+                         _seconds(arm["total_return_to_first_token_ms"]),
+                         _ms(arm["return_to_first_token"]["p95_ms"]),
+                         str(arm["native_load_events"])))
+    decisions = "".join(
+        f"<li>Seed {_esc(pair['seed'])}: {_esc(pair['controller']['controller_plan_checks'])} "
+        f"control checks, {_esc(pair['eligible_host_checks'])} found host-resident KV; "
+        f"{_esc(pair['controller']['controller_load_attempts'])} load attempts; "
+        f"{_esc(pair['controller']['controller_loads_finished_before_tool_return'])} finished before return; "
+        f"{_esc(pair['sessions_helped'])} sessions helped, {_esc(pair['sessions_harmed'])} harmed; "
+        f"gate {_esc(pair['evidence_gate'])}"
+        f"{': ' + _esc('; '.join(pair['evidence_reasons'])) if pair['evidence_reasons'] else ''}.</li>"
+        for pair in pairs
+    )
+    detail = (
+        "<p><strong>What was measured.</strong> The same equal-importance prompts, waits, and replay "
+        "limits were run with a fresh backend process for each arm. Baseline uses ordinary cache "
+        "handling; the controller checks host residency during each tool wait and requests a native "
+        "load only when its declared time window is sufficient. Positive saved time means the "
+        "controller arm was faster. Totals sum all replays, so they are not wall-clock seconds.</p>" +
+        _mode_table(("Arm", "Whole workflow", "Summed replay TTFT", "Summed return to first token",
+                     "P95 return to first token", "Native loads"), rows) +
+        "<p><strong>Controller decisions and per-session impact.</strong></p><ul>" + decisions + "</ul>" +
+        "<p><strong>Limit.</strong> Native load counts do not prove all bytes were used. "
+        "The extra control checks also consume backend time and are not isolated from early-copy cost. "
+        "Concurrency can change batching between arms, so this is a system-level comparison, "
+        "not an isolated hardware-bandwidth measurement.</p>"
+    )
+    return headline, detail
+
+
 def _question_index(milestones: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
     by_id: dict[str, dict] = {}
     by_run: dict[str, str] = {}
@@ -542,11 +649,21 @@ def _run_finding(summary: dict) -> str:
     status = summary.get("status")
     if status == "failed":
         return "Evidence checks failed; no performance conclusion is supported."
+    if summary.get("schema") == "agentic_work_audit.busy_comparison.v1" and status == "inconclusive":
+        return "Paired timings were collected, but the natural reload or on-time preparation gate was not met."
     if status != "validated":
         return "Evidence status is unavailable; no finding is claimed."
 
     schema = summary.get("schema")
     pairs = summary.get("pairs") or []
+    if schema == "agentic_work_audit.busy_comparison.v1":
+        if all(pair["workflow_saved_ms"] > 0 and pair["total_replay_ttft_saved_ms"] > 0
+               for pair in pairs):
+            return "Controller-timed KV preparation improved workflow and total replay TTFT in every paired seed."
+        if all(pair["workflow_saved_ms"] < 0 and pair["total_replay_ttft_saved_ms"] < 0
+               for pair in pairs):
+            return "Controller-timed KV preparation worsened workflow and total replay TTFT in every paired seed."
+        return "The controller changed system timing, but the benefits and costs differed across paired seeds."
     if schema == "agentic_work_audit.controller_window.v1":
         if not pairs or not all(pair.get("comparable") for pair in pairs):
             return "The controller comparison was not fully validated; its conclusion is withheld."
@@ -624,8 +741,10 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         comparison = summary.get("schema") == "agentic_work_audit.multisession_comparison.v1"
         window = summary.get("schema") == "agentic_work_audit.multisession_window.v1"
         controller = summary.get("schema") == "agentic_work_audit.controller_window.v1"
+        busy = summary.get("schema") == "agentic_work_audit.busy_comparison.v1"
         run = str(summary.get("run_id") or path.parent.name)
-        kind = ("Controller-chosen load window" if controller else "Three concurrent load windows" if window else
+        kind = ("Busy workload · controller KV timing" if busy else
+                "Controller-chosen load window" if controller else "Three concurrent load windows" if window else
                 "Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
                 else "Early vs late" if timing else "Lifecycle validation")
         manifest_question_id = ((summary.get("_manifest") or {}).get("workload") or {}).get("research_question_id")
@@ -635,6 +754,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         question_id = manifest_question_id or archived_question_id
         milestone = questions.get(question_id)
         fallback_question = (
+            "In a busy, naturally evicting system, does using each session's tool-return estimate "
+            "to time KV preparation improve the whole workload without harming other sessions?" if busy else
             "Can the controller choose a safe KV load window from observed events?" if controller else
             "Can loading after the short replay finishes preserve the long replay benefit without "
             "delaying the short session?" if window else
@@ -654,7 +775,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             f'{" (" + _esc(question_id) + ")" if question_id else ""}</span>'
         )
         setup, method = _setup(summary, timing)
-        result, findings = (_controller_window_result(summary) if controller else
+        result, findings = (_busy_result(summary) if busy else
+                            _controller_window_result(summary) if controller else
                             _multisession_window_result(summary) if window else
                             _multisession_comparison_result(summary) if comparison else
                             _multisession_result(summary) if multisession else
@@ -719,7 +841,7 @@ tbody tr:hover{background:#f8fbfa}
 .question-cell strong{display:block;color:#17685e}.question-cell span{display:block;margin-top:3px}
 .unmapped{color:#8a551d}
 small{display:block;color:#5a6c77;overflow-wrap:anywhere;font-size:.8rem;margin-top:3px}
-.status{display:inline-block;font-weight:650}.validated{color:#126746}.failed{color:#b63839}
+.status{display:inline-block;font-weight:650}.validated{color:#126746}.failed{color:#b63839}.inconclusive{color:#9a621b}
 .detail-toggle{border:0;background:none;padding:0;color:#086780;font:inherit;font-weight:650;cursor:pointer;text-decoration:underline}
 .detail-toggle:focus-visible{outline:2px solid #086780;outline-offset:3px}
 .detail-row[hidden]{display:none!important}.detail-row>td{padding:16px 20px;background:#f5f9f8}
@@ -756,7 +878,7 @@ body{padding:16px 10px 40px}.scope li{grid-template-columns:1fr;gap:2px}
 <h2>Five audit ledgers</h2><ul class="scope">
 <li><strong>Host backups</strong><span>Host residency and load-back observed; useful versus insurance versus wasted backup not yet graded.</span></li>
 <li><strong>GPU evictions</strong><span>Forced eviction observed; capacity necessity and avoidability not yet graded.</span></li>
-<li><strong>Session resumes</strong><span>Controlled early, late, and after-short timing measured; natural capacity effects remain unmeasured.</span></li>
+<li><strong>Session resumes</strong><span>Early, late, and controller timing measured; RQ8 tests a busy workload with natural cache pressure.</span></li>
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """
