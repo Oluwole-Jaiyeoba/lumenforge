@@ -22,6 +22,13 @@ def test_eviction_or_missing_identity_cannot_claim_reuse():
     assert assess_loaded_match([load], [no_request])["loaded_slots_match_status"] == "unknown"
 
 
+def test_other_session_eviction_makes_slot_lineage_ambiguous():
+    load = _event("kv.load_gpu", 10, [1, 2])
+    match = _event("kv.prefix_match", 20, [2], request="replay")
+    other_evict = EvidenceEvent("kv.evict_gpu", 15, "fixture", session_id="other")
+    assert assess_loaded_match([load], [match], [other_evict])["loaded_slots_match_status"] == "unknown"
+
+
 def test_range_requires_digest_before_claiming_overlap():
     load = EvidenceEvent("kv.load_gpu", 10, "fixture", session_id="session",
                          payload={"device_indices": {"min": 1, "max": 4, "index_count": 4}})

@@ -113,7 +113,7 @@ def analyze_block_audit(
         slot_proof = assess_loaded_match(
             (event for event in session_evidence if event.signal_id == "kv.load_gpu"),
             matched_evidence,
-            (event for event in session_evidence if event.signal_id == "kv.evict_gpu"),
+            (event for event in evidence if event.signal_id == "kv.evict_gpu"),
         )
         if original["case_type"] == "host_backed":
             if len(loads) != 1:
