@@ -173,12 +173,56 @@ python3 -m agentic_experiments.runners.audit_hint_backend_evidence \
   --out /path/to/hint_backend_audit.json
 ```
 
-The request map is an array of
+For NAT, the native `_DynamoTransport` capture can optionally forward each
+captured request to a running SGLang chat endpoint. The benchmark forwarder
+changes only the model name and adds `custom_params.agentic_kv` identity;
+`nvext` hints are preserved, not synthesized. For example, while the pinned
+backend is running:
+
+```bash
+python3 sglang_direct_kv/scripts/run_hint_benchmark.py \
+  --harness nemo_agent_toolkit --scenarios nat_priority_high \
+  --nat-dynamo-transport-capture \
+  --nat-backend-url http://127.0.0.1:30000/v1/chat/completions \
+  --nat-backend-model Qwen/Qwen2.5-Coder-7B-Instruct \
+  --run-id nat_boundary_live --out-dir /path/to/nat_boundary_live
+```
+
+For a pinned, end-to-end reference run, set `SGLANG_DOCKER_IMAGE` and
+`AGENTIC_MODEL_CACHE`, then use
+`bash infra/container/run_nat_hint_boundary_reference.sh
+Qwen/Qwen2.5-Coder-7B-Instruct`. It starts a clean container with the lean
+`request_boundary` profile, gates installed hooks before the NAT request,
+then requires live acceptance and a matched correlation before succeeding.
+
+This writes `backend_request_map.json` beside the hint observations. The
+correlation ID is explicitly marked `benchmark_forwarder` in the captured
+record; it is **not** a native NAT hint. The backend must independently log
+that ID and pass the live `request_boundary` gate before the audit can claim
+linked acceptance. The request map is an array of
 `{"scenario_id":"...","payload_index":1,"backend_request_id":"...","correlation_id":"..."}`.
-Only an ID independently present in the captured native request and backend
-event proves same-request linkage. Without it, the output says `external_mapping_only` and
+Only an ID independently present in the capture-boundary record and backend
+event proves the forwarded request's linkage. Without it, the output says `external_mapping_only` and
 `same_request_proven=false`. Even a matched request does not prove a hint was
 translated or affected scheduling/cache behavior; those need separate
 downstream value and effect evidence. Native hint observations never come from
 the backend trace. Architecture tests reject new hook tables outside the
 backend package.
+
+The pinned A10G NAT reference run on 2026-10-02 passed the live
+`request_boundary` gate and the strict `--require-same-request` join. NAT emitted `priority=100`
+plus five other request-planning/cache-identity fields. The benchmark-owned ID
+matched the backend acceptance record; the audit still reports
+`backend_hint_effect=not_proven`. Small reproducibility artifacts are archived
+under [`docs/reports/hint_benchmark/nat_hint_boundary_live_20261002`](docs/reports/hint_benchmark/nat_hint_boundary_live_20261002),
+including the [join audit](docs/reports/hint_benchmark/nat_hint_boundary_live_20261002/hint_backend_audit.json)
+and [native hint observations](docs/reports/hint_benchmark/nat_hint_boundary_live_20261002/hint_run/observed_hint_evidence.jsonl).
+
+The 2026-10-02 A10G `copy_timing` reference also passed its live reload gates:
+the before-decode case had 56 donor layer-copy records before decode and none
+during it; the direct-overlap case had 56 during the client-visible decode
+window. Decode durations were 42.671 s (control), 43.349 s (reload before),
+and 43.361 s (reload during), one trial each. The 12 ms difference between
+reload timings is not a reliable slowdown estimate. The [hardware ledger](HARDWARE_EXPERIMENTS.html)
+and [archived summary](docs/reports/hardware/shared_evidence_live_20261002/sustained_decode_kv_overlap_summary.json)
+record the measurements and their proof limits.

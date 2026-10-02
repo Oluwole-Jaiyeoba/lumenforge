@@ -17,6 +17,7 @@ def test_matching_correlation_proves_same_request_but_not_hint_effect():
                                                 "backend_request_id": "r1", "correlation_id": "c1"}], _backend())
     assert result["valid"]
     assert result["mappings"][0]["same_request_proven"]
+    assert result["mappings"][0]["join_basis"] == "matching_capture_backend_correlation"
     assert result["mappings"][0]["backend_hint_effect"] == "not_proven"
 
 
@@ -39,5 +40,8 @@ def test_fixture_and_wrong_correlation_are_rejected():
 
 def test_native_capture_correlation_comes_from_captured_request():
     assert capture_correlation_id({"_capture": {"headers": {"x-agentic-correlation-id": "c1"}}}) == "c1"
+    assert capture_correlation_id({"_capture": {"correlation_id": "c3",
+                                                  "correlation_source": "benchmark_forwarder"}}) == "c3"
     assert capture_correlation_id({"metadata": {"agentic_correlation_id": "c2"}}) == "c2"
+    assert capture_correlation_id({"_capture": "not-a-record"}) == ""
     assert capture_correlation_id({}) == ""

@@ -1,0 +1,2 @@
+run_id,harness,execution_mode,evidence_tier,scenario_id,scenario_name,scenario_status,expectation_type,hint_id,raw_field,payload_index,source_class,injection_level,scope,expected_value_json,required,observed,observed_value_json,result,result_reason
+nat_hint_boundary_live_20261002,nemo_agent_toolkit,nat_dynamo_transport_capture,native_client_or_transport_capture,nat_priority_high,NAT high-priority request,ready_for_runner,expected_emission,priority,priority,,workflow_config,workflow_level,request,100,True,yes,100,pass,expected_hint_observed

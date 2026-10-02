@@ -1,0 +1,15 @@
+{
+  "condition": "direct_overlap_reload",
+  "donor_identity_source": "explicit",
+  "donor_layer_copies_before_decode": 0,
+  "donor_layer_copies_during_decode": 56,
+  "donor_layer_copy_count": 56,
+  "donor_semantic_load_count": 6,
+  "donor_session_id": "shared_evidence_live_20261002_samples-trial-000-donor",
+  "missing": [],
+  "proof_limit": "Hook timestamps establish client-decode-window coincidence, not GPU-kernel overlap or HBM contention.",
+  "schema_version": "hardware.backend_evidence.v1",
+  "target_accepted_count": 3,
+  "target_request_id": "shared_evidence_live_20261002_samples-trial-000-target-decode",
+  "valid": true
+}

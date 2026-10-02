@@ -19,6 +19,7 @@ import tempfile
 import threading
 import time
 from typing import Any
+from uuid import uuid4
 
 
 REPO_ROOT = testbed_root()
@@ -167,7 +168,23 @@ def scenario_base_payload(scenario: dict[str, Any], index: int) -> dict[str, Any
     return payload
 
 
-async def capture_nat_dynamo_payloads(scenarios: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def nat_backend_payload(payload: dict[str, Any], *, model: str, request_id: str) -> dict[str, Any]:
+    """Forward NAT's request with benchmark identity, without inventing native hints."""
+    forwarded = dict(payload)
+    forwarded["model"] = model
+    custom_params = dict(forwarded.get("custom_params") or {})
+    agentic_kv = dict(custom_params.get("agentic_kv") or {})
+    agentic_kv.update({"session_id": "nat_hint_benchmark", "request_id": request_id,
+                       "correlation_id": request_id, "phase": "hint_boundary"})
+    custom_params["agentic_kv"] = agentic_kv
+    forwarded["custom_params"] = custom_params
+    return forwarded
+
+
+async def capture_nat_dynamo_payloads(
+    scenarios: list[dict[str, Any]], *, backend_url: str | None = None,
+    backend_model: str | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     try:
         import httpx
         from nat.builder.context import Context
@@ -189,8 +206,20 @@ async def capture_nat_dynamo_payloads(scenarios: list[dict[str, Any]]) -> dict[s
         async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
             body = await request.aread()
             payload = json.loads(body.decode() or "{}")
+            if not backend_url:
+                self.payloads.append(payload)
+                return httpx.Response(200, json={"ok": True, "choices": []}, request=request)
+            request_id = f"natbench_{uuid4().hex}"
+            forwarded = nat_backend_payload(payload, model=backend_model or "", request_id=request_id)
+            async with httpx.AsyncClient(timeout=120) as backend:
+                response = await backend.post(backend_url, json=forwarded)
+            response.raise_for_status()
+            payload["_capture"] = {"correlation_id": request_id,
+                                   "correlation_source": "benchmark_forwarder"}
             self.payloads.append(payload)
-            return httpx.Response(200, json={"ok": True, "choices": []}, request=request)
+            return httpx.Response(response.status_code, content=response.content,
+                                  headers={"content-type": response.headers.get("content-type", "application/json")},
+                                  request=request)
 
     captured: dict[str, list[dict[str, Any]]] = {}
     for scenario in scenarios:
@@ -1890,8 +1919,10 @@ def main() -> None:
     parser.add_argument(
         "--nat-dynamo-transport-capture",
         action="store_true",
-        help="Capture real NAT _DynamoTransport hint emission without forwarding to SGLang.",
+        help="Capture real NAT _DynamoTransport hint emission; optionally forward with --nat-backend-url.",
     )
+    parser.add_argument("--nat-backend-url", help="Optional SGLang chat endpoint for correlated NAT forwarding.")
+    parser.add_argument("--nat-backend-model", help="Backend model name required with --nat-backend-url.")
     parser.add_argument(
         "--claude-native-capture",
         action="store_true",
@@ -2101,6 +2132,10 @@ def main() -> None:
         )
     if args.nat_dynamo_transport_capture and args.harness != "nemo_agent_toolkit":
         parser.error("--nat-dynamo-transport-capture requires --harness nemo_agent_toolkit.")
+    if bool(args.nat_backend_url) != bool(args.nat_backend_model):
+        parser.error("--nat-backend-url and --nat-backend-model must be supplied together.")
+    if args.nat_backend_url and not args.nat_dynamo_transport_capture:
+        parser.error("--nat-backend-url requires --nat-dynamo-transport-capture.")
     if args.claude_native_capture and args.harness != "claude_code":
         parser.error("--claude-native-capture requires --harness claude_code.")
     if args.claude_real_provider_capture and args.harness != "claude_code":
@@ -2211,11 +2246,25 @@ def main() -> None:
         if args.fixture_observations:
             observations = build_fixture_observations(result["scenario_records"])
         elif args.nat_dynamo_transport_capture:
-            captured_payloads = asyncio.run(capture_nat_dynamo_payloads(selected))
+            captured_payloads = asyncio.run(capture_nat_dynamo_payloads(
+                selected, backend_url=args.nat_backend_url, backend_model=args.nat_backend_model))
             observations = build_nat_payload_observations(manifest, result["scenario_records"], captured_payloads)
             result["captured_payload_counts"] = {
                 scenario_id: len(payloads) for scenario_id, payloads in captured_payloads.items()
             }
+            if args.nat_backend_url:
+                result["backend_forwarding"] = {
+                    "endpoint": args.nat_backend_url, "model": args.nat_backend_model,
+                    "correlation_source": "benchmark_forwarder",
+                    "hint_effect": "not_proven",
+                }
+                result["backend_request_map"] = {"mappings": [
+                    {"scenario_id": scenario_id, "payload_index": index,
+                     "backend_request_id": payload["_capture"]["correlation_id"],
+                     "correlation_id": payload["_capture"]["correlation_id"]}
+                    for scenario_id, payloads in captured_payloads.items()
+                    for index, payload in enumerate(payloads, 1)
+                ]}
         elif args.claude_native_capture:
             captured_payloads, client_runs = capture_claude_native_payloads(
                 selected,
@@ -2398,6 +2447,9 @@ def main() -> None:
         )
         out_dir = args.out_dir or DEFAULT_OUT_ROOT / result["run"]["run_id"]
         write_dry_run_outputs(result, out_dir)
+        if args.nat_backend_url:
+            (out_dir / "backend_request_map.json").write_text(
+                json.dumps(result["backend_request_map"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except HintBenchmarkConfigError as exc:
         parser.error(str(exc))
 

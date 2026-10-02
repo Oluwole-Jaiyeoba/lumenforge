@@ -12,7 +12,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
-from build_hardware_experiments import build, validate_registry  # noqa: E402
+from build_hardware_experiments import build, run_date, run_sort_key, validate_registry  # noqa: E402
 
 
 def registry() -> dict[str, object]:
@@ -31,6 +31,11 @@ def test_page_is_current_and_registry_is_valid() -> None:
     assert "20 reloads; 7.7% CUDA-copy share" in page
     assert "21 of 72 replay overlaps (29.2%)" in page
     assert page.index("Natural KV Reload-Overlap Performance Comparison") < page.index("KV Pressure Duty Sweep")
+
+
+def test_date_only_run_ids_sort_and_render_correctly() -> None:
+    assert run_date("shared_evidence_live_20261002") == "2026-10-02"
+    assert run_sort_key("shared_evidence_live_20261002") > run_sort_key("older_20261001_235959")
 
 
 def test_top_level_navigation_and_handoff_are_wired() -> None:

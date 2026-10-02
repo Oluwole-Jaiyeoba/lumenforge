@@ -1,0 +1,10 @@
+{
+  "mappings": [
+    {
+      "backend_request_id": "natbench_3d51bf65871c4eb686380c8d212df679",
+      "correlation_id": "natbench_3d51bf65871c4eb686380c8d212df679",
+      "payload_index": 1,
+      "scenario_id": "nat_priority_high"
+    }
+  ]
+}

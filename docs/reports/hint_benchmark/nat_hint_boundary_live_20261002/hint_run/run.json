@@ -1,0 +1,10 @@
+{
+  "created_at_unix": 1790950405.5432127,
+  "evidence_tier": "native_client_or_transport_capture",
+  "execution_mode": "nat_dynamo_transport_capture",
+  "expectation_count": 1,
+  "harness": "nemo_agent_toolkit",
+  "manifest_schema_version": "hint_benchmark_manifest_v1",
+  "run_id": "nat_hint_boundary_live_20261002",
+  "scenario_count": 1
+}

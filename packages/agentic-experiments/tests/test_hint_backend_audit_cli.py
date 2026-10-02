@@ -28,6 +28,16 @@ def test_cli_requires_live_gate_and_preserves_separate_proof_claims(tmp_path, mo
     assert result["mappings"][0]["same_request_proven"]
     assert result["mappings"][0]["backend_hint_effect"] == "not_proven"
 
+    observations.write_text(json.dumps({"scenario_id": "s", "payload_index": 1,
+                                        "hint_id": "priority", "evidence_tier": "native_client_or_transport_capture",
+                                        "evidence_source": "nat_dynamo_transport_capture",
+                                        "capture_correlation_id": ""}) + "\n")
+    monkeypatch.setattr(sys, "argv", args + ["--require-same-request"])
+    assert main() == 2
+    strict_result = json.loads(out.read_text())
+    assert not strict_result["valid"]
+    assert strict_result["errors"][0]["reason"] == "same_request_link_not_proven"
+
     audit.write_text(json.dumps({"gate": {"valid": True, "profile": "request_boundary",
                                           "validation_level": "installation_only"}}))
     try:

@@ -412,16 +412,24 @@ def nat_payload_field_value(payload: dict[str, Any], raw_field: str) -> tuple[bo
 
 
 def capture_correlation_id(payload: dict[str, Any]) -> str:
-    capture = payload.get("_capture") or {}
-    headers = capture.get("headers") if isinstance(capture, dict) else {}
+    capture = payload.get("_capture")
+    if not isinstance(capture, dict):
+        capture = {}
+    headers = capture.get("headers")
     if not isinstance(headers, dict):
         headers = {}
     metadata = payload.get("metadata") or {}
     if not isinstance(metadata, dict):
         metadata = {}
     return str(headers.get("x-agentic-correlation-id") or
+               capture.get("correlation_id") or
                payload.get("agent_correlation_id") or
                metadata.get("agentic_correlation_id") or "")
+
+
+def capture_correlation_source(payload: dict[str, Any]) -> str:
+    capture = payload.get("_capture")
+    return str(capture.get("correlation_source") or "native_request") if isinstance(capture, dict) else "native_request"
 
 
 def build_nat_payload_observations(
@@ -466,6 +474,7 @@ def build_nat_payload_observations(
                         "evidence_source": evidence_source,
                         "evidence_tier": evidence_tier_for_mode(evidence_source),
                         "capture_correlation_id": capture_correlation_id(payload),
+                        "capture_correlation_source": capture_correlation_source(payload),
                         "raw_emitted_value": payload,
                     }
                 )

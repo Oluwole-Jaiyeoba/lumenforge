@@ -54,9 +54,10 @@ def audit_backend_mappings(
             "backend_request_id": request_id,
             "native_hint_ids": sorted({str(row["hint_id"]) for row in native}),
             "native_evidence_sources": sorted({str(row.get("evidence_source") or "") for row in native}),
+            "correlation_sources": sorted({str(row.get("capture_correlation_source") or "unknown") for row in native_matched}),
             "backend_request_accepted": bool(candidates),
             "same_request_proven": bool(native_matched and matched),
-            "join_basis": "matching_native_backend_correlation" if native_matched and matched else "external_mapping_only",
+            "join_basis": "matching_capture_backend_correlation" if native_matched and matched else "external_mapping_only",
             "backend_hint_effect": "not_proven",
         })
     return {

@@ -3,6 +3,58 @@
   "title": "Hardware Bottleneck Experiments",
   "experiments": [
     {
+      "id": "shared_evidence_live_20261002",
+      "name": "Shared Copy Evidence Validation",
+      "status": "measured_pending_review",
+      "question": "Does the shared copy-timing profile distinguish a donor KV reload before target decode from one issued during target decode?",
+      "platform": "nvidia_standard; NVIDIA A10G 24 GB GDDR6",
+      "backend": "SGLang 0.5.10.post1 in the pinned Docker runtime; v0510 adapter",
+      "control": "Decode the same target without donor reload, or reload the donor before decoding begins.",
+      "interference": "Issue one native donor KV reload after target decoding has begun.",
+      "held_constant": "Model, target request, donor prefix, seed, backend profile, and one trial per condition; each condition used a fresh backend container.",
+      "measurements": [
+        "Target total decode duration and TTFT",
+        "Donor semantic load and layer-copy event counts in the client-visible decode window",
+        "Native CUDA load duration and loaded token count"
+      ],
+      "evidence_rule": "Both reload conditions passed the live copy_timing gate. Backend timestamps show 56 donor layer-copy events before decode in the non-overlap condition and 56 during decode in the direct-overlap condition. This is software-window coincidence, not proof of concurrent GPU kernels or GDDR bandwidth contention. One trial is a wiring validation, not a stable effect estimate.",
+      "run_id": "shared_evidence_live_20261002",
+      "command": "AGENTIC_MODEL_CACHE=/path/to/huggingface/cache SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 BACKEND_RUNTIME_PROFILE=nvidia_standard REPORT_LABEL=shared_evidence_live_20261002 TRIALS=1 DECODE_TOKENS=256 WARMUP_CHUNKS=24 bash infra/container/run_sustained_decode_kv_overlap_reference.sh Qwen/Qwen2.5-Coder-7B-Instruct",
+      "report_path": "docs/reports/hardware/shared_evidence_live_20261002/sustained_decode_kv_overlap_report.html",
+      "manifest_path": "docs/reports/hardware/shared_evidence_live_20261002/run_manifest.json",
+      "evidence_path": "docs/reports/hardware/shared_evidence_live_20261002/sustained_decode_kv_overlap_summary.json",
+      "manager_summary": [
+        {
+          "condition": "Reload during decode vs no reload",
+          "study_type": "Controlled wiring check",
+          "collision_intensity": "1 donor reload; 4,048 tokens; 56 layer-copy events during decode",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[0].median_total_decode_ms",
+          "collision_path": "conditions[2].median_total_decode_ms",
+          "sample_count_path": "conditions[2].trials"
+        },
+        {
+          "condition": "Reload during vs before decode",
+          "study_type": "Controlled wiring check",
+          "collision_intensity": "Same 4,048-token donor reload; 56 layer-copy events moved into decode window",
+          "outcome": "Total decode duration",
+          "unit": "ms",
+          "baseline_path": "conditions[1].median_total_decode_ms",
+          "collision_path": "conditions[2].median_total_decode_ms",
+          "sample_count_path": "conditions[2].trials"
+        }
+      ],
+      "results": {
+        "control_total_decode_ms": 42671.406,
+        "reload_before_total_decode_ms": 43348.501,
+        "reload_during_total_decode_ms": 43360.616,
+        "donor_layer_copies_before_decode": 56,
+        "donor_layer_copies_during_decode": 56,
+        "interpretation": "The shared instrumentation correctly separates copy-event timing across conditions. The single-trial decode difference between before and during reload was only 12.115 ms; do not attribute it to memory contention."
+      }
+    },
+    {
       "id": "independent_gpu_copy_contention",
       "name": "Independent GPU Copy Contention",
       "status": "measured_pending_review",

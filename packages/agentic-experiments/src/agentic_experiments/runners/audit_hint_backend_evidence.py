@@ -21,6 +21,8 @@ def main() -> int:
     parser.add_argument("--backend-events", type=Path, required=True)
     parser.add_argument("--request-map", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--require-same-request", action="store_true",
+                        help="Fail unless every mapped request has matching capture and backend IDs.")
     args = parser.parse_args()
     audit = json.loads(args.backend_audit.read_text(encoding="utf-8"))
     gate = audit.get("gate") or {}
@@ -32,6 +34,13 @@ def main() -> int:
         parser.error("request map must be a list or an object with a mappings list")
     result = audit_backend_mappings(read_jsonl(args.hint_observations), mappings,
                                     read_jsonl(args.backend_events))
+    result["require_same_request"] = args.require_same_request
+    if args.require_same_request:
+        unlinked = [row for row in result["mappings"] if not row["same_request_proven"]]
+        if unlinked:
+            result["valid"] = False
+            result["errors"].append({"reason": "same_request_link_not_proven",
+                                     "count": len(unlinked)})
     result["backend_adapter"] = gate.get("adapter")
     result["backend_audit"] = str(args.backend_audit)
     args.out.parent.mkdir(parents=True, exist_ok=True)

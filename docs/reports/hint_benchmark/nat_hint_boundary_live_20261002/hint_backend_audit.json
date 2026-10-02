@@ -1,0 +1,34 @@
+{
+  "backend_adapter": "v0510",
+  "backend_audit": "sglang_direct_kv/artifacts/results/hint_benchmark/nat_hint_boundary_live_20261002/backend_audit.json",
+  "errors": [],
+  "mappings": [
+    {
+      "backend_hint_effect": "not_proven",
+      "backend_request_accepted": true,
+      "backend_request_id": "natbench_3d51bf65871c4eb686380c8d212df679",
+      "correlation_sources": [
+        "benchmark_forwarder"
+      ],
+      "join_basis": "matching_capture_backend_correlation",
+      "native_evidence_sources": [
+        "nat_dynamo_transport_capture"
+      ],
+      "native_hint_ids": [
+        "expected_interarrival_time",
+        "expected_output_length",
+        "latency_sensitivity",
+        "predicted_remaining_calls",
+        "prefix_id",
+        "priority"
+      ],
+      "payload_index": 1,
+      "same_request_proven": true,
+      "scenario_id": "nat_priority_high"
+    }
+  ],
+  "proof_limit": "Backend acceptance does not prove translation, cache reuse, scheduling effect, or task success.",
+  "require_same_request": true,
+  "schema_version": "hint.backend_boundary_audit.v1",
+  "valid": true
+}

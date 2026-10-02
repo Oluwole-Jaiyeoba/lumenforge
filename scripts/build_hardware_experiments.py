@@ -126,7 +126,7 @@ def format_impact(difference: float, percent: float | None, unit: str) -> str:
 
 
 def run_date(run_id: str) -> str:
-    match = re.search(r"_(\d{8})_\d{6}$", run_id)
+    match = re.search(r"_(\d{8})(?:_\d{6})?$", run_id)
     if not match:
         return "not recorded"
     value = match.group(1)
@@ -134,7 +134,7 @@ def run_date(run_id: str) -> str:
 
 
 def run_sort_key(run_id: str) -> str:
-    match = re.search(r"_(\d{8}_\d{6})$", run_id)
+    match = re.search(r"_(\d{8}(?:_\d{6})?)$", run_id)
     return match.group(1) if match else ""
 
 
