@@ -120,8 +120,25 @@ async def one_case(
     log.emit("replay_sent", session, replay_id, at_ns=replay["request_start_ns"])
     log.emit("replay_first_token", session, replay_id, at_ns=replay["first_token_ns"])
     log.emit("replay_finished", session, replay_id, at_ns=replay["request_end_ns"])
-    return {"session_id": session, "case": case, "initial": initial, "replay": replay,
-            "host_plan": plan, "load_status": status}
+    result = {"session_id": session, "case": case, "initial": initial, "replay": replay,
+              "host_plan": plan, "load_status": status}
+    if args.second_replay:
+        log.emit("tool_2_start", session, replay_id, expected_ms=args.wait_ms)
+        await asyncio.sleep(args.wait_ms / 1000)
+        log.emit("tool_2_end", session, replay_id)
+        second_id = f"{session}-replay-2"
+        second_prompt = replay_prompt(replay_prompt(prompt))
+        second = await completion(
+            client, base_url=args.base_url, model=args.model, prompt=second_prompt,
+            request_context=context(session_id=session, prefix_id=prefix, phase="audit_replay_2",
+                                    request_id=second_id, p_hash=prompt_hash(second_prompt)),
+            max_tokens=args.max_tokens,
+        )
+        log.emit("replay_2_sent", session, second_id, at_ns=second["request_start_ns"])
+        log.emit("replay_2_first_token", session, second_id, at_ns=second["first_token_ns"])
+        log.emit("replay_2_finished", session, second_id, at_ns=second["request_end_ns"])
+        result["replay_2"] = second
+    return result
 
 
 async def main_async() -> None:
@@ -136,13 +153,16 @@ async def main_async() -> None:
     parser.add_argument("--wait-ms", type=int, default=500)
     parser.add_argument("--minimum-host-tokens", type=int, default=512)
     parser.add_argument("--eviction-rounds", type=int, default=4)
+    parser.add_argument("--second-replay", action="store_true",
+                        help="Add a second tool wait and replay to each session")
+    parser.add_argument("--case-order", choices=("warm-host", "host-warm"), default="warm-host")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
     log = EventLog(args.out_dir / "harness_events.jsonl")
     try:
         async with httpx.AsyncClient(timeout=45) as client:
             cases = []
-            for case in ("warm", "host"):
+            for case in args.case_order.split("-"):
                 cases.append(await one_case(client, args, log, case))
         (args.out_dir / "case_results.json").write_text(json.dumps(cases, indent=2), encoding="utf-8")
     finally:

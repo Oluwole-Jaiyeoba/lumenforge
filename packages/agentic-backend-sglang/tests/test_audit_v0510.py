@@ -42,3 +42,20 @@ def test_translate_keeps_only_identity_linked_evidence(tmp_path):
     assert normalized[2].session_id == "s"
     assert normalized[2].evidence["join_method"] == "load_id"
     assert normalized[0].evidence["audit_capabilities"] == ["native_load"]
+
+
+def test_translate_uses_raw_prefix_match_without_scheduler_telemetry(tmp_path):
+    trace = tmp_path / "lean.jsonl"
+    rows = [
+        {"event": "hiradix.match_prefix.end", "ts_ns": 10,
+         "kv_context": {"agent_session_id": "s", "agent_request_id": "replay"},
+         "result": [{"index_count": 64}, {"value": {"index_count": 2, "values": [62, 63]}}]},
+        {"event": "hiradix.match_prefix.end", "ts_ns": 11,
+         "result": [{"index_count": 32}, {"value": {"index_count": 32, "values": list(range(32))}}]},
+    ]
+    trace.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+    translated = translate_trace(trace)
+    assert len(translated) == 1
+    assert translated[0].kind == "cache_match"
+    assert translated[0].request_id == "replay"
+    assert translated[0].evidence == {"cached_prefix_tokens": 64, "join_method": "raw_prefix_match"}

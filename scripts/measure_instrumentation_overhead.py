@@ -11,12 +11,22 @@ import signal
 import socket
 import statistics
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
 
 
 REPO = Path(__file__).resolve().parents[1]
+for package_src in (REPO / "packages").glob("*/src"):
+    sys.path.insert(0, str(package_src))
+
+from agentic_backends.sglang.instrumentation_profiles import profile_flags  # noqa: E402
+
+
+def tracing_flags(profile: str, enabled: bool) -> dict[str, str]:
+    selected = profile_flags(profile)
+    return selected if enabled else {name: "0" for name in selected}
 
 
 def _request(model: str, port: int, index: int) -> dict[str, float | int]:
@@ -59,10 +69,8 @@ def _case(args: argparse.Namespace, enabled: bool) -> dict[str, object]:
         "SGLANG_DOCKER_IMAGE": args.image,
         "SGLANG_DOCKER_EXTRA_ARGS": f"--name {name} -v {args.model_cache}:/tmp/hfcache -e HF_HOME=/tmp/hfcache",
         "AGENTIC_KV_TRACE_ENABLE": "1" if enabled else "0",
-        "AGENTIC_KV_TRACE_SCHEDULER": "1" if enabled else "0",
-        "AGENTIC_KV_TRACE_KV_POOL": "1" if enabled else "0",
-        "AGENTIC_KV_COPY_TELEMETRY_ENABLE": "1" if enabled else "0",
-        "AGENTIC_RUNTIME_TELEMETRY": "1" if enabled else "0",
+        "AGENTIC_KV_TRACE_CONTROL_ONLY": "1" if enabled and args.control_only_pump else "0",
+        "AGENTIC_KV_PREPARE_CONTROL_ENABLE": "1" if enabled and args.control_only_pump else "0",
         "MEM_FRACTION_STATIC": str(args.mem_fraction_static),
         "HICACHE_SIZE_GB": str(args.hicache_size_gb),
         "AGENTIC_KV_TRACE_PATH": str(output / "backend_trace.jsonl"),
@@ -70,6 +78,7 @@ def _case(args: argparse.Namespace, enabled: bool) -> dict[str, object]:
         "PORT": str(args.port),
         "PYTHON_BIN": "python3",
     })
+    env.update(tracing_flags(args.profile, enabled))
     command = ["bash", str(REPO / "sglang_direct_kv/scripts/run_sglang_hicache_server.sh"), args.model]
     with (output / "server.log").open("wb") as log:
         process = subprocess.Popen(command, cwd=REPO / "sglang_direct_kv", env=env,
@@ -94,6 +103,10 @@ def main() -> None:
     parser.add_argument("--image", required=True)
     parser.add_argument("--model-cache", required=True, type=Path)
     parser.add_argument("--model", default="Qwen/Qwen2.5-Coder-7B-Instruct")
+    parser.add_argument("--profile", default="full_debug",
+                        help="Shared instrumentation profile to measure (default: full_debug)")
+    parser.add_argument("--control-only-pump", action="store_true",
+                        help="Include the lean work-audit control command pump")
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument("--port", type=int, default=30000)
     parser.add_argument("--repetitions", type=int, default=6)
@@ -105,6 +118,9 @@ def main() -> None:
     args.model_cache = args.model_cache.resolve()
     if args.repetitions < 2 or not args.model_cache.is_dir():
         parser.error("need at least two repetitions and an existing model cache")
+    profile_flags(args.profile)
+    if args.control_only_pump and args.profile != "kv_lifecycle_lean":
+        parser.error("--control-only-pump requires --profile kv_lifecycle_lean")
     with socket.socket() as sock:
         if sock.connect_ex(("127.0.0.1", args.port)) == 0:
             parser.error(f"port {args.port} is in use; run only when the GPU experiment is idle")
@@ -112,6 +128,7 @@ def main() -> None:
     cases = [_case(args, False), _case(args, True)]
     baseline, traced = (item["median_latency_ms"] for item in cases)
     result = {"schema_version": "agentic.instrumentation.overhead.v1", "model": args.model,
+              "profile": args.profile, "control_only_pump": args.control_only_pump,
               "image": args.image, "order": ["off", "on"], "cases": cases,
               "median_latency_delta_ms": round(traced - baseline, 3),
               "median_latency_delta_percent": round((traced / baseline - 1) * 100, 2),

@@ -1,0 +1,69 @@
+{
+  "schema_version": "agentic.instrumentation.overhead.v1",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "profile": "kv_lifecycle",
+  "image": "agentic-sglang-standard:0.5.10.post1",
+  "order": [
+    "off",
+    "on"
+  ],
+  "cases": [
+    {
+      "tracing": "off",
+      "warmup": {
+        "latency_ms": 3026.441,
+        "prompt_tokens": 173,
+        "completion_tokens": 64
+      },
+      "measurements": [
+        {
+          "latency_ms": 2153.7,
+          "prompt_tokens": 173,
+          "completion_tokens": 64
+        },
+        {
+          "latency_ms": 2146.905,
+          "prompt_tokens": 173,
+          "completion_tokens": 64
+        },
+        {
+          "latency_ms": 2149.691,
+          "prompt_tokens": 173,
+          "completion_tokens": 64
+        }
+      ],
+      "median_latency_ms": 2149.691,
+      "trace_bytes": 0
+    },
+    {
+      "tracing": "on",
+      "warmup": {
+        "latency_ms": 11676.693,
+        "prompt_tokens": 173,
+        "completion_tokens": 64
+      },
+      "measurements": [
+        {
+          "latency_ms": 10718.811,
+          "prompt_tokens": 173,
+          "completion_tokens": 64
+        },
+        {
+          "latency_ms": 10448.281,
+          "prompt_tokens": 173,
+          "completion_tokens": 64
+        },
+        {
+          "latency_ms": 10455.326,
+          "prompt_tokens": 173,
+          "completion_tokens": 64
+        }
+      ],
+      "median_latency_ms": 10455.326,
+      "trace_bytes": 83990189
+    }
+  ],
+  "median_latency_delta_ms": 8305.635,
+  "median_latency_delta_percent": 386.36,
+  "limitation": "Single off-then-on pair on an idle GPU; indicative, not a statistically controlled performance claim."
+}

@@ -39,7 +39,8 @@ SCRIPT = textwrap.dedent(
 )
 
 
-def run_install(root: Path, trace: Path, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+def run_install(root: Path, trace: Path, extra_env: dict[str, str] | None = None,
+                script: str = SCRIPT) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env.update(
         {
@@ -52,7 +53,7 @@ def run_install(root: Path, trace: Path, extra_env: dict[str, str] | None = None
     env.pop("AGENTIC_SGLANG_STRICT", None)
     env.pop("AGENTIC_SGLANG_ADAPTER", None)
     env.update(extra_env or {})
-    return subprocess.run([sys.executable, "-c", SCRIPT], capture_output=True, text=True, env=env, timeout=120)
+    return subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=120)
 
 
 class TraceInstallTest(unittest.TestCase):
@@ -111,6 +112,29 @@ class TraceInstallTest(unittest.TestCase):
         self.assertEqual(rows["trace.adapter.selected"]["adapter"], "v0520")
         self.assertEqual(rows["trace.install.summary"]["missing_required_hooks"], [])
         self.assertIn("static", proc.stderr)  # warns that 0.5.20 support is static-verified only
+
+    def test_control_only_pump_installs_without_scheduler_trace(self) -> None:
+        root = build_fake_sglang(self.tmp / "site", get_adapter("v0510"), "0.5.10.post1")
+        script = textwrap.dedent("""
+            import json, os
+            from agentic_backends.sglang.trace import install
+            install()
+            from sglang.srt.managers.scheduler import Scheduler
+            result = Scheduler().get_next_batch_to_run()
+            rows = [json.loads(line) for line in open(os.environ["AGENTIC_KV_TRACE_PATH"])]
+            print(json.dumps({"result": result, "wrapped": getattr(Scheduler.get_next_batch_to_run,
+                "_agentic_kv_control_only", False), "events": [row["event"] for row in rows],
+                "installed": next(row for row in rows if row["event"] == "trace.install.summary")["installed_hooks"]}))
+        """)
+        proc = run_install(root, self.tmp / "trace.jsonl", {
+            "AGENTIC_KV_TRACE_SCHEDULER": "0", "AGENTIC_KV_TRACE_CONTROL_ONLY": "1",
+        }, script=script)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = json.loads(proc.stdout.strip().splitlines()[-1])
+        self.assertEqual(out["result"], "get_next_batch_to_run")
+        self.assertTrue(out["wrapped"])
+        self.assertIn("sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run", out["installed"])
+        self.assertNotIn("scheduler.get_next_batch_to_run.start", out["events"])
 
 
 if __name__ == "__main__":

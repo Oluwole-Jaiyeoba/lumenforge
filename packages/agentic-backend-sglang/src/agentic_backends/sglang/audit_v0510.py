@@ -82,6 +82,7 @@ def translate_trace(path: Path) -> list[AuditEvent]:
         command = row.get("command") or {}
         if load_id and command.get("session_id"):
             load_sessions[str(load_id)] = (str(command["session_id"]), str(command.get("request_id") or ""))
+    prefill_requests = {_agent(row) for row in raw if row.get("event") == "kv_telemetry.prefill.start"}
 
     out: list[AuditEvent] = []
     for row in raw:
@@ -114,6 +115,16 @@ def translate_trace(path: Path) -> list[AuditEvent]:
                 "uncached_tokens": row.get("batch_uncached_token_sum"),
                 "join_method": "agent_context",
             }
+        elif name == "hiradix.match_prefix.end" and (session, request) not in prefill_requests and session and request:
+            match = normalize_trace_event(row, "v0510")
+            result = row.get("result")
+            full_match = result[0] if isinstance(result, list) and result else None
+            if match and isinstance(full_match, dict):
+                kind = "cache_match"
+                evidence = {
+                    "cached_prefix_tokens": int(full_match.get("index_count") or full_match.get("numel") or 0),
+                    "join_method": "raw_prefix_match",
+                }
         elif name == "kv_telemetry.request_stage" and row.get("phase") == "end" and session:
             category = row.get("category")
             if category == "host_to_device_copy":

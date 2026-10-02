@@ -1,0 +1,135 @@
+[
+  {
+    "session_id": "work_audit_two_replays_20261002_reverse-host",
+    "case": "host",
+    "initial": {
+      "request_start_ns": 1790952861136125592,
+      "request_end_ns": 1790952894010997239,
+      "first_token_ns": 1790952880630866175,
+      "ttft_ms": 19494.738,
+      "total_latency_ms": 32874.869,
+      "stream_chunks": 17
+    },
+    "replay": {
+      "request_start_ns": 1790952894695483673,
+      "request_end_ns": 1790952899172955514,
+      "first_token_ns": 1790952895269427178,
+      "ttft_ms": 573.943,
+      "total_latency_ms": 4477.471,
+      "stream_chunks": 17
+    },
+    "host_plan": {
+      "admission": "admit",
+      "admission_reason": "admit_host_resident_evicted_prefix",
+      "candidate_nodes": [
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 15,
+          "node_id": "7",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 46,
+          "node_id": "5",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 2048,
+          "node_id": "4",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 2048,
+          "node_id": "3",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": false,
+          "host_tokens": 0,
+          "node_id": "0",
+          "source": "last_host_node"
+        }
+      ],
+      "control_path": "hiradix.load_back+hicache.start_loading",
+      "host_tokens": 2048,
+      "loaded_tokens": 0,
+      "matched_key": "session_prompt:work_audit_two_replays_20261002_reverse-host:6f14232282fc3889",
+      "minimum_host_tokens": 512,
+      "node_id": "4",
+      "ok": true,
+      "plan_only": true,
+      "producer_id": -1,
+      "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+      "status": "would_load_back",
+      "http_status": 200,
+      "control_request_started_ns": 1790952894524934287,
+      "control_response_ns": 1790952894530752325,
+      "control_duration_ms": 5.818
+    },
+    "load_status": {
+      "command_started_ns": 1790952894533386202,
+      "cuda_elapsed_ms": 148.489563,
+      "finished_observed_ns": 1790952894693458831,
+      "last_reported_status": "finished",
+      "load_id": "work_audit_two_replays_20261002_reverse-host-initial:0:1790952894533386202",
+      "loaded_tokens": 4096,
+      "native_finished": true,
+      "native_started": true,
+      "node_id": "4",
+      "observed_ns": 1790952894693458831,
+      "ok": true,
+      "producer_id": 0,
+      "queued_ns": 1790952894691017129,
+      "started_observed_ns": 1790952894693458831,
+      "status": "finished",
+      "timing_finished": true,
+      "http_status": 200
+    },
+    "replay_2": {
+      "request_start_ns": 1790952899674110694,
+      "request_end_ns": 1790952903793137020,
+      "first_token_ns": 1790952899891663019,
+      "ttft_ms": 217.551,
+      "total_latency_ms": 4119.025,
+      "stream_chunks": 17
+    }
+  },
+  {
+    "session_id": "work_audit_two_replays_20261002_reverse-warm",
+    "case": "warm",
+    "initial": {
+      "request_start_ns": 1790952904075718942,
+      "request_end_ns": 1790952909642347447,
+      "first_token_ns": 1790952905762782693,
+      "ttft_ms": 1687.063,
+      "total_latency_ms": 5566.627,
+      "stream_chunks": 17
+    },
+    "replay": {
+      "request_start_ns": 1790952910143579509,
+      "request_end_ns": 1790952914253694119,
+      "first_token_ns": 1790952910360652732,
+      "ttft_ms": 217.072,
+      "total_latency_ms": 4110.114,
+      "stream_chunks": 17
+    },
+    "host_plan": null,
+    "load_status": null,
+    "replay_2": {
+      "request_start_ns": 1790952914754794918,
+      "request_end_ns": 1790952918858940055,
+      "first_token_ns": 1790952914970477235,
+      "ttft_ms": 215.682,
+      "total_latency_ms": 4104.144,
+      "stream_chunks": 17
+    }
+  }
+]

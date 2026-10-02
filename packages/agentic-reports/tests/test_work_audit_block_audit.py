@@ -95,3 +95,42 @@ def test_replay_match_of_loaded_slots_does_not_claim_model_consumption():
     assert case["loaded_slots_matched_by_replay"] == 2
     assert case["loaded_slots_match_status"] == "supported"
     assert case["exact_model_consumption"] == "not_proven"
+
+
+def test_second_replay_is_checked_in_the_shared_block_ledger():
+    trace, harness, validation = _fixture()
+    validation["require_second_replay"] = True
+    harness.extend([
+        _event("replay_2_sent", 700, request="replay-2"),
+        _event("replay_2_first_token", 750, request="replay-2"),
+    ])
+    trace.append(_raw("hiradix.match_prefix.end", 720, request="replay-2", result=70))
+    audit = analyze_block_audit(trace, harness, validation)
+    assert audit["status"] == "validated"
+    assert audit["cases"][0]["second_replay_prefix_match_observations"] == 1
+
+    audit = analyze_block_audit(trace[:-1], harness, validation)
+    assert audit["status"] == "failed"
+    assert any("second replay lacks" in issue for issue in audit["failures"])
+
+
+def test_replay_time_load_is_separate_from_planned_pre_replay_load():
+    trace, harness, validation = _fixture()
+    trace.extend([
+        _raw("hicache.load.end", 425, request="replay", host="later-host", device="later-device"),
+        _raw("hostpool.load_to_device_per_layer.end", 426, request="replay",
+             host="later-host", device="later-device"),
+    ])
+    audit = analyze_block_audit(trace, harness, validation)
+    case = audit["cases"][0]
+    assert audit["status"] == "validated"
+    assert case["semantic_load_transitions"] == 2
+    assert case["planned_pre_replay_loads"] == 1
+    assert case["replay_time_loads"] == 1
+    assert case["unattributed_loads"] == 0
+
+    trace[-2]["kv_context"]["agent_request_id"] = "unrelated"
+    trace[-2]["kv_context"]["request_id"] = "unrelated"
+    audit = analyze_block_audit(trace, harness, validation)
+    assert audit["status"] == "failed"
+    assert any("could not be attributed" in issue for issue in audit["failures"])

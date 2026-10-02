@@ -11,6 +11,9 @@ PROFILE_PATH="${ROOT}/configs/backend_runtimes/${PROFILE}.json"
 IMAGE="${SGLANG_DOCKER_IMAGE:-}"
 MODEL_CACHE="${AGENTIC_MODEL_CACHE:-}"
 RUN_ID="${WORK_AUDIT_RUN_ID:-work_audit_$(date +%Y%m%d_%H%M%S)}"
+SECOND_REPLAY="${WORK_AUDIT_SECOND_REPLAY:-0}"
+CASE_ORDER="${WORK_AUDIT_CASE_ORDER:-warm-host}"
+TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-kv_lifecycle}"
 RESULTS_BASE="${DIRECT_ROOT}/artifacts/results/work_audit"
 RUN_ROOT="${RESULTS_BASE}/${RUN_ID}"
 SERVER_PID=""
@@ -18,6 +21,15 @@ SERVER_PID=""
 [[ -f "${PROFILE_PATH}" ]] || { echo "Missing runtime profile: ${PROFILE_PATH}" >&2; exit 2; }
 [[ -n "${IMAGE}" ]] || { echo "Set SGLANG_DOCKER_IMAGE" >&2; exit 2; }
 [[ -d "${MODEL_CACHE}" ]] || { echo "Set AGENTIC_MODEL_CACHE to a directory" >&2; exit 2; }
+[[ "${SECOND_REPLAY}" == "0" || "${SECOND_REPLAY}" == "1" ]] || {
+  echo "WORK_AUDIT_SECOND_REPLAY must be 0 or 1" >&2; exit 2;
+}
+[[ "${CASE_ORDER}" == "warm-host" || "${CASE_ORDER}" == "host-warm" ]] || {
+  echo "WORK_AUDIT_CASE_ORDER must be warm-host or host-warm" >&2; exit 2;
+}
+[[ "${TRACE_PROFILE}" == "kv_lifecycle" || "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]] || {
+  echo "WORK_AUDIT_TRACE_PROFILE must be kv_lifecycle or kv_lifecycle_lean" >&2; exit 2;
+}
 if curl -fsS http://127.0.0.1:30000/v1/models >/dev/null 2>&1; then
   echo "Port 30000 is already serving a model; refusing to disturb it." >&2
   exit 2
@@ -65,12 +77,15 @@ echo "Starting pinned backend for ${RUN_ID}"
   cd "${DIRECT_ROOT}"
   export AGENTIC_KV_TRACE_ENABLE=1
   export AGENTIC_KV_TRACE_PATH="${RUN_ROOT}/backend_trace.jsonl"
-  profile_values="$(python3 -m agentic_backends.sglang.instrumentation_profiles kv_lifecycle --shell)"
+  profile_values="$(python3 -m agentic_backends.sglang.instrumentation_profiles "${TRACE_PROFILE}" --shell)"
   while IFS='=' read -r name value; do
     [[ -z "${name}" || "${name}" == *_DEFAULT ]] && continue
     printf -v "${name}" '%s' "${!name:-${value}}"
     export "${name}"
   done <<< "${profile_values}"
+  if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]]; then
+    export AGENTIC_KV_TRACE_CONTROL_ONLY=1
+  fi
   export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
   export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
   export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
@@ -94,7 +109,7 @@ until curl -fsS http://127.0.0.1:30000/v1/models >/dev/null 2>&1; do
   sleep 2
 done
 
-python3 - "${RUN_ROOT}/backend_trace.jsonl" <<'PY'
+python3 - "${RUN_ROOT}/backend_trace.jsonl" "${TRACE_PROFILE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -105,21 +120,33 @@ with path.open(encoding="utf-8") as handle:
     summaries = [row for line in handle if (row := json.loads(line)).get("event") == "trace.install.summary"]
 if not summaries:
     raise SystemExit("Work-audit gate failed: missing backend hook installation summary")
-result = validate_installation("kv_lifecycle", "v0510", summaries[-1])
+result = validate_installation(sys.argv[2], "v0510", summaries[-1])
 if not result["valid"]:
     raise SystemExit(f"Work-audit gate failed: {json.dumps(result['missing'])}")
+if sys.argv[2] == "kv_lifecycle_lean":
+    pump = "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run"
+    if pump not in summaries[-1].get("installed_hooks", []):
+        raise SystemExit("Work-audit gate failed: control-only scheduler pump is missing")
 print("Work-audit lifecycle hooks installed")
 PY
 
+SECOND_REPLAY_RUN_ARGS=()
+SECOND_REPLAY_ANALYSIS_ARGS=()
+if [[ "${SECOND_REPLAY}" == "1" ]]; then
+  SECOND_REPLAY_RUN_ARGS+=(--second-replay)
+  SECOND_REPLAY_ANALYSIS_ARGS+=(--require-second-replay)
+fi
 python3 -m agentic_experiments.runners.run_work_audit_validation \
-  --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}"
+  --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" --case-order "${CASE_ORDER}" \
+  "${SECOND_REPLAY_RUN_ARGS[@]}"
 python3 -m agentic_backends.sglang.trace_contract \
-  --adapter v0510 --profile kv_lifecycle \
+  --adapter v0510 --profile "${TRACE_PROFILE}" \
   --trace "${RUN_ROOT}/backend_trace.jsonl" \
   --out "${RUN_ROOT}/instrumentation_audit.json"
 python3 -m agentic_experiments.runners.analyze_work_audit_validation \
   --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
-  --harness "${RUN_ROOT}/harness_events.jsonl" --out-dir "${RUN_ROOT}"
+  --harness "${RUN_ROOT}/harness_events.jsonl" --out-dir "${RUN_ROOT}" \
+  "${SECOND_REPLAY_ANALYSIS_ARGS[@]}"
 python3 -m agentic_reports.audits.build_work_audit_block_audit \
   --trace "${RUN_ROOT}/backend_trace.jsonl" \
   --harness "${RUN_ROOT}/harness_events.jsonl" \
@@ -138,9 +165,9 @@ python3 "${ROOT}/scripts/create_run_manifest.py" \
   --experiment "agentic_work_audit_validation" --model "${MODEL}" \
   --hardware-profile "${HARDWARE_PROFILE}" \
   --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
-  --workload-json '{"cases":["warm","host"],"frontend_priority":"none","purpose":"evidence_validation"}' \
+  --workload-json "{\"cases\":[\"${CASE_ORDER%-*}\",\"${CASE_ORDER#*-}\"],\"frontend_priority\":\"none\",\"purpose\":\"evidence_validation\",\"replays_per_case\":$((SECOND_REPLAY + 1))}" \
   --instrumentation "v0510_backend_trace" --instrumentation "work_audit_event_join" \
-  --instrumentation "logical_block_lifecycle_reuse" \
+  --instrumentation "logical_block_lifecycle_reuse" --instrumentation "${TRACE_PROFILE}" \
   --artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json" \
   --artifact "summary=${RUN_ROOT}/summary.json" \
   --artifact "block_audit=${RUN_ROOT}/block_audit.json" \

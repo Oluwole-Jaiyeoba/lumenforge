@@ -1,0 +1,142 @@
+[
+  {
+    "session_id": "work_audit_two_replays_lean_pump_20261002-warm",
+    "case": "warm",
+    "initial": {
+      "request_start_ns": 1790954819765832850,
+      "request_end_ns": 1790954850169764133,
+      "first_token_ns": 1790954840620936451,
+      "ttft_ms": 20855.102,
+      "total_latency_ms": 30403.93,
+      "stream_chunks": 17
+    },
+    "replay": {
+      "request_start_ns": 1790954850670437397,
+      "request_end_ns": 1790954851290545831,
+      "first_token_ns": 1790954850751954809,
+      "ttft_ms": 81.517,
+      "total_latency_ms": 620.108,
+      "stream_chunks": 17
+    },
+    "host_plan": null,
+    "load_status": null,
+    "replay_2": {
+      "request_start_ns": 1790954851791591625,
+      "request_end_ns": 1790954852412315574,
+      "first_token_ns": 1790954851873010172,
+      "ttft_ms": 81.418,
+      "total_latency_ms": 620.723,
+      "stream_chunks": 17
+    }
+  },
+  {
+    "session_id": "work_audit_two_replays_lean_pump_20261002-host",
+    "case": "host",
+    "initial": {
+      "request_start_ns": 1790954852691247286,
+      "request_end_ns": 1790954854368181454,
+      "first_token_ns": 1790954853830463924,
+      "ttft_ms": 1139.216,
+      "total_latency_ms": 1676.933,
+      "stream_chunks": 17
+    },
+    "replay": {
+      "request_start_ns": 1790954855249024376,
+      "request_end_ns": 1790954855869558820,
+      "first_token_ns": 1790954855331584494,
+      "ttft_ms": 82.56,
+      "total_latency_ms": 620.534,
+      "stream_chunks": 17
+    },
+    "host_plan": {
+      "admission": "admit",
+      "admission_reason": "admit_host_resident_evicted_prefix",
+      "candidate_nodes": [
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 15,
+          "node_id": "18",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 3,
+          "node_id": "17",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 2048,
+          "node_id": "16",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 2048,
+          "node_id": "15",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": false,
+          "host_tokens": 46,
+          "node_id": "14",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": false,
+          "host_tokens": 0,
+          "node_id": "0",
+          "source": "last_host_node"
+        }
+      ],
+      "control_path": "hiradix.load_back+hicache.start_loading",
+      "host_tokens": 2048,
+      "loaded_tokens": 0,
+      "matched_key": "session_prompt:work_audit_two_replays_lean_pump_20261002-host:25948a3ad2f1a126",
+      "minimum_host_tokens": 512,
+      "node_id": "16",
+      "ok": true,
+      "plan_only": true,
+      "producer_id": -1,
+      "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+      "status": "would_load_back",
+      "http_status": 200,
+      "control_request_started_ns": 1790954855059849216,
+      "control_response_ns": 1790954855064895295,
+      "control_duration_ms": 5.046
+    },
+    "load_status": {
+      "command_started_ns": 1790954855068533287,
+      "cuda_elapsed_ms": 166.233383,
+      "finished_observed_ns": 1790954855247539808,
+      "last_reported_status": "finished",
+      "load_id": "work_audit_two_replays_lean_pump_20261002-host-initial:0:1790954855068533287",
+      "loaded_tokens": 4096,
+      "native_finished": true,
+      "native_started": true,
+      "node_id": "16",
+      "observed_ns": 1790954855247539808,
+      "ok": true,
+      "producer_id": 0,
+      "queued_ns": 1790954855244991473,
+      "started_observed_ns": 1790954855247539808,
+      "status": "finished",
+      "timing_finished": true,
+      "http_status": 200
+    },
+    "replay_2": {
+      "request_start_ns": 1790954856370599514,
+      "request_end_ns": 1790954856995236914,
+      "first_token_ns": 1790954856451971922,
+      "ttft_ms": 81.372,
+      "total_latency_ms": 624.637,
+      "stream_chunks": 17
+    }
+  }
+]

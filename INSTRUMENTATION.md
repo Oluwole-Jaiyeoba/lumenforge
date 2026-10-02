@@ -16,7 +16,7 @@ names, hook installation, version adapters, and raw-to-stable translation.
 ## Profiles and Gates
 
 The shared catalog defines `request_boundary`, `controller_queue`,
-`kv_lifecycle`, `copy_timing`, and `full_debug`. SGLang launch flags are resolved only in
+`kv_lifecycle`, `kv_lifecycle_lean`, `copy_timing`, and `full_debug`. SGLang launch flags are resolved only in
 `agentic_backends.sglang.instrumentation_profiles`. Historical launcher names
 (`minimal`, `deadline`, `controller_decision`, `idle_gap`, `cache_debug`,
 `full_debug`) keep their existing flag defaults. Unknown names fail.
@@ -55,6 +55,13 @@ The new `controller_queue` profile turns off copy-detail telemetry to keep
 queue experiments lean. The historical controller profile names retain their
 previous copy-telemetry defaults so existing comparisons do not silently
 change.
+`kv_lifecycle_lean` keeps the same required cache load and prefix-match
+signals as `kv_lifecycle`, but omits broad scheduler tracing. Work-audit runs
+can enable its control-only scheduler pump with
+`WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean`; that pump processes prepare
+commands without writing scheduler events. Its installation and live evidence
+must pass the same fail-loud gates. The original `kv_lifecycle` flag defaults
+remain unchanged for archived runs.
 
 Before controller experiments, the existing
 `agentic_backends.sglang.instrumentation_preflight` checks the runtime
@@ -124,6 +131,17 @@ for diagnosis, use the leanest profile that proves a claim, and measure each
 profile before drawing conclusions from absolute latency. Both modes of the
 Scenario 1 regression used the same full-debug setting, but that does not
 remove the need to re-evaluate absolute timings with lighter tracing.
+
+The 2026-10-02 A10G work-audit calibration found that `kv_lifecycle` was also
+expensive for a small serial request: median 2149.691 ms tracing off versus
+10455.326 ms on (+386.36%; 83,990,189 trace bytes). With
+`kv_lifecycle_lean` and its control-only pump, the corresponding medians were
+2153.017 and 2199.396 ms (+2.15%; 331,232 trace bytes). These are separate
+off-then-on probes with three measured requests per case, not a matched
+long-prefix audit or a statistically controlled overhead bound. See the
+[original-profile](docs/reports/instrumentation_overhead_kv_lifecycle_20261002.json)
+and [lean-pump](docs/reports/instrumentation_overhead_kv_lifecycle_lean_pump_20261002.json)
+raw timing summaries.
 
 The pinned validated work-audit adapter is `v0510` for SGLang
 `0.5.10.post1`. Other adapters may expose different hooks; a missing required

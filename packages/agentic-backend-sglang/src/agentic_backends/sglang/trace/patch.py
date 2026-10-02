@@ -3721,7 +3721,29 @@ def _wrap_method(cls: type, method_name: str, event_name: str) -> str:
     return "wrapped"
 
 
-def _try_patch(importer: Callable[[], Any], class_name: str, methods: dict[str, str]) -> dict[str, str]:
+def _wrap_control_only(cls: type, method_name: str) -> str:
+    original = getattr(cls, method_name, None)
+    if original is None:
+        return "missing_method"
+    if not callable(original):
+        return "signature_mismatch:not_callable"
+    if getattr(original, "_agentic_kv_wrapped", False):
+        return "already_wrapped"
+
+    @functools.wraps(original)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        _process_prepare_prefix_commands(self)
+        return original(self, *args, **kwargs)
+
+    wrapper._agentic_kv_wrapped = True  # type: ignore[attr-defined]
+    wrapper._agentic_kv_control_only = True  # type: ignore[attr-defined]
+    setattr(cls, method_name, wrapper)
+    return "wrapped"
+
+
+def _try_patch(
+    importer: Callable[[], Any], class_name: str, methods: dict[str, str], *, control_only: bool = False,
+) -> dict[str, str]:
     """Wrap every method of one hook target; returns {method: status}."""
 
     try:
@@ -3739,7 +3761,9 @@ def _try_patch(importer: Callable[[], Any], class_name: str, methods: dict[str, 
             )
         return {method_name: f"missing_class:{type(exc).__name__}" for method_name in methods}
 
-    return {method_name: _wrap_method(cls, method_name, event_name) for method_name, event_name in methods.items()}
+    return {method_name: (_wrap_control_only(cls, method_name) if control_only
+                          else _wrap_method(cls, method_name, event_name))
+            for method_name, event_name in methods.items()}
 
 
 def _warn(message: str) -> None:
@@ -3786,6 +3810,7 @@ def install_sglang_kv_trace() -> None:
     _write_event({"event": "trace.install.start"})
 
     include_scheduler = os.environ.get("AGENTIC_KV_TRACE_SCHEDULER", "0") == "1"
+    control_only = os.environ.get("AGENTIC_KV_TRACE_CONTROL_ONLY", "0") == "1"
     strict = _truthy_env("AGENTIC_SGLANG_STRICT", default=False)
     sglang_version = installed_sglang_version()
     selection = select_adapter(
@@ -3800,6 +3825,7 @@ def install_sglang_kv_trace() -> None:
             "sglang_version": sglang_version,
             "adapter": adapter.name,
             "scheduler_hooks_enabled": include_scheduler,
+            "control_only_scheduler_pump": control_only and not include_scheduler,
             "selection": selection.to_dict(),
         }
     )
@@ -3812,12 +3838,23 @@ def install_sglang_kv_trace() -> None:
     missing_optional: list[str] = []
     hook_statuses: dict[str, str] = {}
     for target in adapter.hook_targets:
+        target_methods = dict(target.methods)
+        use_control_only = False
         if target.scheduler_required and not include_scheduler:
-            continue
+            if control_only and target.class_name == "Scheduler":
+                pump_event = target.methods.get("get_next_batch_to_run")
+                if pump_event is None:
+                    missing_required.append(f"{target.module}.Scheduler.get_next_batch_to_run (missing adapter target)")
+                    continue
+                target_methods = {"get_next_batch_to_run": pump_event}
+                use_control_only = True
+            else:
+                continue
         statuses = _try_patch(
             lambda module_name=target.module, class_name=target.class_name: __import__(module_name, fromlist=[class_name]),
             target.class_name,
-            dict(target.methods),
+            target_methods,
+            control_only=use_control_only,
         )
         for method_name, status in statuses.items():
             label = f"{target.module}.{target.class_name}.{method_name}"
@@ -3835,6 +3872,7 @@ def install_sglang_kv_trace() -> None:
         "adapter": adapter.name,
         "sglang_version": sglang_version,
         "scheduler_hooks_enabled": include_scheduler,
+        "control_only_scheduler_pump": control_only and not include_scheduler,
         "installed_hook_count": len(installed),
         "installed_hooks": installed,
         "hook_statuses": hook_statuses,

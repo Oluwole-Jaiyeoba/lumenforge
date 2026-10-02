@@ -1,7 +1,8 @@
 import json
 import sys
+from pathlib import Path
 
-from agentic_reports.builders.build_work_audit_report import main
+from agentic_reports.builders.build_work_audit_report import main, render
 
 
 def test_report_links_saved_validation_summary(tmp_path, monkeypatch):
@@ -28,6 +29,9 @@ def test_report_links_saved_validation_summary(tmp_path, monkeypatch):
     (run / "instrumentation_analysis.json").write_text(json.dumps({
         "cases": [{"case_type": "host_backed", "loaded_slots_matched_by_replay": 42}],
     }), encoding="utf-8")
+    (run / "instrumentation_audit.json").write_text(json.dumps({
+        "gate": {"profile": "kv_lifecycle_lean"},
+    }), encoding="utf-8")
     out = tmp_path / "index.html"
     monkeypatch.setattr(sys, "argv", ["report", "--results-dir", str(run.parent), "--out", str(out)])
     main()
@@ -41,5 +45,28 @@ def test_report_links_saved_validation_summary(tmp_path, monkeypatch):
     assert "not proven" in html
     assert "exact loaded-block consumption by replay is not proven" in html
     assert "42" in html
+    assert "<th>Trace profile</th>" in html
+    assert "kv_lifecycle_lean" in html
     assert "href='runs/sample/instrumentation_analysis.json'" in html
     assert "no validated block identity ledger" not in html
+
+
+def test_report_separates_both_replays_and_load_periods():
+    html = render([(Path("runs/two/summary.json"), {
+        "run_id": "two", "status": "validated", "require_second_replay": True,
+        "cases": [
+            {"case_type": "warm_control", "replay_ttft_ms": 220, "second_replay_ttft_ms": 223},
+            {"case_type": "host_backed", "replay_ttft_ms": 574, "second_replay_ttft_ms": 218},
+        ],
+        "_manifest": {"workload": {"cases": ["host", "warm"]}},
+        "_block_audit": {"status": "validated", "cases": [{
+            "case_type": "host_backed", "planned_pre_replay_loads": 1,
+            "planned_pre_replay_loaded_tokens": 4096, "replay_time_loads": 1,
+            "replay_time_loaded_tokens": 41,
+        }]},
+        "_has_compressed_trace": True,
+    })])
+    assert "host, warm" in html
+    assert "574" in html and "218" in html
+    assert "4096" in html and "41" in html
+    assert "backend_trace.jsonl.gz" in html

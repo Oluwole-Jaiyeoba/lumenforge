@@ -38,6 +38,10 @@ def _period(time_ns: int | None, timeline: dict[str, AuditEvent | None]) -> str:
     tool_end = timeline["tool_end"]
     replay = timeline["replay_sent"]
     replay_end = timeline["replay_finished"]
+    second_tool_start = timeline["tool_2_start"]
+    second_tool_end = timeline["tool_2_end"]
+    second_replay = timeline["replay_2_sent"]
+    second_replay_end = timeline["replay_2_finished"]
     if not all((tool_start, tool_end, replay)):
         return "unknown"
     if time_ns < tool_start.ts_ns:
@@ -48,6 +52,12 @@ def _period(time_ns: int | None, timeline: dict[str, AuditEvent | None]) -> str:
         return "ready_before_replay"
     if replay_end and time_ns <= replay_end.ts_ns:
         return "replay"
+    if second_tool_start and second_tool_end and second_tool_start.ts_ns <= time_ns < second_tool_end.ts_ns:
+        return "second_tool_wait"
+    if second_tool_end and second_replay and second_tool_end.ts_ns <= time_ns < second_replay.ts_ns:
+        return "second_ready_before_replay"
+    if second_replay and second_replay_end and second_replay.ts_ns <= time_ns <= second_replay_end.ts_ns:
+        return "second_replay"
     return "after_replay"
 
 
@@ -74,10 +84,14 @@ def analyze_block_audit(
         timeline_rows = [event for event in harness_events if event.session_id == session]
         timeline = {kind: _first(timeline_rows, kind) for kind in
                     ("tool_start", "tool_end", "replay_sent", "replay_first_token",
-                     "replay_finished", "host_resident_proof")}
+                     "replay_finished", "host_resident_proof", "tool_2_start", "tool_2_end",
+                     "replay_2_sent", "replay_2_first_token", "replay_2_finished")}
         replay = timeline["replay_sent"]
         first_token = timeline["replay_first_token"]
         replay_id = replay.request_id if replay else ""
+        second_replay = _first(timeline_rows, "replay_2_sent")
+        second_first_token = _first(timeline_rows, "replay_2_first_token")
+        second_replay_id = second_replay.request_id if second_replay else ""
         loads = [event for event in semantic if event.session_id == session
                  and event.event_type == KVEventType.LOAD_GPU]
         copies = [event for event in layer_copies if event.session_id == session]
@@ -88,8 +102,28 @@ def analyze_block_audit(
                           and replay and first_token and event.time_ns is not None
                           and replay.ts_ns <= event.time_ns <= first_token.ts_ns
                           and event.token_count > 0]
+        second_replay_matches = [event for event in normalized if event.session_id == session
+                                 and event.event_type == KVEventType.MATCH_PREFIX
+                                 and second_replay_id in (event.request_id, event.agent_request_id)
+                                 and second_replay and second_first_token and event.time_ns is not None
+                                 and second_replay.ts_ns <= event.time_ns <= second_first_token.ts_ns
+                                 and event.token_count > 0]
         selected_node = str(timeline["host_resident_proof"].evidence.get("node_id") or "") \
             if timeline["host_resident_proof"] else ""
+        planned_request_id = timeline["host_resident_proof"].request_id \
+            if timeline["host_resident_proof"] else ""
+        planned_loads = [event for event in loads
+                         if event.node_id == selected_node
+                         and _period(event.time_ns, timeline) == "ready_before_replay"
+                         and (not planned_request_id or event.request_id == planned_request_id)]
+        replay_time_loads = [event for event in loads
+                             if event not in planned_loads
+                             and ((event.request_id == replay_id
+                                   and _period(event.time_ns, timeline) == "replay")
+                                  or (event.request_id == second_replay_id
+                                      and _period(event.time_ns, timeline) == "second_replay"))]
+        unattributed_loads = [event for event in loads
+                              if event not in planned_loads and event not in replay_time_loads]
         linked_copies: list[NormalizedKVEvent] = []
         for copy in copies:
             candidates = [load for load in loads
@@ -115,17 +149,27 @@ def analyze_block_audit(
             matched_evidence,
             (event for event in evidence if event.signal_id == "kv.evict_gpu"),
         )
+        second_matched_evidence = [event for event in session_evidence
+                                   if event.signal_id == "kv.prefix_match"
+                                   and event.request_id == second_replay_id
+                                   and second_replay and second_first_token
+                                   and second_replay.ts_ns <= event.time_ns <= second_first_token.ts_ns]
+        second_slot_proof = assess_loaded_match(
+            (event for event in session_evidence if event.signal_id == "kv.load_gpu"),
+            second_matched_evidence,
+            (event for event in evidence if event.signal_id == "kv.evict_gpu"),
+        )
+        if validation.get("require_second_replay") and not second_replay_matches:
+            case_failures.append("second replay lacks a time-linked prefix match in the block ledger")
         if original["case_type"] == "host_backed":
-            if len(loads) != 1:
-                case_failures.append("expected one session-linked semantic load transition")
+            if len(planned_loads) != 1:
+                case_failures.append("expected one identity-linked planned pre-replay load")
             else:
-                load = loads[0]
-                if not selected_node or load.node_id != selected_node:
-                    case_failures.append("selected host node did not match the loaded node")
+                load = planned_loads[0]
                 if load.token_count != int(original.get("native_loaded_tokens") or 0):
-                    case_failures.append("semantic load token count differs from native load completion")
-                if _period(load.time_ns, timeline) != "ready_before_replay":
-                    case_failures.append("semantic load did not finish between tool return and replay")
+                    case_failures.append("planned load token count differs from native load completion")
+            if unattributed_loads:
+                case_failures.append("additional semantic loads could not be attributed to a replay")
             if not copies or len(linked_copies) != len(copies):
                 case_failures.append("some per-layer copies could not be linked by exact index signatures")
         failures.extend(f"{session}: {issue}" for issue in case_failures)
@@ -134,6 +178,11 @@ def analyze_block_audit(
             "case_type": original["case_type"],
             "status": "validated" if not case_failures else "failed",
             "semantic_load_transitions": len(loads),
+            "planned_pre_replay_loads": len(planned_loads),
+            "planned_pre_replay_loaded_tokens": sum(event.token_count for event in planned_loads),
+            "replay_time_loads": len(replay_time_loads),
+            "replay_time_loaded_tokens": sum(event.token_count for event in replay_time_loads),
+            "unattributed_loads": len(unattributed_loads),
             "nested_load_observations": sum(1 for event in normalized if event.session_id == session
                                             and lifecycle_role(event.source_event) == "nested_load"),
             "layer_copy_observations": len(copies),
@@ -144,6 +193,11 @@ def analyze_block_audit(
             "load_periods": [_period(event.time_ns, timeline) for event in loads],
             "replay_prefix_match_observations": len(replay_matches),
             "max_replay_matched_tokens": max((event.token_count for event in replay_matches), default=0),
+            "second_replay_prefix_match_observations": len(second_replay_matches),
+            "second_replay_max_matched_tokens": max(
+                (event.token_count for event in second_replay_matches), default=0),
+            "second_replay_loaded_slots_matched": second_slot_proof["loaded_slots_matched_by_replay"],
+            "second_replay_loaded_slots_match_status": second_slot_proof["loaded_slots_match_status"],
             "same_loaded_block_used_by_replay": "not_proven" if loads else "not_applicable",
             **slot_proof,
             "failures": case_failures,
@@ -163,7 +217,7 @@ def analyze_block_audit(
         "blocks": ledger_rows,
         "interpretation": (
             "Semantic cache transitions feed the existing logical-block ledger. Nested load calls and "
-            "per-layer copies support one load; they are not additional logical loads. Verified GPU-slot "
+            "per-layer copies support their semantic loads; they are not additional logical loads. Verified GPU-slot "
             "overlap with a replay prefix match is stronger than a prefix-length correlation, but it "
             "does not prove those exact slots were consumed by model kernels."
         ),

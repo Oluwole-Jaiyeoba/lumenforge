@@ -15,6 +15,7 @@ def _first(rows: list[AuditEvent], kind: str) -> AuditEvent | None:
 def analyze_validation(
     events: Iterable[AuditEvent], *, expected_sessions: tuple[str, ...],
     expected_runtime: tuple[str, str] | None = None,
+    require_second_replay: bool = False,
 ) -> dict[str, Any]:
     rows = sorted(events, key=lambda row: row.ts_ns)
     kinds = Counter(row.kind for row in rows)
@@ -50,9 +51,19 @@ def analyze_validation(
         host = _first(case_rows, "host_resident_proof")
         evict = _first(case_rows, "device_evict_proof")
         load = _first(case_rows, "load_complete")
+        replay_finished = _first(case_rows, "replay_finished")
+        tool_2_start = _first(case_rows, "tool_2_start")
+        tool_2_end = _first(case_rows, "tool_2_end")
+        replay_2 = _first(case_rows, "replay_2_sent")
+        first_token_2 = _first(case_rows, "replay_2_first_token")
+        replay_2_finished = _first(case_rows, "replay_2_finished")
         matches = [row for row in case_rows if row.kind == "cache_match" and replay
                    and row.request_id == replay.request_id
                    and int(row.evidence.get("cached_prefix_tokens") or 0) > 0]
+        second_matches = [row for row in case_rows if row.kind == "cache_match" and replay_2
+                          and row.request_id == replay_2.request_id
+                          and int(row.evidence.get("cached_prefix_tokens") or 0) > 0
+                          and first_token_2 and replay_2.ts_ns <= row.ts_ns <= first_token_2.ts_ns]
         copies = [row for row in case_rows if row.kind == "layer_copy"]
         case_failures: list[str] = []
         if not all((tool_start, tool_end, replay, first_token)):
@@ -69,6 +80,15 @@ def analyze_validation(
                 case_failures.append("host-backed case has no identity-linked native layer copy")
         elif not matches:
             case_failures.append("warm control has no cache-match observation")
+        if require_second_replay:
+            if not all((replay_finished, tool_2_start, tool_2_end, replay_2,
+                        first_token_2, replay_2_finished)):
+                case_failures.append("second tool/replay timeline is incomplete")
+            elif not (replay_finished.ts_ns <= tool_2_start.ts_ns < tool_2_end.ts_ns
+                      <= replay_2.ts_ns <= first_token_2.ts_ns <= replay_2_finished.ts_ns):
+                case_failures.append("second tool/replay timestamps are not ordered")
+            if not second_matches:
+                case_failures.append("second replay has no time-linked cache-match observation")
 
         # Presence in host memory at submission does not prove that the replay
         # stalled on it. Require both an identity-linked load and time overlap.
@@ -92,6 +112,13 @@ def analyze_validation(
             "cache_match_observations": len(matches),
             "max_cached_prefix_tokens": max((int(row.evidence.get("cached_prefix_tokens") or 0)
                                              for row in matches), default=0),
+            "second_tool_wait_ms": round((tool_2_end.ts_ns - tool_2_start.ts_ns) / 1e6, 3)
+            if tool_2_start and tool_2_end else None,
+            "second_replay_ttft_ms": round((first_token_2.ts_ns - replay_2.ts_ns) / 1e6, 3)
+            if replay_2 and first_token_2 else None,
+            "second_replay_cache_matches": len(second_matches),
+            "second_replay_max_cached_prefix_tokens": max(
+                (int(row.evidence.get("cached_prefix_tokens") or 0) for row in second_matches), default=0),
         })
         failures.extend(f"{session_id}: {item}" for item in case_failures)
 
@@ -101,6 +128,7 @@ def analyze_validation(
         "failures": failures,
         "runtime": runtime.evidence if runtime else None,
         "event_counts": dict(sorted(kinds.items())),
+        "require_second_replay": require_second_replay,
         "cases": cases,
         "opportunity_ledgers": {
             "backup_reuse": "unknown: no validated block identity ledger",
