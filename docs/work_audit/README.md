@@ -433,9 +433,45 @@ need a reliable way to identify or predict such a window. The test does not
 isolate GPU bandwidth from backend scheduling or demonstrate natural cache
 capacity pressure.
 
+## Controller-Chosen Load Window
+
+RQ7 repeats the same three-session workload in four modes: late, early,
+scripted post-short, and `controller_window`. The controller policy lives in
+`packages/agentic-controller/src/agentic_controller/kv_prepare_window.py`.
+The experiment runner feeds it observed short-replay completion, host
+residency, ended-session slot release, and the harness's predicted long tool
+return. It loads only if the remaining wait covers a fixed 250 ms load estimate
+plus a 150 ms safety margin; otherwise it defers to the late, nonblocking path.
+Every decision and outcome is recorded in `harness_events.jsonl` and checked
+against backend load events. All tasks retain equal frontend importance.
+
+```bash
+SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 \
+  AGENTIC_MODEL_CACHE=/home/ec2-user/.cache/huggingface \
+  WORK_AUDIT_STUDY=multisession_controller \
+  WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
+  WORK_AUDIT_CASE_ORDER=late_nonblocking-early-post_short-controller_window \
+  WORK_AUDIT_PAIRS=4 WORK_AUDIT_WARMUP_PAIRS=1 \
+  WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=2500 \
+  WORK_AUDIT_EARLY_AT_MS=1200 \
+  WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 \
+  WORK_AUDIT_RUN_ID=work_audit_controller_window_20261002_01 \
+  bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The [archived A10G run](../reports/work_audit/work_audit_controller_window_20261002_01/summary.json)
+passed all four measured comparisons. Median tool-return-to-first-token for
+the long session was 351.7 ms late, 81.9 ms early, 82.0 ms scripted post-short,
+and 85.6 ms controller-chosen. Median short return-to-finish was 864.8, 1105.3,
+861.7, and 859.6 ms respectively. Median whole-workflow duration was 8.42,
+8.04, 8.05, and 8.07 seconds respectively. The controller made four load
+decisions with zero measured tool-return overshoots. These are small synthetic
+samples; the policy is invoked by the audit runner, not yet deployed in the
+production gateway, and the capacity eviction is explicit.
+
 ## Next Phases
 
-1. Test whether a controller can make a similar load-timing choice using
-   only information it has before the short replay finishes.
-2. Then test under naturally arising cache capacity pressure. Keep frontend
-   importance equal and separate observed work from avoidable work.
+1. Test defer behavior under a genuinely short remaining window and assess
+   whether the load estimate is calibrated across runs.
+2. Then test under naturally arising cache pressure. Keep frontend importance
+   equal and separate observed work from avoidable work.

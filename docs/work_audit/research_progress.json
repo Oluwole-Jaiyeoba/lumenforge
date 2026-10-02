@@ -2,6 +2,20 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ7",
+      "short_question": "Can a controller choose the quiet load window?",
+      "evidence_date_utc": "2026-10-02",
+      "question": "Using observed short-replay completion, host residency, slot release, and the long tool-return estimate, can a controller policy decide when to load KV without frontend importance ranks?",
+      "answer": "Yes in this controlled A10G run. All four warmed, order-balanced four-mode trials passed the evidence gates. The controller chose load four times, each native load completed before long tool return, and no overshoot was recorded. Median long return-to-first-token was 85.6 ms with the controller versus 351.7 ms with late loading; median short return-to-finish was 859.6 ms versus 1105.3 ms with early loading. The controller's outcome was close to scripted post-short loading.",
+      "unknown": "This policy was invoked by the experiment harness, not yet by the production gateway. The load-time estimate was a fixed 250 ms plus a 150 ms margin; this run did not test the defer path under real load or naturally arising cache pressure. Four synthetic trials do not establish a universal win or identify a hardware bottleneck.",
+      "evidence_run_ids": [
+        "work_audit_controller_window_20261002_01"
+      ],
+      "related_run_ids": [
+        "work_audit_controller_window_20261002_01"
+      ]
+    },
+    {
       "id": "RQ6",
       "short_question": "Can we load after the short replay finishes?",
       "evidence_date_utc": "2026-10-02",

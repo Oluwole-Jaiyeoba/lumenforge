@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from agentic_controller.kv_prepare_window import KVPrepareWindowPolicy
 
 from .run_kv_movement_interference import (
     completion, context, eligible_host_prefix, evict_device_prefix, make_prompt,
@@ -47,6 +48,7 @@ async def one_case(client: httpx.AsyncClient, args: argparse.Namespace, log: Eve
                      importance="equal")
         started = asyncio.get_running_loop().time()
         long_due = started + args.long_wait_ms / 1000
+        short_completion = asyncio.Event()
         log.emit("capacity_policy", sessions["long"], ids["long"],
                  active_prefix_budget=2, candidate_sessions=3,
                  action="explicit_evict_long_prefix")
@@ -97,6 +99,8 @@ async def one_case(client: httpx.AsyncClient, args: argparse.Namespace, log: Eve
             log.emit("replay_sent", session, replay_id, at_ns=result["request_start_ns"])
             log.emit("replay_first_token", session, replay_id, at_ns=result["first_token_ns"])
             log.emit("replay_finished", session, replay_id, at_ns=result["request_end_ns"])
+            if label == "short":
+                short_completion.set()
             return result
 
         async def long_path() -> dict[str, Any]:
@@ -124,26 +128,72 @@ async def one_case(client: httpx.AsyncClient, args: argparse.Namespace, log: Eve
                          cuda_elapsed_ms=status.get("cuda_elapsed_ms"))
                 return accepted, status
 
-            if condition in ("early", "post_short"):
+            if condition in ("early", "post_short", "controller_window"):
                 await end_task
                 if condition == "post_short":
                     await short_task
+                elif condition == "controller_window":
+                    policy = KVPrepareWindowPolicy(
+                        estimated_load_ms=args.estimated_load_ms,
+                        safety_margin_ms=args.load_margin_ms,
+                    )
+
+                    def decide(short_finished: bool) -> str:
+                        decision = policy.decide(
+                            now_ns=int(asyncio.get_running_loop().time() * 1e9),
+                            tool_return_due_ns=int(long_due * 1e9),
+                            host_resident=eligible_host_prefix(plan),
+                            slot_released=end_task.done() and end_task.exception() is None,
+                            active_replays=int(not short_finished and
+                                               asyncio.get_running_loop().time() >=
+                                               started + args.short_wait_ms / 1000),
+                            blocking_replay_finished=short_finished,
+                        )
+                        log.emit("controller_prepare_decision", session, ids["long"],
+                                 action=decision.action, reason=decision.reason,
+                                 remaining_ms=decision.remaining_ms,
+                                 estimated_load_ms=decision.estimated_load_ms,
+                                 safety_margin_ms=decision.safety_margin_ms,
+                                 active_replays=decision.active_replays,
+                                 short_replay_finished=short_finished)
+                        return decision.action
+
+                    short_finished = short_completion.is_set()
+                    action = decide(short_finished)
+                    if not short_finished:
+                        await short_completion.wait()
+                        await short_task
+                        action = decide(True)
+                    else:
+                        await short_task
+                    if action not in ("load", "defer"):
+                        raise RuntimeError(f"controller did not reach an actionable window: {action}")
                 else:
                     await asyncio.sleep(max(0, started + args.early_at_ms / 1000 -
                                             asyncio.get_running_loop().time()))
-                if asyncio.get_running_loop().time() >= long_due:
+                if condition == "controller_window" and action == "defer":
+                    log.emit("controller_prepare_outcome", session, ids["long"],
+                             outcome="deferred_to_tool_return")
+                elif asyncio.get_running_loop().time() >= long_due:
                     raise RuntimeError(f"{condition} preparation missed the tool-return window")
-                accepted, status = await load()
-                if asyncio.get_running_loop().time() >= long_due:
-                    raise RuntimeError(f"{condition} native load did not finish before tool return")
+                else:
+                    accepted, status = await load()
+                    load_before_due = asyncio.get_running_loop().time() < long_due
+                    if condition == "controller_window":
+                        log.emit("controller_prepare_outcome", session, ids["long"],
+                                 outcome="good_window" if load_before_due else "overshot_tool_return",
+                                 overshoot_ms=round(max(0, (asyncio.get_running_loop().time() -
+                                                            long_due) * 1000), 3))
+                    if not load_before_due:
+                        raise RuntimeError(f"{condition} native load did not finish before tool return")
             await asyncio.sleep(max(0, long_due - asyncio.get_running_loop().time()))
             log.emit("tool_end", session, ids["long"])
-            if condition == "late_nonblocking":
+            if condition == "late_nonblocking" or (condition == "controller_window" and action == "defer"):
                 # The control response must not gate replay submission.
                 load_task = asyncio.create_task(load())
                 await asyncio.sleep(0)
             first = await replay_now("long")
-            if condition == "late_nonblocking":
+            if condition == "late_nonblocking" or (condition == "controller_window" and action == "defer"):
                 accepted, status = await load_task
             second_id = f"{session}-replay-2"
             second_text = replay_prompt(replay_prompt(prompts["long"]))
@@ -215,6 +265,8 @@ async def main_async() -> None:
     parser.add_argument("--short-wait-ms", type=int, default=900)
     parser.add_argument("--long-wait-ms", type=int, default=2500)
     parser.add_argument("--early-at-ms", type=int, default=1200)
+    parser.add_argument("--estimated-load-ms", type=float, default=250)
+    parser.add_argument("--load-margin-ms", type=float, default=150)
     parser.add_argument("--minimum-host-tokens", type=int, default=512)
     parser.add_argument("--eviction-rounds", type=int, default=4)
     parser.add_argument("--pairs", type=int, default=2)
@@ -222,11 +274,14 @@ async def main_async() -> None:
     parser.add_argument("--case-order", choices=(
         "early-late_nonblocking", "late_nonblocking-early",
         "late_nonblocking-early-post_short", "post_short-early-late_nonblocking",
+        "late_nonblocking-early-post_short-controller_window",
+        "controller_window-post_short-early-late_nonblocking",
         "long-short-ends",
     ), default="late_nonblocking-early")
     args = parser.parse_args()
     if (not (0 < args.short_wait_ms < args.early_at_ms < args.long_wait_ms) or
-            args.pairs < 1 or args.warmup_pairs < 0):
+            args.pairs < 1 or args.warmup_pairs < 0 or
+            args.estimated_load_ms <= 0 or args.load_margin_ms < 0):
         parser.error("need short wait < early preparation < long wait, measured pairs, and nonnegative warmups")
     args.out_dir.mkdir(parents=True, exist_ok=True)
     log = EventLog(args.out_dir / "harness_events.jsonl")

@@ -10,7 +10,8 @@ from pathlib import Path
 from agentic_backends.sglang.audit_v0510 import translate_trace
 from agentic_work_audit import read_events, write_events
 from agentic_work_audit.multisession import (
-    analyze_multisession, compare_multisession_pairs, compare_multisession_windows,
+    analyze_multisession, compare_controller_windows, compare_multisession_pairs,
+    compare_multisession_windows,
 )
 
 
@@ -40,8 +41,11 @@ def main() -> None:
             cases.append(result)
         measured = [case for case in cases if not case["warmup"]]
         warmups = [case for case in cases if case["warmup"]]
-        compare = (compare_multisession_windows if any(case["load_timing"] == "post_short"
-                                                   for case in measured) else compare_multisession_pairs)
+        compare = (compare_controller_windows if any(case["load_timing"] == "controller_window"
+                                                     for case in measured) else
+                   compare_multisession_windows if any(case["load_timing"] == "post_short"
+                                                       for case in measured) else
+                   compare_multisession_pairs)
         summary = compare(measured, args.run_id)
         summary["cases"] = measured
         summary["warmup_cases"] = warmups

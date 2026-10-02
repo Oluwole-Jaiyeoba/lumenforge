@@ -371,6 +371,31 @@ def test_findings_reflect_supported_outcomes_and_withheld_comparisons():
     assert "shortened the client gap" in _run_finding(nonblocking)
 
 
+def test_controller_window_report_shows_decisions_and_reproduction():
+    manifest = _manifest(("late_nonblocking", "early", "post_short", "controller_window"))
+    manifest["workload"].update({"pairs": 1, "short_wait_ms": 900,
+                                 "long_wait_ms": 2500, "early_at_ms": 1200,
+                                 "estimated_load_ms": 250, "load_margin_ms": 150})
+    pair = {"pair": 1, "comparable": True, "controller_action": "load",
+            "late_long_due_to_token_ms": 280, "early_long_due_to_token_ms": 80,
+            "post_short_long_due_to_token_ms": 90, "controller_long_due_to_token_ms": 95,
+            "late_short_due_to_finish_ms": 820, "early_short_due_to_finish_ms": 1030,
+            "post_short_short_due_to_finish_ms": 830, "controller_short_due_to_finish_ms": 825,
+            "late_workflow_makespan_ms": 8200, "early_workflow_makespan_ms": 7900,
+            "post_short_workflow_makespan_ms": 7910, "controller_workflow_makespan_ms": 7920,
+            "controller_vs_late_long_saved_ms": 185,
+            "controller_vs_late_workflow_saved_ms": 280}
+    summary = {"schema": "agentic_work_audit.controller_window.v1", "run_id": "policy",
+               "status": "validated", "_manifest": manifest, "comparable_pairs": 1,
+               "pairs": [pair], "median_controller_vs_late_long_saved_ms": 185,
+               "median_controller_vs_late_workflow_saved_ms": 280}
+    page = render([(Path("runs/policy/summary.json"), summary)])
+    assert "Controller-chosen load window" in page
+    assert "Controller decision" in page
+    assert "Trial 1: load" in page
+    assert "WORK_AUDIT_STUDY=multisession_controller" in page
+    assert "WORK_AUDIT_ESTIMATED_LOAD_MS=250" in page
+
 def test_nonperformance_runs_do_not_claim_a_speedup():
     assert "not a policy-speed comparison" in _run_finding({
         "schema": "agentic_work_audit.validation.v1", "status": "validated",

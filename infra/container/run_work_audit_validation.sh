@@ -19,17 +19,20 @@ if [[ -z "${CASE_ORDER}" ]]; then
     timing) CASE_ORDER="early-late" ;;
     multisession_compare) CASE_ORDER="late_nonblocking-early" ;;
     multisession_window) CASE_ORDER="late_nonblocking-early-post_short" ;;
+    multisession_controller) CASE_ORDER="late_nonblocking-early-post_short-controller_window" ;;
     multisession) CASE_ORDER="long-short-ends" ;;
     *) CASE_ORDER="warm-host" ;;
   esac
 fi
-TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]] && echo kv_lifecycle_lean || echo kv_lifecycle )}"
+TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]] && echo kv_lifecycle_lean || echo kv_lifecycle )}"
 PAIRS="${WORK_AUDIT_PAIRS:-1}"
 WARMUP_PAIRS="${WORK_AUDIT_WARMUP_PAIRS:-1}"
 WAIT_MS="${WORK_AUDIT_WAIT_MS:-$( [[ "${STUDY}" == "timing" ]] && echo 2000 || echo 500 )}"
 SHORT_WAIT_MS="${WORK_AUDIT_SHORT_WAIT_MS:-900}"
 LONG_WAIT_MS="${WORK_AUDIT_LONG_WAIT_MS:-2500}"
 EARLY_AT_MS="${WORK_AUDIT_EARLY_AT_MS:-1200}"
+ESTIMATED_LOAD_MS="${WORK_AUDIT_ESTIMATED_LOAD_MS:-250}"
+LOAD_MARGIN_MS="${WORK_AUDIT_LOAD_MARGIN_MS:-150}"
 EXACT_INDICES="${WORK_AUDIT_EXACT_INDICES:-256}"
 REQUIRE_SLOT_PROOF="${WORK_AUDIT_REQUIRE_SLOT_PROOF:-0}"
 PROMPT_WORDS="${WORK_AUDIT_PROMPT_WORDS:-4090}"
@@ -45,8 +48,8 @@ SERVER_PID=""
 [[ -f "${PROFILE_PATH}" ]] || { echo "Missing runtime profile: ${PROFILE_PATH}" >&2; exit 2; }
 [[ -n "${IMAGE}" ]] || { echo "Set SGLANG_DOCKER_IMAGE" >&2; exit 2; }
 [[ -d "${MODEL_CACHE}" ]] || { echo "Set AGENTIC_MODEL_CACHE to a directory" >&2; exit 2; }
-[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]] || {
-  echo "WORK_AUDIT_STUDY must be validation, timing, multisession, multisession_compare, or multisession_window" >&2; exit 2;
+[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]] || {
+  echo "Unsupported WORK_AUDIT_STUDY: ${STUDY}" >&2; exit 2;
 }
 [[ "${SECOND_REPLAY}" == "0" || "${SECOND_REPLAY}" == "1" ]] || {
   echo "WORK_AUDIT_SECOND_REPLAY must be 0 or 1" >&2; exit 2;
@@ -55,13 +58,21 @@ SERVER_PID=""
 for value in "${PROMPT_WORDS}" "${MAX_OUTPUT_TOKENS}" "${MINIMUM_HOST_TOKENS}" "${EVICTION_ROUNDS}"; do
   [[ "${value}" =~ ^[1-9][0-9]*$ ]] || { echo "Work-audit request settings must be positive integers" >&2; exit 2; }
 done
-if [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]]; then
+if [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
   [[ "${SHORT_WAIT_MS}" =~ ^[1-9][0-9]*$ &&
      "${LONG_WAIT_MS}" =~ ^[1-9][0-9]*$ && "${SHORT_WAIT_MS}" -lt "${LONG_WAIT_MS}" ]] || {
     echo "Multisession requires positive, ordered tool waits" >&2; exit 2;
   }
-  if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]]; then
-    if [[ "${STUDY}" == "multisession_window" ]]; then
+  if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
+    if [[ "${STUDY}" == "multisession_controller" ]]; then
+      [[ "${CASE_ORDER}" == "late_nonblocking-early-post_short-controller_window" ||
+         "${CASE_ORDER}" == "controller_window-post_short-early-late_nonblocking" ]] || {
+        echo "Controller study requires all four timing modes" >&2; exit 2;
+      }
+      [[ "${ESTIMATED_LOAD_MS}" =~ ^[1-9][0-9]*$ && "${LOAD_MARGIN_MS}" =~ ^[0-9]+$ ]] || {
+        echo "Controller load estimate must be positive and margin nonnegative" >&2; exit 2;
+      }
+    elif [[ "${STUDY}" == "multisession_window" ]]; then
       [[ "${CASE_ORDER}" == "late_nonblocking-early-post_short" ||
          "${CASE_ORDER}" == "post_short-early-late_nonblocking" ]] || {
         echo "Window study requires all three timing modes" >&2; exit 2;
@@ -113,6 +124,8 @@ fi
 }
 if [[ "${STUDY}" == "validation" ]]; then
   DEFAULT_QUESTION_ID="RQ1"
+elif [[ "${STUDY}" == "multisession_controller" ]]; then
+  DEFAULT_QUESTION_ID="RQ7"
 elif [[ "${STUDY}" == "multisession_window" ]]; then
   DEFAULT_QUESTION_ID="RQ6"
 elif [[ "${STUDY}" == "multisession_compare" ]]; then
@@ -184,7 +197,7 @@ echo "Starting pinned backend for ${RUN_ID}"
   if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]]; then
     export AGENTIC_KV_TRACE_CONTROL_ONLY=1
   fi
-  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]]; then
+  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
     export AGENTIC_KV_TRACE_MAX_EXACT_INDICES="${EXACT_INDICES}"
   fi
   export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
@@ -243,11 +256,12 @@ if [[ "${STUDY}" == "timing" ]]; then
     --wait-ms "${WAIT_MS}" --prompt-tokens "${PROMPT_WORDS}" \
     --max-tokens "${MAX_OUTPUT_TOKENS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
     --eviction-rounds "${EVICTION_ROUNDS}"
-elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]]; then
+elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
   python3 -m agentic_experiments.runners.run_work_audit_multisession \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
     --case-order "${CASE_ORDER}" --pairs "${PAIRS}" --warmup-pairs "${WARMUP_PAIRS}" \
-    --early-at-ms "${EARLY_AT_MS}" \
+    --early-at-ms "${EARLY_AT_MS}" --estimated-load-ms "${ESTIMATED_LOAD_MS}" \
+    --load-margin-ms "${LOAD_MARGIN_MS}" \
     --short-wait-ms "${SHORT_WAIT_MS}" --long-wait-ms "${LONG_WAIT_MS}" \
     --prompt-tokens "${PROMPT_WORDS}" --max-tokens "${MAX_OUTPUT_TOKENS}" \
     --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}"
@@ -280,7 +294,7 @@ if [[ "${STUDY}" == "timing" ]]; then
     --harness "${RUN_ROOT}/harness_events.jsonl" \
     --case-results "${RUN_ROOT}/case_results.json" --out-dir "${RUN_ROOT}" \
     "${SLOT_PROOF_ARGS[@]}"
-elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]]; then
+elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
   python3 -m agentic_experiments.runners.analyze_work_audit_multisession \
     --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
     --harness "${RUN_ROOT}/harness_events.jsonl" \
@@ -306,8 +320,8 @@ print(json.load(open(sys.argv[1], encoding="utf-8"))["hardware_profile"])
 PY
 )"
 CASE_ORDER_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split("-")))' "${CASE_ORDER}")"
-if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" ]]; then
-  WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
+if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
+  WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"multisession\",\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 else

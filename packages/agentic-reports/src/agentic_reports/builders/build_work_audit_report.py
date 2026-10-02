@@ -124,8 +124,10 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
         None,
     )
     if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
-                                 "agentic_work_audit.multisession_window.v1"):
-        window = summary.get("schema") == "agentic_work_audit.multisession_window.v1"
+                                 "agentic_work_audit.multisession_window.v1",
+                                 "agentic_work_audit.controller_window.v1"):
+        controller = summary.get("schema") == "agentic_work_audit.controller_window.v1"
+        window = controller or summary.get("schema") == "agentic_work_audit.multisession_window.v1"
         unit = "trial" if window else "pair"
         measured_count = workload.get("pairs")
         warmup_count = workload.get("warmup_pairs")
@@ -143,6 +145,8 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
             f"at {_esc(workload.get('early_at_ms'))} ms during the long tool wait. "
             + ("The third mode requested load immediately after observing the short replay finish, "
                "before long tool return. " if window else "") +
+            (f"The fourth mode let the controller decide using a {_esc(workload.get('estimated_load_ms'))} ms "
+             f"load estimate and {_esc(workload.get('load_margin_ms'))} ms margin. " if controller else "") +
             f"{_esc(warmup_count)} warmup {unit if warmup_count == 1 else unit + 's'} were excluded. "
             "Condition order reversed on alternate trials. "
             f"Prompt target: {_esc(workload.get('prompt_words_target'))} words; "
@@ -200,10 +204,13 @@ def _reproduction(summary: dict, timing: bool) -> str:
     workload = manifest.get("workload") or {}
     cases = workload.get("cases") or []
     if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
-                                 "agentic_work_audit.multisession_window.v1"):
+                                 "agentic_work_audit.multisession_window.v1",
+                                 "agentic_work_audit.controller_window.v1"):
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
-            "WORK_AUDIT_STUDY": ("multisession_window" if summary.get("schema") ==
+            "WORK_AUDIT_STUDY": ("multisession_controller" if summary.get("schema") ==
+                                 "agentic_work_audit.controller_window.v1" else
+                                 "multisession_window" if summary.get("schema") ==
                                  "agentic_work_audit.multisession_window.v1" else "multisession_compare"),
             "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
             "WORK_AUDIT_CASE_ORDER": "-".join(map(str, cases)),
@@ -212,6 +219,8 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_SHORT_WAIT_MS": workload.get("short_wait_ms"),
             "WORK_AUDIT_LONG_WAIT_MS": workload.get("long_wait_ms"),
             "WORK_AUDIT_EARLY_AT_MS": workload.get("early_at_ms"),
+            "WORK_AUDIT_ESTIMATED_LOAD_MS": workload.get("estimated_load_ms"),
+            "WORK_AUDIT_LOAD_MARGIN_MS": workload.get("load_margin_ms"),
             "WORK_AUDIT_PROMPT_WORDS": workload.get("prompt_words_target"),
             "WORK_AUDIT_MAX_OUTPUT_TOKENS": workload.get("max_output_tokens"),
             "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
@@ -445,6 +454,41 @@ def _multisession_window_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
+def _controller_window_result(summary: dict) -> tuple[str, str]:
+    pairs = summary.get("pairs") or []
+    headline = (f"{summary.get('comparable_pairs', 0)}/{len(pairs)} matched four-mode trials · "
+                f"controller long replay {_direction(summary.get('median_controller_vs_late_long_saved_ms'), 'faster', 'slower')} "
+                "vs late; workflow "
+                f"{_direction(summary.get('median_controller_vs_late_workflow_saved_ms'), 'faster', 'slower')} vs late")
+    rows = []
+    for label, mode in (("Late load", "late"), ("Early load", "early"),
+                        ("Scripted after-short", "post_short"), ("Controller decision", "controller")):
+        rows.append((
+            label,
+            _trial_values(pairs, lambda pair, mode=mode: pair.get(f"{mode}_long_due_to_token_ms")),
+            _trial_values(pairs, lambda pair, mode=mode: pair.get(f"{mode}_short_due_to_finish_ms")),
+            _trial_values(pairs, lambda pair, mode=mode:
+                          pair.get(f"{mode}_workflow_makespan_ms"), _seconds),
+        ))
+    decisions = " · ".join(
+        f"Trial {_esc(pair.get('pair'))}: {_esc(pair.get('controller_action', 'unavailable'))}"
+        for pair in pairs
+    )
+    detail = (
+        "<p><strong>Four matched schedules.</strong> The controller observed short-replay completion, "
+        "checked host residency and slot release, and compared remaining wait against a declared "
+        "load-time estimate plus margin. Its decisions are recorded in the timeline. "
+        "Lower is better in all timing columns; warmups are excluded.</p>" +
+        _mode_table(("Load timing", "Long return to first token", "Short return to finish",
+                     "Whole workflow"), rows) +
+        f"<p><strong>Controller action.</strong> {decisions}</p>" +
+        _pair_gates(pairs) +
+        "<p><strong>Limit.</strong> The load estimate is predeclared, not learned from production; "
+        "the cache budget is synthetic and capacity eviction is explicit.</p>"
+    )
+    return headline, detail
+
+
 def _question_index(milestones: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
     by_id: dict[str, dict] = {}
     by_run: dict[str, str] = {}
@@ -503,6 +547,15 @@ def _run_finding(summary: dict) -> str:
 
     schema = summary.get("schema")
     pairs = summary.get("pairs") or []
+    if schema == "agentic_work_audit.controller_window.v1":
+        if not pairs or not all(pair.get("comparable") for pair in pairs):
+            return "The controller comparison was not fully validated; its conclusion is withheld."
+        if all(isinstance(pair.get("controller_vs_late_long_saved_ms"), (int, float)) and
+               pair["controller_vs_late_long_saved_ms"] > 0 and
+               isinstance(pair.get("controller_vs_late_workflow_saved_ms"), (int, float)) and
+               pair["controller_vs_late_workflow_saved_ms"] > 0 for pair in pairs):
+            return "The controller improved long replay and workflow time versus late loading in every matched trial."
+        return "The controller made observed decisions, but its timing benefit varied across trials."
     if schema in ("agentic_work_audit.multisession_window.v1",
                   "agentic_work_audit.multisession_comparison.v1"):
         if not pairs or not all(pair.get("comparable") for pair in pairs):
@@ -570,8 +623,9 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         multisession = summary.get("schema") == "agentic_work_audit.multisession.v1"
         comparison = summary.get("schema") == "agentic_work_audit.multisession_comparison.v1"
         window = summary.get("schema") == "agentic_work_audit.multisession_window.v1"
+        controller = summary.get("schema") == "agentic_work_audit.controller_window.v1"
         run = str(summary.get("run_id") or path.parent.name)
-        kind = ("Three concurrent load windows" if window else
+        kind = ("Controller-chosen load window" if controller else "Three concurrent load windows" if window else
                 "Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
                 else "Early vs late" if timing else "Lifecycle validation")
         manifest_question_id = ((summary.get("_manifest") or {}).get("workload") or {}).get("research_question_id")
@@ -581,6 +635,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         question_id = manifest_question_id or archived_question_id
         milestone = questions.get(question_id)
         fallback_question = (
+            "Can the controller choose a safe KV load window from observed events?" if controller else
             "Can loading after the short replay finishes preserve the long replay benefit without "
             "delaying the short session?" if window else
             "Under the same logical cache budget, does early preparation help the returning "
@@ -599,7 +654,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             f'{" (" + _esc(question_id) + ")" if question_id else ""}</span>'
         )
         setup, method = _setup(summary, timing)
-        result, findings = (_multisession_window_result(summary) if window else
+        result, findings = (_controller_window_result(summary) if controller else
+                            _multisession_window_result(summary) if window else
                             _multisession_comparison_result(summary) if comparison else
                             _multisession_result(summary) if multisession else
                             _timing_result(summary) if timing else _lifecycle_result(summary))

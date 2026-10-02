@@ -13,6 +13,7 @@ from agentic_core import (
 )
 
 from .aiconfigurator_estimator import AIConfiguratorRuntimeCalibrator
+from .kv_prepare_window import KVPrepareDecision, KVPrepareWindowPolicy
 from .policy import ControllerPolicy, PolicyConfig
 from .runtime_calibration import (
     OracleExactRuntimeTable,
@@ -36,6 +37,8 @@ __all__ = [
     "ControllerStateStore",
     "EventType",
     "KVAction",
+    "KVPrepareDecision",
+    "KVPrepareWindowPolicy",
     "OracleExactRuntimeTable",
     "PolicyConfig",
     "RuntimeCalibrator",

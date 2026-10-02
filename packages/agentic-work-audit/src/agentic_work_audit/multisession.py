@@ -114,17 +114,40 @@ def analyze_multisession(
     load_overlapped_short_request = bool(requested and load and short_replay and short_finished and
                                          requested.ts_ns < short_finished.ts_ns and
                                          load.ts_ns > short_replay.ts_ns)
-    if condition in ("early", "post_short"):
+    controller_decisions = [row for row in groups["long"] if row.kind == "controller_prepare_decision"]
+    controller_outcome = first("long", "controller_prepare_outcome")
+    controller_action = controller_decisions[-1].evidence.get("action") if controller_decisions else None
+    if condition == "controller_window":
+        initial_hold_valid = (
+            len(controller_decisions) == 1 or
+            (len(controller_decisions) == 2 and short_finished and
+             controller_decisions[0].ts_ns <= short_finished.ts_ns and
+             controller_decisions[0].evidence.get("action") == "hold" and
+             controller_decisions[0].evidence.get("reason") == "blocking_replay_not_finished")
+        )
+        if (not initial_hold_valid or controller_action not in ("load", "defer") or
+                not controller_outcome or not short_finished or not long_end or
+                controller_decisions[-1].ts_ns < short_finished.ts_ns or
+                controller_decisions[-1].ts_ns >= long_end.ts_ns):
+            failures.append("controller observation, decision, or outcome proof missing")
+        elif controller_action == "load" and controller_outcome.evidence.get("outcome") != "good_window":
+            failures.append("controller load did not finish within the tool-return window")
+        elif controller_action == "defer" and controller_outcome.evidence.get("outcome") != "deferred_to_tool_return":
+            failures.append("controller defer outcome missing")
+        if controller_action == "load" and (not requested or
+                                             requested.ts_ns < controller_decisions[-1].ts_ns):
+            failures.append("controller load did not follow its decision")
+    if condition in ("early", "post_short") or (condition == "controller_window" and controller_action == "load"):
         if not all((host, ended_eviction, requested, accepted, load, long_end)) or not (
             host.ts_ns < ended_eviction.ts_ns <= requested.ts_ns <= accepted.ts_ns <=
             load.ts_ns < long_end.ts_ns
         ):
             failures.append(f"{condition} native load did not finish between slot release and tool return")
-        if condition == "post_short" and (not short_finished or not requested or
+        if condition in ("post_short", "controller_window") and (not short_finished or not requested or
                                           short_finished.ts_ns > requested.ts_ns or
                                           load_overlapped_short_request):
-            failures.append("post-short load did not start after the short replay finished")
-    elif condition == "late_nonblocking":
+            failures.append("post-short/controller load did not start after the short replay finished")
+    elif condition == "late_nonblocking" or (condition == "controller_window" and controller_action == "defer"):
         if not all((host, requested, long_end)) or not (
             host.ts_ns < long_end.ts_ns <= requested.ts_ns
         ):
@@ -160,6 +183,8 @@ def analyze_multisession(
         "schema": "agentic_work_audit.multisession.v1",
         "run_id": run_id,
         "load_timing": condition,
+        "controller_decisions": [row.evidence for row in controller_decisions] if condition == "controller_window" else [],
+        "controller_outcome": controller_outcome.evidence if condition == "controller_window" and controller_outcome else None,
         "status": "validated" if not failures else "failed",
         "failures": failures,
         "setup": {
@@ -376,3 +401,72 @@ def compare_multisession_windows(cases: list[dict[str, Any]], run_id: str) -> di
             "Request-level overlap does not establish GPU kernel or HBM bandwidth contention.",
         ],
     }
+
+
+def compare_controller_windows(cases: list[dict[str, Any]], run_id: str) -> dict[str, Any]:
+    """Extend the matched timing study with an evidence-gated controller choice."""
+    result = compare_multisession_windows(
+        [case for case in cases if case["load_timing"] != "controller_window"], run_id
+    )
+    failures = list(result["failures"])
+    controllers: dict[int, dict[str, Any]] = {}
+    for case in cases:
+        if case["load_timing"] != "controller_window":
+            continue
+        if case["pair"] in controllers:
+            failures.append(f"pair {case['pair']}: duplicate controller case")
+        controllers[case["pair"]] = case
+    for pair in result["pairs"]:
+        number = pair["pair"]
+        controller = controllers.get(number)
+        references = [case for case in cases if case["pair"] == number and
+                      case["load_timing"] != "controller_window"]
+        reasons = list(pair["reasons"])
+        if not controller or controller["status"] != "validated":
+            reasons.append("missing or unvalidated controller case")
+        elif not reasons:
+            for reference in references:
+                initial_delta = abs(controller["initial_phase_ms"] - reference["initial_phase_ms"])
+                if initial_delta > max(1000, 0.2 * min(controller["initial_phase_ms"],
+                                                        reference["initial_phase_ms"])):
+                    reasons.append(f"controller initial phase differs from {reference['load_timing']}")
+                for label in ("short", "long"):
+                    wait_delta = abs(controller["sessions"][label]["observed_tool_wait_ms"] -
+                                     reference["sessions"][label]["observed_tool_wait_ms"])
+                    if wait_delta > 100:
+                        reasons.append(f"controller {label} wait differs from {reference['load_timing']}")
+        pair["reasons"] = reasons
+        pair["comparable"] = not reasons
+        pair["controller_case_id"] = controller["run_id"] if controller else None
+        if reasons:
+            failures.append(f"pair {number}: {', '.join(reasons)}")
+        elif controller:
+            pair["controller_action"] = controller["controller_decisions"][-1]["action"]
+            pair["controller_long_due_to_token_ms"] = controller["sessions"]["long"]["first_token_after_tool_ms"]
+            pair["controller_short_due_to_finish_ms"] = controller["sessions"]["short"]["completion_after_tool_ms"]
+            pair["controller_workflow_makespan_ms"] = controller["workflow_makespan_ms"]
+            pair["controller_vs_late_long_saved_ms"] = round(
+                pair["late_long_due_to_token_ms"] - pair["controller_long_due_to_token_ms"], 3)
+            pair["controller_vs_late_workflow_saved_ms"] = round(
+                pair["late_workflow_makespan_ms"] - pair["controller_workflow_makespan_ms"], 3)
+    extra = sorted(set(controllers) - {pair["pair"] for pair in result["pairs"]})
+    if extra:
+        failures.append(f"unexpected controller pairs: {extra}")
+    comparable = [pair for pair in result["pairs"] if pair["comparable"]]
+    if not comparable:
+        failures.append("no comparable four-mode pairs")
+    result.update({
+        "schema": "agentic_work_audit.controller_window.v1",
+        "status": "validated" if not failures else "failed",
+        "failures": failures,
+        "comparable_pairs": len(comparable),
+        "median_controller_vs_late_long_saved_ms": round(median(
+            pair["controller_vs_late_long_saved_ms"] for pair in comparable), 3) if comparable else None,
+        "median_controller_vs_late_workflow_saved_ms": round(median(
+            pair["controller_vs_late_workflow_saved_ms"] for pair in comparable), 3) if comparable else None,
+        "limitations": [
+            "Controller used a fixed predeclared load-time estimate, not exact future runtime.",
+            *result["limitations"],
+        ],
+    })
+    return result

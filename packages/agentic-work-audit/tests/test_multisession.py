@@ -1,6 +1,7 @@
 from agentic_work_audit.events import AuditEvent
 from agentic_work_audit.multisession import (
-    analyze_multisession, compare_multisession_pairs, compare_multisession_windows,
+    analyze_multisession, compare_controller_windows, compare_multisession_pairs,
+    compare_multisession_windows,
 )
 
 
@@ -171,3 +172,39 @@ def test_three_mode_comparison_keeps_raw_outcomes_and_gates_post_short():
     duplicate = compare_multisession_windows([late, early, post, post], "study")
     assert duplicate["status"] == "failed"
     assert any("duplicate post-short" in reason for reason in duplicate["failures"])
+
+
+def test_controller_case_requires_observation_decision_and_confirmed_window():
+    rows = [row for row in sample() if row.kind not in (
+        "load_requested", "load_accepted", "layer_copy", "load_complete")]
+    rows += [event("controller_prepare_decision", 8, "long", "initial", action="hold",
+                   reason="blocking_replay_not_finished"),
+             event("controller_prepare_decision", 12.05, "long", "initial", action="load",
+                   reason="quiet_window_before_tool_return"),
+             event("load_requested", 12.1, "long", "initial"),
+             event("load_accepted", 12.2, "long", "initial"),
+             event("layer_copy", 12.3, "long", "initial"),
+             event("load_complete", 12.4, "long", "initial"),
+             event("controller_prepare_outcome", 12.5, "long", "initial", outcome="good_window")]
+    result = analyze_multisession(rows, "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                  condition="controller_window", require_end_eviction=True)
+    assert result["status"] == "validated"
+    assert [item["action"] for item in result["controller_decisions"]] == ["hold", "load"]
+    missing = [row for row in rows if row.kind != "controller_prepare_decision"]
+    assert analyze_multisession(missing, "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                condition="controller_window")["status"] == "failed"
+
+
+def test_four_mode_comparison_requires_controller_case():
+    late = analyze_multisession(sample(), "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                require_end_eviction=True)
+    late["pair"] = 1
+    early = {**late, "load_timing": "early", "run_id": "early",
+             "load_overlapped_short_request": True}
+    post = {**late, "load_timing": "post_short", "run_id": "post"}
+    controller = {**late, "load_timing": "controller_window", "run_id": "controller",
+                  "controller_decisions": [{"action": "hold"}, {"action": "load"}]}
+    result = compare_controller_windows([late, early, post, controller], "study")
+    assert result["status"] == "validated"
+    assert result["pairs"][0]["controller_action"] == "load"
+    assert compare_controller_windows([late, early, post], "study")["status"] == "failed"
