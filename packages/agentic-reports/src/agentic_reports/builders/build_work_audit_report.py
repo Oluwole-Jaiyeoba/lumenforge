@@ -663,19 +663,25 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         finding = _run_finding(summary)
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
                          [*(summary.get("failures") or []), *(summary.get("limitations") or [])])
+        detail_id = f"detail-{_esc(quote(run, safe=''))}"
         rows.append(
-            f"<tr id='run-{_esc(quote(run, safe=''))}'><td title='{_esc(source)}'>{_esc(date)}</td>"
-            f"<td title='{_esc(source)}'>{_esc(time)}</td>"
-            f"<td><strong>{kind}</strong><small>{_esc(run)}</small></td>"
-            f"<td class='question-cell'>{question_cell}</td><td>{setup}</td>"
-            f"<td>{result}</td><td class='finding-cell'>{_esc(finding)}</td>"
-            f"<td><span class='status {_esc(status)}'>{_esc(status)}</span></td>"
-            f"<td><details><summary>View</summary><div class='detail'>"
+            f"<tr class='run-row' id='run-{_esc(quote(run, safe=''))}'>"
+            f"<td data-label='Date' title='{_esc(source)}'>{_esc(date)}</td>"
+            f"<td data-label='Time (UTC)' title='{_esc(source)}'>{_esc(time)}</td>"
+            f"<td data-label='Experiment'><strong>{kind}</strong><small>{_esc(run)}</small></td>"
+            f"<td data-label='Research question' class='question-cell'>{question_cell}</td>"
+            f"<td data-label='Setup'>{setup}</td>"
+            f"<td data-label='Main result'>{result}</td>"
+            f"<td data-label='Finding' class='finding-cell'>{_esc(finding)}</td>"
+            f"<td data-label='Evidence gate'><span class='status {_esc(status)}'>{_esc(status)}</span></td>"
+            f"<td data-label='Details'><button class='detail-toggle' type='button' "
+            f"aria-expanded='false' aria-controls='{detail_id}'>View</button></td></tr>"
+            f"<tr class='detail-row' id='{detail_id}' hidden><td colspan='9'><div class='detail'>"
             f"<p><strong>Question tested.</strong> {_esc(question)}</p>"
             f"<p>{method}</p>{findings}{_reproduction(summary, timing)}"
             f"{'<p><strong>Run-specific limits.</strong></p><ul>' + limits + '</ul>' if limits else ''}"
             f"<p><strong>Evidence.</strong> {_links(path, summary)}</p>"
-            "</div></details></td></tr>"
+            "</div></td></tr>"
         )
     if not rows:
         rows.append("<tr><td colspan='9'>No saved run summaries are archived yet.</td></tr>")
@@ -683,8 +689,9 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
     return """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>KV Lifecycle Audit</title>
 <style>
-:root{font-family:system-ui,-apple-system,sans-serif;color:#182733;background:#f7f9f8}
-body{max-width:1500px;margin:auto;padding:28px 24px 64px;line-height:1.45}
+:root{font-family:system-ui,-apple-system,sans-serif;color:#182733;background:#f7f9f8;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+body{width:100%;margin:0;padding:24px clamp(12px,1.3vw,24px) 64px;line-height:1.45}
 h1{font-size:1.7rem;margin:0 0 8px;letter-spacing:0}p{color:#3d5260}
 .purpose{border-top:4px solid #d36650;padding:10px 0 16px;margin:16px 0 18px}
 .purpose h2{font-size:1.05rem;margin:8px 0 6px;color:#234150}.purpose p{max-width:105ch;margin:5px 0 10px}
@@ -693,7 +700,7 @@ h1{font-size:1.7rem;margin:0 0 8px;letter-spacing:0}p{color:#3d5260}
 .scope strong{color:#182733}
 .scope li:nth-child(3){border-left:3px solid #198e7d;padding-left:10px;background:#edf7f2}
 .progress{margin:0 0 24px}.progress h2{font-size:1.1rem;margin:0 0 8px;color:#234150}
-.progress-table{min-width:850px}.progress-table td{white-space:normal!important;min-width:0!important;max-width:520px}
+.progress-table{table-layout:fixed}.progress-table td{white-space:normal!important;min-width:0!important;max-width:520px}
 .progress-table td:first-child{width:32%}.progress-table td:nth-child(2){width:35%}
 .progress-table th:nth-child(2){background:#dcefe8;color:#185b4f}
 .progress-table th:nth-child(3){background:#f4eace;color:#6c541e}
@@ -701,20 +708,22 @@ h1{font-size:1.7rem;margin:0 0 8px;letter-spacing:0}p{color:#3d5260}
 .progress-table td:nth-child(3){background:#fffaf0}
 .progress-table small{margin:0 0 4px}.progress-table td:nth-child(2) small{margin-top:8px}
 .progress-table a{overflow-wrap:anywhere}
-.intro{max-width:90ch;margin:0 0 20px}.table-scroll{overflow-x:auto;border:1px solid #d7e2e6;background:#fff}
-table{border-collapse:collapse;width:100%;min-width:1320px}th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #e5ecef}
-th{background:#e4f0ef;color:#204a4a;font-size:.88rem;white-space:nowrap}td:nth-child(1),td:nth-child(2){white-space:nowrap;font-variant-numeric:tabular-nums}
+.intro{max-width:90ch;margin:0 0 20px}.table-scroll{width:100%;border:1px solid #d7e2e6;background:#fff}
+table{border-collapse:collapse;width:100%}th,td{padding:10px;text-align:left;vertical-align:top;border-bottom:1px solid #e5ecef}
+th{background:#e4f0ef;color:#204a4a;font-size:.88rem}td:nth-child(1),td:nth-child(2){white-space:nowrap;font-variant-numeric:tabular-nums}
+.results-table{table-layout:fixed}.results-table td{overflow-wrap:anywhere}
 tbody tr:hover{background:#f8fbfa}
-td:nth-child(3){min-width:165px}td:nth-child(5){min-width:210px}td:nth-child(6){min-width:260px}
-.finding-cell{min-width:215px;max-width:265px;white-space:normal;background:#f1f8f5;border-left:3px solid #46a58b;color:#24544b;font-weight:600}
-.question-cell{min-width:225px;max-width:285px;white-space:normal}
+.finding-cell{white-space:normal;background:#f1f8f5;border-left:3px solid #46a58b;color:#24544b;font-weight:600}
+.question-cell{white-space:normal}
 .question-cell a{display:block;text-decoration:none}.question-cell a:hover{text-decoration:underline}
 .question-cell strong{display:block;color:#17685e}.question-cell span{display:block;margin-top:3px}
 .unmapped{color:#8a551d}
 small{display:block;color:#5a6c77;overflow-wrap:anywhere;font-size:.8rem;margin-top:3px}
 .status{display:inline-block;font-weight:650}.validated{color:#126746}.failed{color:#b63839}
-details{min-width:56px}summary{cursor:pointer;color:#086780;font-weight:650;list-style:none}summary::-webkit-details-marker{display:none}
-.detail{min-width:430px;max-width:690px;padding:8px 0}.detail p{margin:10px 0}.detail-scroll{overflow-x:auto}
+.detail-toggle{border:0;background:none;padding:0;color:#086780;font:inherit;font-weight:650;cursor:pointer;text-decoration:underline}
+.detail-toggle:focus-visible{outline:2px solid #086780;outline-offset:3px}
+.detail-row[hidden]{display:none!important}.detail-row>td{padding:16px 20px;background:#f5f9f8}
+.detail{width:100%;min-width:0}.detail>p,.detail>ul{max-width:110ch}.detail p{margin:10px 0}.detail-scroll{overflow-x:auto}
 .pair-table{min-width:650px;font-size:.88rem}.pair-table th,.pair-table td{padding:7px 9px}
 .mode-table{min-width:620px;font-size:.88rem;table-layout:fixed}
 .mode-table th,.mode-table td{padding:9px 10px;white-space:normal;overflow-wrap:break-word}
@@ -723,12 +732,23 @@ details{min-width:56px}summary{cursor:pointer;color:#086780;font-weight:650;list
 .trial-value + .trial-value{margin-top:4px}.trial-value strong{display:inline-block;min-width:50px;margin-right:6px;color:#526777;font-size:.77rem}
 pre{overflow-x:auto;background:#edf4f5;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}
 a{color:#086780}a:hover{text-decoration:underline}
-@media(max-width:760px){
-body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-columns:1fr;gap:2px}
-.progress-table{min-width:0}.progress-table thead{display:none}.progress-table tr{display:block;border-bottom:1px solid #d7e2e6}
+@media(max-width:1300px){
+.results-table,.results-table tbody{display:block}.results-table thead,.results-table colgroup{display:none}
+.results-table .run-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:2px solid #cbdcde}
+.results-table .run-row td{display:block;min-width:0;max-width:none;white-space:normal;padding:10px 12px}
+.results-table .run-row td::before{content:attr(data-label);display:block;margin-bottom:4px;color:#526777;font-size:.78rem;font-weight:700}
+.results-table .detail-row{display:block}.results-table .detail-row td{display:block;width:100%}
+}
+@media(max-width:960px){
+.progress-table thead{display:none}.progress-table tr{display:block;border-bottom:1px solid #d7e2e6}
 .progress-table td{display:block;width:auto!important;max-width:none!important;border-bottom:0;padding:10px 12px}
 .progress-table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#234150;font-size:.82rem;font-weight:700}
 }
+@media(max-width:760px){
+body{padding:16px 10px 40px}.scope li{grid-template-columns:1fr;gap:2px}
+.results-table .run-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:540px){.results-table .run-row{grid-template-columns:1fr}}
 </style></head><body><h1>KV Lifecycle Audit</h1>
 <section class="purpose" aria-labelledby="research-question"><h2 id="research-question">Research question</h2>
 <p><strong>Given what the harness knew at the time, was the GPU or memory system doing the wrong work at the wrong time?</strong></p>
@@ -741,8 +761,18 @@ body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-colu
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """
 <p class="intro">One row per saved experiment, newest first. Main result shows the measurements; Finding states the run-specific deduction. The research-question link opens the broader answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Lifecycle timing is not a policy win.</p>
-<div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Finding</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
-</body></html>"""
+<div class="table-scroll"><table class="results-table"><colgroup><col style="width:8%"><col style="width:7%"><col style="width:11%"><col style="width:14%"><col style="width:14%"><col style="width:17%"><col style="width:15%"><col style="width:8%"><col style="width:6%"></colgroup><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Finding</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
+<script>
+document.querySelectorAll('.detail-toggle').forEach((button) => {
+  button.addEventListener('click', () => {
+    const row = document.getElementById(button.getAttribute('aria-controls'));
+    if (!row) return;
+    row.hidden = !row.hidden;
+    button.setAttribute('aria-expanded', String(!row.hidden));
+    button.textContent = row.hidden ? 'View' : 'Hide';
+  });
+});
+</script></body></html>"""
 
 
 def main() -> None:

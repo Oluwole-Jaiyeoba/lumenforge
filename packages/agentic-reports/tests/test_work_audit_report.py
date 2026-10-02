@@ -69,7 +69,12 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     assert "<th>Date</th><th>Time (UTC)</th>" in page
     assert page.index("second</small>") < page.index("first</small>")
     assert "14:30:02" in page and "14:30:01" in page
-    assert page.count("<summary>View</summary>") == 2
+    assert page.count("class='detail-toggle'") == 2
+    assert "aria-controls='detail-first'" in page
+    assert "id='detail-first' hidden><td colspan='9'>" in page
+    assert "body{width:100%;margin:0" in page
+    assert ".results-table{table-layout:fixed}" in page
+    assert "row.hidden = !row.hidden" in page
     assert 'href="runs/first/run_manifest.json"' in page
     assert 'href="runs/second/block_audit.json"' in page
     assert "Reconstructed command" in page
