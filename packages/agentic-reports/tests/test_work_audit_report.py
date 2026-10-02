@@ -45,6 +45,13 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["report", "--results-dir", str(runs), "--out", str(out)])
     main()
     page = out.read_text(encoding="utf-8")
+    assert "Given what the harness knew at the time" in page
+    assert "Five audit ledgers" in page
+    assert all(name in page for name in (
+        "Host backups", "GPU evictions", "Session resumes", "HBM occupancy", "GPU time",
+    ))
+    assert "not yet graded" in page
+    assert "competing-session cost unmeasured" in page
     assert "<th>Date</th><th>Time (UTC)</th>" in page
     assert page.index("second</small>") < page.index("first</small>")
     assert "14:30:02" in page and "14:30:01" in page

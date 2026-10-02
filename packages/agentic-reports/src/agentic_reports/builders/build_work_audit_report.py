@@ -210,6 +210,11 @@ def render(summaries: list[tuple[Path, dict]]) -> str:
 :root{font-family:system-ui,-apple-system,sans-serif;color:#182733;background:#f5f8f9}
 body{max-width:1500px;margin:auto;padding:28px 24px 64px;line-height:1.45}
 h1{font-size:1.7rem;margin:0 0 8px;letter-spacing:0}p{color:#3d5260}
+.purpose{border-top:3px solid #137a78;padding:10px 0 16px;margin:16px 0 18px}
+.purpose h2{font-size:1.05rem;margin:8px 0 6px}.purpose p{max-width:105ch;margin:5px 0 10px}
+.scope{list-style:none;margin:8px 0 0;padding:0;max-width:1100px}
+.scope li{display:grid;grid-template-columns:175px minmax(0,1fr);gap:16px;padding:7px 0;border-bottom:1px solid #d7e2e6;color:#3d5260}
+.scope strong{color:#182733}
 .intro{max-width:90ch;margin:0 0 20px}.table-scroll{overflow-x:auto;border:1px solid #d7e2e6;background:#fff}
 table{border-collapse:collapse;width:100%;min-width:1100px}th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #e5ecef}
 th{background:#e4f0ef;color:#204a4a;font-size:.88rem;white-space:nowrap}td:nth-child(1),td:nth-child(2){white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -221,8 +226,18 @@ details{min-width:56px}summary{cursor:pointer;color:#086780;font-weight:650;list
 .pair-table{min-width:650px;font-size:.88rem}.pair-table th,.pair-table td{padding:7px 9px}
 pre{overflow-x:auto;background:#edf4f5;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}
 a{color:#086780}a:hover{text-decoration:underline}
-@media(max-width:760px){body{padding:16px 10px 40px}.detail{min-width:300px}}
+@media(max-width:760px){body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-columns:1fr;gap:2px}}
 </style></head><body><h1>KV Lifecycle Audit</h1>
+<section class="purpose" aria-labelledby="research-question"><h2 id="research-question">Research question</h2>
+<p><strong>Given what the harness knew at the time, was the GPU or memory system doing the wrong work at the wrong time?</strong></p>
+<p>Join tool waits and session lifetimes to observed cache, transfer, request, and batch activity. Distinguish useful work, reasonable insurance, mistimed work, and potentially wasted work. Test whether a feasible alternative improves the whole system before claiming avoidable harm or a hardware opportunity. This is an audit of timing and placement, not just HBM bandwidth interference.</p>
+<h2>Five audit ledgers</h2><ul class="scope">
+<li><strong>Host backups</strong><span>Host residency and load-back observed; useful versus insurance versus wasted backup not yet graded.</span></li>
+<li><strong>GPU evictions</strong><span>Forced eviction observed; capacity necessity and avoidability not yet graded.</span></li>
+<li><strong>Session resumes</strong><span>Partial live timing evidence for prepared-during-wait versus after-wait load; competing-session cost unmeasured.</span></li>
+<li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
+<li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
+</ul></section>
 <p class="intro">One row per saved experiment, newest first. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Timing runs compare early and late host-KV preparation. Lifecycle runs check that cache events can be linked to a replay; their TTFTs are not a policy win.</p>
 <div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Setup</th><th>Main result</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
 </body></html>"""

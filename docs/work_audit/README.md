@@ -3,6 +3,12 @@
 This fourth research lane asks whether cache and GPU work occurs at a useful
 time in an agentic tool-wait/replay lifecycle. It is separate from the hint
 benchmark, controller comparison, and hardware bottleneck lanes.
+Its guiding question is: given what the harness knew at the time, was the GPU
+or memory system doing the wrong work at the wrong time? The top-level report
+tracks five ledgers: host backups, GPU evictions, session resumes, HBM
+occupancy, and GPU time. Current live evidence covers only part of the resume
+timing ledger; the other ledgers must not be called wasted or avoidable without
+linked evidence and a feasible comparison.
 
 ## Boundaries
 
