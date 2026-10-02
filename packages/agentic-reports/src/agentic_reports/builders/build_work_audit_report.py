@@ -257,7 +257,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_ESTIMATED_LOAD_MS": workload.get("estimated_load_ms"),
             "WORK_AUDIT_MARGIN_MS": workload.get("load_margin_ms"),
             "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
-            "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
+            CACHE_SIZE_FIELD.upper(): workload.get(CACHE_SIZE_FIELD),
             "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
         }
         prefix = " ".join(f"{key}='{value}'" for key, value in settings.items() if value is not None)
