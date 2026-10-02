@@ -70,3 +70,27 @@ def test_report_separates_both_replays_and_load_periods():
     assert "574" in html and "218" in html
     assert "4096" in html and "41" in html
     assert "backend_trace.jsonl.gz" in html
+
+
+def test_report_keeps_timing_pairs_separate_from_lifecycle_validation():
+    html = render([(Path("runs/timing/summary.json"), {
+        "schema": "agentic_work_audit.timing.v1", "run_id": "timing", "status": "validated",
+        "cases": [
+            {"pair": 1, "condition": "early", "loaded_tokens": 2048,
+             "completion_observed_before_due": True, "first_token_after_due_ms": 45,
+             "replay_ttft_ms": 25, "loaded_slots_matched_by_replay": 1024,
+             "loaded_slots_match_status": "supported"},
+            {"pair": 1, "condition": "late", "loaded_tokens": 2048,
+             "completion_observed_before_due": False, "first_token_after_due_ms": 125,
+             "replay_ttft_ms": 95, "loaded_slots_matched_by_replay": 0,
+             "loaded_slots_match_status": "unknown"},
+        ],
+        "pairs": [{"pair": 1, "late_minus_early_first_token_after_due_ms": 80,
+                   "late_minus_early_task_latency_ms": 80}],
+        "_trace_profile": "kv_lifecycle_lean",
+    })])
+    assert "Early vs. Late KV Preparation" in html
+    assert "Late minus early (ms)" in html
+    assert "kv_lifecycle_lean" in html
+    assert "Lifecycle Validation Runs" in html
+    assert "unknown: 0" in html

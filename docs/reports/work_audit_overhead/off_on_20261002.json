@@ -1,0 +1,170 @@
+{
+  "schema_version": "agentic.instrumentation.overhead.v1",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "profile": "kv_lifecycle_lean",
+  "control_only_pump": true,
+  "image": "agentic-sglang-standard:0.5.10.post1",
+  "order": [
+    "off",
+    "on"
+  ],
+  "workload": "audit_long_prefix",
+  "workload_parameters": {
+    "prompt_tokens": 4090,
+    "max_tokens": 16,
+    "wait_ms": 2000,
+    "replays": 2,
+    "max_exact_indices": 4096
+  },
+  "cases": [
+    {
+      "tracing": "off",
+      "warmup": {
+        "latency_ms": 3242.446,
+        "prompt_tokens": 12452,
+        "completion_tokens": 48,
+        "turns": [
+          {
+            "latency_ms": 2078.391,
+            "prompt_tokens": 4133,
+            "completion_tokens": 16
+          },
+          {
+            "latency_ms": 581.959,
+            "prompt_tokens": 4151,
+            "completion_tokens": 16
+          },
+          {
+            "latency_ms": 582.096,
+            "prompt_tokens": 4168,
+            "completion_tokens": 16
+          }
+        ]
+      },
+      "measurements": [
+        {
+          "latency_ms": 2766.53,
+          "prompt_tokens": 12452,
+          "completion_tokens": 48,
+          "turns": [
+            {
+              "latency_ms": 1603.989,
+              "prompt_tokens": 4133,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 581.467,
+              "prompt_tokens": 4151,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 581.074,
+              "prompt_tokens": 4168,
+              "completion_tokens": 16
+            }
+          ]
+        },
+        {
+          "latency_ms": 2769.528,
+          "prompt_tokens": 12452,
+          "completion_tokens": 48,
+          "turns": [
+            {
+              "latency_ms": 1607.178,
+              "prompt_tokens": 4133,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 581.229,
+              "prompt_tokens": 4151,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 581.121,
+              "prompt_tokens": 4168,
+              "completion_tokens": 16
+            }
+          ]
+        }
+      ],
+      "median_latency_ms": 2768.029,
+      "trace_bytes": 0
+    },
+    {
+      "tracing": "on",
+      "warmup": {
+        "latency_ms": 3365.678,
+        "prompt_tokens": 12452,
+        "completion_tokens": 48,
+        "turns": [
+          {
+            "latency_ms": 2119.615,
+            "prompt_tokens": 4133,
+            "completion_tokens": 16
+          },
+          {
+            "latency_ms": 621.542,
+            "prompt_tokens": 4151,
+            "completion_tokens": 16
+          },
+          {
+            "latency_ms": 624.521,
+            "prompt_tokens": 4168,
+            "completion_tokens": 16
+          }
+        ]
+      },
+      "measurements": [
+        {
+          "latency_ms": 2892.667,
+          "prompt_tokens": 12452,
+          "completion_tokens": 48,
+          "turns": [
+            {
+              "latency_ms": 1669.422,
+              "prompt_tokens": 4133,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 612.449,
+              "prompt_tokens": 4151,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 610.796,
+              "prompt_tokens": 4168,
+              "completion_tokens": 16
+            }
+          ]
+        },
+        {
+          "latency_ms": 2886.911,
+          "prompt_tokens": 12452,
+          "completion_tokens": 48,
+          "turns": [
+            {
+              "latency_ms": 1664.405,
+              "prompt_tokens": 4133,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 612.194,
+              "prompt_tokens": 4151,
+              "completion_tokens": 16
+            },
+            {
+              "latency_ms": 610.312,
+              "prompt_tokens": 4168,
+              "completion_tokens": 16
+            }
+          ]
+        }
+      ],
+      "median_latency_ms": 2889.789,
+      "trace_bytes": 2014969
+    }
+  ],
+  "median_latency_delta_ms": 121.76,
+  "median_latency_delta_percent": 4.4,
+  "limitation": "Request-path calibration only: the long-prefix sequence does not evict or load host KV; it cannot bound tracing overhead on native load-back. Each invocation uses one ordered off/on pair on an otherwise idle GPU."
+}

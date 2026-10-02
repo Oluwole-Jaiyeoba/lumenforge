@@ -11,9 +11,15 @@ PROFILE_PATH="${ROOT}/configs/backend_runtimes/${PROFILE}.json"
 IMAGE="${SGLANG_DOCKER_IMAGE:-}"
 MODEL_CACHE="${AGENTIC_MODEL_CACHE:-}"
 RUN_ID="${WORK_AUDIT_RUN_ID:-work_audit_$(date +%Y%m%d_%H%M%S)}"
+STUDY="${WORK_AUDIT_STUDY:-validation}"
 SECOND_REPLAY="${WORK_AUDIT_SECOND_REPLAY:-0}"
-CASE_ORDER="${WORK_AUDIT_CASE_ORDER:-warm-host}"
-TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-kv_lifecycle}"
+CASE_ORDER="${WORK_AUDIT_CASE_ORDER:-$( [[ "${STUDY}" == "timing" ]] && echo early-late || echo warm-host )}"
+TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( [[ "${STUDY}" == "timing" ]] && echo kv_lifecycle_lean || echo kv_lifecycle )}"
+PAIRS="${WORK_AUDIT_PAIRS:-1}"
+WARMUP_PAIRS="${WORK_AUDIT_WARMUP_PAIRS:-1}"
+WAIT_MS="${WORK_AUDIT_WAIT_MS:-$( [[ "${STUDY}" == "timing" ]] && echo 2000 || echo 500 )}"
+EXACT_INDICES="${WORK_AUDIT_EXACT_INDICES:-256}"
+REQUIRE_SLOT_PROOF="${WORK_AUDIT_REQUIRE_SLOT_PROOF:-0}"
 RESULTS_BASE="${DIRECT_ROOT}/artifacts/results/work_audit"
 RUN_ROOT="${RESULTS_BASE}/${RUN_ID}"
 SERVER_PID=""
@@ -21,12 +27,37 @@ SERVER_PID=""
 [[ -f "${PROFILE_PATH}" ]] || { echo "Missing runtime profile: ${PROFILE_PATH}" >&2; exit 2; }
 [[ -n "${IMAGE}" ]] || { echo "Set SGLANG_DOCKER_IMAGE" >&2; exit 2; }
 [[ -d "${MODEL_CACHE}" ]] || { echo "Set AGENTIC_MODEL_CACHE to a directory" >&2; exit 2; }
+[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" ]] || {
+  echo "WORK_AUDIT_STUDY must be validation or timing" >&2; exit 2;
+}
 [[ "${SECOND_REPLAY}" == "0" || "${SECOND_REPLAY}" == "1" ]] || {
   echo "WORK_AUDIT_SECOND_REPLAY must be 0 or 1" >&2; exit 2;
 }
-[[ "${CASE_ORDER}" == "warm-host" || "${CASE_ORDER}" == "host-warm" ]] || {
-  echo "WORK_AUDIT_CASE_ORDER must be warm-host or host-warm" >&2; exit 2;
-}
+[[ "${WAIT_MS}" =~ ^[1-9][0-9]*$ ]] || { echo "WORK_AUDIT_WAIT_MS must be positive" >&2; exit 2; }
+if [[ "${STUDY}" == "validation" ]]; then
+  [[ "${CASE_ORDER}" == "warm-host" || "${CASE_ORDER}" == "host-warm" ]] || {
+    echo "WORK_AUDIT_CASE_ORDER must be warm-host or host-warm for validation" >&2; exit 2;
+  }
+else
+  [[ "${CASE_ORDER}" == "early-late" || "${CASE_ORDER}" == "late-early" ]] || {
+    echo "WORK_AUDIT_CASE_ORDER must be early-late or late-early for timing" >&2; exit 2;
+  }
+  [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]] || {
+    echo "Timing study requires kv_lifecycle_lean" >&2; exit 2;
+  }
+  [[ "${PAIRS}" =~ ^[1-9][0-9]*$ && "${WAIT_MS}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "WORK_AUDIT_PAIRS and WORK_AUDIT_WAIT_MS must be positive integers" >&2; exit 2;
+  }
+  [[ "${WARMUP_PAIRS}" =~ ^[0-9]+$ ]] || {
+    echo "WORK_AUDIT_WARMUP_PAIRS must be a nonnegative integer" >&2; exit 2;
+  }
+  [[ "${EXACT_INDICES}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "WORK_AUDIT_EXACT_INDICES must be positive" >&2; exit 2;
+  }
+  [[ "${REQUIRE_SLOT_PROOF}" == "0" || "${REQUIRE_SLOT_PROOF}" == "1" ]] || {
+    echo "WORK_AUDIT_REQUIRE_SLOT_PROOF must be 0 or 1" >&2; exit 2;
+  }
+fi
 [[ "${TRACE_PROFILE}" == "kv_lifecycle" || "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]] || {
   echo "WORK_AUDIT_TRACE_PROFILE must be kv_lifecycle or kv_lifecycle_lean" >&2; exit 2;
 }
@@ -86,6 +117,9 @@ echo "Starting pinned backend for ${RUN_ID}"
   if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]]; then
     export AGENTIC_KV_TRACE_CONTROL_ONLY=1
   fi
+  if [[ "${STUDY}" == "timing" ]]; then
+    export AGENTIC_KV_TRACE_MAX_EXACT_INDICES="${EXACT_INDICES}"
+  fi
   export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
   export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
   export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
@@ -136,21 +170,41 @@ if [[ "${SECOND_REPLAY}" == "1" ]]; then
   SECOND_REPLAY_RUN_ARGS+=(--second-replay)
   SECOND_REPLAY_ANALYSIS_ARGS+=(--require-second-replay)
 fi
-python3 -m agentic_experiments.runners.run_work_audit_validation \
-  --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" --case-order "${CASE_ORDER}" \
-  "${SECOND_REPLAY_RUN_ARGS[@]}"
+if [[ "${STUDY}" == "timing" ]]; then
+  python3 -m agentic_experiments.runners.run_work_audit_timing \
+    --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
+    --case-order "${CASE_ORDER}" --pairs "${PAIRS}" --warmup-pairs "${WARMUP_PAIRS}" \
+    --wait-ms "${WAIT_MS}"
+else
+  python3 -m agentic_experiments.runners.run_work_audit_validation \
+    --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" --case-order "${CASE_ORDER}" \
+    --wait-ms "${WAIT_MS}" \
+    "${SECOND_REPLAY_RUN_ARGS[@]}"
+fi
 python3 -m agentic_backends.sglang.trace_contract \
   --adapter v0510 --profile "${TRACE_PROFILE}" \
   --trace "${RUN_ROOT}/backend_trace.jsonl" \
   --out "${RUN_ROOT}/instrumentation_audit.json"
-python3 -m agentic_experiments.runners.analyze_work_audit_validation \
-  --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
-  --harness "${RUN_ROOT}/harness_events.jsonl" --out-dir "${RUN_ROOT}" \
-  "${SECOND_REPLAY_ANALYSIS_ARGS[@]}"
-python3 -m agentic_reports.audits.build_work_audit_block_audit \
-  --trace "${RUN_ROOT}/backend_trace.jsonl" \
-  --harness "${RUN_ROOT}/harness_events.jsonl" \
-  --summary "${RUN_ROOT}/summary.json" --out "${RUN_ROOT}/block_audit.json"
+if [[ "${STUDY}" == "timing" ]]; then
+  SLOT_PROOF_ARGS=()
+  if [[ "${REQUIRE_SLOT_PROOF}" == "1" ]]; then
+    SLOT_PROOF_ARGS+=(--require-slot-proof)
+  fi
+  python3 -m agentic_experiments.runners.analyze_work_audit_timing \
+    --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
+    --harness "${RUN_ROOT}/harness_events.jsonl" \
+    --case-results "${RUN_ROOT}/case_results.json" --out-dir "${RUN_ROOT}" \
+    "${SLOT_PROOF_ARGS[@]}"
+else
+  python3 -m agentic_experiments.runners.analyze_work_audit_validation \
+    --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
+    --harness "${RUN_ROOT}/harness_events.jsonl" --out-dir "${RUN_ROOT}" \
+    "${SECOND_REPLAY_ANALYSIS_ARGS[@]}"
+  python3 -m agentic_reports.audits.build_work_audit_block_audit \
+    --trace "${RUN_ROOT}/backend_trace.jsonl" \
+    --harness "${RUN_ROOT}/harness_events.jsonl" \
+    --summary "${RUN_ROOT}/summary.json" --out "${RUN_ROOT}/block_audit.json"
+fi
 python3 -m agentic_reports.builders.build_work_audit_report \
   --results-dir "${RESULTS_BASE}" --out "${RUN_ROOT}/report.html"
 
@@ -160,17 +214,19 @@ import sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["hardware_profile"])
 PY
 )"
+MANIFEST_ARTIFACTS=(--artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json"
+  --artifact "summary=${RUN_ROOT}/summary.json" --artifact "report=${RUN_ROOT}/report.html")
+if [[ "${STUDY}" == "validation" ]]; then
+  MANIFEST_ARTIFACTS+=(--artifact "block_audit=${RUN_ROOT}/block_audit.json")
+fi
 python3 "${ROOT}/scripts/create_run_manifest.py" \
   --out "${RUN_ROOT}/run_manifest.json" --run-id "${RUN_ID}" \
-  --experiment "agentic_work_audit_validation" --model "${MODEL}" \
+  --experiment "agentic_work_audit_${STUDY}" --model "${MODEL}" \
   --hardware-profile "${HARDWARE_PROFILE}" \
   --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
-  --workload-json "{\"cases\":[\"${CASE_ORDER%-*}\",\"${CASE_ORDER#*-}\"],\"frontend_priority\":\"none\",\"purpose\":\"evidence_validation\",\"replays_per_case\":$((SECOND_REPLAY + 1))}" \
+  --workload-json "{\"cases\":[\"${CASE_ORDER%-*}\",\"${CASE_ORDER#*-}\"],\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"replays_per_case\":$( [[ "${STUDY}" == "timing" ]] && echo 2 || echo $((SECOND_REPLAY + 1)) ),\"pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${PAIRS}" || echo 1 ),\"warmup_pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${WARMUP_PAIRS}" || echo 0 ),\"tool_wait_ms\":${WAIT_MS},\"exact_trace_indices\":$( [[ "${STUDY}" == "timing" ]] && echo "${EXACT_INDICES}" || echo 256 ),\"slot_proof_required\":$( [[ "${STUDY}" == "timing" ]] && [[ "${REQUIRE_SLOT_PROOF}" == "1" ]] && echo true || echo false )}" \
   --instrumentation "v0510_backend_trace" --instrumentation "work_audit_event_join" \
   --instrumentation "logical_block_lifecycle_reuse" --instrumentation "${TRACE_PROFILE}" \
-  --artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json" \
-  --artifact "summary=${RUN_ROOT}/summary.json" \
-  --artifact "block_audit=${RUN_ROOT}/block_audit.json" \
-  --artifact "report=${RUN_ROOT}/report.html" \
+  "${MANIFEST_ARTIFACTS[@]}" \
   --completion-status complete
 echo "Validated: ${RUN_ROOT}/summary.json"

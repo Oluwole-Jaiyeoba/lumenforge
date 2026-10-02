@@ -145,15 +145,122 @@ audit TTFTs. The saved [legacy profile](../reports/instrumentation_overhead_kv_l
 and [lean pump](../reports/instrumentation_overhead_kv_lifecycle_lean_pump_20261002.json)
 measurements contain every trial.
 
+## Paired KV Timing Study
+
+The timing study holds both sessions at equal importance. Each case primes a
+long prefix, proves that its GPU copy was evicted while its host copy remains,
+and then starts a 2-second tool wait. `early` requests and confirms a native
+load during that wait. `late` requests the same kind of load after the tool
+finishes and submits replay as soon as the command is accepted. Both cases
+also have a second tool wait and replay. They use the same model and prompt
+shape, though their session-specific text and GPU state may differ. One
+discarded early/late pair warms the backend before measured pairs.
+
+```bash
+WORK_AUDIT_STUDY=timing WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
+  WORK_AUDIT_CASE_ORDER=early-late WORK_AUDIT_WARMUP_PAIRS=1 \
+  WORK_AUDIT_PAIRS=2 WORK_AUDIT_WAIT_MS=2000 WORK_AUDIT_EXACT_INDICES=4096 \
+  WORK_AUDIT_REQUIRE_SLOT_PROOF=1 \
+  WORK_AUDIT_RUN_ID=work_audit_timing_early_late \
+  bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_STUDY=timing WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
+  WORK_AUDIT_CASE_ORDER=late-early WORK_AUDIT_WARMUP_PAIRS=1 \
+  WORK_AUDIT_PAIRS=2 WORK_AUDIT_WAIT_MS=2000 WORK_AUDIT_EXACT_INDICES=4096 \
+  WORK_AUDIT_REQUIRE_SLOT_PROOF=1 \
+  WORK_AUDIT_RUN_ID=work_audit_timing_late_early \
+  bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The primary latency is **tool completion to first replay token**. It includes
+delay between tool completion and request submission; ordinary replay TTFT
+does not. The summary also records native loaded tokens, when a completed
+CUDA load was observed, task duration, second-replay TTFT, and exact loaded
+GPU slots appearing in the first replay's prefix match. The backend reports
+CUDA completion when polled, so a post-due observation is an upper bound on
+the finish time, not proof that the transfer continued past the due point.
+`comparable=false` suppresses a pair delta when evidence or initial-request
+latency drifts. A late load is a timing *candidate*, not automatically a
+mistake. Repeated order-balanced pairs, matched instrumentation overhead,
+and competing-work costs are needed before calling it avoidable harm.
+
+The normal lean profile samples large tensor indices. This small study raises
+the exact-index limit only so the cache-slot lineage can be checked; it does
+not enable broad scheduler or full-debug tracing. Measure its cost on the
+long-prefix request shape before using absolute TTFT differences:
+
+```bash
+python3 scripts/measure_instrumentation_overhead.py \
+  --image "$SGLANG_DOCKER_IMAGE" --model-cache "$AGENTIC_MODEL_CACHE" \
+  --profile kv_lifecycle_lean --control-only-pump \
+  --workload audit_long_prefix --prompt-tokens 4090 --max-tokens 16 \
+  --wait-ms 2000 --max-exact-indices 4096 --repetitions 2 --order off-on \
+  --mem-fraction-static 0.70 \
+  --out-dir sglang_direct_kv/artifacts/results/work_audit_overhead/off_on
+```
+
+Repeat with `--order on-off` and a different output directory. This
+calibration matches request size and two tool waits but does **not** perform
+native host-KV eviction/load. Its measured latency excludes the fixed tool
+waits. It cannot by itself bound tracing overhead on the explicit load path.
+For lower-overhead timing runs, omit `WORK_AUDIT_EXACT_INDICES` and
+`WORK_AUDIT_REQUIRE_SLOT_PROOF`. That keeps the default 256-index sample and
+reports exact slot lineage as unknown, while still requiring session-linked
+native CUDA completion, layer copies, and replay prefix matches. Do not
+combine the sampled timing and exact-lineage runs as if they had identical
+instrumentation overhead.
+
+### A10G Timing Reference (2026-10-02)
+
+Four order-balanced, warmed runs used the pinned `0.5.10.post1` container,
+`v0510` adapter, 4090-word input shape, 16 output tokens, a 2-second first
+tool wait, and two replays per case. All eight measured pairs passed the
+first-replay evidence and initial-latency comparability gates. Both sessions
+had equal importance; there were no frontend priority hints or competing
+fillers. The first pair in each sampled run had a large second-replay TTFT
+outlier, so its **full-task** delta is withheld even though its first-replay
+delta remains reportable.
+
+| Capture | Case order | Late minus early, tool-return to first token (ms) | Main source of difference |
+| --- | --- | --- | --- |
+| 4096 exact indices | early, late | +226.759, +236.500 | replay submission gap |
+| 4096 exact indices | late, early | +228.737, +228.620 | replay submission gap |
+| 256 sampled indices | early, late | +166.419, +178.118 | replay submission gap |
+| 256 sampled indices | late, early | +170.088, +173.832 | replay submission gap |
+
+In early cases, the controller requested and confirmed the native load during
+the tool wait. In late cases, it requested the load only after the tool
+returned, and the control call delayed replay submission by about 164–177 ms
+with sampled tracing. Once replay was submitted, its TTFT was similar in both
+conditions (sampled late-minus-early differences: -4.178, +0.988, +6.364,
++1.014 ms). Each measured case loaded 4096 tokens. Exact-index runs linked
+2047–2048 loaded GPU slots to the first replay's matched prefix; sampled
+runs report that slot lineage as **unknown**, not zero reuse. [The timing
+table](../../WORK_AUDIT.html) links each pair to its summary and raw evidence.
+
+The exact-index runs measured about 221–236 ms of load-control-call time and
+about 205–216 ms of native CUDA load time, whereas sampled runs measured
+about 164–185 ms and 151–160 ms. That capture setting changes the measured
+path, so the exact-index and sampled numbers are separate views, not pooled
+replicates. A matched three-request/two-wait **request-path-only** calibration
+found `kv_lifecycle_lean` tracing added +4.40% and +4.61% in off/on and on/off
+order at 4096 exact indices, and +4.12% and +4.36% at 256 sampled indices.
+The [four calibration records](../reports/work_audit_overhead/) retain every
+trial. They do **not** measure tracing overhead on native host-KV load-back.
+
+This is evidence of a badly timed *controller command* in this serial replay
+path: issuing load after tool return adds a submission gap. It is not proof
+that SGLang inherently must block, that the model consumed those exact slots,
+or that GPU memory-bandwidth interference caused the delay. A nonblocking
+submission path and concurrent filler requests are separate future tests.
+
 ## Next Phases
 
-1. Validate trace identity and timing on the pinned host, and inspect raw
-   evidence before accepting a summary.
-2. Reuse the existing logical-block ledger for session-linked writes,
-   evictions, and native loads. The pinned trace supports this now; exact
-   physical-block reuse and a complete residency timeline remain future work.
-3. Add a controlled policy comparison with equal work, arrival times, and
-   backend settings. Report measured replay latency and work, alongside
-   separate opportunity estimates with uncertainty and constraints.
+1. Test a nonblocking late-load submission path to see how much of the
+   observed delay is imposed by the current control-call ordering.
+2. Add concurrent, equally important sessions to measure whether preparing
+   one replay early delays other work or simply uses otherwise idle time.
+3. Extend the logical-block ledger toward exact physical-block reuse and a
+   complete residency timeline; matched GPU slots alone do not prove model
+   consumption.
 4. Translate and validate hooks for another SGLang release only after the
    new adapter reproduces the same event contract and fails closed on drift.
