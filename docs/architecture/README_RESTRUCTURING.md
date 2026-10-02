@@ -44,7 +44,7 @@ item is now complete; section 8 records the reference run and outcome.
 **Top-level cleanup (2026-09-23, after the refactor):** the repository root
 keeps only active entry-point documents/reports and directories. The current
 entry points are `README.md`, `HANDOFF.md`, `ARCHITECTURE.md`,
-`CONTROLLER_EXPERIMENTS.html`, and `HINT_BENCHMARK_RUNBOOK.html`. This file
+`CONTROLLER_POLICY_RESULTS.html`, and `HARNESS_SIGNAL_BENCHMARK.html`. This file
 moved to `docs/architecture/` together with
 `ARCHITECTURE_MAP.md`; the hint-benchmark docs moved to `docs/hint_benchmark/`,
 `HARNESS_AWARE_SCENARIOS.md` to `docs/testbeds/`, the five proposal documents
@@ -442,7 +442,7 @@ Compared with `no_prefetch`, `controller_ready_time_gpu_backfill` produced:
 
 The run exercised the end-to-end controller, gateway, SGLang adapter,
 instrumentation, artifact, and report path. See
-[`CONTROLLER_EXPERIMENTS.html`](../../CONTROLLER_EXPERIMENTS.html).
+[`CONTROLLER_POLICY_RESULTS.html`](../../CONTROLLER_POLICY_RESULTS.html).
 
 ---
 

@@ -17,18 +17,18 @@ This repository contains four related but distinct research lanes:
 1. **Controller Policy Results** study how harness knowledge and backend
    observations can improve scheduling, replay deadlines, KV-cache management,
    TTFT, and total workload duration. The human-readable record is
-   [`CONTROLLER_EXPERIMENTS.html`](CONTROLLER_EXPERIMENTS.html).
+   [`CONTROLLER_POLICY_RESULTS.html`](CONTROLLER_POLICY_RESULTS.html).
 2. **Harness Signal Benchmark** determines which signals real harnesses expose, when
    they appear, where they attach, and how to reproduce them. The operator
-   entry point is [`HINT_BENCHMARK_RUNBOOK.html`](HINT_BENCHMARK_RUNBOOK.html).
+   entry point is [`HARNESS_SIGNAL_BENCHMARK.html`](HARNESS_SIGNAL_BENCHMARK.html).
 3. **GPU Interference** measures whether KV movement or
    active GPU compute blocks agentic replay after controlling for software
    queue and submit gaps. Its evidence index is
-   [`HARDWARE_EXPERIMENTS.html`](HARDWARE_EXPERIMENTS.html). Planned cases are
+   [`GPU_INTERFERENCE.html`](GPU_INTERFERENCE.html). Planned cases are
    not hardware results.
 4. **KV Lifecycle Audit** records when reusable cache work occurs across a
    tool wait and replay, then asks whether that timing was useful. Its index is
-   [`WORK_AUDIT.html`](WORK_AUDIT.html). Initial validation proves event
+   [`KV_LIFECYCLE_AUDIT.html`](KV_LIFECYCLE_AUDIT.html). Initial validation proves event
    linkage only; it does not calculate avoidable work or a hardware bottleneck.
 
 Hint-emission evidence is not controller-performance evidence, and a controller

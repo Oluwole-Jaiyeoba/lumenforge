@@ -8,19 +8,19 @@ shared signal catalog, profile and gates; do not install lane-local hooks.
 
 ## Four Research Lanes
 
-- [Harness Signal Benchmark](HINT_BENCHMARK_RUNBOOK.html) records which
+- [Harness Signal Benchmark](HARNESS_SIGNAL_BENCHMARK.html) records which
   native harness signals can be reproduced. It is not performance evidence.
-- [Controller Policy Results](CONTROLLER_EXPERIMENTS.html) records controller
+- [Controller Policy Results](CONTROLLER_POLICY_RESULTS.html) records controller
   protocols and results. Its active equal-importance Scenario 1 is described
   below.
-- [GPU Interference](HARDWARE_EXPERIMENTS.html) tracks controlled GPU
+- [GPU Interference](GPU_INTERFERENCE.html) tracks controlled GPU
   compute and memory-movement experiments. Read
   [`docs/hardware_bottlenecks/README.md`](docs/hardware_bottlenecks/README.md)
   before implementing or running them. Do not interpret controller wins or
   SGLang-visible H2D events as proof of physical GPU saturation. The first
   platform is the accessible standard-NVIDIA remote GPU; GH200 requires a
   separate run and manifest.
-- [KV Lifecycle Audit](WORK_AUDIT.html) tracks when agentic cache work happens.
+- [KV Lifecycle Audit](KV_LIFECYCLE_AUDIT.html) tracks when agentic cache work happens.
   Its lifecycle validation checks event linkage; its paired timing study
   compares early and late KV preparation. See
   [`docs/work_audit/README.md`](docs/work_audit/README.md); do not convert its
@@ -44,7 +44,7 @@ two-mode comparison is `no_prefetch` versus
 `infra/container/run_scenario1_hybrid_reference.sh`. It fails closed unless
 all 32 replay requests per mode have timing evidence and the live gateway trace
 proves no frontend priority signal. The validated run and results are in
-[`CONTROLLER_EXPERIMENTS.html`](CONTROLLER_EXPERIMENTS.html) and
+[`CONTROLLER_POLICY_RESULTS.html`](CONTROLLER_POLICY_RESULTS.html) and
 [`docs/reports/scenario1_equal_importance_20260928.html`](docs/reports/scenario1_equal_importance_20260928.html).
 Older front-end priority and target-versus-filler experiments remain historical
 evidence only; do not use their commands as the current Scenario 1 protocol.
@@ -137,7 +137,7 @@ before changing any controller or harness code. It preserves the approved
 hybrid boundary: host-native harnesses/controller, containerized SGLang.
 
 Before proposing or launching a controller experiment, read
-[`CONTROLLER_EXPERIMENTS.html`](CONTROLLER_EXPERIMENTS.html). Its structured
+[`CONTROLLER_POLICY_RESULTS.html`](CONTROLLER_POLICY_RESULTS.html). Its structured
 source is `configs/controller_experiment_registry.json`. The registry records each
 experiment's priority contract, isolated controller capability, workload
 contract, result, and validity status. Do not compare runs with different

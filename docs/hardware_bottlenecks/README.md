@@ -4,7 +4,7 @@ This is the third research lane. It measures where GPU compute and memory
 movement delay agentic replays before proposing hardware changes. It is not a
 controller-mode comparison or evidence that a harness natively emits a hint.
 
-The entry point is [`HARDWARE_EXPERIMENTS.html`](../../HARDWARE_EXPERIMENTS.html).
+The entry point is [`GPU_INTERFERENCE.html`](../../GPU_INTERFERENCE.html).
 Its source of truth is `configs/hardware_experiment_registry.json`; rebuild the
 page with `python3 scripts/build_hardware_experiments.py`. Planned cases contain
 no measured outcome. A measured entry requires a reproducible command, a run
@@ -98,7 +98,7 @@ the largest evicted, host-backed segment. It fails rather than falling back to
 a tiny leaf when that segment is below `MINIMUM_HOST_TOKENS`. The command writes
 its report under
 `sglang_direct_kv/artifacts/results/hardware/$REPORT_LABEL/`. Do not promote a
-result to `HARDWARE_EXPERIMENTS.html` until its report shows accepted prepared
+result to `GPU_INTERFERENCE.html` until its report shows accepted prepared
 loads and the paired run manifest is complete.
 
 `MIN_LOAD_TOKENS=1` is retained only for a diagnostic small-copy mechanism

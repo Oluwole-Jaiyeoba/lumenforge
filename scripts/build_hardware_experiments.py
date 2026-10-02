@@ -221,7 +221,7 @@ code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
 </style></head><body><main>
 <h1>{escape(registry['title'])}</h1>
 <p class="intro">A separate research lane measuring GPU and memory bottlenecks before proposing hardware changes. Planned cases are not results. This page is generated from a structured registry.</p>
-<nav aria-label="Project lanes"><a href="CONTROLLER_EXPERIMENTS.html">Controller Policy Results</a><a href="HINT_BENCHMARK_RUNBOOK.html">Harness Signal Benchmark</a><a href="ARCHITECTURE.md">Architecture</a></nav>
+<nav aria-label="Project lanes"><a href="CONTROLLER_POLICY_RESULTS.html">Controller Policy Results</a><a href="HARNESS_SIGNAL_BENCHMARK.html">Harness Signal Benchmark</a><a href="ARCHITECTURE.md">Architecture</a></nav>
 {results_ledger}
 </main></body></html>"""
 
@@ -229,7 +229,7 @@ code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--registry", type=Path, default=ROOT / "configs/hardware_experiment_registry.json")
-    parser.add_argument("--out", type=Path, default=ROOT / "HARDWARE_EXPERIMENTS.html")
+    parser.add_argument("--out", type=Path, default=ROOT / "GPU_INTERFERENCE.html")
     parser.add_argument("--check", action="store_true", help="Fail if the generated HTML is stale")
     args = parser.parse_args()
     registry = json.loads(args.registry.read_text(encoding="utf-8"))

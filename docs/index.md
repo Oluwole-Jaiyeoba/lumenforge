@@ -11,10 +11,10 @@ human-readable workstream entry points. Supporting documentation lives under
 - [Project overview](project/overview.md)
 - [SGLang-portability restructuring](architecture/README_RESTRUCTURING.md) -- read before changing code
 - [Architecture map](architecture/ARCHITECTURE_MAP.md)
-- [Controller Policy Results](../CONTROLLER_EXPERIMENTS.html)
-- [Harness Signal Benchmark](../HINT_BENCHMARK_RUNBOOK.html)
-- [GPU Interference](../HARDWARE_EXPERIMENTS.html)
-- [KV Lifecycle Audit](../WORK_AUDIT.html)
+- [Controller Policy Results](../CONTROLLER_POLICY_RESULTS.html)
+- [Harness Signal Benchmark](../HARNESS_SIGNAL_BENCHMARK.html)
+- [GPU Interference](../GPU_INTERFERENCE.html)
+- [KV Lifecycle Audit](../KV_LIFECYCLE_AUDIT.html)
 
 ## Architecture (`docs/architecture/`)
 
@@ -41,18 +41,18 @@ human-readable workstream entry points. Supporting documentation lives under
 
 - [Hint benchmarking suite](hint_benchmark/HINT_BENCHMARKING_SUITE.md)
 - [Harness Signal Benchmark source](hint_benchmark/HINT_BENCHMARK_RUNBOOK.md)
-- [Harness Signal Benchmark](../HINT_BENCHMARK_RUNBOOK.html)
+- [Harness Signal Benchmark](../HARNESS_SIGNAL_BENCHMARK.html)
 - [Hint signal findings](hint_benchmark/HINT_SIGNAL_FINDINGS.md)
 
 ## GPU Interference (`docs/hardware_bottlenecks/`)
 
-- [GPU Interference](../HARDWARE_EXPERIMENTS.html)
+- [GPU Interference](../GPU_INTERFERENCE.html)
 - [Measurement protocol and package boundaries](hardware_bottlenecks/README.md)
 
 ## KV Lifecycle Audit (`docs/work_audit/`)
 
 - [Validation protocol and package boundaries](work_audit/README.md)
-- [Live validation index](../WORK_AUDIT.html)
+- [Live validation index](../KV_LIFECYCLE_AUDIT.html)
 
 ## Packages (`docs/packages/`, `docs/compatibility/`)
 

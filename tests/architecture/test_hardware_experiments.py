@@ -22,7 +22,7 @@ def registry() -> dict[str, object]:
 def test_page_is_current_and_registry_is_valid() -> None:
     data = registry()
     validate_registry(data)
-    assert (ROOT / "HARDWARE_EXPERIMENTS.html").read_text(encoding="utf-8") == build(data)
+    assert (ROOT / "GPU_INTERFERENCE.html").read_text(encoding="utf-8") == build(data)
     page = build(data)
     assert "Collision Impact Summary" in page
     assert "Reference Results" not in page
@@ -39,11 +39,11 @@ def test_date_only_run_ids_sort_and_render_correctly() -> None:
 
 
 def test_top_level_navigation_and_handoff_are_wired() -> None:
-    page = (ROOT / "HARDWARE_EXPERIMENTS.html").read_text(encoding="utf-8")
-    assert 'href="CONTROLLER_EXPERIMENTS.html"' in page
-    assert 'href="HINT_BENCHMARK_RUNBOOK.html"' in page
+    page = (ROOT / "GPU_INTERFERENCE.html").read_text(encoding="utf-8")
+    assert 'href="CONTROLLER_POLICY_RESULTS.html"' in page
+    assert 'href="HARNESS_SIGNAL_BENCHMARK.html"' in page
     for path in ("README.md", "HANDOFF.md", "ARCHITECTURE.md", "docs/index.md"):
-        assert "HARDWARE_EXPERIMENTS.html" in (ROOT / path).read_text(encoding="utf-8")
+        assert "GPU_INTERFERENCE.html" in (ROOT / path).read_text(encoding="utf-8")
 
 
 def test_planned_case_cannot_claim_results() -> None:

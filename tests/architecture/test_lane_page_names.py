@@ -6,10 +6,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LANES = {
-    "HINT_BENCHMARK_RUNBOOK.html": "Harness Signal Benchmark",
-    "CONTROLLER_EXPERIMENTS.html": "Controller Policy Results",
-    "HARDWARE_EXPERIMENTS.html": "GPU Interference",
-    "WORK_AUDIT.html": "KV Lifecycle Audit",
+    "HARNESS_SIGNAL_BENCHMARK.html": "Harness Signal Benchmark",
+    "CONTROLLER_POLICY_RESULTS.html": "Controller Policy Results",
+    "GPU_INTERFERENCE.html": "GPU Interference",
+    "KV_LIFECYCLE_AUDIT.html": "KV Lifecycle Audit",
 }
 
 

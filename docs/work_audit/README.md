@@ -15,7 +15,7 @@ benchmark, controller comparison, and hardware bottleneck lanes.
   translator and tests; unknown hooks must fail the gate.
 - `packages/agentic-experiments/.../run_work_audit_validation.py` runs the
   small validation. `packages/agentic-reports/.../build_work_audit_report.py`
-  builds the top-level `WORK_AUDIT.html` index from saved summaries.
+  builds the top-level `KV_LIFECYCLE_AUDIT.html` index from saved summaries.
 - The imported `hicache_audit.zip` is reference material, not an installed
   plugin. Its proposed UnifiedRadixCache hooks are not assumed to exist in
   SGLang 0.5.10.post1.
@@ -235,7 +235,7 @@ conditions (sampled late-minus-early differences: -4.178, +0.988, +6.364,
 +1.014 ms). Each measured case loaded 4096 tokens. Exact-index runs linked
 2047–2048 loaded GPU slots to the first replay's matched prefix; sampled
 runs report that slot lineage as **unknown**, not zero reuse. [The timing
-table](../../WORK_AUDIT.html) links each pair to its summary and raw evidence.
+table](../../KV_LIFECYCLE_AUDIT.html) links each pair to its summary and raw evidence.
 
 The exact-index runs measured about 221–236 ms of load-control-call time and
 about 205–216 ms of native CUDA load time, whereas sampled runs measured

@@ -158,7 +158,7 @@ equal-importance validator confirmed 32 replays per mode with no frontend
 priority. Its total replay TTFT was 99.79 s (no prefetch) versus 67.65 s
 (controller), and total deadline debt was 231.05 s versus 162.22 s. These
 remain run-to-run measurements, not byte-identical timing; see
-`CONTROLLER_EXPERIMENTS.html` for the archived report and reproduction command.
+`CONTROLLER_POLICY_RESULTS.html` for the archived report and reproduction command.
 The saved work-audit trace also passed the shared `kv_lifecycle` gate (three
 semantic loads, 56 layer-copy rows, and 57 prefix matches). Re-analyzing that
 trace produced the same validation summary after excluding only source-file
@@ -241,6 +241,6 @@ the before-decode case had 56 donor layer-copy records before decode and none
 during it; the direct-overlap case had 56 during the client-visible decode
 window. Decode durations were 42.671 s (control), 43.349 s (reload before),
 and 43.361 s (reload during), one trial each. The 12 ms difference between
-reload timings is not a reliable slowdown estimate. The [hardware ledger](HARDWARE_EXPERIMENTS.html)
+reload timings is not a reliable slowdown estimate. The [hardware ledger](GPU_INTERFERENCE.html)
 and [archived summary](docs/reports/hardware/shared_evidence_live_20261002/sustained_decode_kv_overlap_summary.json)
 record the measurements and their proof limits.
