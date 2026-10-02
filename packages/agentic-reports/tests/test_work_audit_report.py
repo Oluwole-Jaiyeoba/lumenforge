@@ -64,7 +64,7 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
         "Host backups", "GPU evictions", "Session resumes", "HBM occupancy", "GPU time",
     ))
     assert "not yet graded" in page
-    assert "competing-session cost unmeasured" in page
+    assert "natural capacity effects remain unmeasured" in page
     assert "<th>Date</th><th>Time (UTC)</th>" in page
     assert page.index("second</small>") < page.index("first</small>")
     assert "14:30:02" in page and "14:30:01" in page
@@ -226,3 +226,24 @@ def test_multisession_report_keeps_observation_separate_from_avoidability():
     assert "Load requested after tool return" in page
     assert "unknown: no same-capacity counterfactual" in page
     assert "WORK_AUDIT_STUDY=multisession" in page
+
+
+def test_concurrent_comparison_shows_both_session_effects_and_reproduction():
+    manifest = _manifest(("late_nonblocking", "early"))
+    manifest["workload"].update({"pairs": 2, "short_wait_ms": 900,
+                                 "long_wait_ms": 2500, "early_at_ms": 1200,
+                                 "prompt_words_target": 4090})
+    summary = {
+        "schema": "agentic_work_audit.multisession_comparison.v1",
+        "run_id": "compare", "status": "validated", "_manifest": manifest,
+        "comparable_pairs": 2, "median_long_due_to_token_saved_ms": 150,
+        "pairs": [{"pair": 1, "comparable": True, "long_due_to_token_saved_ms": 140,
+                   "short_due_to_finish_change_ms": 8, "workflow_makespan_saved_ms": 50}],
+    }
+    page = render([(Path("runs/compare/summary.json"), summary)])
+    assert "Concurrent early vs late" in page
+    assert "long replay 150.0 ms faster" in page
+    assert "Short completion change" in page
+    assert "8.0 ms" in page
+    assert "WORK_AUDIT_STUDY=multisession_compare" in page
+    assert "WORK_AUDIT_EARLY_AT_MS=1200" in page

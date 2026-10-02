@@ -2,12 +2,26 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ5",
+      "short_question": "Does early loading help the whole shared system?",
+      "evidence_date_utc": "2026-10-02",
+      "question": "With equal-importance sessions and the same logical two-prefix budget, does loading during the wait help the returning session without delaying another session or the whole workflow?",
+      "answer": "In two warmed, order-balanced A10G pairs, early loading moved the long replay first token forward by 201 and 513 ms and shortened workflow completion by 212 and 503 ms. The short session finished 178 and 195 ms later. This is a measured tradeoff, not a no-cost win.",
+      "unknown": "The short-session delay is not attributed to GPU bandwidth versus backend scheduling. The two-prefix cap was an explicit logical policy, not measured physical occupancy or natural capacity pressure. Two synthetic pairs do not establish a production-wide benefit.",
+      "evidence_run_ids": [
+        "work_audit_concurrent_compare_20261002_02"
+      ],
+      "related_run_ids": [
+        "work_audit_concurrent_compare_20261002_02"
+      ]
+    },
+    {
       "id": "RQ4",
       "short_question": "What happens when equal-importance sessions overlap?",
       "evidence_date_utc": "2026-10-02",
       "question": "Can a small, equal-importance, concurrent workload link tool waits, one controlled host eviction/load, replays, and an ending session?",
       "answer": "Yes. The three-session A10G trace passed the identity and ordering gates. The 900 ms and 2500 ms tool waits overlapped; the long session was explicitly evicted to host, loaded, and replayed; the third session ended without replay.",
-      "unknown": "The eviction enforced a synthetic two-prefix policy, not natural capacity pressure. Different-session TTFTs do not prove a causal eviction penalty, and avoidable work needs a matched same-capacity counterfactual.",
+      "unknown": "The eviction enforced a synthetic two-prefix policy, not natural capacity pressure. Different-session TTFTs do not prove a causal eviction penalty; RQ5 supplies the separate matched timing comparison.",
       "evidence_run_ids": [
         "work_audit_multisession_20261002_01"
       ],
@@ -35,7 +49,7 @@
       "evidence_date_utc": "2026-10-02",
       "question": "In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?",
       "answer": "In these sampled runs, yes: late preparation added 166-178 ms across four comparable pairs. Most of that difference occurred before replay submission.",
-      "unknown": "How much remains with a nonblocking control call, and whether preparing early delays other sessions. These runs do not establish a production or hardware benefit.",
+      "unknown": "The sequential runs did not test competing-session cost; RQ5 now measures that separately under explicit logical capacity. Neither result establishes a production or hardware benefit.",
       "evidence_run_ids": [
         "work_audit_timing_sampled_early_late_20261002",
         "work_audit_timing_sampled_late_early_20261002"

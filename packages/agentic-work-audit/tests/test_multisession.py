@@ -1,5 +1,5 @@
 from agentic_work_audit.events import AuditEvent
-from agentic_work_audit.multisession import analyze_multisession
+from agentic_work_audit.multisession import analyze_multisession, compare_multisession_pairs
 
 
 def event(kind, tick, label="", request="", **evidence):
@@ -24,10 +24,12 @@ def sample():
         event("device_evict_proof", 5, "long", "initial"),
         event("host_resident_proof", 6, "long", "initial"),
         event("session_end", 7, "ends", "initial"),
+        event("ended_prefix_evict_proof", 7, "ends", "initial", evicted_tokens=512),
         event("tool_end", 8, "short", "initial"),
         event("replay_sent", 9, "short", "replay"),
         event("cache_match", 10, "short", "replay", cached_prefix_tokens=512),
         event("replay_first_token", 11, "short", "replay"),
+        event("replay_finished", 12, "short", "replay"),
         event("tool_end", 13, "long", "initial"),
         event("load_requested", 14, "long", "initial"),
         event("replay_sent", 15, "long", "replay"),
@@ -36,9 +38,11 @@ def sample():
         event("load_complete", 18, "long", "initial"),
         event("cache_match", 19, "long", "replay", cached_prefix_tokens=256),
         event("replay_first_token", 20, "long", "replay"),
+        event("replay_finished", 21, "long", "replay"),
         event("replay_2_sent", 22, "long", "replay-2"),
         event("cache_match", 23, "long", "replay-2", cached_prefix_tokens=512),
         event("replay_2_first_token", 24, "long", "replay-2"),
+        event("replay_2_finished", 25, "long", "replay-2"),
     ]
 
 
@@ -70,3 +74,50 @@ def test_multisession_rejects_frontend_importance():
     result = analyze_multisession(rows, "run", expected_runtime=("0.5.10.post1", "v0510"))
     assert result["status"] == "failed"
     assert any("importance" in failure for failure in result["failures"])
+
+
+def test_early_case_requires_load_completion_before_tool_return_and_released_slot():
+    rows = [row for row in sample() if row.kind not in (
+        "load_requested", "load_accepted", "layer_copy", "load_complete")]
+    rows += [event("load_requested", 9, "long", "initial"),
+             event("load_accepted", 10, "long", "initial"),
+             event("layer_copy", 11, "long", "initial"),
+             event("load_complete", 12, "long", "initial")]
+    result = analyze_multisession(rows, "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                  condition="early", require_end_eviction=True)
+    assert result["status"] == "validated"
+    assert result["sessions"]["long"]["load_requested_after_tool_return"] is False
+    assert result["load_overlapped_short_request"]
+    without_release = [row for row in rows if row.kind != "ended_prefix_evict_proof"]
+    rejected = analyze_multisession(without_release, "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                    condition="early", require_end_eviction=True)
+    assert rejected["status"] == "failed"
+    assert any("released" in failure for failure in rejected["failures"])
+
+
+def test_pair_comparison_reports_other_session_cost_separately():
+    late = analyze_multisession(sample(), "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                require_end_eviction=True)
+    early = {**late, "load_timing": "early", "run_id": "early",
+             "load_overlapped_short_request": True,
+             "sessions": {"short": {**late["sessions"]["short"], "completion_after_tool_ms": 10},
+                          "long": {**late["sessions"]["long"], "first_token_after_tool_ms": 4}},
+             "workflow_makespan_ms": late["workflow_makespan_ms"] - 3}
+    late["pair"] = early["pair"] = 1
+    result = compare_multisession_pairs([late, early], "study")
+    assert result["status"] == "validated"
+    assert result["pairs"][0]["long_due_to_token_saved_ms"] == 3
+    assert result["pairs"][0]["short_due_to_finish_change_ms"] == 6
+    assert result["pairs"][0]["workflow_makespan_saved_ms"] == 3
+
+
+def test_pair_comparison_rejects_cold_start_drift():
+    late = analyze_multisession(sample(), "run", expected_runtime=("0.5.10.post1", "v0510"),
+                                require_end_eviction=True)
+    early = {**late, "load_timing": "early", "run_id": "early", "initial_phase_ms": 4000,
+             "load_overlapped_short_request": True}
+    late["pair"] = early["pair"] = 1
+    result = compare_multisession_pairs([late, early], "study")
+    assert result["status"] == "failed"
+    assert result["comparable_pairs"] == 0
+    assert any("initial phases differ" in reason for reason in result["pairs"][0]["reasons"])

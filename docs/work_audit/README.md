@@ -351,19 +351,57 @@ and completion were observed at 177.544 and 179.370 ms after tool return.
 Its second replay had a request-linked prefix match. These two latencies are from **different
 sessions** and do not measure the causal effect of eviction. The observed
 late load request is a plausible timing opportunity, not a proven mistake.
-Avoidable work remains unknown until an early-load comparison repeats the
-same concurrency and capacity policy. Backend cache-match events are not a
+At the time of this run, avoidable work was unknown; RQ5 now supplies an
+early-load comparison under the same logical capacity policy. Backend cache-match events are not a
 GPU-utilization trace, and a matched prefix does not prove exact kernel use.
+
+## Matched Concurrent Timing Comparison
+
+RQ5 changes only when the long session's host-backed KV is loaded. Each case
+starts three equally important sessions with 900 ms and 2500 ms tool waits.
+The long prefix is evicted to host; the session that ends releases its device
+prefix in **both** modes, preserving a logical two-prefix budget. In the
+early mode the long prefix is reloaded 1200 ms after tool-wait start, while
+the short replay can still be active. In late mode the load is launched at
+the long tool return without waiting for its control response before replay.
+One warmup pair is discarded, then two measured pairs run in alternating
+order on the same pinned backend. The analysis rejects a measured pair if
+its initial phases differ substantially.
+
+```bash
+WORK_AUDIT_STUDY=multisession_compare WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
+  WORK_AUDIT_CASE_ORDER=late_nonblocking-early WORK_AUDIT_PAIRS=2 \
+  WORK_AUDIT_WARMUP_PAIRS=1 \
+  WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=2500 \
+  WORK_AUDIT_EARLY_AT_MS=1200 \
+  WORK_AUDIT_RUN_ID=work_audit_concurrent_compare_$(date +%Y%m%d_%H%M%S) \
+  bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The summary reports long replay due-to-first-token, short replay completion,
+and total workflow time separately. A comparison is withheld if either
+case lacks native load, host residency, released-slot, or replay cache-match
+proof. The two-prefix rule is an explicit test policy, **not** proof of
+physical GPU occupancy or natural memory pressure. Different cases use
+equal-shape, session-specific prompts rather than byte-identical prefixes.
+
+The [archived A10G comparison](../reports/work_audit/work_audit_concurrent_compare_20261002_02/summary.json)
+discarded one warmup pair and validated both measured pairs. Early loading
+reduced the long replay's tool-return-to-first-token time by 200.7 and
+512.7 ms, and reduced whole-workflow completion by 211.9 and 502.8 ms.
+The short session's completion was 178.2 and 194.5 ms slower, even though
+its first-token timing changed little. In both early cases, the load overlapped
+the short request's lifetime. This proves a controlled tradeoff, not whether
+the short-session delay came from GPU bandwidth, backend scheduling, or both.
+The result is too small and synthetic to establish a universal policy win.
 
 ## Next Phases
 
 1. Repeat the nonblocking control in reverse order and with more pairs to
    assess run-to-run variation and the placement of native load acceptance.
-2. Repeat the concurrent timeline with early preparation under the **same**
-   session arrivals and two-prefix budget. Measure whether moving the load
-   helps the long replay or delays the short session's work. This is the
-   policy-relevant comparison suggested by Scenario 1's ready-time signals;
-   no task receives frontend semantic priority.
+2. RQ5 now measures both sessions' costs under a logical two-prefix budget.
+   Test natural capacity pressure only when the current scheduling tradeoff
+   has been understood; no task receives frontend semantic priority.
 3. Extend the logical-block ledger toward exact physical-block reuse and a
    complete residency timeline; matched GPU slots alone do not prove model
    consumption.

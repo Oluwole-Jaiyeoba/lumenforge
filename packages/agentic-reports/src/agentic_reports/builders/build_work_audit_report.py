@@ -21,6 +21,12 @@ def _ms(value: object) -> str:
     return f"{value:.1f} ms" if isinstance(value, (int, float)) else "not recorded"
 
 
+def _direction(value: object, positive: str, negative: str) -> str:
+    if not isinstance(value, (int, float)):
+        return "not recorded"
+    return f"{abs(value):.1f} ms {positive if value >= 0 else negative}"
+
+
 def _first_request_ns(path: Path) -> int | None:
     for filename in ("harness_events.jsonl", "normalized_events.jsonl"):
         events = path.with_name(filename)
@@ -70,6 +76,27 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
         (name for name in manifest.get("enabled_instrumentation") or [] if name.startswith("kv_lifecycle")),
         None,
     )
+    if summary.get("schema") == "agentic_work_audit.multisession_comparison.v1":
+        brief = (f"3 equal-importance sessions · {_esc(workload.get('pairs'))} measured pair(s) · "
+                 f"{_esc(workload.get('short_wait_ms'))} / {_esc(workload.get('long_wait_ms'))} ms waits")
+        detail = (
+            f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
+            f"{_esc(manifest.get('model'))}; SGLang {_esc(manifest.get('backend_version'))}; "
+            f"trace {_esc(profile)}. Each case started three equal-importance sessions; "
+            "two waited for tools and one ended. The long prefix was explicitly evicted to host. "
+            "The ended session's prefix was released in both modes before an early load, "
+            "enforcing a logical two-prefix budget. Only load timing changed: late control "
+            "submitted at tool return without blocking replay, or early control submitted "
+            f"at {_esc(workload.get('early_at_ms'))} ms during the long tool wait. "
+            f"{_esc(workload.get('warmup_pairs'))} warmup pair(s) were excluded. "
+            "Condition order reversed on alternate trials. "
+            f"Prompt target: {_esc(workload.get('prompt_words_target'))} words; "
+            f"output cap: {_esc(workload.get('max_output_tokens'))} tokens; "
+            f"host cache: {_esc(workload.get(CACHE_SIZE_FIELD))} GB; "
+            f"GPU memory fraction: {_esc(workload.get('mem_fraction_static'))}. "
+            "The logical cap is not a measurement of physical GPU occupancy."
+        )
+        return brief, detail
     if summary.get("schema") == "agentic_work_audit.multisession.v1":
         brief = (f"3 concurrent sessions · {_esc(workload.get('short_wait_ms'))} / "
                  f"{_esc(workload.get('long_wait_ms'))} ms tool waits")
@@ -117,6 +144,28 @@ def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     cases = workload.get("cases") or []
+    if summary.get("schema") == "agentic_work_audit.multisession_comparison.v1":
+        settings = {
+            "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+            "WORK_AUDIT_STUDY": "multisession_compare",
+            "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
+            "WORK_AUDIT_CASE_ORDER": "-".join(map(str, cases)),
+            "WORK_AUDIT_PAIRS": workload.get("pairs"),
+            "WORK_AUDIT_WARMUP_PAIRS": workload.get("warmup_pairs"),
+            "WORK_AUDIT_SHORT_WAIT_MS": workload.get("short_wait_ms"),
+            "WORK_AUDIT_LONG_WAIT_MS": workload.get("long_wait_ms"),
+            "WORK_AUDIT_EARLY_AT_MS": workload.get("early_at_ms"),
+            "WORK_AUDIT_PROMPT_WORDS": workload.get("prompt_words_target"),
+            "WORK_AUDIT_MAX_OUTPUT_TOKENS": workload.get("max_output_tokens"),
+            "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
+            "WORK_AUDIT_EVICTION_ROUNDS": workload.get("eviction_rounds"),
+            "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
+            "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
+        }
+        prefix = " ".join(f"{key}={value}" for key, value in settings.items() if value is not None)
+        command = f"{prefix} bash infra/container/run_work_audit_validation.sh {manifest.get('model') or '<model>'}"
+        return ("<p><strong>Reconstructed command.</strong> Configure the image and model cache on the target host.</p>"
+                f"<pre><code>{_esc(command)}</code></pre>")
     if summary.get("schema") == "agentic_work_audit.multisession.v1":
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
@@ -271,6 +320,38 @@ def _multisession_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
+def _multisession_comparison_result(summary: dict) -> tuple[str, str]:
+    count = summary.get("comparable_pairs") or 0
+    total = len(summary.get("pairs") or [])
+    headline = (f"{count}/{total} matched pairs · long replay "
+                f"{_direction(summary.get('median_long_due_to_token_saved_ms'), 'faster', 'slower')}; "
+                f"short completion {_direction(summary.get('median_short_due_to_finish_change_ms'), 'slower', 'faster')}; "
+                f"workflow {_direction(summary.get('median_workflow_makespan_saved_ms'), 'faster', 'slower')}")
+    rows = []
+    for pair in summary.get("pairs") or []:
+        rows.append(
+            f"<tr><td>{_esc(pair.get('pair'))}</td>"
+            f"<td>{_ms(pair.get('early_long_due_to_token_ms'))}</td>"
+            f"<td>{_ms(pair.get('late_long_due_to_token_ms'))}</td>"
+            f"<td>{_ms(pair.get('long_due_to_token_saved_ms'))}</td>"
+            f"<td>{_ms(pair.get('short_due_to_finish_change_ms'))}</td>"
+            f"<td>{_ms(pair.get('workflow_makespan_saved_ms'))}</td>"
+            f"<td>{_esc('; '.join(pair.get('reasons') or []) or 'passed')}</td></tr>"
+        )
+    detail = (
+        "<p><strong>Measured tradeoff.</strong> Positive long-replay and workflow savings favor "
+        "early loading. Positive short-session change means early loading slowed that session. "
+        "The two load schedules use equal frontend importance and the same logical cache budget.</p>"
+        "<div class='detail-scroll'><table class='pair-table'><thead><tr>"
+        "<th>Pair</th><th>Long early due→token</th><th>Long late due→token</th>"
+        "<th>Long saving</th><th>Short completion change</th><th>Workflow saving</th>"
+        "<th>Evidence gate</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+        "<p><strong>Limit.</strong> This is a synthetic matched policy comparison with explicit "
+        "evictions. It does not prove natural capacity pressure or production avoidability.</p>"
+    )
+    return headline, detail
+
+
 def _question_index(milestones: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
     by_id: dict[str, dict] = {}
     by_run: dict[str, str] = {}
@@ -301,9 +382,12 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
             else:
                 evidence.append(f"{_esc(run)} (not archived here)")
         question_id = str(milestone.get("id") or "")
+        evidence_date = milestone.get("evidence_date_utc")
+        evidence_label = (f"Evidence through {_esc(evidence_date)} UTC" if evidence_date and
+                          evidence_date != "pending" else "Evidence pending")
         rows.append(
             f"<tr id='rq-{_esc(quote(question_id, safe=''))}'><td data-label='Question'>"
-            f"<small>{_esc(question_id)} · Evidence through {_esc(milestone.get('evidence_date_utc'))} UTC</small>"
+            f"<small>{_esc(question_id)} · {evidence_label}</small>"
             f"{_esc(milestone.get('question'))}</td>"
             f"<td data-label='Answer supported by evidence'>{_esc(milestone.get('answer'))}"
             f"<small>Supporting runs: {' · '.join(evidence) if evidence else 'not recorded'}</small></td>"
@@ -326,8 +410,10 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         _, date, time, source = _time(summary)
         timing = summary.get("schema") == "agentic_work_audit.timing.v1"
         multisession = summary.get("schema") == "agentic_work_audit.multisession.v1"
+        comparison = summary.get("schema") == "agentic_work_audit.multisession_comparison.v1"
         run = str(summary.get("run_id") or path.parent.name)
-        kind = "Concurrent timeline" if multisession else "Early vs late" if timing else "Lifecycle validation"
+        kind = ("Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
+                else "Early vs late" if timing else "Lifecycle validation")
         manifest_question_id = ((summary.get("_manifest") or {}).get("workload") or {}).get("research_question_id")
         archived_question_id = run_questions.get(run)
         if manifest_question_id and archived_question_id and manifest_question_id != archived_question_id:
@@ -335,6 +421,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         question_id = manifest_question_id or archived_question_id
         milestone = questions.get(question_id)
         fallback_question = (
+            "Under the same logical cache budget, does early preparation help the returning "
+            "session without delaying another session?" if comparison else
             "When differently timed but equally important agent sessions overlap, which cache events "
             "happen before or after each replay becomes ready?" if multisession else
             "Does loading host KV during the tool wait reduce tool-return-to-first-token time "
@@ -349,7 +437,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             f'{" (" + _esc(question_id) + ")" if question_id else ""}</span>'
         )
         setup, method = _setup(summary, timing)
-        result, findings = (_multisession_result(summary) if multisession else
+        result, findings = (_multisession_comparison_result(summary) if comparison else
+                            _multisession_result(summary) if multisession else
                             _timing_result(summary) if timing else _lifecycle_result(summary))
         status = str(summary.get("status") or "unknown")
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
@@ -420,11 +509,11 @@ body{padding:16px 10px 40px}.detail{min-width:300px}.scope li{grid-template-colu
 <h2>Five audit ledgers</h2><ul class="scope">
 <li><strong>Host backups</strong><span>Host residency and load-back observed; useful versus insurance versus wasted backup not yet graded.</span></li>
 <li><strong>GPU evictions</strong><span>Forced eviction observed; capacity necessity and avoidability not yet graded.</span></li>
-<li><strong>Session resumes</strong><span>Partial live timing evidence for prepared-during-wait versus after-wait load; competing-session cost unmeasured.</span></li>
+<li><strong>Session resumes</strong><span>Controlled early/late timing and a small concurrent tradeoff measured; natural capacity effects remain unmeasured.</span></li>
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """
-<p class="intro">One row per saved experiment, newest first. The research-question link opens the corresponding answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Timing runs compare early and late host-KV preparation. Lifecycle runs check that cache events can be linked to a replay; their TTFTs are not a policy win.</p>
+<p class="intro">One row per saved experiment, newest first. The research-question link opens the corresponding answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Timing runs compare early and late host-KV preparation; concurrent runs also show the other session's cost. Lifecycle runs check that cache events can be linked to a replay; their TTFTs are not a policy win.</p>
 <div class="table-scroll"><table><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
 </body></html>"""
 
