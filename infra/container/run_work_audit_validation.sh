@@ -65,8 +65,12 @@ echo "Starting pinned backend for ${RUN_ID}"
   cd "${DIRECT_ROOT}"
   export AGENTIC_KV_TRACE_ENABLE=1
   export AGENTIC_KV_TRACE_PATH="${RUN_ROOT}/backend_trace.jsonl"
-  export AGENTIC_KV_TRACE_SCHEDULER=1
-  export AGENTIC_KV_TRACE_KV_POOL=0
+  profile_values="$(python3 -m agentic_backends.sglang.instrumentation_profiles kv_lifecycle --shell)"
+  while IFS='=' read -r name value; do
+    [[ -z "${name}" || "${name}" == *_DEFAULT ]] && continue
+    printf -v "${name}" '%s' "${!name:-${value}}"
+    export "${name}"
+  done <<< "${profile_values}"
   export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
   export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
   export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
@@ -89,6 +93,23 @@ until curl -fsS http://127.0.0.1:30000/v1/models >/dev/null 2>&1; do
   fi
   sleep 2
 done
+
+python3 - "${RUN_ROOT}/backend_trace.jsonl" <<'PY'
+import json
+import sys
+from pathlib import Path
+from agentic_backends.sglang.instrumentation_profiles import validate_installation
+
+path = Path(sys.argv[1])
+with path.open(encoding="utf-8") as handle:
+    summaries = [row for line in handle if (row := json.loads(line)).get("event") == "trace.install.summary"]
+if not summaries:
+    raise SystemExit("Work-audit gate failed: missing backend hook installation summary")
+result = validate_installation("kv_lifecycle", "v0510", summaries[-1])
+if not result["valid"]:
+    raise SystemExit(f"Work-audit gate failed: {json.dumps(result['missing'])}")
+print("Work-audit lifecycle hooks installed")
+PY
 
 python3 -m agentic_experiments.runners.run_work_audit_validation \
   --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}"

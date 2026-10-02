@@ -51,6 +51,7 @@ The portable package split is implemented and enforced by architecture tests:
 | `agentic-reports` | Normalized analysis, audits, and report generation. |
 | `agentic-hardware-probes` | Backend-neutral paired-measurement contracts for controlled hardware studies. |
 | `agentic-work-audit` | Backend-neutral work timeline and conservative evidence grading. |
+| `agentic-instrumentation` | Shared signal catalog, event schema, trace profiles, and evidence checks for all lanes. |
 
 The dependency direction is:
 
@@ -67,6 +68,9 @@ agentic-hardware-probes compares matched timing samples; physical capture stays
 behind the backend adapter or machine-specific profiler tooling.
 agentic-work-audit consumes normalized events; only agentic-backend-sglang
 translates version-specific hooks into those events.
+All lanes use the shared instrumentation contract in
+[`INSTRUMENTATION.md`](INSTRUMENTATION.md); none may install a separate SGLang
+hook to observe the same backend event.
 ```
 
 Rules:

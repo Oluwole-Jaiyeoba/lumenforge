@@ -1,0 +1,30 @@
+{
+  "schema": "agentic_instrumentation.analysis.v1",
+  "run_id": "work_audit_a10g_20261001_final",
+  "status": "validated",
+  "backend_version": "0.5.10.post1",
+  "adapter": "v0510",
+  "source": "saved backend_trace.jsonl replay",
+  "cases": [
+    {
+      "session_id": "work_audit_a10g_20261001_final-warm",
+      "case_type": "warm_control",
+      "semantic_load_transitions": 0,
+      "layer_copy_observations": 0,
+      "loaded_slots_matched_by_replay": 0,
+      "loaded_slots_match_status": "unknown",
+      "exact_model_consumption": "not_applicable",
+      "limitation": "A matched GPU slot is not proof that a model kernel read that exact slot; unobserved eviction or slot reuse remains possible."
+    },
+    {
+      "session_id": "work_audit_a10g_20261001_final-host",
+      "case_type": "host_backed",
+      "semantic_load_transitions": 1,
+      "layer_copy_observations": 28,
+      "loaded_slots_matched_by_replay": 2046,
+      "loaded_slots_match_status": "supported",
+      "exact_model_consumption": "not_proven",
+      "limitation": "A matched GPU slot is not proof that a model kernel read that exact slot; unobserved eviction or slot reuse remains possible."
+    }
+  ]
+}

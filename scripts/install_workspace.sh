@@ -10,6 +10,7 @@ package_paths=(
   "packages/agentic-core"
   "packages/agentic-backend-api"
   "packages/agentic-work-audit"
+  "packages/agentic-instrumentation"
   "packages/agentic-controller"
   "packages/agentic-harnesses"
   "packages/agentic-prompt-codec"

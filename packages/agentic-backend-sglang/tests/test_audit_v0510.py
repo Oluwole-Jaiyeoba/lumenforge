@@ -1,6 +1,6 @@
 import json
 
-from agentic_backends.sglang.audit_v0510 import lifecycle_role, translate_trace
+from agentic_backends.sglang.audit_v0510 import lifecycle_role, normalize_lifecycle_evidence, translate_trace
 
 
 def test_lifecycle_roles_distinguish_transition_from_copy():
@@ -8,6 +8,17 @@ def test_lifecycle_roles_distinguish_transition_from_copy():
     assert lifecycle_role("hiradix.load_back.end") == "nested_load"
     assert lifecycle_role("hostpool.load_to_device_per_layer.end") == "layer_copy"
     assert lifecycle_role("other.event") == "unknown"
+
+
+def test_normalize_match_preserves_index_lineage_and_request_identity():
+    row = {"event": "hiradix.match_prefix.end", "ts_ns": 123,
+           "kv_context": {"agent_session_id": "s", "agent_request_id": "replay"},
+           "result": [{"index_count": 4}, {"id": 16, "parent_id": 12,
+                       "value": {"index_count": 2, "values": [7, 8]}}]}
+    event = normalize_lifecycle_evidence(row)
+    assert event.signal_id == "kv.prefix_match"
+    assert event.session_id == "s" and event.request_id == "replay"
+    assert event.payload["matched_indices"]["values"] == [7, 8]
 
 
 def test_translate_keeps_only_identity_linked_evidence(tmp_path):

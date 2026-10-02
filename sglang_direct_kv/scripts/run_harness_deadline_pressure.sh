@@ -68,38 +68,24 @@ HICACHE_STORAGE_PATH="${HICACHE_STORAGE_PATH:-}"
 MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.72}"
 BASE_EXTRA_SERVER_ARGS="${EXTRA_SERVER_ARGS:---disable-cuda-graph --disable-piecewise-cuda-graph --disable-overlap-schedule}"
 TRACE_PROFILE="${TRACE_PROFILE:-full_debug}"
-TRACE_CONTROLLER_DECISIONS_DEFAULT=1
-TRACE_IDLE_GAP_AUDIT_DEFAULT=1
-case "${TRACE_PROFILE}" in
-  minimal)
-    AGENTIC_KV_TRACE_SCHEDULER="${AGENTIC_KV_TRACE_SCHEDULER:-0}"
-    AGENTIC_KV_TRACE_KV_POOL="${AGENTIC_KV_TRACE_KV_POOL:-0}"
-    AGENTIC_RUNTIME_TELEMETRY="${AGENTIC_RUNTIME_TELEMETRY:-0}"
-    AGENTIC_KV_GPU_UTIL_SAMPLER="${AGENTIC_KV_GPU_UTIL_SAMPLER:-0}"
-    TRACE_CONTROLLER_DECISIONS_DEFAULT=0
-    TRACE_IDLE_GAP_AUDIT_DEFAULT=0
-    ;;
-  deadline)
-    AGENTIC_KV_TRACE_SCHEDULER="${AGENTIC_KV_TRACE_SCHEDULER:-1}"
-    AGENTIC_KV_TRACE_KV_POOL="${AGENTIC_KV_TRACE_KV_POOL:-0}"
-    AGENTIC_RUNTIME_TELEMETRY="${AGENTIC_RUNTIME_TELEMETRY:-1}"
-    AGENTIC_KV_GPU_UTIL_SAMPLER="${AGENTIC_KV_GPU_UTIL_SAMPLER:-0}"
-    TRACE_CONTROLLER_DECISIONS_DEFAULT=0
-    TRACE_IDLE_GAP_AUDIT_DEFAULT=0
-    ;;
-  controller_decision|idle_gap)
-    AGENTIC_KV_TRACE_SCHEDULER="${AGENTIC_KV_TRACE_SCHEDULER:-1}"
-    AGENTIC_KV_TRACE_KV_POOL="${AGENTIC_KV_TRACE_KV_POOL:-0}"
-    AGENTIC_RUNTIME_TELEMETRY="${AGENTIC_RUNTIME_TELEMETRY:-1}"
-    AGENTIC_KV_GPU_UTIL_SAMPLER="${AGENTIC_KV_GPU_UTIL_SAMPLER:-1}"
-    ;;
-  cache_debug|full_debug|*)
-    AGENTIC_KV_TRACE_SCHEDULER="${AGENTIC_KV_TRACE_SCHEDULER:-1}"
-    AGENTIC_KV_TRACE_KV_POOL="${AGENTIC_KV_TRACE_KV_POOL:-1}"
-    AGENTIC_RUNTIME_TELEMETRY="${AGENTIC_RUNTIME_TELEMETRY:-1}"
-    AGENTIC_KV_GPU_UTIL_SAMPLER="${AGENTIC_KV_GPU_UTIL_SAMPLER:-1}"
-    ;;
-esac
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  PYTHON_BIN=python3
+fi
+profile_pythonpath="${PYTHONPATH:-}"
+for source_dir in "${PROJECT_ROOT}"/packages/*/src; do
+  [[ -d "${source_dir}" ]] || continue
+  profile_pythonpath="${source_dir}:${profile_pythonpath}"
+done
+profile_values="$(PYTHONPATH="${profile_pythonpath}" \
+  "${PYTHON_BIN}" -m agentic_backends.sglang.instrumentation_profiles "${TRACE_PROFILE}" --shell)"
+while IFS='=' read -r name value; do
+  [[ -z "${name}" ]] && continue
+  if [[ "${name}" == *_DEFAULT ]]; then
+    printf -v "${name}" '%s' "${value}"
+  else
+    printf -v "${name}" '%s' "${!name:-${value}}"
+  fi
+done <<< "${profile_values}"
 AGENTIC_RUNTIME_TELEMETRY_BACKEND="${AGENTIC_RUNTIME_TELEMETRY_BACKEND:-sglang}"
 AGENTIC_KV_COPY_TELEMETRY_ENABLE="${AGENTIC_KV_COPY_TELEMETRY_ENABLE:-1}"
 GPU_UTIL_SAMPLE_INTERVAL_MS="${GPU_UTIL_SAMPLE_INTERVAL_MS:-100}"

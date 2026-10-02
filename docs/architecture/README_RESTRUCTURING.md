@@ -1,5 +1,9 @@
 # SGLang-Portability Restructuring (September 2026)
 
+Current shared instrumentation entry point: [`INSTRUMENTATION.md`](../../INSTRUMENTATION.md).
+The backend package alone owns SGLang hooks; the new neutral
+`agentic-instrumentation` package defines evidence contracts for all lanes.
+
 This document is the hand-off for the restructuring that made the codebase
 independent of any single SGLang release. It is written for an engineer or AI
 agent who was not part of the work. Read it before changing anything under

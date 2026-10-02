@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from agentic_work_audit.events import AuditEvent
+from agentic_instrumentation import EvidenceEvent
 
 
 # A native load emits nested cache calls and one copy event per model layer.
@@ -27,6 +28,15 @@ LIFECYCLE_ROLES = {
     "hiradix.match_prefix.end": "prefix_match",
 }
 
+SIGNAL_BY_EVENT = {
+    "hicache.write.end": "kv.write_host",
+    "hicache.evict_device.end": "kv.evict_gpu",
+    "hicache.evict_host.end": "kv.evict_host",
+    "hicache.load.end": "kv.load_gpu",
+    "hostpool.load_to_device_per_layer.end": "kv.layer_copy",
+    "hiradix.match_prefix.end": "kv.prefix_match",
+}
+
 
 def lifecycle_role(source_event: str) -> str:
     return LIFECYCLE_ROLES.get(source_event, "unknown")
@@ -36,14 +46,42 @@ def _agent(row: dict[str, Any]) -> tuple[str, str]:
     session = row.get("agent_session_id") or ""
     request = row.get("agent_request_id") or ""
     sessions = row.get("agent_sessions")
-    if not session and isinstance(sessions, list) and len(sessions) == 1:
-        session = sessions[0].get("agent_session_id") or ""
+    if isinstance(sessions, list) and len(sessions) == 1:
+        session = session or sessions[0].get("agent_session_id") or ""
         request = request or sessions[0].get("agent_request_id") or ""
     context = row.get("kv_context")
-    if not session and isinstance(context, dict):
-        session = context.get("agent_session_id") or ""
+    if isinstance(context, dict):
+        session = session or context.get("agent_session_id") or ""
         request = request or context.get("agent_request_id") or ""
     return str(session), str(request)
+
+
+def normalize_lifecycle_evidence(row: dict[str, Any]) -> EvidenceEvent | None:
+    """Map one pinned raw cache event to the shared evidence contract."""
+    name = str(row.get("event") or "")
+    signal = SIGNAL_BY_EVENT.get(name)
+    ts = int(row.get("ts_ns") or 0)
+    if not signal or ts <= 0:
+        return None
+    session, request = _agent(row)
+    context = row.get("kv_context") if isinstance(row.get("kv_context"), dict) else row
+    result = row.get("result")
+    matched = None
+    if signal == "kv.prefix_match" and isinstance(result, list) and len(result) > 1:
+        node = result[1]
+        if isinstance(node, dict):
+            matched = node.get("value")
+    return EvidenceEvent(
+        signal_id=signal, time_ns=ts, source="sglang_v0510", session_id=session,
+        request_id=request, correlation_id=str(context.get("correlation_id") or ""),
+        phase=str(context.get("agent_phase") or ""),
+        payload={
+            "node_id": context.get("node_id"),
+            "host_indices": context.get("host_indices"),
+            "device_indices": context.get("device_indices"),
+            "matched_indices": matched,
+        },
+    )
 
 
 def translate_trace(path: Path) -> list[AuditEvent]:

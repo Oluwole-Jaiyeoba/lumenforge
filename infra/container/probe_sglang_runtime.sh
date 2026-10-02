@@ -77,7 +77,7 @@ if [[ "${REQUIRE_IDENTITY}" == "1" && ( -z "${IMAGE_ID}" || "${IMAGE_IDENTITY}" 
   echo "Reference runs require an immutable container identity; Docker did not return one for ${IMAGE}." >&2
   exit 2
 fi
-PYTHONPATH_VALUE="/workspace/packages/agentic-core/src:/workspace/packages/agentic-backend-api/src:/workspace/packages/agentic-backend-sglang/src"
+PYTHONPATH_VALUE="/workspace/packages/agentic-core/src:/workspace/packages/agentic-backend-api/src:/workspace/packages/agentic-instrumentation/src:/workspace/packages/agentic-backend-sglang/src"
 required_args=()
 while IFS= read -r capability; do
   [[ -n "${capability}" ]] && required_args+=(--require-capability "${capability}")

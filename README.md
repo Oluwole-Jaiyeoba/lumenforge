@@ -28,6 +28,7 @@ still need validation on that machine. Confirm that the intended GitHub
 repository's `main` includes these changes before cloning it there.
 
 - [Architecture contract](ARCHITECTURE.md)
+- [Shared SGLang instrumentation](INSTRUMENTATION.md)
 - [Current handoff](HANDOFF.md)
 - [Project overview](docs/project/overview.md)
 - [SGLang-portability restructuring (start here if you change code)](docs/architecture/README_RESTRUCTURING.md)

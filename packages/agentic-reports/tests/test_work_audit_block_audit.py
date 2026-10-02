@@ -16,7 +16,9 @@ def _raw(name, ts, *, request="initial", host="host", device="device", result=No
     }
     row = {"event": name, "ts_ns": ts, "kv_context": context}
     if result is not None:
-        row["result"] = [{"index_count": result, "sha1_16": "prefix"}]
+        row["result"] = [{"index_count": result, "sha1_16": "prefix"},
+                         {"id": 16, "parent_id": 13, "value": {"index_count": result,
+                          "values": list(range(result))}}]
     return row
 
 
@@ -79,3 +81,17 @@ def test_backend_version_mismatch_fails_closed():
     audit = analyze_block_audit(trace, harness, validation)
     assert audit["status"] == "failed"
     assert "pinned v0510" in audit["failures"][0]
+
+
+def test_replay_match_of_loaded_slots_does_not_claim_model_consumption():
+    trace, harness, validation = _fixture()
+    trace[3]["kv_context"]["device_indices"] = {"index_count": 4, "values": [10, 11, 12, 13]}
+    trace[4]["kv_context"]["device_indices"] = trace[3]["kv_context"]["device_indices"]
+    trace[5]["kv_context"]["device_indices"] = trace[3]["kv_context"]["device_indices"]
+    trace[6]["result"] = [{"index_count": 2}, {"id": 16, "parent_id": 13,
+                           "value": {"index_count": 2, "values": [12, 13]}}]
+    result = analyze_block_audit(trace, harness, validation)
+    case = result["cases"][0]
+    assert case["loaded_slots_matched_by_replay"] == 2
+    assert case["loaded_slots_match_status"] == "supported"
+    assert case["exact_model_consumption"] == "not_proven"

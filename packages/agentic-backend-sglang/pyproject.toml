@@ -15,6 +15,7 @@ dependencies = [
   "agentic-core>=0.1.0",
   "agentic-backend-api>=0.1.0",
   "agentic-work-audit>=0.1.0",
+  "agentic-instrumentation>=0.1.0",
 ]
 
 [project.scripts]

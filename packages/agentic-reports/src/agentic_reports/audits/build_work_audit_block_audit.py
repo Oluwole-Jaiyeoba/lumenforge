@@ -9,7 +9,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from agentic_backends.sglang.audit_v0510 import lifecycle_role
+from agentic_backends.sglang.audit_v0510 import lifecycle_role, normalize_lifecycle_evidence
+from agentic_instrumentation import assess_loaded_match, validate_events
 from agentic_work_audit import AuditEvent, read_events
 
 from agentic_reports.block_ledger import (
@@ -61,6 +62,7 @@ def analyze_block_audit(
         failures.append("the lifecycle role map requires the pinned v0510 backend")
 
     normalized = normalize_trace_events(trace_rows, version="0.5.10.post1")
+    evidence = [item for row in trace_rows if (item := normalize_lifecycle_evidence(row)) is not None]
     semantic = [event for event in normalized if lifecycle_role(event.source_event) in SEMANTIC_ROLES]
     layer_copies = [event for event in normalized if lifecycle_role(event.source_event) == "layer_copy"]
     ledger_rows = block_ledger_rows(build_block_ledger(semantic))
@@ -97,6 +99,22 @@ def analyze_block_audit(
             if len(candidates) == 1:
                 linked_copies.append(copy)
         case_failures: list[str] = []
+        session_evidence = [event for event in evidence if event.session_id == session]
+        if original["case_type"] == "host_backed":
+            coverage = validate_events("kv_lifecycle", session_evidence)
+            if not coverage["valid"]:
+                case_failures.append(
+                    "missing required lifecycle evidence: "
+                    + ", ".join([*coverage["missing"], *coverage["invalid_fields"]])
+                )
+        matched_evidence = [event for event in session_evidence if event.signal_id == "kv.prefix_match"
+                            and event.request_id == replay_id and replay and first_token
+                            and replay.ts_ns <= event.time_ns <= first_token.ts_ns]
+        slot_proof = assess_loaded_match(
+            (event for event in session_evidence if event.signal_id == "kv.load_gpu"),
+            matched_evidence,
+            (event for event in session_evidence if event.signal_id == "kv.evict_gpu"),
+        )
         if original["case_type"] == "host_backed":
             if len(loads) != 1:
                 case_failures.append("expected one session-linked semantic load transition")
@@ -127,6 +145,7 @@ def analyze_block_audit(
             "replay_prefix_match_observations": len(replay_matches),
             "max_replay_matched_tokens": max((event.token_count for event in replay_matches), default=0),
             "same_loaded_block_used_by_replay": "not_proven" if loads else "not_applicable",
+            **slot_proof,
             "failures": case_failures,
         })
 
@@ -144,8 +163,9 @@ def analyze_block_audit(
         "blocks": ledger_rows,
         "interpretation": (
             "Semantic cache transitions feed the existing logical-block ledger. Nested load calls and "
-            "per-layer copies support one load; they are not additional logical loads. A later cached "
-            "replay prefix does not by itself prove that the exact loaded block was consumed."
+            "per-layer copies support one load; they are not additional logical loads. Verified GPU-slot "
+            "overlap with a replay prefix match is stronger than a prefix-length correlation, but it "
+            "does not prove those exact slots were consumed by model kernels."
         ),
     }
 

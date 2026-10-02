@@ -47,6 +47,31 @@ HOOK_REGISTRY: dict[str, HookCapability] = {
         "Hierarchical-cache transfer operations are visible to the trace.",
         (("HiCacheController", "load"), ("HiCacheController", "write")),
     ),
+    "kv_host_write": HookCapability(
+        "kv_host_write", "Host cache write transition.", (("HiCacheController", "write"),),
+    ),
+    "kv_gpu_evict": HookCapability(
+        "kv_gpu_evict", "Device cache eviction transition.", (("HiCacheController", "evict_device"),),
+    ),
+    "kv_host_evict": HookCapability(
+        "kv_host_evict", "Host cache eviction transition.", (("HiCacheController", "evict_host"),),
+    ),
+    "kv_gpu_load": HookCapability(
+        "kv_gpu_load", "Semantic host-to-device cache load.", (("HiCacheController", "load"),),
+    ),
+    "kv_layer_copy": HookCapability(
+        "kv_layer_copy", "Per-layer host-to-device copy.",
+        tuple((name, "load_to_device_per_layer") for name in (
+            "HostPoolGroup", "MHATokenToKVPoolHost", "MLATokenToKVPoolHost",
+            "NSATokenToKVPoolHost", "MambaPoolHost",
+        )),
+    ),
+    "kv_prefix_match": HookCapability(
+        "kv_prefix_match", "Prefix-cache match with index evidence.", (("HiRadixCache", "match_prefix"),),
+    ),
+    "model_forward": HookCapability(
+        "model_forward", "Model forward batch begins or ends.", (("TpModelWorker", "forward_batch_generation"),),
+    ),
 }
 
 
@@ -82,4 +107,3 @@ def resolve_hook(hook_id: str, adapter_name: str) -> dict[str, Any]:
 
 def resolve_contract_hook_ids(hook_ids: list[str], adapter_name: str) -> list[dict[str, Any]]:
     return [resolve_hook(hook_id, adapter_name) for hook_id in hook_ids]
-

@@ -25,6 +25,9 @@ def test_report_links_saved_validation_summary(tmp_path, monkeypatch):
                    "layer_copy_observations": 28,
                    "same_loaded_block_used_by_replay": "not_proven"}],
     }), encoding="utf-8")
+    (run / "instrumentation_analysis.json").write_text(json.dumps({
+        "cases": [{"case_type": "host_backed", "loaded_slots_matched_by_replay": 42}],
+    }), encoding="utf-8")
     out = tmp_path / "index.html"
     monkeypatch.setattr(sys, "argv", ["report", "--results-dir", str(run.parent), "--out", str(out)])
     main()
@@ -37,4 +40,6 @@ def test_report_links_saved_validation_summary(tmp_path, monkeypatch):
     assert "One load, not 28 loads." in html
     assert "not proven" in html
     assert "exact loaded-block consumption by replay is not proven" in html
+    assert "42" in html
+    assert "href='runs/sample/instrumentation_analysis.json'" in html
     assert "no validated block identity ledger" not in html

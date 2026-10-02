@@ -77,6 +77,14 @@ host-resident node accounts for 2048 tokens; the larger native load total
 must not be described as 28 separate loads or as proof of same-block replay
 use. This is a lifecycle account, not a performance result.
 
+The shared-instrumentation replay of that saved trace is stored separately in
+[`instrumentation_analysis.json`](../reports/work_audit/work_audit_a10g_20261001_final/instrumentation_analysis.json),
+so the original validation artifact is unchanged. It found 2046 loaded GPU
+slots in the replay's prefix match after SGLang split the original node.
+That is evidence of matched slot lineage, not direct evidence that model
+kernels consumed those exact slots. See [`INSTRUMENTATION.md`](../../INSTRUMENTATION.md)
+for the proof ladder and hook ownership rules.
+
 ## Next Phases
 
 1. Validate trace identity and timing on the pinned host, and inspect raw

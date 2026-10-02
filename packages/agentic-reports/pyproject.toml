@@ -15,6 +15,7 @@ dependencies = [
   "agentic-backend-sglang>=0.1.0",
   "agentic-hardware-probes>=0.1.0",
   "agentic-work-audit>=0.1.0",
+  "agentic-instrumentation>=0.1.0",
 ]
 
 [tool.setuptools.packages.find]

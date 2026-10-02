@@ -20,12 +20,15 @@ def render(summaries: list[tuple[Path, dict]]) -> str:
         run = str(summary.get("run_id") or path.parent.name)
         status = str(summary.get("status") or "unknown")
         block_audit = summary.get("_block_audit") or {}
+        instrumentation_analysis = summary.get("_instrumentation_analysis") or {}
         block_status = str(block_audit.get("status") or "pending")
         cases = summary.get("cases") or []
         warm = next((case for case in cases if case.get("case_type") == "warm_control"), {})
         host = next((case for case in cases if case.get("case_type") == "host_backed"), {})
         block_host = next((case for case in block_audit.get("cases") or []
                            if case.get("case_type") == "host_backed"), {})
+        slot_host = next((case for case in instrumentation_analysis.get("cases") or []
+                          if case.get("case_type") == "host_backed"), block_host)
         link = path.as_posix()
         rows.append(
             "<tr>"
@@ -36,6 +39,7 @@ def render(summaries: list[tuple[Path, dict]]) -> str:
             f"<td>{_esc(host.get('native_loaded_tokens'))}</td>"
             f"<td>{_esc(block_host.get('semantic_load_transitions'))}</td>"
             f"<td>{_esc(block_host.get('layer_copy_observations', host.get('native_layer_copies')))}</td>"
+            f"<td>{_esc(slot_host.get('loaded_slots_matched_by_replay'))}</td>"
             f"<td>{_esc(str(block_host.get('same_loaded_block_used_by_replay') or 'unknown').replace('_', ' '))}</td>"
             f"<td><a href='{_esc(link)}'>JSON</a></td></tr>"
         )
@@ -50,6 +54,13 @@ def render(summaries: list[tuple[Path, dict]]) -> str:
             f"{_esc(block_audit.get('logical_loaded_records'))} loaded record(s). "
             f"{_esc(block_audit.get('interpretation'))}</p>"
         ) if block_audit else "<p>Block lifecycle audit pending.</p>"
+        if instrumentation_analysis:
+            analysis_link = path.with_name("instrumentation_analysis.json").as_posix()
+            block_evidence += (
+                f"<p><a href='{_esc(analysis_link)}'>Shared-instrumentation analysis</a>: "
+                f"{_esc(slot_host.get('loaded_slots_matched_by_replay'))} loaded GPU slots "
+                "also appeared in replay's cache match; exact model consumption remains unproven.</p>"
+            )
         details.append(
             f"<details><summary>{_esc(run)}: evidence and limits</summary>"
             f"<p>{_esc(summary.get('interpretation'))}</p>"
@@ -61,7 +72,7 @@ def render(summaries: list[tuple[Path, dict]]) -> str:
             "</details>"
         )
     if not rows:
-        rows = ["<tr><td colspan='11'>Live validation pending. Synthetic fixtures are not research results.</td></tr>"]
+        rows = ["<tr><td colspan='12'>Live validation pending. Synthetic fixtures are not research results.</td></tr>"]
     return """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Agentic Work Audit</title><style>
@@ -80,7 +91,7 @@ code{font-size:.95em}
 <h2>Live Validation Runs</h2><div class="table-scroll"><table><thead><tr>
 <th>Run</th><th>Trace gate</th><th>Block gate</th><th>Warm replay TTFT (ms)</th><th>Host replay TTFT (ms)</th>
 <th>Selected host node (tokens)</th><th>Native loaded tokens</th><th>Logical loads</th>
-<th>Layer-copy observations</th><th>Same-block replay use</th><th>Evidence</th>
+<th>Layer-copy observations</th><th>Loaded slots in replay match</th><th>Exact model consumption</th><th>Evidence</th>
 </tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div><h2>Interpretation</h2>""" + "".join(details) + """
 <p>A host-backed prefix and a completed load are observations. An avoidable stall, unused backup, or memory-bandwidth bottleneck requires further evidence and is left unknown here.</p>
 </body></html>"""
@@ -97,6 +108,9 @@ def main() -> None:
         block_path = path.with_name("block_audit.json")
         if block_path.exists():
             summary["_block_audit"] = json.loads(block_path.read_text(encoding="utf-8"))
+        analysis_path = path.with_name("instrumentation_analysis.json")
+        if analysis_path.exists():
+            summary["_instrumentation_analysis"] = json.loads(analysis_path.read_text(encoding="utf-8"))
         summaries.append((Path(os.path.relpath(path, args.out.parent)), summary))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(render(summaries), encoding="utf-8")

@@ -20,6 +20,7 @@ REPO = Path(__file__).resolve().parents[2]
 PACKAGES: dict[str, tuple[str, frozenset[str]]] = {
     "agentic_core": ("packages/agentic-core/src/agentic_core", frozenset()),
     "agentic_work_audit": ("packages/agentic-work-audit/src/agentic_work_audit", frozenset()),
+    "agentic_instrumentation": ("packages/agentic-instrumentation/src/agentic_instrumentation", frozenset()),
     "agentic_backend_api": ("packages/agentic-backend-api/src/agentic_backend_api", frozenset({"agentic_core"})),
     "agentic_controller": (
         "packages/agentic-controller/src/agentic_controller",
@@ -30,7 +31,7 @@ PACKAGES: dict[str, tuple[str, frozenset[str]]] = {
     "agentic_gateway": ("packages/agentic-gateway/src/agentic_gateway", frozenset({"agentic_core", "agentic_harnesses"})),
     "agentic_backends": (
         "packages/agentic-backend-sglang/src/agentic_backends",
-        frozenset({"agentic_core", "agentic_backend_api", "agentic_work_audit"}),
+        frozenset({"agentic_core", "agentic_backend_api", "agentic_work_audit", "agentic_instrumentation"}),
     ),
     "agentic_harness_scenarios": ("packages/agentic-harness-scenarios/src/agentic_harness_scenarios", frozenset()),
     "agentic_hardware_probes": ("packages/agentic-hardware-probes/src/agentic_hardware_probes", frozenset()),
@@ -39,7 +40,7 @@ PACKAGES: dict[str, tuple[str, frozenset[str]]] = {
     # observations; uses controller runtime classes and prompt-codec reporting.
     "agentic_reports": (
         "packages/agentic-reports/src/agentic_reports",
-        frozenset({"agentic_core", "agentic_backends", "agentic_controller", "agentic_prompt_codec", "agentic_hardware_probes", "agentic_work_audit"}),
+        frozenset({"agentic_core", "agentic_backends", "agentic_controller", "agentic_prompt_codec", "agentic_hardware_probes", "agentic_work_audit", "agentic_instrumentation"}),
     ),
     # Composition root for experiments: may use every portable package and the
     # SGLang backend, but never the report layer or the testbed (agentic_kv).

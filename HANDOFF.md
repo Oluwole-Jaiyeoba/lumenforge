@@ -2,6 +2,10 @@
 
 Updated: 2026-10-01
 
+For any new backend trace hook or lane using SGLang evidence, start with
+[`INSTRUMENTATION.md`](INSTRUMENTATION.md). Reuse the versioned backend adapter,
+shared signal catalog, profile and gates; do not install lane-local hooks.
+
 ## Four Research Lanes
 
 - [`HINT_BENCHMARK_RUNBOOK.html`](HINT_BENCHMARK_RUNBOOK.html) records which
