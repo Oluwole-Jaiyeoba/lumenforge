@@ -24,13 +24,18 @@ EVENT_MAP: dict[str, KVEventType] = {
 }
 
 
-def normalize_sglang_trace_events(trace_rows: Iterable[dict[str, Any]]) -> list[NormalizedKVEvent]:
+def normalize_sglang_trace_events(
+    trace_rows: Iterable[dict[str, Any]], *, version: str | None = None,
+) -> list[NormalizedKVEvent]:
     rows = list(trace_rows)
-    base_ts = min((float(row["ts_ns"]) for row in rows if row.get("ts_ns")), default=0.0)
+    event_map = EVENT_MAP if version is None else {
+        source: KVEventType(stable) for source, stable in get_raw_event_map(version).items()
+    }
+    base_ts = min((int(row["ts_ns"]) for row in rows if row.get("ts_ns")), default=0)
     events: list[NormalizedKVEvent] = []
     for row in rows:
         source_event = str(row.get("event") or "")
-        event_type = EVENT_MAP.get(source_event)
+        event_type = event_map.get(source_event)
         if event_type is None:
             continue
         context = context_from_trace_event(row)
@@ -44,7 +49,7 @@ def normalize_sglang_trace_events(trace_rows: Iterable[dict[str, Any]]) -> list[
         phase = agent_phase_from_context(context)
         token_start, token_end, token_count = event_range(event_type, context, row)
         duration = as_float(row.get("duration_ms"))
-        ts = as_float(row.get("ts_ns"))
+        ts = int(row["ts_ns"]) if row.get("ts_ns") is not None else None
         time_ms = round((ts - base_ts) / 1_000_000.0, 3) if ts is not None and base_ts else None
         copy_start_ms = round(time_ms - duration, 3) if time_ms is not None and duration is not None else None
         host_start, host_end, host_count = index_range(context.get("host_indices"))
@@ -73,6 +78,7 @@ def normalize_sglang_trace_events(trace_rows: Iterable[dict[str, Any]]) -> list[
                 session_id=session_id,
                 phase=phase,
                 time_ms=time_ms,
+                time_ns=ts,
                 duration_ms=duration,
                 token_start=token_start,
                 token_end=token_end,

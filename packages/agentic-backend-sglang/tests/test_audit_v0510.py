@@ -1,6 +1,13 @@
 import json
 
-from agentic_backends.sglang.audit_v0510 import translate_trace
+from agentic_backends.sglang.audit_v0510 import lifecycle_role, translate_trace
+
+
+def test_lifecycle_roles_distinguish_transition_from_copy():
+    assert lifecycle_role("hicache.load.end") == "semantic_load"
+    assert lifecycle_role("hiradix.load_back.end") == "nested_load"
+    assert lifecycle_role("hostpool.load_to_device_per_layer.end") == "layer_copy"
+    assert lifecycle_role("other.event") == "unknown"
 
 
 def test_translate_keeps_only_identity_linked_evidence(tmp_path):

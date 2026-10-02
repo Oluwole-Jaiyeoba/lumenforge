@@ -20,6 +20,7 @@ class NormalizedKVEvent:
     session_id: str
     phase: str
     time_ms: float | None = None
+    time_ns: int | None = None
     duration_ms: float | None = None
     token_start: int | None = None
     token_end: int | None = None

@@ -95,6 +95,10 @@ python3 -m agentic_experiments.runners.run_work_audit_validation \
 python3 -m agentic_experiments.runners.analyze_work_audit_validation \
   --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
   --harness "${RUN_ROOT}/harness_events.jsonl" --out-dir "${RUN_ROOT}"
+python3 -m agentic_reports.audits.build_work_audit_block_audit \
+  --trace "${RUN_ROOT}/backend_trace.jsonl" \
+  --harness "${RUN_ROOT}/harness_events.jsonl" \
+  --summary "${RUN_ROOT}/summary.json" --out "${RUN_ROOT}/block_audit.json"
 python3 -m agentic_reports.builders.build_work_audit_report \
   --results-dir "${RESULTS_BASE}" --out "${RUN_ROOT}/report.html"
 
@@ -111,7 +115,9 @@ python3 "${ROOT}/scripts/create_run_manifest.py" \
   --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
   --workload-json '{"cases":["warm","host"],"frontend_priority":"none","purpose":"evidence_validation"}' \
   --instrumentation "v0510_backend_trace" --instrumentation "work_audit_event_join" \
+  --instrumentation "logical_block_lifecycle_reuse" \
   --artifact "summary=${RUN_ROOT}/summary.json" \
+  --artifact "block_audit=${RUN_ROOT}/block_audit.json" \
   --artifact "report=${RUN_ROOT}/report.html" \
   --completion-status complete
 echo "Validated: ${RUN_ROOT}/summary.json"

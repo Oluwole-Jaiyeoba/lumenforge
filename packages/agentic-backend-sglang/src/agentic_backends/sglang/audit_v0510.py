@@ -14,6 +14,24 @@ from typing import Any
 from agentic_work_audit.events import AuditEvent
 
 
+# A native load emits nested cache calls and one copy event per model layer.
+# Keep these roles here so report code does not depend on private hook names.
+LIFECYCLE_ROLES = {
+    "hicache.write.end": "semantic_write",
+    "hicache.evict_device.end": "semantic_evict_gpu",
+    "hicache.evict_host.end": "semantic_evict_host",
+    "hicache.load.end": "semantic_load",
+    "hiradix.load_back.end": "nested_load",
+    "hostpool.load_to_device_per_layer.end": "layer_copy",
+    "hostpool.backup_from_device_all_layer.end": "backup_detail",
+    "hiradix.match_prefix.end": "prefix_match",
+}
+
+
+def lifecycle_role(source_event: str) -> str:
+    return LIFECYCLE_ROLES.get(source_event, "unknown")
+
+
 def _agent(row: dict[str, Any]) -> tuple[str, str]:
     session = row.get("agent_session_id") or ""
     request = row.get("agent_request_id") or ""

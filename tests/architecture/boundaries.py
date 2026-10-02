@@ -39,7 +39,7 @@ PACKAGES: dict[str, tuple[str, frozenset[str]]] = {
     # observations; uses controller runtime classes and prompt-codec reporting.
     "agentic_reports": (
         "packages/agentic-reports/src/agentic_reports",
-        frozenset({"agentic_core", "agentic_backends", "agentic_controller", "agentic_prompt_codec", "agentic_hardware_probes"}),
+        frozenset({"agentic_core", "agentic_backends", "agentic_controller", "agentic_prompt_codec", "agentic_hardware_probes", "agentic_work_audit"}),
     ),
     # Composition root for experiments: may use every portable package and the
     # SGLang backend, but never the report layer or the testbed (agentic_kv).
