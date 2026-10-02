@@ -21,10 +21,57 @@ def _ms(value: object) -> str:
     return f"{value:.1f} ms" if isinstance(value, (int, float)) else "not recorded"
 
 
+def _seconds(value: object) -> str:
+    return f"{value / 1000:.2f} s" if isinstance(value, (int, float)) else "not recorded"
+
+
 def _direction(value: object, positive: str, negative: str) -> str:
     if not isinstance(value, (int, float)):
         return "not recorded"
     return f"{abs(value):.1f} ms {positive if value >= 0 else negative}"
+
+
+def _trial_values(pairs: list[dict], value_for_pair, format_value=_ms) -> str:
+    if not pairs:
+        return "not recorded"
+    return "".join(
+        f'<span class="trial-value"><strong>Trial {_esc(pair.get("pair"))}:</strong> '
+        f'{format_value(value_for_pair(pair))}</span>' for pair in pairs
+    )
+
+
+def _mode_table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> str:
+    head = "".join(f"<th scope='col'>{_esc(header)}</th>" for header in headers)
+    body = "".join(
+        "<tr><th scope='row'>" + _esc(row[0]) + "</th>" +
+        "".join(f"<td>{cell}</td>" for cell in row[1:]) + "</tr>"
+        for row in rows
+    )
+    return ("<div class='detail-scroll'><table class='mode-table'><thead><tr>" + head +
+            "</tr></thead><tbody>" + body + "</tbody></table></div>")
+
+
+def _pair_gates(pairs: list[dict], *, nonblocking: bool = False) -> str:
+    notes = []
+    for pair in pairs:
+        number = _esc(pair.get("pair"))
+        reasons = pair.get("reasons") or pair.get("comparability_reasons") or []
+        status = "comparable" if pair.get("comparable") else "not comparable"
+        note = f"Trial {number}: {status}"
+        if reasons:
+            note += f" ({_esc('; '.join(reasons))})"
+        if nonblocking and pair.get("nonblocking_comparable") is False:
+            extra = pair.get("nonblocking_comparability_reasons") or []
+            note += "; nonblocking comparison withheld"
+            if extra:
+                note += f" ({_esc('; '.join(extra))})"
+        if pair.get("task_comparable") is False:
+            extra = pair.get("task_comparability_reasons") or []
+            note += "; full-task comparison withheld"
+            if extra:
+                note += f" ({_esc('; '.join(extra))})"
+        notes.append(note)
+    return "<p><strong>Evidence gate.</strong> " + "; ".join(notes or ["not recorded"]) + ".</p>"
 
 
 def _first_request_ns(path: Path) -> int | None:
@@ -79,7 +126,11 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
                                  "agentic_work_audit.multisession_window.v1"):
         window = summary.get("schema") == "agentic_work_audit.multisession_window.v1"
-        brief = (f"3 equal-importance sessions · {_esc(workload.get('pairs'))} measured pair(s) · "
+        unit = "trial" if window else "pair"
+        measured_count = workload.get("pairs")
+        warmup_count = workload.get("warmup_pairs")
+        brief = (f"3 equal-importance sessions · {_esc(measured_count)} measured "
+                 f"{unit if measured_count == 1 else unit + 's'} · "
                  f"{_esc(workload.get('short_wait_ms'))} / {_esc(workload.get('long_wait_ms'))} ms waits")
         detail = (
             f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
@@ -92,7 +143,7 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
             f"at {_esc(workload.get('early_at_ms'))} ms during the long tool wait. "
             + ("The third mode requested load immediately after observing the short replay finish, "
                "before long tool return. " if window else "") +
-            f"{_esc(workload.get('warmup_pairs'))} warmup pair(s) were excluded. "
+            f"{_esc(warmup_count)} warmup {unit if warmup_count == 1 else unit + 's'} were excluded. "
             "Condition order reversed on alternate trials. "
             f"Prompt target: {_esc(workload.get('prompt_words_target'))} words; "
             f"output cap: {_esc(workload.get('max_output_tokens'))} tokens; "
@@ -229,41 +280,27 @@ def _timing_result(summary: dict) -> tuple[str, str]:
     else:
         headline = ("Late +" + " / +".join(deltas) + " to first token") if deltas else "Comparison unavailable"
     cases = {(c.get("pair"), c.get("condition")): c for c in summary.get("cases") or []}
-    rows = []
-    for pair in pairs:
-        number = pair.get("pair")
-        early, late = cases.get((number, "early"), {}), cases.get((number, "late"), {})
-        concurrent = cases.get((number, "late_nonblocking"), {})
-        delta = _ms(pair.get("late_minus_early_first_token_after_due_ms")) if pair.get("comparable") else "withheld"
-        extra = (
-            f"<td>{_ms(concurrent.get('first_token_after_due_ms'))}</td>"
-            f"<td>{_ms(concurrent.get('submission_after_due_ms'))}</td>"
-            f"<td>{_esc(concurrent.get('load_accepted_before_replay'))}</td>"
-            f"<td>{_esc(concurrent.get('replay_cache_matches'))}</td>"
-            f"<td>{_ms(pair.get('blocking_minus_nonblocking_first_token_after_due_ms')) if pair.get('nonblocking_comparable') else 'withheld'}</td>"
-        ) if nonblocking else ""
-        rows.append(
-            f"<tr><td>{_esc(number)}</td><td>{_ms(early.get('first_token_after_due_ms'))}</td>"
-            f"<td>{_ms(late.get('first_token_after_due_ms'))}</td><td>{delta}</td>"
-            f"<td>{_ms(early.get('replay_ttft_ms'))} / {_ms(late.get('replay_ttft_ms'))}</td>"
-            f"<td>{_ms(early.get('submission_after_due_ms'))} / {_ms(late.get('submission_after_due_ms'))}</td>"
-            f"{extra}</tr>"
-        )
+    modes = [("Early load", "early"), ("Late load", "late")]
+    if nonblocking:
+        modes.append(("Late, nonblocking", "late_nonblocking"))
+    rows = [
+        (label, *(
+            _trial_values(pairs, lambda pair, field=field, mode=mode:
+                          cases.get((pair.get("pair"), mode), {}).get(field))
+            for field in ("first_token_after_due_ms", "submission_after_due_ms", "replay_ttft_ms")
+        )) for label, mode in modes
+    ]
     nonblocking_note = (
         " Nonblocking late preparation issues the load control call and submits replay without waiting for "
         "the response; it is comparable only when native acceptance precedes replay and cached-prefix reuse is observed."
     ) if nonblocking else ""
-    extra_headers = (
-        "<th>Nonblocking due→token</th><th>Nonblocking submit gap</th>"
-        "<th>Accepted before replay</th><th>Prefix matches</th><th>Blocking − nonblocking</th>"
-    ) if nonblocking else ""
     detail = (
         "<p><strong>What was measured.</strong> Early preparation requested the native load during the tool wait; "
         "late preparation requested it after the wait. Tool completion to first token includes the submission gap; "
-        "replay TTFT starts only after submission." + nonblocking_note + "</p>"
-        "<div class='detail-scroll'><table class='pair-table'><thead><tr><th>Pair</th><th>Early due→token</th>"
-        "<th>Late due→token</th><th>Late − early</th><th>Replay TTFT, E / L</th>"
-        "<th>Submit gap, E / L</th>" + extra_headers + "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+        "replay TTFT starts only after submission. Each trial repeats the listed modes with fresh sessions; "
+        "warmups are excluded. Lower is better in every column." + nonblocking_note + "</p>" +
+        _mode_table(("Load timing", "Tool return to first token", "Before replay submission", "Replay TTFT"), rows) +
+        _pair_gates(pairs, nonblocking=nonblocking) +
         "<p><strong>Limit.</strong> CUDA completion is observed when polled, not at the exact finish instant. "
         "Exact-index and sampled runs have different tracing costs and must not be pooled. "
         "Unknown slot lineage is not zero reuse. This sequential probe is not a production speed result.</p>"
@@ -279,18 +316,23 @@ def _lifecycle_result(summary: dict) -> tuple[str, str]:
     host_block = next((c for c in block.get("cases") or [] if c.get("case_type") == "host_backed"), {})
     analysis = summary.get("_instrumentation_analysis") or {}
     host_slots = next((c for c in analysis.get("cases") or [] if c.get("case_type") == "host_backed"), {})
-    headline = (f"Host load validated · warm / host replay "
-                f"{_ms(warm.get('replay_ttft_ms'))} / {_ms(host.get('replay_ttft_ms'))}")
+    headline = (f"Host load validated · warm replay {_ms(warm.get('replay_ttft_ms'))}; "
+                f"host-backed replay {_ms(host.get('replay_ttft_ms'))}")
     detail = (
         "<p><strong>What was measured.</strong> Warm-prefix control versus a separate host-backed session. "
         "The host-backed session explicitly evicted its GPU copy, proved host residency, and requested load-back. "
-        "These runs validate lifecycle evidence, not which policy is faster.</p>"
-        f"<p>Replay 1 TTFT, warm / host: {_ms(warm.get('replay_ttft_ms'))} / {_ms(host.get('replay_ttft_ms'))}. "
-        f"Replay 2 TTFT: {_ms(warm.get('second_replay_ttft_ms'))} / {_ms(host.get('second_replay_ttft_ms'))}. "
-        f"Planned pre-replay load: {_esc(host_block.get('planned_pre_replay_loaded_tokens'))} tokens; "
-        f"replay-time load: {_esc(host_block.get('replay_time_loaded_tokens'))} tokens. "
-        f"Loaded GPU slots in replay match: {_esc(host_slots.get('loaded_slots_matched_by_replay'))}. "
-        "A cache match does not prove that a model kernel consumed those exact slots.</p>"
+        "These runs validate lifecycle evidence, not which policy is faster.</p>" +
+        _mode_table(("Session", "Replay 1 TTFT", "Replay 2 TTFT"), [
+            ("Warm control", _ms(warm.get("replay_ttft_ms")), _ms(warm.get("second_replay_ttft_ms"))),
+            ("Host-backed", _ms(host.get("replay_ttft_ms")), _ms(host.get("second_replay_ttft_ms"))),
+        ]) +
+        f"<p><strong>Host-load evidence.</strong> Planned load before replay: "
+        f"{_esc(host_block.get('planned_pre_replay_loaded_tokens'))} tokens; "
+        f"load during replay: {_esc(host_block.get('replay_time_loaded_tokens'))} tokens; "
+        f"loaded GPU slots in the replay's matched prefix: "
+        f"{_esc(host_slots.get('loaded_slots_matched_by_replay'))}. "
+        "Missing evidence is shown as not recorded, not zero. A cache match does not prove "
+        "that a model kernel consumed those exact slots.</p>"
     )
     return headline, detail
 
@@ -298,28 +340,34 @@ def _lifecycle_result(summary: dict) -> tuple[str, str]:
 def _multisession_result(summary: dict) -> tuple[str, str]:
     sessions = summary.get("sessions") or {}
     short, long = sessions.get("short") or {}, sessions.get("long") or {}
-    headline = (f"Overlapping waits · short / long due→token "
-                f"{_ms(short.get('first_token_after_tool_ms'))} / "
-                f"{_ms(long.get('first_token_after_tool_ms'))}")
+    headline = (f"Overlapping waits · short first token {_ms(short.get('first_token_after_tool_ms'))}; "
+                f"long first token {_ms(long.get('first_token_after_tool_ms'))} after tool return")
     observations = "".join(f"<li>{_esc(item)}</li>" for item in summary.get("observations") or [])
     opportunities = "".join(f"<li>{_esc(item)}</li>" for item in summary.get("plausibly_mistimed") or [])
     detail = (
         "<p><strong>Observed.</strong> The short-wait replay and long-wait replay came from "
         "different sessions. The long session's GPU prefix was explicitly evicted and "
         "proved host-resident before its tool returned.</p>"
-        f"<ul>{observations}</ul>"
-        f"<p>Short tool return→submission: {_ms(short.get('submission_after_tool_ms'))}; "
-        f"replay TTFT: {_ms(short.get('replay_ttft_ms'))}; cached prefix: "
-        f"{_esc(short.get('cached_prefix_tokens'))} tokens.</p>"
-        f"<p>Long tool return→submission: {_ms(long.get('submission_after_tool_ms'))}; "
-        f"replay TTFT: {_ms(long.get('replay_ttft_ms'))}; cached prefix: "
-        f"{_esc(long.get('cached_prefix_tokens'))} tokens; second replay cached prefix: "
-        f"{_esc(long.get('second_replay_cached_prefix_tokens'))} tokens.</p>"
-        f"<p>Long session's load request / acceptance / observed completion after tool return: "
-        f"{_ms(long.get('load_request_after_tool_ms'))} / "
-        f"{_ms(long.get('load_acceptance_after_tool_ms'))} / "
-        f"{_ms(long.get('load_completion_observed_after_tool_ms'))}. "
-        "These timestamps locate work; they do not by themselves assign a causal delay.</p>"
+        f"<ul>{observations}</ul>" +
+        _mode_table(("Session", "Observed tool wait", "Return to submission",
+                     "Return to first token", "Replay TTFT"), [
+            ("Short", _ms(short.get("observed_tool_wait_ms")),
+             _ms(short.get("submission_after_tool_ms")),
+             _ms(short.get("first_token_after_tool_ms")), _ms(short.get("replay_ttft_ms"))),
+            ("Long", _ms(long.get("observed_tool_wait_ms")),
+             _ms(long.get("submission_after_tool_ms")),
+             _ms(long.get("first_token_after_tool_ms")), _ms(long.get("replay_ttft_ms"))),
+        ]) +
+        f"<p><strong>Prefix matches.</strong> Short replay: {_esc(short.get('cached_prefix_tokens'))} tokens; "
+        f"long replay: {_esc(long.get('cached_prefix_tokens'))} tokens; long second replay: "
+        f"{_esc(long.get('second_replay_cached_prefix_tokens'))} tokens.</p>" +
+        _mode_table(("Long-session load event", "Time relative to tool return"), [
+            ("Load requested", _ms(long.get("load_request_after_tool_ms"))),
+            ("Load accepted", _ms(long.get("load_acceptance_after_tool_ms"))),
+            ("Completion observed", _ms(long.get("load_completion_observed_after_tool_ms"))),
+        ]) +
+        "<p>Positive load-event times are after tool return. These timestamps locate work; "
+        "they do not by themselves assign a causal delay.</p>"
         f"<p><strong>Plausibly mistimed.</strong></p><ul>{opportunities or '<li>None established.</li>'}</ul>"
         f"<p><strong>Avoidable work.</strong> {_esc(summary.get('avoidable_work'))}</p>"
     )
@@ -327,31 +375,35 @@ def _multisession_result(summary: dict) -> tuple[str, str]:
 
 
 def _multisession_comparison_result(summary: dict) -> tuple[str, str]:
+    pairs = summary.get("pairs") or []
     count = summary.get("comparable_pairs") or 0
-    total = len(summary.get("pairs") or [])
+    total = len(pairs)
     headline = (f"{count}/{total} matched pairs · long replay "
                 f"{_direction(summary.get('median_long_due_to_token_saved_ms'), 'faster', 'slower')}; "
                 f"short completion {_direction(summary.get('median_short_due_to_finish_change_ms'), 'slower', 'faster')}; "
                 f"workflow {_direction(summary.get('median_workflow_makespan_saved_ms'), 'faster', 'slower')}")
+    cases = {(case.get("pair"), case.get("load_timing")): case for case in summary.get("cases") or []}
     rows = []
-    for pair in summary.get("pairs") or []:
-        rows.append(
-            f"<tr><td>{_esc(pair.get('pair'))}</td>"
-            f"<td>{_ms(pair.get('early_long_due_to_token_ms'))}</td>"
-            f"<td>{_ms(pair.get('late_long_due_to_token_ms'))}</td>"
-            f"<td>{_ms(pair.get('long_due_to_token_saved_ms'))}</td>"
-            f"<td>{_ms(pair.get('short_due_to_finish_change_ms'))}</td>"
-            f"<td>{_ms(pair.get('workflow_makespan_saved_ms'))}</td>"
-            f"<td>{_esc('; '.join(pair.get('reasons') or []) or 'passed')}</td></tr>"
-        )
+    for label, mode in (("Late, nonblocking", "late"), ("Early", "early")):
+        source_mode = "late_nonblocking" if mode == "late" else mode
+        rows.append((
+            label,
+            _trial_values(pairs, lambda pair, mode=mode:
+                          pair.get(f"{mode}_long_due_to_token_ms")),
+            _trial_values(pairs, lambda pair, mode=mode:
+                          pair.get(f"{mode}_short_due_to_finish_ms")),
+            _trial_values(pairs, lambda pair, source_mode=source_mode:
+                          cases.get((pair.get("pair"), source_mode), {}).get("workflow_makespan_ms"),
+                          _seconds),
+        ))
     detail = (
-        "<p><strong>Measured tradeoff.</strong> Positive long-replay and workflow savings favor "
-        "early loading. Positive short-session change means early loading slowed that session. "
-        "The two load schedules use equal frontend importance and the same logical cache budget.</p>"
-        "<div class='detail-scroll'><table class='pair-table'><thead><tr>"
-        "<th>Pair</th><th>Long early due→token</th><th>Long late due→token</th>"
-        "<th>Long saving</th><th>Short completion change</th><th>Workflow saving</th>"
-        "<th>Evidence gate</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+        "<p><strong>Measured tradeoff.</strong> Each trial repeats both load schedules with "
+        "fresh, equally important sessions; warmups are excluded. Long timing starts when the long "
+        "tool returns; short timing starts when the short tool returns. Workflow runs from the first "
+        "initial request through the last replay completion. Lower is better in every column.</p>" +
+        _mode_table(("Load timing", "Long return to first token", "Short return to finish",
+                     "Whole workflow"), rows) +
+        _pair_gates(pairs) +
         "<p><strong>Limit.</strong> This is a synthetic matched policy comparison with explicit "
         "evictions. It does not prove natural capacity pressure or production avoidability.</p>"
     )
@@ -365,28 +417,27 @@ def _multisession_window_result(summary: dict) -> tuple[str, str]:
                 "vs late; short completion "
                 f"{_direction(summary.get('median_post_vs_early_short_saved_ms'), 'faster', 'slower')} vs early")
     rows = []
-    for pair in pairs:
-        if pair.get("comparable"):
-            metrics = "".join(
-                f"<td>{_ms(pair.get(f'{mode}_{metric}'))}</td>"
-                for metric in ("long_due_to_token_ms", "short_due_to_finish_ms", "workflow_makespan_ms")
-                for mode in ("late", "early", "post_short")
-            )
-        else:
-            metrics = "<td>withheld</td>" * 9
-        rows.append(f"<tr><td>{_esc(pair.get('pair'))}</td>{metrics}"
-                    f"<td>{_esc('; '.join(pair.get('reasons') or []) or 'passed')}</td></tr>")
+    for label, mode in (("Late load", "late"), ("Early load", "early"),
+                        ("After short finishes", "post_short")):
+        rows.append((
+            label,
+            _trial_values(pairs, lambda pair, mode=mode:
+                          pair.get(f"{mode}_long_due_to_token_ms")),
+            _trial_values(pairs, lambda pair, mode=mode:
+                          pair.get(f"{mode}_short_due_to_finish_ms")),
+            _trial_values(pairs, lambda pair, mode=mode:
+                          pair.get(f"{mode}_workflow_makespan_ms"), _seconds),
+        ))
     detail = (
         "<p><strong>Three load schedules.</strong> Late requests the native load at long tool return; "
         "early requests it during the short session's replay; post-short requests it only after "
-        "observing that replay finish. Values are milliseconds. Lower is better in all three measures. "
-        "Due→token starts when the long tool returns; due→finish starts when the short tool returns. "
-        "Workflow is measured from the first initial request through the last replay completion.</p>"
-        "<div class='detail-scroll'><table class='pair-table'><thead><tr><th rowspan='2'>Triplet</th>"
-        "<th colspan='3'>Long due→token</th><th colspan='3'>Short due→finish</th>"
-        "<th colspan='3'>Whole workflow</th><th rowspan='2'>Evidence gate</th></tr><tr>"
-        + "<th>Late</th><th>Early</th><th>Post-short</th>" * 3 +
-        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+        "observing that replay finish. Each trial repeats all three modes with fresh sessions and "
+        "alternating order; the warmup triplet is excluded. Long timing starts when the long tool "
+        "returns; short timing starts when the short tool returns. Workflow runs from the first "
+        "initial request through the last replay completion. Lower is better in every column.</p>" +
+        _mode_table(("Load timing", "Long return to first token", "Short return to finish",
+                     "Whole workflow"), rows) +
+        _pair_gates(pairs) +
         "<p><strong>Limit.</strong> Post-short uses an observed client completion event; it does not "
         "show that a controller can predict that time. Capacity eviction was explicit, and "
         "request overlap does not establish kernel or HBM contention.</p>"
@@ -541,6 +592,11 @@ small{display:block;color:#5a6c77;overflow-wrap:anywhere;font-size:.8rem;margin-
 details{min-width:56px}summary{cursor:pointer;color:#086780;font-weight:650;list-style:none}summary::-webkit-details-marker{display:none}
 .detail{min-width:430px;max-width:690px;padding:8px 0}.detail p{margin:10px 0}.detail-scroll{overflow-x:auto}
 .pair-table{min-width:650px;font-size:.88rem}.pair-table th,.pair-table td{padding:7px 9px}
+.mode-table{min-width:620px;font-size:.88rem;table-layout:fixed}
+.mode-table th,.mode-table td{padding:9px 10px;white-space:normal;overflow-wrap:break-word}
+.mode-table th:first-child{width:23%}.mode-table tbody th{background:#f0f7f5;color:#224b45}
+.trial-value{display:block;white-space:nowrap;font-variant-numeric:tabular-nums}
+.trial-value + .trial-value{margin-top:4px}.trial-value strong{display:inline-block;min-width:50px;margin-right:6px;color:#526777;font-size:.77rem}
 pre{overflow-x:auto;background:#edf4f5;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}
 a{color:#086780}a:hover{text-decoration:underline}
 @media(max-width:760px){

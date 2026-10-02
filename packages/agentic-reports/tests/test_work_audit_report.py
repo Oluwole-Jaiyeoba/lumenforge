@@ -100,8 +100,11 @@ def test_timing_details_keep_pair_metrics_separate():
     assert "Early vs late" in page
     assert "Late +174.0 ms to first token" in page
     assert "82.0 ms" in page and "256.0 ms" in page
-    assert "81.0 ms / 83.0 ms" in page
-    assert "1.0 ms / 173.0 ms" in page
+    assert "<th scope='row'>Early load</th>" in page
+    assert "<th scope='row'>Late load</th>" in page
+    assert "Replay TTFT" in page and "81.0 ms" in page and "83.0 ms" in page
+    assert "Before replay submission" in page and "1.0 ms" in page and "173.0 ms" in page
+    assert "Trial 1" in page
     assert "kv_lifecycle_lean" in page
     assert "replay TTFT starts only after submission" in page
 
@@ -137,6 +140,28 @@ def test_future_manifest_shows_effective_request_settings():
     assert "output cap: 16 tokens" in page
     assert "WORK_AUDIT_EVICTION_ROUNDS=4" in page
     assert "MEM_FRACTION_STATIC=0.7" in page
+
+
+def test_lifecycle_details_separate_replay_timing_from_host_load_evidence():
+    summary = {
+        "run_id": "host", "status": "validated",
+        "cases": [
+            {"case_type": "warm_control", "replay_ttft_ms": 81,
+             "second_replay_ttft_ms": 82},
+            {"case_type": "host_backed", "replay_ttft_ms": 85,
+             "second_replay_ttft_ms": 84},
+        ],
+        "_block_audit": {"cases": [{"case_type": "host_backed",
+                                     "planned_pre_replay_loaded_tokens": 4096,
+                                     "replay_time_loaded_tokens": 0}]},
+    }
+    page = render([(Path("runs/host/summary.json"), summary)])
+    assert "<th scope='row'>Warm control</th>" in page
+    assert "<th scope='row'>Host-backed</th>" in page
+    assert "Replay 1 TTFT" in page and "Replay 2 TTFT" in page
+    assert "Planned load before replay: 4096 tokens" in page
+    assert "load during replay: 0 tokens" in page
+    assert "loaded GPU slots in the replay's matched prefix: not recorded" in page
 
 
 def test_progress_keeps_milestone_order_and_marks_unarchived_evidence():
@@ -197,7 +222,7 @@ def test_nonblocking_timing_run_exposes_comparability_and_cache_reuse():
     page = render([(Path("runs/triple/summary.json"), summary)])
     assert "Nonblocking late load: 0/1 comparable pair(s)" in page
     assert "95.0 ms" in page
-    assert "Accepted before replay" in page
+    assert "<th scope='row'>Late, nonblocking</th>" in page
     assert "without waiting for the response" in page
     assert "withheld" in page
 
@@ -221,7 +246,10 @@ def test_multisession_report_keeps_observation_separate_from_avoidability():
     page = render([(Path("runs/three/summary.json"), summary)])
     assert "Concurrent timeline" in page
     assert "3 concurrent sessions" in page
-    assert "90.0 ms / 230.0 ms" in page
+    assert "short first token 90.0 ms; long first token 230.0 ms" in page
+    assert "<th scope='row'>Short</th>" in page
+    assert "<th scope='row'>Long</th>" in page
+    assert "Long-session load event" in page
     assert "explicit control command" in page
     assert "Load requested after tool return" in page
     assert "unknown: no same-capacity counterfactual" in page
@@ -238,13 +266,19 @@ def test_concurrent_comparison_shows_both_session_effects_and_reproduction():
         "run_id": "compare", "status": "validated", "_manifest": manifest,
         "comparable_pairs": 2, "median_long_due_to_token_saved_ms": 150,
         "pairs": [{"pair": 1, "comparable": True, "long_due_to_token_saved_ms": 140,
+                   "early_long_due_to_token_ms": 90, "late_long_due_to_token_ms": 230,
+                   "early_short_due_to_finish_ms": 900, "late_short_due_to_finish_ms": 892,
                    "short_due_to_finish_change_ms": 8, "workflow_makespan_saved_ms": 50}],
+        "cases": [{"pair": 1, "load_timing": "early", "workflow_makespan_ms": 7900},
+                  {"pair": 1, "load_timing": "late_nonblocking", "workflow_makespan_ms": 7950}],
     }
     page = render([(Path("runs/compare/summary.json"), summary)])
     assert "Concurrent early vs late" in page
     assert "long replay 150.0 ms faster" in page
-    assert "Short completion change" in page
-    assert "8.0 ms" in page
+    assert "Short return to finish" in page
+    assert "<th scope='row'>Late, nonblocking</th>" in page
+    assert "<th scope='row'>Early</th>" in page
+    assert "7.90 s" in page and "7.95 s" in page
     assert "WORK_AUDIT_STUDY=multisession_compare" in page
     assert "WORK_AUDIT_EARLY_AT_MS=1200" in page
 
@@ -255,7 +289,7 @@ def test_three_window_report_shows_raw_session_and_workflow_metrics():
                                  "long_wait_ms": 2500, "early_at_ms": 1200})
     summary = {
         "schema": "agentic_work_audit.multisession_window.v1", "run_id": "windows",
-        "status": "validated", "_manifest": manifest, "comparable_pairs": 1,
+        "status": "validated", "_manifest": manifest, "comparable_pairs": 2,
         "median_post_vs_late_long_saved_ms": 160,
         "median_post_vs_early_short_saved_ms": 80,
         "pairs": [{"pair": 1, "comparable": True,
@@ -265,12 +299,26 @@ def test_three_window_report_shows_raw_session_and_workflow_metrics():
                    "post_short_short_due_to_finish_ms": 100,
                    "late_workflow_makespan_ms": 4000,
                    "early_workflow_makespan_ms": 3900,
-                   "post_short_workflow_makespan_ms": 3950}],
+                   "post_short_workflow_makespan_ms": 3950},
+                  {"pair": 2, "comparable": True,
+                   "late_long_due_to_token_ms": 600, "early_long_due_to_token_ms": 51,
+                   "post_short_long_due_to_token_ms": 91,
+                   "late_short_due_to_finish_ms": 101, "early_short_due_to_finish_ms": 181,
+                   "post_short_short_due_to_finish_ms": 102,
+                   "late_workflow_makespan_ms": 4200,
+                   "early_workflow_makespan_ms": 3910,
+                   "post_short_workflow_makespan_ms": 3960}],
     }
     page = render([(Path("runs/windows/summary.json"), summary)])
     assert "Three concurrent load windows" in page
+    assert "2 measured trials" in page
     assert "post-short long replay 160.0 ms faster vs late" in page
-    assert "Short due→finish" in page and "Whole workflow" in page
-    assert "250.0 ms" in page and "90.0 ms" in page
+    assert "Short return to finish" in page and "Whole workflow" in page
+    assert "<th scope='row'>After short finishes</th>" in page
+    assert "Trial 1:</strong> 250.0 ms" in page
+    assert "Trial 2:</strong> 600.0 ms" in page
+    assert "Trial 1:</strong> 4.00 s" in page
+    assert "Trial 2:</strong> 4.20 s" in page
+    assert "90.0 ms" in page
     assert "observing that replay finish" in page
     assert "WORK_AUDIT_STUDY=multisession_window" in page
