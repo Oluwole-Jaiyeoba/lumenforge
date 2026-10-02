@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare loading one host-backed prefix during a tool wait or at replay."""
+"""Compare early, response-gated late, and nonblocking late KV preparation."""
 
 from __future__ import annotations
 
@@ -82,28 +82,40 @@ async def one_case(
 
     log.emit("tool_start", session, initial_id, expected_ms=args.wait_ms)
     wait_task = asyncio.create_task(tool_wait())
-    if condition == "late":
+    if condition != "early":
         await wait_task
-    accepted = await prepare_prefix(
-        client, url=args.prepare_control_url, session_id=session, prefix_id=prefix,
-        p_hash=hashed, request_id=initial_id, plan_only=False,
-        min_load_tokens=None, minimum_host_tokens=args.minimum_host_tokens,
-    )
-    load_id = str(accepted.get("load_id") or "")
-    if not load_id or int(accepted.get("loaded_tokens") or 0) <= 0:
-        raise RuntimeError(f"native load was not accepted: {json.dumps(accepted, sort_keys=True)}")
-    log.emit("load_requested", session, initial_id, at_ns=accepted["control_request_started_ns"],
-             load_id=load_id)
-    log.emit("load_accepted", session, initial_id, at_ns=accepted["control_response_ns"],
-             load_id=load_id, loaded_tokens=accepted.get("loaded_tokens"))
 
-    status_task = asyncio.create_task(confirm_load(client, args.prepare_control_url, load_id))
+    async def start_load() -> tuple[dict[str, Any], asyncio.Task[dict[str, Any]]]:
+        accepted = await prepare_prefix(
+            client, url=args.prepare_control_url, session_id=session, prefix_id=prefix,
+            p_hash=hashed, request_id=initial_id, plan_only=False,
+            min_load_tokens=None, minimum_host_tokens=args.minimum_host_tokens,
+        )
+        load_id = str(accepted.get("load_id") or "")
+        if not load_id or int(accepted.get("loaded_tokens") or 0) <= 0:
+            raise RuntimeError(f"native load was not accepted: {json.dumps(accepted, sort_keys=True)}")
+        log.emit("load_requested", session, initial_id, at_ns=accepted["control_request_started_ns"],
+                 load_id=load_id)
+        log.emit("load_accepted", session, initial_id, at_ns=accepted["control_response_ns"],
+                 load_id=load_id, loaded_tokens=accepted.get("loaded_tokens"))
+
+        async def observe_completion() -> dict[str, Any]:
+            status = await confirm_load(client, args.prepare_control_url, load_id)
+            log.emit("client_load_confirmed", session, initial_id,
+                     at_ns=status.get("finished_observed_ns") or status.get("observed_ns"),
+                     load_id=load_id, loaded_tokens=status.get("loaded_tokens"),
+                     cuda_elapsed_ms=status.get("cuda_elapsed_ms"))
+            return status
+
+        return accepted, asyncio.create_task(observe_completion())
+
+    if condition == "late_nonblocking":
+        preparation = asyncio.create_task(start_load())
+        await asyncio.sleep(0)
+    else:
+        accepted, status_task = await start_load()
     if condition == "early":
         status = await status_task
-        log.emit("client_load_confirmed", session, initial_id,
-                 at_ns=status.get("finished_observed_ns") or status.get("observed_ns"),
-                 load_id=load_id, loaded_tokens=status.get("loaded_tokens"),
-                 cuda_elapsed_ms=status.get("cuda_elapsed_ms"))
         await wait_task
 
     replay_text = replay_prompt(prompt)
@@ -116,12 +128,10 @@ async def one_case(
     log.emit("replay_sent", session, replay_id, at_ns=replay["request_start_ns"])
     log.emit("replay_first_token", session, replay_id, at_ns=replay["first_token_ns"])
     log.emit("replay_finished", session, replay_id, at_ns=replay["request_end_ns"])
-    if condition == "late":
+    if condition == "late_nonblocking":
+        accepted, status_task = await preparation
+    if condition != "early":
         status = await status_task
-        log.emit("client_load_confirmed", session, initial_id,
-                 at_ns=status.get("finished_observed_ns") or status.get("observed_ns"),
-                 load_id=load_id, loaded_tokens=status.get("loaded_tokens"),
-                 cuda_elapsed_ms=status.get("cuda_elapsed_ms"))
 
     log.emit("tool_2_start", session, replay_id, expected_ms=args.wait_ms)
     await asyncio.sleep(args.wait_ms / 1000)
@@ -158,7 +168,10 @@ async def main_async() -> None:
     parser.add_argument("--pairs", type=int, default=1)
     parser.add_argument("--warmup-pairs", type=int, default=1,
                         help="Discard paired native-load warmups before measurement")
-    parser.add_argument("--case-order", choices=("early-late", "late-early"), default="early-late")
+    parser.add_argument("--case-order", choices=(
+        "early-late", "late-early", "early-late-late_nonblocking",
+        "late_nonblocking-late-early",
+    ), default="early-late")
     args = parser.parse_args()
     if args.pairs < 1 or args.warmup_pairs < 0 or args.wait_ms < 1 or args.prompt_tokens < 512:
         parser.error("need a measured pair, nonnegative warmups, positive wait, and 512-token prefix")

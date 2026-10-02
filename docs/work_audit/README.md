@@ -253,7 +253,7 @@ delta remains reportable.
 | 256 sampled indices | early, late | +166.419, +178.118 | replay submission gap |
 | 256 sampled indices | late, early | +170.088, +173.832 | replay submission gap |
 
-In early cases, the controller requested and confirmed the native load during
+In early cases, the audit client requested and confirmed the native load during
 the tool wait. In late cases, it requested the load only after the tool
 returned, and the control call delayed replay submission by about 164–177 ms
 with sampled tracing. Once replay was submitted, its TTFT was similar in both
@@ -274,18 +274,89 @@ order at 4096 exact indices, and +4.12% and +4.36% at 256 sampled indices.
 The [four calibration records](../reports/work_audit_overhead/) retain every
 trial. They do **not** measure tracing overhead on native host-KV load-back.
 
-This is evidence of a badly timed *controller command* in this serial replay
+This is evidence of a potentially badly timed *load command* in this serial replay
 path: issuing load after tool return adds a submission gap. It is not proof
 that SGLang inherently must block, that the model consumed those exact slots,
-or that GPU memory-bandwidth interference caused the delay. A nonblocking
-submission path and concurrent filler requests are separate future tests.
+or that GPU memory-bandwidth interference caused the delay.
+
+## Nonblocking Late-Load Control
+
+The next control used the same lean trace and one warmed, measured triple:
+early load, late load that waits for the control response, and late load whose
+replay is submitted without waiting for that response. All requests had equal
+importance. Run it on the pinned host with its image and model cache set:
+
+```bash
+WORK_AUDIT_STUDY=timing WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
+  WORK_AUDIT_CASE_ORDER=early-late-late_nonblocking \
+  WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_PAIRS=1 WORK_AUDIT_WAIT_MS=2000 \
+  WORK_AUDIT_EXACT_INDICES=256 WORK_AUDIT_REQUIRE_SLOT_PROOF=0 \
+  WORK_AUDIT_RUN_ID=work_audit_nonblocking_20261002_01 \
+  bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The [saved A10G run](../reports/work_audit/work_audit_nonblocking_20261002_01/summary.json)
+observed these milliseconds from tool return:
+
+| Condition | Replay submitted | First token | Replay TTFT |
+| --- | ---: | ---: | ---: |
+| Early | 0.117 | 88.159 | 88.042 |
+| Late, response-gated | 170.450 | 253.339 | 82.890 |
+| Late, nonblocking | 0.490 | 243.659 | 243.169 |
+
+So the nonblocking call removed the client-side submission gap in this run,
+but did **not** restore the early case's tool-return-to-token time. The delay
+mostly appeared inside replay TTFT instead. The native load was accepted
+*after* nonblocking replay submission, so the strict matched-reuse comparison
+is withheld even though a request-linked cache match was observed. This is
+one measured triple, not proof that all nonblocking scheduling behaves this
+way. The second-replay TTFT drift also prevents a full-task comparison.
+
+## Concurrent Session Timeline
+
+The first hand-checkable overlap probe starts three equal-importance sessions
+together. Two tool calls have different predicted return times; the third
+session ends without replay. A test policy explicitly limits active GPU
+prefixes to two and evicts the long-wait session's prefix to host memory.
+This is **not** a natural allocator- or out-of-memory-triggered eviction. The
+archived raw event says `resident_sessions=3`; that was the client scenario's
+assumption, not a measurement of all three GPU prefixes. Only the long
+session's device eviction and host residency were directly proved. New runs
+record this as `candidate_sessions=3`. At
+the long tool return, its host load is requested without gating replay on the
+control response. The backend-neutral evidence gate checks the eviction,
+host residency, native layer copy, load, replay, and second-replay prefix
+match for that same session.
+
+```bash
+WORK_AUDIT_STUDY=multisession WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
+  WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=2500 \
+  WORK_AUDIT_RUN_ID=work_audit_multisession_20261002_01 \
+  bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The [saved A10G timeline](../reports/work_audit/work_audit_multisession_20261002_01/summary.json)
+passed its identity and ordering gates. The short tool returned after
+901.497 ms and its replay first token followed 81.635 ms later. The long
+tool returned after 2501.266 ms; its first token followed 282.426 ms later.
+Its replay was submitted 0.431 ms after tool return; native load acceptance
+and completion were observed at 177.544 and 179.370 ms after tool return.
+Its second replay had a request-linked prefix match. These two latencies are from **different
+sessions** and do not measure the causal effect of eviction. The observed
+late load request is a plausible timing opportunity, not a proven mistake.
+Avoidable work remains unknown until an early-load comparison repeats the
+same concurrency and capacity policy. Backend cache-match events are not a
+GPU-utilization trace, and a matched prefix does not prove exact kernel use.
 
 ## Next Phases
 
-1. Test a nonblocking late-load submission path to see how much of the
-   observed delay is imposed by the current control-call ordering.
-2. Add concurrent, equally important sessions to measure whether preparing
-   one replay early delays other work or simply uses otherwise idle time.
+1. Repeat the nonblocking control in reverse order and with more pairs to
+   assess run-to-run variation and the placement of native load acceptance.
+2. Repeat the concurrent timeline with early preparation under the **same**
+   session arrivals and two-prefix budget. Measure whether moving the load
+   helps the long replay or delays the short session's work. This is the
+   policy-relevant comparison suggested by Scenario 1's ready-time signals;
+   no task receives frontend semantic priority.
 3. Extend the logical-block ledger toward exact physical-block reuse and a
    complete residency timeline; matched GPU slots alone do not prove model
    consumption.

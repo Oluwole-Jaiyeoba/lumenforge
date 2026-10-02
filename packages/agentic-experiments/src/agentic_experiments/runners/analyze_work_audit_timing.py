@@ -7,8 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from agentic_backends.sglang.audit_v0510 import normalize_lifecycle_evidence, translate_trace
-from agentic_instrumentation import assess_loaded_match
+from agentic_backends.sglang.audit_v0510 import assess_loaded_match, normalize_lifecycle_evidence, translate_trace
 from agentic_work_audit import analyze_timing, read_events, write_events
 
 
@@ -63,6 +62,13 @@ def main() -> None:
         for pair in result["pairs"]:
             pair["comparable"] = False
             pair["comparability_reasons"].append("the cache-slot evidence gate failed")
+            if "nonblocking_comparable" in pair:
+                pair["nonblocking_comparable"] = False
+                pair["nonblocking_comparability_reasons"].append("the cache-slot evidence gate failed")
+                for key in ("nonblocking_minus_early_first_token_after_due_ms",
+                            "blocking_minus_nonblocking_first_token_after_due_ms",
+                            "blocking_minus_nonblocking_submission_after_due_ms"):
+                    pair[key] = None
             pair["task_comparable"] = False
             pair["task_comparability_reasons"].append("the cache-slot evidence gate failed")
             for key in ("late_minus_early_first_token_after_due_ms", "late_minus_early_replay_ttft_ms",

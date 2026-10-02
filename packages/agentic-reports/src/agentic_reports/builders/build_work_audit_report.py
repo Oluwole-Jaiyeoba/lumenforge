@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 from urllib.parse import quote
 
+CACHE_SIZE_FIELD = "hicache_size_gb"
+
 
 def _esc(value: object) -> str:
     return html.escape(str(value if value is not None else "not recorded"), quote=True)
@@ -68,6 +70,24 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
         (name for name in manifest.get("enabled_instrumentation") or [] if name.startswith("kv_lifecycle")),
         None,
     )
+    if summary.get("schema") == "agentic_work_audit.multisession.v1":
+        brief = (f"3 concurrent sessions · {_esc(workload.get('short_wait_ms'))} / "
+                 f"{_esc(workload.get('long_wait_ms'))} ms tool waits")
+        detail = (
+            f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
+            f"{_esc(manifest.get('model'))}; backend {_esc(manifest.get('backend_version'))}; "
+            f"trace {_esc(profile)}. Three equal-importance sessions began together. "
+            "Two tool waits overlapped; the third session ended without replay. "
+            "An explicit control command evicted the long-wait session's GPU prefix under "
+            "a synthetic two-prefix budget, then the client proved host residency. "
+            "Its load was requested when the tool returned without gating replay on the control response. "
+            f"Prompt target: {_esc(workload.get('prompt_words_target'))} words; "
+            f"output cap: {_esc(workload.get('max_output_tokens'))} tokens; "
+            f"host cache: {_esc(workload.get(CACHE_SIZE_FIELD))} GB; "
+            f"GPU memory fraction: {_esc(workload.get('mem_fraction_static'))}. "
+            "No frontend task had higher semantic priority."
+        )
+        return brief, detail
     brief = (f"{_esc(order)} · {_esc(workload.get('pairs'))} measured pair(s)" if timing else
              f"{_esc(order)} · {_esc(workload.get('replays_per_case'))} replay(s)/case")
     brief += f" · {_esc(workload.get('tool_wait_ms'))} ms waits"
@@ -88,7 +108,7 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                    f"output cap: {_esc(workload.get('max_output_tokens'))} tokens; "
                    f"minimum host prefix: {_esc(workload.get('minimum_host_tokens'))} tokens; "
                    f"eviction attempts: {_esc(workload.get('eviction_rounds'))}; "
-                   f"host cache: {_esc(workload.get('hicache_size_gb'))} GB; "
+                   f"host cache: {_esc(workload.get(CACHE_SIZE_FIELD))} GB; "
                    f"GPU memory fraction: {_esc(workload.get('mem_fraction_static'))}.")
     return brief, detail
 
@@ -97,7 +117,25 @@ def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     cases = workload.get("cases") or []
-    if len(cases) != 2:
+    if summary.get("schema") == "agentic_work_audit.multisession.v1":
+        settings = {
+            "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+            "WORK_AUDIT_STUDY": "multisession",
+            "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
+            "WORK_AUDIT_SHORT_WAIT_MS": workload.get("short_wait_ms"),
+            "WORK_AUDIT_LONG_WAIT_MS": workload.get("long_wait_ms"),
+            "WORK_AUDIT_PROMPT_WORDS": workload.get("prompt_words_target"),
+            "WORK_AUDIT_MAX_OUTPUT_TOKENS": workload.get("max_output_tokens"),
+            "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
+            "WORK_AUDIT_EVICTION_ROUNDS": workload.get("eviction_rounds"),
+            "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
+            "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
+        }
+        prefix = " ".join(f"{key}={value}" for key, value in settings.items() if value is not None)
+        command = f"{prefix} bash infra/container/run_work_audit_validation.sh {manifest.get('model') or '<model>'}"
+        return ("<p><strong>Reconstructed command.</strong> Configure the image and model cache on the target host.</p>"
+                f"<pre><code>{_esc(command)}</code></pre>")
+    if len(cases) not in (2, 3):
         return "<p>Original invocation was not saved; see run manifest for recorded settings.</p>"
     settings = {
         "WORK_AUDIT_RUN_ID": summary.get("run_id"),
@@ -112,7 +150,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
         "WORK_AUDIT_MAX_OUTPUT_TOKENS": workload.get("max_output_tokens"),
         "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
         "WORK_AUDIT_EVICTION_ROUNDS": workload.get("eviction_rounds"),
-        "HICACHE_SIZE_GB": workload.get("hicache_size_gb"),
+        "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
         "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
         "WORK_AUDIT_EXACT_INDICES": workload.get("exact_trace_indices") if timing else None,
         "WORK_AUDIT_REQUIRE_SLOT_PROOF": "1" if timing and workload.get("slot_proof_required") else None,
@@ -126,29 +164,51 @@ def _reproduction(summary: dict, timing: bool) -> str:
 
 def _timing_result(summary: dict) -> tuple[str, str]:
     pairs = summary.get("pairs") or []
+    nonblocking = any(case.get("condition") == "late_nonblocking" for case in summary.get("cases") or [])
     comparable = [p for p in pairs if p.get("comparable") and
                   isinstance(p.get("late_minus_early_first_token_after_due_ms"), (int, float))]
     deltas = [_ms(p["late_minus_early_first_token_after_due_ms"]) for p in comparable]
-    headline = ("Late +" + " / +".join(deltas) + " to first token") if deltas else "Comparison unavailable"
+    if nonblocking:
+        matched = sum(bool(pair.get("nonblocking_comparable")) for pair in pairs)
+        headline = f"Nonblocking late load: {matched}/{len(pairs)} comparable pair(s)"
+    else:
+        headline = ("Late +" + " / +".join(deltas) + " to first token") if deltas else "Comparison unavailable"
     cases = {(c.get("pair"), c.get("condition")): c for c in summary.get("cases") or []}
     rows = []
     for pair in pairs:
         number = pair.get("pair")
         early, late = cases.get((number, "early"), {}), cases.get((number, "late"), {})
+        concurrent = cases.get((number, "late_nonblocking"), {})
         delta = _ms(pair.get("late_minus_early_first_token_after_due_ms")) if pair.get("comparable") else "withheld"
+        extra = (
+            f"<td>{_ms(concurrent.get('first_token_after_due_ms'))}</td>"
+            f"<td>{_ms(concurrent.get('submission_after_due_ms'))}</td>"
+            f"<td>{_esc(concurrent.get('load_accepted_before_replay'))}</td>"
+            f"<td>{_esc(concurrent.get('replay_cache_matches'))}</td>"
+            f"<td>{_ms(pair.get('blocking_minus_nonblocking_first_token_after_due_ms')) if pair.get('nonblocking_comparable') else 'withheld'}</td>"
+        ) if nonblocking else ""
         rows.append(
             f"<tr><td>{_esc(number)}</td><td>{_ms(early.get('first_token_after_due_ms'))}</td>"
             f"<td>{_ms(late.get('first_token_after_due_ms'))}</td><td>{delta}</td>"
             f"<td>{_ms(early.get('replay_ttft_ms'))} / {_ms(late.get('replay_ttft_ms'))}</td>"
-            f"<td>{_ms(early.get('submission_after_due_ms'))} / {_ms(late.get('submission_after_due_ms'))}</td></tr>"
+            f"<td>{_ms(early.get('submission_after_due_ms'))} / {_ms(late.get('submission_after_due_ms'))}</td>"
+            f"{extra}</tr>"
         )
+    nonblocking_note = (
+        " Nonblocking late preparation issues the load control call and submits replay without waiting for "
+        "the response; it is comparable only when native acceptance precedes replay and cached-prefix reuse is observed."
+    ) if nonblocking else ""
+    extra_headers = (
+        "<th>Nonblocking due→token</th><th>Nonblocking submit gap</th>"
+        "<th>Accepted before replay</th><th>Prefix matches</th><th>Blocking − nonblocking</th>"
+    ) if nonblocking else ""
     detail = (
         "<p><strong>What was measured.</strong> Early preparation requested the native load during the tool wait; "
         "late preparation requested it after the wait. Tool completion to first token includes the submission gap; "
-        "replay TTFT starts only after submission.</p>"
+        "replay TTFT starts only after submission." + nonblocking_note + "</p>"
         "<div class='detail-scroll'><table class='pair-table'><thead><tr><th>Pair</th><th>Early due→token</th>"
         "<th>Late due→token</th><th>Late − early</th><th>Replay TTFT, E / L</th>"
-        "<th>Submit gap, E / L</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+        "<th>Submit gap, E / L</th>" + extra_headers + "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
         "<p><strong>Limit.</strong> CUDA completion is observed when polled, not at the exact finish instant. "
         "Exact-index and sampled runs have different tracing costs and must not be pooled. "
         "Unknown slot lineage is not zero reuse. This sequential probe is not a production speed result.</p>"
@@ -176,6 +236,37 @@ def _lifecycle_result(summary: dict) -> tuple[str, str]:
         f"replay-time load: {_esc(host_block.get('replay_time_loaded_tokens'))} tokens. "
         f"Loaded GPU slots in replay match: {_esc(host_slots.get('loaded_slots_matched_by_replay'))}. "
         "A cache match does not prove that a model kernel consumed those exact slots.</p>"
+    )
+    return headline, detail
+
+
+def _multisession_result(summary: dict) -> tuple[str, str]:
+    sessions = summary.get("sessions") or {}
+    short, long = sessions.get("short") or {}, sessions.get("long") or {}
+    headline = (f"Overlapping waits · short / long due→token "
+                f"{_ms(short.get('first_token_after_tool_ms'))} / "
+                f"{_ms(long.get('first_token_after_tool_ms'))}")
+    observations = "".join(f"<li>{_esc(item)}</li>" for item in summary.get("observations") or [])
+    opportunities = "".join(f"<li>{_esc(item)}</li>" for item in summary.get("plausibly_mistimed") or [])
+    detail = (
+        "<p><strong>Observed.</strong> The short-wait replay and long-wait replay came from "
+        "different sessions. The long session's GPU prefix was explicitly evicted and "
+        "proved host-resident before its tool returned.</p>"
+        f"<ul>{observations}</ul>"
+        f"<p>Short tool return→submission: {_ms(short.get('submission_after_tool_ms'))}; "
+        f"replay TTFT: {_ms(short.get('replay_ttft_ms'))}; cached prefix: "
+        f"{_esc(short.get('cached_prefix_tokens'))} tokens.</p>"
+        f"<p>Long tool return→submission: {_ms(long.get('submission_after_tool_ms'))}; "
+        f"replay TTFT: {_ms(long.get('replay_ttft_ms'))}; cached prefix: "
+        f"{_esc(long.get('cached_prefix_tokens'))} tokens; second replay cached prefix: "
+        f"{_esc(long.get('second_replay_cached_prefix_tokens'))} tokens.</p>"
+        f"<p>Long session's load request / acceptance / observed completion after tool return: "
+        f"{_ms(long.get('load_request_after_tool_ms'))} / "
+        f"{_ms(long.get('load_acceptance_after_tool_ms'))} / "
+        f"{_ms(long.get('load_completion_observed_after_tool_ms'))}. "
+        "These timestamps locate work; they do not by themselves assign a causal delay.</p>"
+        f"<p><strong>Plausibly mistimed.</strong></p><ul>{opportunities or '<li>None established.</li>'}</ul>"
+        f"<p><strong>Avoidable work.</strong> {_esc(summary.get('avoidable_work'))}</p>"
     )
     return headline, detail
 
@@ -213,15 +304,19 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
     for path, summary in ordered:
         _, date, time, source = _time(summary)
         timing = summary.get("schema") == "agentic_work_audit.timing.v1"
+        multisession = summary.get("schema") == "agentic_work_audit.multisession.v1"
         run = str(summary.get("run_id") or path.parent.name)
-        kind = "Early vs late" if timing else "Lifecycle validation"
+        kind = "Concurrent timeline" if multisession else "Early vs late" if timing else "Lifecycle validation"
         question = (
+            "When differently timed but equally important agent sessions overlap, which cache events "
+            "happen before or after each replay becomes ready?" if multisession else
             "Does loading host KV during the tool wait reduce tool-return-to-first-token time "
             "versus loading after the wait?" if timing else
             "Can host residency, native load-back, and replay be linked to the same session?"
         )
         setup, method = _setup(summary, timing)
-        result, findings = _timing_result(summary) if timing else _lifecycle_result(summary)
+        result, findings = (_multisession_result(summary) if multisession else
+                            _timing_result(summary) if timing else _lifecycle_result(summary))
         status = str(summary.get("status") or "unknown")
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
                          [*(summary.get("failures") or []), *(summary.get("limitations") or [])])

@@ -144,3 +144,52 @@ def test_progress_keeps_milestone_order_and_marks_unarchived_evidence():
     assert "missing (not archived here)" in page
     assert 'href="#run-saved"' in page
     assert "Question tested." in page
+
+
+def test_nonblocking_timing_run_exposes_comparability_and_cache_reuse():
+    summary = {
+        "schema": "agentic_work_audit.timing.v1", "run_id": "triple", "status": "validated",
+        "cases": [
+            {"pair": 1, "condition": "early", "first_token_after_due_ms": 80},
+            {"pair": 1, "condition": "late", "first_token_after_due_ms": 250},
+            {"pair": 1, "condition": "late_nonblocking", "first_token_after_due_ms": 95,
+             "submission_after_due_ms": 1, "load_accepted_before_replay": False,
+             "replay_cache_matches": 0},
+        ],
+        "pairs": [{"pair": 1, "comparable": True,
+                   "late_minus_early_first_token_after_due_ms": 170,
+                   "nonblocking_comparable": False,
+                   "blocking_minus_nonblocking_first_token_after_due_ms": None}],
+    }
+    page = render([(Path("runs/triple/summary.json"), summary)])
+    assert "Nonblocking late load: 0/1 comparable pair(s)" in page
+    assert "95.0 ms" in page
+    assert "Accepted before replay" in page
+    assert "without waiting for the response" in page
+    assert "withheld" in page
+
+
+def test_multisession_report_keeps_observation_separate_from_avoidability():
+    manifest = _manifest(("long", "short", "ends"))
+    manifest["workload"].update({"short_wait_ms": 900, "long_wait_ms": 2500,
+                                 "prompt_words_target": 4090})
+    summary = {
+        "schema": "agentic_work_audit.multisession.v1", "run_id": "three",
+        "status": "validated", "_manifest": manifest,
+        "sessions": {
+            "short": {"first_token_after_tool_ms": 90, "cached_prefix_tokens": 2048},
+            "long": {"first_token_after_tool_ms": 230, "cached_prefix_tokens": 1024,
+                     "second_replay_cached_prefix_tokens": 3072},
+        },
+        "observations": ["Tool waits overlapped"],
+        "plausibly_mistimed": ["Load requested after tool return"],
+        "avoidable_work": "unknown: no same-capacity counterfactual",
+    }
+    page = render([(Path("runs/three/summary.json"), summary)])
+    assert "Concurrent timeline" in page
+    assert "3 concurrent sessions" in page
+    assert "90.0 ms / 230.0 ms" in page
+    assert "explicit control command" in page
+    assert "Load requested after tool return" in page
+    assert "unknown: no same-capacity counterfactual" in page
+    assert "WORK_AUDIT_STUDY=multisession" in page

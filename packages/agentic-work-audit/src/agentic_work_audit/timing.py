@@ -60,7 +60,7 @@ def analyze_timing(events: Iterable[AuditEvent], specs: list[dict[str, Any]]) ->
                           and replay_2.ts_ns <= row.ts_ns <= first_token_2.ts_ns
                           and int(row.evidence.get("cached_prefix_tokens") or 0) > 0]
         case_failures: list[str] = []
-        if condition not in {"early", "late"}:
+        if condition not in {"early", "late", "late_nonblocking"}:
             case_failures.append("unknown timing condition")
         if not all(timeline.values()) or not completed:
             case_failures.append("required timeline or native CUDA completion observation is missing")
@@ -77,15 +77,18 @@ def analyze_timing(events: Iterable[AuditEvent], specs: list[dict[str, Any]]) ->
             if condition == "early" and not (t["tool_start"].ts_ns <= t["load_requested"].ts_ns
                                                   < t["tool_end"].ts_ns):
                 case_failures.append("early load was not requested during the tool wait")
-            if condition == "late" and t["load_requested"].ts_ns < t["tool_end"].ts_ns:
+            if condition in {"late", "late_nonblocking"} and t["load_requested"].ts_ns < t["tool_end"].ts_ns:
                 case_failures.append("late load was requested before the tool finished")
-            if t["load_requested"].ts_ns > t["load_accepted"].ts_ns or (
-                t["load_accepted"].ts_ns > t["replay_sent"].ts_ns
-            ):
+            if t["load_requested"].ts_ns > t["load_accepted"].ts_ns:
+                case_failures.append("load acceptance predates its request")
+            if condition == "late_nonblocking":
+                if t["load_requested"].ts_ns > t["replay_sent"].ts_ns:
+                    case_failures.append("nonblocking load was not issued before replay submission")
+            elif t["load_accepted"].ts_ns > t["replay_sent"].ts_ns:
                 case_failures.append("load acceptance was not before replay submission")
             if completed.ts_ns < t["load_requested"].ts_ns:
                 case_failures.append("native load completion predates its request")
-        if not matches or not second_matches:
+        if not second_matches or (condition != "late_nonblocking" and not matches):
             case_failures.append("one or both replays lack a request-linked prefix match")
         if not any(row.kind == "layer_copy" for row in case_rows):
             case_failures.append("native per-layer copy evidence is missing")
@@ -112,6 +115,9 @@ def analyze_timing(events: Iterable[AuditEvent], specs: list[dict[str, Any]]) ->
             "completion_observed_before_due": completed.ts_ns <= tool_end.ts_ns
             if completed and tool_end else None,
             "completion_observed_from_due_ms": _ms(tool_end, completed),
+            "load_accepted_before_replay": accepted.ts_ns <= replay.ts_ns if accepted and replay else None,
+            "load_completed_before_first_token": completed.ts_ns <= first_token.ts_ns
+            if completed and first_token else None,
             "submission_after_due_ms": _ms(tool_end, replay),
             "first_token_after_due_ms": _ms(tool_end, first_token),
             "replay_ttft_ms": _ms(replay, first_token),
@@ -120,13 +126,17 @@ def analyze_timing(events: Iterable[AuditEvent], specs: list[dict[str, Any]]) ->
             "task_latency_ms": _ms(timeline["initial_sent"], timeline["replay_2_finished"]),
             "post_tool_start_duration_ms": _ms(timeline["tool_start"], timeline["replay_2_finished"]),
             "replay_cache_matches": len(matches), "second_replay_cache_matches": len(second_matches),
-            "timing_label": "candidate_late_load" if condition == "late" else "prepared_during_wait",
+            "timing_label": (
+                "nonblocking_late_load" if condition == "late_nonblocking" else
+                "candidate_late_load" if condition == "late" else "prepared_during_wait"
+            ),
         })
 
     pairs: list[dict[str, Any]] = []
     for pair in sorted({case["pair"] for case in cases}):
         selected = {case["condition"]: case for case in cases if case["pair"] == pair}
         early, late = selected.get("early"), selected.get("late")
+        nonblocking = selected.get("late_nonblocking")
         reasons: list[str] = []
         if not early or not late:
             reasons.append("one timing condition is missing")
@@ -166,6 +176,7 @@ def analyze_timing(events: Iterable[AuditEvent], specs: list[dict[str, Any]]) ->
             "late_minus_early_post_tool_duration_ms": round(
                 late["post_tool_start_duration_ms"] - early["post_tool_start_duration_ms"], 3
             ) if task_comparable else None,
+            **_nonblocking_comparison(early, late, nonblocking, comparable),
         })
     return {
         "schema": "agentic_work_audit.timing.v1", "status": "validated" if not failures else "failed",
@@ -177,4 +188,48 @@ def analyze_timing(events: Iterable[AuditEvent], specs: list[dict[str, Any]]) ->
             "on completion time. Paired differences are exploratory until overhead, repeated order, "
             "token shape, and competing work are controlled."
         ),
+    }
+
+
+def _nonblocking_comparison(
+    early: dict[str, Any] | None, late: dict[str, Any] | None,
+    nonblocking: dict[str, Any] | None, blocking_comparable: bool,
+) -> dict[str, Any]:
+    if nonblocking is None:
+        return {}
+    reasons: list[str] = []
+    if not early or not late or not blocking_comparable:
+        reasons.append("the early/response-gated pair is not comparable")
+    if nonblocking["status"] != "validated":
+        reasons.append("the nonblocking case failed its evidence gate")
+    if early and (nonblocking["loaded_tokens"] != early["loaded_tokens"] or
+                  nonblocking["host_tokens"] != early["host_tokens"] or
+                  nonblocking["prompt_words"] != early["prompt_words"]):
+        reasons.append("host residency, loaded tokens, or prompt size differ")
+    if early:
+        a, b = early["initial_latency_ms"], nonblocking["initial_latency_ms"]
+        if a is None or b is None or abs(a - b) > max(1000, 0.3 * min(a, b)):
+            reasons.append("initial request latency drift suggests backend-state bias")
+    if not nonblocking["load_accepted_before_replay"]:
+        reasons.append("native load acceptance was not observed before replay submission")
+    if not nonblocking["replay_cache_matches"]:
+        reasons.append("nonblocking replay did not show cached-prefix reuse")
+    comparable = not reasons
+    return {
+        "nonblocking_comparable": comparable,
+        "nonblocking_comparability_reasons": reasons,
+        "nonblocking_minus_early_first_token_after_due_ms": round(
+            nonblocking["first_token_after_due_ms"] - early["first_token_after_due_ms"], 3
+        ) if comparable else None,
+        "blocking_minus_nonblocking_first_token_after_due_ms": round(
+            late["first_token_after_due_ms"] - nonblocking["first_token_after_due_ms"], 3
+        ) if comparable else None,
+        "blocking_minus_nonblocking_submission_after_due_ms": round(
+            late["submission_after_due_ms"] - nonblocking["submission_after_due_ms"], 3
+        ) if comparable else None,
+        "nonblocking_replay_ttft_ms": nonblocking["replay_ttft_ms"],
+        "nonblocking_submission_after_due_ms": nonblocking["submission_after_due_ms"],
+        "nonblocking_first_token_after_due_ms": nonblocking["first_token_after_due_ms"],
+        "nonblocking_load_accepted_before_replay": nonblocking["load_accepted_before_replay"],
+        "nonblocking_replay_cache_matches": nonblocking["replay_cache_matches"],
     }

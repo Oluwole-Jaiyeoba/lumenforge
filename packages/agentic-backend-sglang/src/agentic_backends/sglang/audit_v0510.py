@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from agentic_work_audit.events import AuditEvent
-from agentic_instrumentation import EvidenceEvent
+from agentic_instrumentation import EvidenceEvent, assess_loaded_match
 
 from .evidence import normalize_trace_event
 

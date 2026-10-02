@@ -3,6 +3,24 @@
   "milestones": [
     {
       "evidence_date_utc": "2026-10-02",
+      "question": "Can a small, equal-importance, concurrent workload link tool waits, one controlled host eviction/load, replays, and an ending session?",
+      "answer": "Yes. The three-session A10G trace passed the identity and ordering gates. The 900 ms and 2500 ms tool waits overlapped; the long session was explicitly evicted to host, loaded, and replayed; the third session ended without replay.",
+      "unknown": "The eviction enforced a synthetic two-prefix policy, not natural capacity pressure. Different-session TTFTs do not prove a causal eviction penalty, and avoidable work needs a matched same-capacity counterfactual.",
+      "evidence_run_ids": [
+        "work_audit_multisession_20261002_01"
+      ]
+    },
+    {
+      "evidence_date_utc": "2026-10-02",
+      "question": "Does not waiting for the late-load control response remove the observed tool-return-to-first-token penalty?",
+      "answer": "In one warmed triple, nonblocking submission removed the roughly 170 ms client submission gap, but first token still arrived 243.659 ms after tool return versus 88.159 ms with early loading. The delay appeared in replay TTFT instead.",
+      "unknown": "The native load was accepted after nonblocking replay submission, so the strict comparable delta was withheld. More order-balanced runs are needed; the full-task comparison was also withheld because second-replay TTFT drifted.",
+      "evidence_run_ids": [
+        "work_audit_nonblocking_20261002_01"
+      ]
+    },
+    {
+      "evidence_date_utc": "2026-10-02",
       "question": "In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?",
       "answer": "In these sampled runs, yes: late preparation added 166-178 ms across four comparable pairs. Most of that difference occurred before replay submission.",
       "unknown": "How much remains with a nonblocking control call, and whether preparing early delays other sessions. These runs do not establish a production or hardware benefit.",

@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""Join concurrent harness and pinned-backend evidence into one audit timeline."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from agentic_backends.sglang.audit_v0510 import translate_trace
+from agentic_work_audit import read_events, write_events
+from agentic_work_audit.multisession import analyze_multisession
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--trace", type=Path, required=True)
+    parser.add_argument("--harness", type=Path, required=True)
+    parser.add_argument("--out-dir", type=Path, required=True)
+    args = parser.parse_args()
+    events = sorted(read_events(args.harness) + translate_trace(args.trace), key=lambda row: row.ts_ns)
+    write_events(args.out_dir / "normalized_events.jsonl", events)
+    summary = analyze_multisession(events, args.run_id, expected_runtime=("0.5.10.post1", "v0510"))
+    summary["source_paths"] = {"harness": str(args.harness), "backend_trace": str(args.trace)}
+    (args.out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    print(json.dumps({"status": summary["status"], "failures": summary["failures"],
+                      "sessions": summary["sessions"]}, indent=2))
+    if summary["status"] != "validated":
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

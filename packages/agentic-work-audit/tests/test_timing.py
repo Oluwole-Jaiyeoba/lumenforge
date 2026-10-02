@@ -82,3 +82,37 @@ def test_second_replay_outlier_does_not_invalidate_first_replay_pair():
     assert result["pairs"][0]["comparable"]
     assert not result["pairs"][0]["task_comparable"]
     assert result["pairs"][0]["late_minus_early_task_latency_ms"] is None
+
+
+def test_nonblocking_late_case_reports_acceptance_and_prefix_reuse():
+    early, early_spec = pair_events("early", 1000)
+    late, late_spec = pair_events("late", 2000)
+    nonblocking, nonblocking_spec = pair_events("late_nonblocking", 3000)
+    runtime = event("runtime_hooks", 1, backend_version="0.5.10.post1", adapter="v0510",
+                    missing_required_hooks=[])
+    result = analyze_timing([runtime, *early, *late, *nonblocking],
+                            [early_spec, late_spec, nonblocking_spec])
+    assert result["status"] == "validated"
+    assert result["pairs"][0]["nonblocking_comparable"]
+    assert result["pairs"][0]["blocking_minus_nonblocking_first_token_after_due_ms"] == 0
+    assert result["cases"][2]["load_accepted_before_replay"] is True
+    assert result["cases"][2]["replay_cache_matches"] == 1
+
+
+def test_nonblocking_response_after_replay_is_not_a_comparable_win():
+    early, early_spec = pair_events("early", 1000)
+    late, late_spec = pair_events("late", 2000)
+    nonblocking, nonblocking_spec = pair_events("late_nonblocking", 3000)
+    nonblocking = [event(row.kind, 3335 if row.kind == "load_accepted" else row.ts_ns / 1_000_000,
+                         row.session_id, row.request_id, **row.evidence) for row in nonblocking]
+    runtime = event("runtime_hooks", 1, backend_version="0.5.10.post1", adapter="v0510",
+                    missing_required_hooks=[])
+    result = analyze_timing([runtime, *early, *late, *nonblocking],
+                            [early_spec, late_spec, nonblocking_spec])
+    pair = result["pairs"][0]
+    assert result["status"] == "validated"
+    assert pair["comparable"]
+    assert not pair["nonblocking_comparable"]
+    assert pair["blocking_minus_nonblocking_first_token_after_due_ms"] is None
+    assert "native load acceptance was not observed before replay submission" in pair[
+        "nonblocking_comparability_reasons"]
