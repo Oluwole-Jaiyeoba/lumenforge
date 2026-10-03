@@ -1,0 +1,581 @@
+{
+  "interpretation_limit": "A load control-to-confirmation window is not the physical CUDA copy interval. Stage differences isolate check-only from check-plus-load policy, but concurrent batch trajectories can diverge; they do not prove HBM bandwidth contention. Missing request-linked stages are reported as missing coverage, never zero delay.",
+  "run_id": "work_audit_kv_attribution_20261002_04",
+  "schema": "agentic_work_audit.kv_load_attribution.v1",
+  "seed_count": 2,
+  "seeds": [
+    {
+      "arms": {
+        "baseline": {
+          "controller_plan_checks": 0,
+          "load_windows": {
+            "confirmed_control_windows": 0,
+            "load_attempts": 0,
+            "load_decisions": 0,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 0
+          },
+          "native_load_events": 36,
+          "replay_count": 36,
+          "run_id": "work_audit_kv_attribution_20261002_04_seed1_baseline",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 2869.166,
+              "median_ms": 2535.647,
+              "sum_ms": 103289.96,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 3005.941,
+              "median_ms": 1.962,
+              "sum_ms": 108213.867,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7167.527,
+              "median_ms": 1947.486,
+              "sum_ms": 258030.982,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7248.259,
+              "median_ms": 2034.029,
+              "sum_ms": 260937.34,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 80.732,
+              "median_ms": 86.188,
+              "sum_ms": 2906.357,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 2206.358,
+              "median_ms": 1640.15,
+              "sum_ms": 79428.891,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 443656.167,
+          "workflow_makespan_ms": 92900.992
+        },
+        "check_only": {
+          "controller_plan_checks": 107,
+          "load_windows": {
+            "confirmed_control_windows": 0,
+            "load_attempts": 0,
+            "load_decisions": 1,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 0
+          },
+          "native_load_events": 36,
+          "replay_count": 36,
+          "run_id": "work_audit_kv_attribution_20261002_04_seed1_check_only",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 3055.254,
+              "median_ms": 2516.421,
+              "sum_ms": 109989.135,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 3002.699,
+              "median_ms": 1.866,
+              "sum_ms": 108097.171,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7248.71,
+              "median_ms": 2068.615,
+              "sum_ms": 260953.564,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7332.423,
+              "median_ms": 2143.403,
+              "sum_ms": 263967.218,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 83.713,
+              "median_ms": 87.445,
+              "sum_ms": 3013.654,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 2194.297,
+              "median_ms": 2078.841,
+              "sum_ms": 78994.69,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 452951.021,
+          "workflow_makespan_ms": 93159.933
+        },
+        "controller": {
+          "controller_plan_checks": 105,
+          "load_windows": {
+            "confirmed_control_windows": 2,
+            "load_attempts": 3,
+            "load_decisions": 3,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 2
+          },
+          "native_load_events": 39,
+          "replay_count": 36,
+          "run_id": "work_audit_kv_attribution_20261002_04_seed1_controller",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 3127.904,
+              "median_ms": 2636.382,
+              "sum_ms": 112604.543,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 2995.893,
+              "median_ms": 1.811,
+              "sum_ms": 107852.164,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7329.666,
+              "median_ms": 2095.036,
+              "sum_ms": 263867.968,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7414.81,
+              "median_ms": 2182.166,
+              "sum_ms": 266933.162,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 85.144,
+              "median_ms": 88.953,
+              "sum_ms": 3065.194,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 2345.954,
+              "median_ms": 1964.627,
+              "sum_ms": 84454.346,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 463992.027,
+          "workflow_makespan_ms": 95749.972
+        }
+      },
+      "check_cost": {
+        "cache_lookup_to_first_token": {
+          "matched_replays": 36,
+          "mean_added_ms": 186.088,
+          "median_added_ms": -23.88,
+          "sum_added_ms": 6699.175,
+          "total_replays": 36
+        },
+        "first_token_to_finish": {
+          "matched_replays": 36,
+          "mean_added_ms": -3.242,
+          "median_added_ms": 0.063,
+          "sum_added_ms": -116.696,
+          "total_replays": 36
+        },
+        "queue_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 81.183,
+          "median_added_ms": 5.175,
+          "sum_added_ms": 2922.581,
+          "total_replays": 36
+        },
+        "receive_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 84.163,
+          "median_added_ms": 5.827,
+          "sum_added_ms": 3029.878,
+          "total_replays": 36
+        },
+        "receive_to_queue": {
+          "matched_replays": 36,
+          "mean_added_ms": 2.98,
+          "median_added_ms": 0.452,
+          "sum_added_ms": 107.297,
+          "total_replays": 36
+        },
+        "submit_to_receive": {
+          "matched_replays": 36,
+          "mean_added_ms": -12.061,
+          "median_added_ms": 3.416,
+          "sum_added_ms": -434.201,
+          "total_replays": 36
+        },
+        "substantive_decode": {
+          "excluded_short_responses": 24,
+          "matched_replays": 12,
+          "mean_added_ms": -9.948,
+          "median_added_ms": -9.677,
+          "sum_added_ms": -119.372,
+          "total_replays": 36
+        }
+      },
+      "load_association": {
+        "cache_lookup_to_first_token": {
+          "matched_replays": 36,
+          "mean_added_ms": 72.65,
+          "median_added_ms": 90.1,
+          "sum_added_ms": 2615.408,
+          "total_replays": 36
+        },
+        "first_token_to_finish": {
+          "matched_replays": 36,
+          "mean_added_ms": -6.806,
+          "median_added_ms": -0.064,
+          "sum_added_ms": -245.006,
+          "total_replays": 36
+        },
+        "queue_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 80.956,
+          "median_added_ms": 16.872,
+          "sum_added_ms": 2914.404,
+          "total_replays": 36
+        },
+        "receive_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 82.387,
+          "median_added_ms": 13.896,
+          "sum_added_ms": 2965.944,
+          "total_replays": 36
+        },
+        "receive_to_queue": {
+          "matched_replays": 36,
+          "mean_added_ms": 1.432,
+          "median_added_ms": 0.284,
+          "sum_added_ms": 51.54,
+          "total_replays": 36
+        },
+        "submit_to_receive": {
+          "matched_replays": 36,
+          "mean_added_ms": 151.657,
+          "median_added_ms": 94.152,
+          "sum_added_ms": 5459.655,
+          "total_replays": 36
+        },
+        "substantive_decode": {
+          "excluded_short_responses": 24,
+          "matched_replays": 12,
+          "mean_added_ms": -20.323,
+          "median_added_ms": -20.674,
+          "sum_added_ms": -243.878,
+          "total_replays": 36
+        }
+      },
+      "seed": 1
+    },
+    {
+      "arms": {
+        "baseline": {
+          "controller_plan_checks": 0,
+          "load_windows": {
+            "confirmed_control_windows": 0,
+            "load_attempts": 0,
+            "load_decisions": 0,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 0
+          },
+          "native_load_events": 36,
+          "replay_count": 36,
+          "run_id": "work_audit_kv_attribution_20261002_04_seed2_baseline",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 2960.085,
+              "median_ms": 2475.149,
+              "sum_ms": 106563.065,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 2949.005,
+              "median_ms": 1.718,
+              "sum_ms": 106164.168,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7266.526,
+              "median_ms": 1854.717,
+              "sum_ms": 261594.921,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7354.984,
+              "median_ms": 1930.665,
+              "sum_ms": 264779.425,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 88.458,
+              "median_ms": 82.096,
+              "sum_ms": 3184.504,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 2031.339,
+              "median_ms": 1792.051,
+              "sum_ms": 73128.205,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 444470.666,
+          "workflow_makespan_ms": 94304.474
+        },
+        "check_only": {
+          "controller_plan_checks": 106,
+          "load_windows": {
+            "confirmed_control_windows": 0,
+            "load_attempts": 0,
+            "load_decisions": 3,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 0
+          },
+          "native_load_events": 36,
+          "replay_count": 36,
+          "run_id": "work_audit_kv_attribution_20261002_04_seed2_check_only",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 2932.0,
+              "median_ms": 2420.068,
+              "sum_ms": 105551.988,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 2949.686,
+              "median_ms": 1.768,
+              "sum_ms": 106188.706,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7280.24,
+              "median_ms": 1858.751,
+              "sum_ms": 262088.63,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7360.467,
+              "median_ms": 1936.092,
+              "sum_ms": 264976.818,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 80.227,
+              "median_ms": 82.778,
+              "sum_ms": 2888.187,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 2009.873,
+              "median_ms": 1795.66,
+              "sum_ms": 72355.42,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 442884.202,
+          "workflow_makespan_ms": 92321.814
+        },
+        "controller": {
+          "controller_plan_checks": 106,
+          "load_windows": {
+            "confirmed_control_windows": 2,
+            "load_attempts": 2,
+            "load_decisions": 2,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 2
+          },
+          "native_load_events": 38,
+          "replay_count": 36,
+          "run_id": "work_audit_kv_attribution_20261002_04_seed2_controller",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 3113.833,
+              "median_ms": 2553.371,
+              "sum_ms": 112097.98,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 2939.753,
+              "median_ms": 1.784,
+              "sum_ms": 105831.096,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7403.618,
+              "median_ms": 2089.181,
+              "sum_ms": 266530.241,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7487.647,
+              "median_ms": 2176.674,
+              "sum_ms": 269555.278,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 84.029,
+              "median_ms": 87.989,
+              "sum_ms": 3025.037,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 2240.324,
+              "median_ms": 1926.251,
+              "sum_ms": 80651.663,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 462304.895,
+          "workflow_makespan_ms": 95437.831
+        }
+      },
+      "check_cost": {
+        "cache_lookup_to_first_token": {
+          "matched_replays": 36,
+          "mean_added_ms": -28.085,
+          "median_added_ms": -19.966,
+          "sum_added_ms": -1011.077,
+          "total_replays": 36
+        },
+        "first_token_to_finish": {
+          "matched_replays": 36,
+          "mean_added_ms": 0.682,
+          "median_added_ms": 0.074,
+          "sum_added_ms": 24.537,
+          "total_replays": 36
+        },
+        "queue_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 13.714,
+          "median_added_ms": 4.104,
+          "sum_added_ms": 493.71,
+          "total_replays": 36
+        },
+        "receive_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 5.483,
+          "median_added_ms": 4.898,
+          "sum_added_ms": 197.393,
+          "total_replays": 36
+        },
+        "receive_to_queue": {
+          "matched_replays": 36,
+          "mean_added_ms": -8.231,
+          "median_added_ms": 0.306,
+          "sum_added_ms": -296.316,
+          "total_replays": 36
+        },
+        "submit_to_receive": {
+          "matched_replays": 36,
+          "mean_added_ms": -21.466,
+          "median_added_ms": 0.196,
+          "sum_added_ms": -772.785,
+          "total_replays": 36
+        },
+        "substantive_decode": {
+          "excluded_short_responses": 24,
+          "matched_replays": 12,
+          "mean_added_ms": 1.913,
+          "median_added_ms": 1.436,
+          "sum_added_ms": 22.955,
+          "total_replays": 36
+        }
+      },
+      "load_association": {
+        "cache_lookup_to_first_token": {
+          "matched_replays": 36,
+          "mean_added_ms": 181.833,
+          "median_added_ms": 41.052,
+          "sum_added_ms": 6545.992,
+          "total_replays": 36
+        },
+        "first_token_to_finish": {
+          "matched_replays": 36,
+          "mean_added_ms": -9.934,
+          "median_added_ms": -0.129,
+          "sum_added_ms": -357.61,
+          "total_replays": 36
+        },
+        "queue_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 123.378,
+          "median_added_ms": -18.274,
+          "sum_added_ms": 4441.611,
+          "total_replays": 36
+        },
+        "receive_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 127.179,
+          "median_added_ms": -18.492,
+          "sum_added_ms": 4578.46,
+          "total_replays": 36
+        },
+        "receive_to_queue": {
+          "matched_replays": 36,
+          "mean_added_ms": 3.801,
+          "median_added_ms": -0.397,
+          "sum_added_ms": 136.85,
+          "total_replays": 36
+        },
+        "submit_to_receive": {
+          "matched_replays": 36,
+          "mean_added_ms": 230.451,
+          "median_added_ms": 18.859,
+          "sum_added_ms": 8296.243,
+          "total_replays": 36
+        },
+        "substantive_decode": {
+          "excluded_short_responses": 24,
+          "matched_replays": 12,
+          "mean_added_ms": -30.168,
+          "median_added_ms": -29.359,
+          "sum_added_ms": -362.019,
+          "total_replays": 36
+        }
+      },
+      "seed": 2
+    }
+  ],
+  "status": "complete"
+}

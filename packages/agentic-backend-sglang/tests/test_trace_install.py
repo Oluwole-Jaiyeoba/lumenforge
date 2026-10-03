@@ -136,6 +136,32 @@ class TraceInstallTest(unittest.TestCase):
         self.assertIn("sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run", out["installed"])
         self.assertNotIn("scheduler.get_next_batch_to_run.start", out["events"])
 
+    def test_ingress_only_traces_receive_and_keeps_quiet_prepare_pump(self) -> None:
+        root = build_fake_sglang(self.tmp / "site", get_adapter("v0510"), "0.5.10.post1")
+        script = textwrap.dedent("""
+            import json, os
+            from agentic_backends.sglang.trace import install
+            install()
+            from sglang.srt.managers.scheduler import Scheduler
+            scheduler = Scheduler()
+            scheduler.handle_generate_request()
+            scheduler.get_next_batch_to_run()
+            rows = [json.loads(line) for line in open(os.environ["AGENTIC_KV_TRACE_PATH"])]
+            print(json.dumps({"events": [row["event"] for row in rows],
+                "pump": getattr(Scheduler.get_next_batch_to_run, "_agentic_kv_control_only", False),
+                "ingress": next(row for row in rows if row["event"] == "trace.adapter.selected")
+                           ["scheduler_ingress_only"]}))
+        """)
+        proc = run_install(root, self.tmp / "trace.jsonl", {
+            "AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY": "1",
+        }, script=script)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = json.loads(proc.stdout.strip().splitlines()[-1])
+        self.assertTrue(out["ingress"])
+        self.assertTrue(out["pump"])
+        self.assertIn("scheduler.handle_generate_request.end", out["events"])
+        self.assertNotIn("scheduler.get_next_batch_to_run.end", out["events"])
+
 
 if __name__ == "__main__":
     unittest.main()

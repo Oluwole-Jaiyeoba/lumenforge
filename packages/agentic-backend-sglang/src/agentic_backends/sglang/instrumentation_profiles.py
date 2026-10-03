@@ -28,6 +28,7 @@ _VALUES = {
     "request_boundary": (1, 0, 0, 0, 0, 0, 0),
     "kv_lifecycle": (1, 0, 0, 0, 0, 0, 0),
     "kv_lifecycle_lean": (0, 0, 0, 0, 0, 0, 0),
+    "kv_attribution": (1, 0, 0, 0, 0, 0, 0),
     "copy_timing": (1, 1, 0, 0, 0, 0, 1),
 }
 
@@ -48,7 +49,10 @@ _HOOK_IDS = {
 def profile_flags(name: str) -> dict[str, str]:
     if name not in _VALUES:
         raise ValueError(f"Unknown instrumentation profile {name!r}; choose from {sorted(_VALUES)}")
-    return dict(zip(_FLAGS, map(str, _VALUES[name])))
+    flags = dict(zip(_FLAGS, map(str, _VALUES[name])))
+    if name == "kv_attribution":
+        flags["AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY"] = "1"
+    return flags
 
 
 def validate_installation(name: str, adapter: str, installation: dict[str, Any]) -> dict[str, Any]:

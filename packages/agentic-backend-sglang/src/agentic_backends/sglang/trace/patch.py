@@ -35,6 +35,8 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Callable
 
+from agentic_instrumentation.catalog import REQUEST_STAGE_ORDERS
+
 from ..instrumentation.nvtx import range_scope
 from ..instrumentation.runtime_telemetry import emit_runtime_event
 from ..instrumentation.torch_cuda_profiler import maybe_start as maybe_start_torch_profiler
@@ -3188,9 +3190,9 @@ def _request_stage_category(method_name: str) -> tuple[str, str, int] | None:
     """
 
     stage_by_method = {
-        "handle_generate_request": ("sglang_receive", "request ingress", 10),
+        "handle_generate_request": ("sglang_receive", "request ingress", REQUEST_STAGE_ORDERS["backend_receive"]),
         "process_input_requests": ("scheduler_input_batch", "request ingress", 20),
-        "_add_request_to_queue": ("scheduler_queue_enter", "scheduler", 30),
+        "_add_request_to_queue": ("scheduler_queue_enter", "scheduler", REQUEST_STAGE_ORDERS["queue_enter"]),
         "_prefetch_kvcache": ("scheduler_prefetch_kvcache", "scheduler", 35),
         "get_new_batch_prefill": ("scheduler_select_prefill", "scheduler", 40),
         "get_next_batch_to_run": ("scheduler_select_run", "scheduler", 45),
@@ -3199,7 +3201,7 @@ def _request_stage_category(method_name: str) -> tuple[str, str, int] | None:
         "process_batch_result": ("scheduler_process_batch_result", "scheduler", 60),
         "process_batch_result_prefill": ("scheduler_process_prefill_result", "scheduler", 61),
         "process_batch_result_decode": ("scheduler_process_decode_result", "scheduler", 62),
-        "match_prefix": ("cache_match_prefix", "cache lookup", 70),
+        "match_prefix": ("cache_match_prefix", "cache lookup", REQUEST_STAGE_ORDERS["cache_lookup"]),
         "ready_to_load_host_cache": ("cache_host_ready_check", "cache lookup", 72),
         "init_load_back": ("cache_load_back_plan", "cache lookup", 74),
         "load_back": ("cache_load_back_node", "cache lookup", 76),
@@ -3810,6 +3812,7 @@ def install_sglang_kv_trace() -> None:
     _write_event({"event": "trace.install.start"})
 
     include_scheduler = os.environ.get("AGENTIC_KV_TRACE_SCHEDULER", "0") == "1"
+    ingress_only = include_scheduler and os.environ.get("AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY", "0") == "1"
     control_only = os.environ.get("AGENTIC_KV_TRACE_CONTROL_ONLY", "0") == "1"
     strict = _truthy_env("AGENTIC_SGLANG_STRICT", default=False)
     sglang_version = installed_sglang_version()
@@ -3825,7 +3828,8 @@ def install_sglang_kv_trace() -> None:
             "sglang_version": sglang_version,
             "adapter": adapter.name,
             "scheduler_hooks_enabled": include_scheduler,
-            "control_only_scheduler_pump": control_only and not include_scheduler,
+            "scheduler_ingress_only": ingress_only,
+            "control_only_scheduler_pump": (control_only and not include_scheduler) or ingress_only,
             "selection": selection.to_dict(),
         }
     )
@@ -3840,6 +3844,15 @@ def install_sglang_kv_trace() -> None:
     for target in adapter.hook_targets:
         target_methods = dict(target.methods)
         use_control_only = False
+        if ingress_only and target.scheduler_required:
+            if target.class_name != "Scheduler":
+                continue
+            target_methods = {name: target.methods[name] for name in
+                              ("handle_generate_request", "_add_request_to_queue")
+                              if name in target.methods}
+            if not target_methods:
+                missing_required.append(f"{target.module}.Scheduler.handle_generate_request (missing adapter target)")
+                continue
         if target.scheduler_required and not include_scheduler:
             if control_only and target.class_name == "Scheduler":
                 pump_event = target.methods.get("get_next_batch_to_run")
@@ -3856,6 +3869,15 @@ def install_sglang_kv_trace() -> None:
             target_methods,
             control_only=use_control_only,
         )
+        if ingress_only and target.class_name == "Scheduler":
+            pump_event = target.methods.get("get_next_batch_to_run")
+            if pump_event is None:
+                missing_required.append(f"{target.module}.Scheduler.get_next_batch_to_run (missing adapter target)")
+            else:
+                statuses.update(_try_patch(
+                    lambda module_name=target.module, class_name=target.class_name: __import__(module_name, fromlist=[class_name]),
+                    target.class_name, {"get_next_batch_to_run": pump_event}, control_only=True,
+                ))
         for method_name, status in statuses.items():
             label = f"{target.module}.{target.class_name}.{method_name}"
             hook_statuses[label] = _installation_status(status)
@@ -3872,7 +3894,7 @@ def install_sglang_kv_trace() -> None:
         "adapter": adapter.name,
         "sglang_version": sglang_version,
         "scheduler_hooks_enabled": include_scheduler,
-        "control_only_scheduler_pump": control_only and not include_scheduler,
+        "control_only_scheduler_pump": (control_only and not include_scheduler) or ingress_only,
         "installed_hook_count": len(installed),
         "installed_hooks": installed,
         "hook_statuses": hook_statuses,

@@ -16,7 +16,7 @@ names, hook installation, version adapters, and raw-to-stable translation.
 ## Profiles and Gates
 
 The shared catalog defines `request_boundary`, `controller_queue`,
-`kv_lifecycle`, `kv_lifecycle_lean`, `copy_timing`, and `full_debug`. SGLang launch flags are resolved only in
+`kv_lifecycle`, `kv_lifecycle_lean`, `kv_attribution`, `copy_timing`, and `full_debug`. SGLang launch flags are resolved only in
 `agentic_backends.sglang.instrumentation_profiles`. Historical launcher names
 (`minimal`, `deadline`, `controller_decision`, `idle_gap`, `cache_debug`,
 `full_debug`) keep their existing flag defaults. Unknown names fail.
@@ -62,6 +62,13 @@ can enable its control-only scheduler pump with
 commands without writing scheduler events. Its installation and live evidence
 must pass the same fail-loud gates. The original `kv_lifecycle` flag defaults
 remain unchanged for archived runs.
+`kv_attribution` combines request-ingress timestamps with KV load and
+prefix-match events, but keeps per-batch scheduler logging, per-layer copy
+detail, GPU sampling, and full debug off. The three-arm busy audit
+(`WORK_AUDIT_MODES="baseline check_only controller"`)
+uses it to separate control-check overhead from additional load-mode effects.
+Control-to-confirmation windows are not physical CUDA copy intervals; stage
+coverage and tracing overhead must be checked before drawing a hardware claim.
 
 Before controller experiments, the existing
 `agentic_backends.sglang.instrumentation_preflight` checks the runtime

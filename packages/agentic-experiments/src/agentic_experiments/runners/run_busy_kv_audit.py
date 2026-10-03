@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paired-arm busy KV audit: ordinary replay or timing-only KV preparation.
+"""Busy KV audit: ordinary replay, check-only, or timing-only KV preparation.
 
 The controller sees each session's expected tool-return time and the backend's
 current host-residency answer. It never assigns frontend importance or forces
@@ -113,6 +113,18 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                         write_jsonl(events, {"kind": "controller_decision", **row})
                         if decision.action != "load":
                             continue
+                        if args.mode == "check_only":
+                            placebo = await prepare_prefix(
+                                client, url=args.prepare_url, session_id=session_id,
+                                prefix_id=prefix_id, p_hash=prior_prompt_hash,
+                                request_id=prior_request_id, plan_only=True,
+                                min_load_tokens=None, minimum_host_tokens=args.minimum_host_tokens,
+                                source="agentic_work_audit.busy",
+                            )
+                            row.update({"placebo_status": placebo.get("status"),
+                                        "placebo_duration_ms": placebo.get("control_duration_ms")})
+                            write_jsonl(events, {"kind": "controller_placebo", **row})
+                            return
                         load = await prepare_prefix(
                             client, url=args.prepare_url, session_id=session_id,
                             prefix_id=prefix_id, p_hash=prior_prompt_hash,
@@ -136,7 +148,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                             write_jsonl(events, {"kind": "controller_load_outcome", **row})
                         return
 
-                prep_task = asyncio.create_task(prepare_during_wait()) if args.mode == "controller" else None
+                prep_task = asyncio.create_task(prepare_during_wait()) if args.mode in ("check_only", "controller") else None
                 if prep_task:
                     prepare_tasks.append(prep_task)
                 await asyncio.sleep(max(0, (due_ns - time.time_ns()) / 1e9))
@@ -196,7 +208,8 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         "return_to_first_token": summarize_latency(replays),
         "native_load_events": len(native_loads),
         "controller_plan_checks": len(decisions),
-        "controller_load_attempts": len(prepared),
+        "controller_load_decisions": len(prepared),
+        "controller_load_attempts": len(prepared) if args.mode == "controller" else 0,
         "controller_loads_finished_before_tool_return": len(completed_before_due),
         "controller_loads_finished_after_tool_return": sum(
             isinstance(row.get("load_finished_observed_ns"), int) and
@@ -213,7 +226,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--mode", choices=("baseline", "controller"), required=True)
+    parser.add_argument("--mode", choices=("baseline", "check_only", "controller"), required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--backend-trace", type=Path, required=True)

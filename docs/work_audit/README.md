@@ -497,3 +497,31 @@ and whole-workload completion rose by 2.02 and 0.33 seconds. All 12 sessions
 had higher summed return-to-first-token time in both seeds. This is a result
 about the controller implementation including its control checks, not a
 measurement of early-copy cost alone or GPU bandwidth contention.
+
+### KV-load attribution follow-up
+
+Set `WORK_AUDIT_MODES` to add a check-only arm. It performs the same plan
+checks and a plan-only placebo call when it would load, but does not move KV.
+All three arms use the focused `kv_attribution` trace: request ingress,
+cache lookup, and native load events, without per-batch scheduler logging.
+Missing request-linked stages are reported as missing coverage.
+
+```bash
+SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 \
+  AGENTIC_MODEL_CACHE=/path/to/model/cache \
+  WORK_AUDIT_RUN_ID=work_audit_kv_attribution_$(date +%Y%m%d_%H%M%S) \
+  WORK_AUDIT_SEEDS="1 2" \
+  WORK_AUDIT_MODES="baseline check_only controller" \
+  bash infra/container/run_work_audit_busy.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The [archived three-arm run](../reports/work_audit/work_audit_kv_attribution_20261002_04/summary.json)
+found variable check-only effects across seeds. The real-load arm added 11.04
+and 19.42 seconds of summed replay TTFT versus check-only, with three and two
+extra native loads. The added delay occurred before first token; multi-chunk
+post-first-token generation was not slower. This is a workload-level
+association from five early-load attempts, not a measured per-copy cost or
+proof of HBM contention. A separate
+[tracing-off/on microcheck](../reports/instrumentation_overhead_kv_attribution_20261003.json)
+measured +3.05% median latency for a sequential long-prefix request path;
+it does not bound overhead in the busy, naturally evicting workload.

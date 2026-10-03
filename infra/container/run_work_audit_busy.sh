@@ -12,6 +12,7 @@ IMAGE="${SGLANG_DOCKER_IMAGE:-}"
 MODEL_CACHE="${AGENTIC_MODEL_CACHE:-}"
 RUN_ID="${WORK_AUDIT_RUN_ID:-work_audit_busy_$(date +%Y%m%d_%H%M%S)}"
 SEEDS="${WORK_AUDIT_SEEDS:-1 2}"
+MODES="${WORK_AUDIT_MODES:-baseline controller}"
 SESSION_COUNT="${WORK_AUDIT_SESSION_COUNT:-12}"
 TOOL_WAITS="${WORK_AUDIT_TOOL_WAITS:-3}"
 PREFIX_TOKENS="${WORK_AUDIT_PREFIX_TOKENS:-8192}"
@@ -23,7 +24,11 @@ MARGIN_MS="${WORK_AUDIT_MARGIN_MS:-150}"
 MINIMUM_HOST_TOKENS="${WORK_AUDIT_MINIMUM_HOST_TOKENS:-512}"
 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
 MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.80}"
-TRACE_PROFILE=kv_lifecycle_lean
+if [[ " ${MODES} " == *" check_only "* ]]; then
+  TRACE_PROFILE=kv_attribution
+else
+  TRACE_PROFILE=kv_lifecycle_lean
+fi
 RUN_ROOT="${DIRECT_ROOT}/artifacts/results/work_audit/${RUN_ID}"
 SERVER_PID=""
 CONTAINER_CID=""
@@ -33,6 +38,9 @@ CONTAINER_CID=""
   exit 2
 }
 [[ "${SEEDS}" =~ ^[0-9]+(\ [0-9]+)*$ ]] || { echo "WORK_AUDIT_SEEDS must be space-separated integers" >&2; exit 2; }
+[[ "${MODES}" == "baseline controller" || "${MODES}" == "baseline check_only controller" ]] || {
+  echo "WORK_AUDIT_MODES must be 'baseline controller' or 'baseline check_only controller'" >&2; exit 2;
+}
 for value in "${SESSION_COUNT}" "${TOOL_WAITS}" "${PREFIX_TOKENS}" "${REPLAY_TOKENS}" "${WAIT_MIN_MS}" "${WAIT_MAX_MS}"; do
   [[ "${value}" =~ ^[1-9][0-9]*$ ]] || { echo "Workload settings must be positive integers" >&2; exit 2; }
 done
@@ -92,9 +100,13 @@ declare -a seed_values
 read -r -a seed_values <<<"${SEEDS}"
 for seed in "${seed_values[@]}"; do
   if (( seed % 2 )); then
-    modes=(baseline controller)
+    read -r -a modes <<<"${MODES}"
   else
-    modes=(controller baseline)
+    if [[ "${TRACE_PROFILE}" == "kv_attribution" ]]; then
+      modes=(controller check_only baseline)
+    else
+      modes=(controller baseline)
+    fi
   fi
   for mode in "${modes[@]}"; do
     ARM_ID="seed${seed}_${mode}"
@@ -113,7 +125,11 @@ for seed in "${seed_values[@]}"; do
         printf -v "${name}" '%s' "${value}"
         export "${name}"
       done <<<"${profile_values}"
-      export AGENTIC_KV_TRACE_CONTROL_ONLY=1
+      if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]]; then
+        export AGENTIC_KV_TRACE_CONTROL_ONLY=1
+      else
+        export AGENTIC_KV_TRACE_CONTROL_ONLY=0
+      fi
       export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
       export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
       export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
@@ -131,15 +147,24 @@ for seed in "${seed_values[@]}"; do
       (( SECONDS < deadline )) || { echo "Backend startup timed out: ${ARM_ROOT}" >&2; exit 1; }
       sleep 2
     done
-    python3 - "${ARM_ROOT}/backend_trace.jsonl" <<'PY'
+    python3 - "${ARM_ROOT}/backend_trace.jsonl" "${TRACE_PROFILE}" <<'PY'
 import json, sys
 from agentic_backends.sglang.instrumentation_profiles import validate_installation
 with open(sys.argv[1], encoding="utf-8") as handle:
-    summaries = [row for line in handle if (row := json.loads(line)).get("event") == "trace.install.summary"]
-if not summaries or not validate_installation("kv_lifecycle_lean", "v0510", summaries[-1])["valid"]:
+    records = [json.loads(line) for line in handle]
+summaries = [row for row in records if row.get("event") == "trace.install.summary"]
+if not summaries or not validate_installation(sys.argv[2], "v0510", summaries[-1])["valid"]:
     raise SystemExit("Busy audit stopped: required KV lifecycle hooks were not installed")
-if "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run" not in summaries[-1].get("installed_hooks", []):
-    raise SystemExit("Busy audit stopped: control-only scheduler pump is missing")
+if sys.argv[2] == "kv_attribution":
+    selected = [row for row in records if row.get("event") == "trace.adapter.selected"
+                and row.get("scheduler_hooks_enabled") is True]
+    if not selected or not all(row.get("scheduler_ingress_only") is True for row in selected):
+        raise SystemExit("Busy audit stopped: ingress-only trace flag did not reach the backend")
+    if "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run" not in summaries[-1].get("installed_hooks", []):
+        raise SystemExit("Busy audit stopped: quiet prepare-control pump is missing")
+else:
+    if "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run" not in summaries[-1].get("installed_hooks", []):
+        raise SystemExit("Busy audit stopped: control-only scheduler pump is missing")
 PY
     python3 -m agentic_experiments.runners.run_busy_kv_audit \
       --run-id "${RUN_ID}_${ARM_ID}" --mode "${mode}" --seed "${seed}" \
@@ -159,18 +184,23 @@ PY
   done
 done
 
-python3 -m agentic_experiments.runners.analyze_busy_kv_audit \
-  --run-id "${RUN_ID}" --arms-dir "${RUN_ROOT}/arms" --out "${RUN_ROOT}/summary.json"
+if [[ "${TRACE_PROFILE}" == "kv_attribution" ]]; then
+  python3 -m agentic_experiments.runners.analyze_kv_load_attribution \
+    --run-id "${RUN_ID}" --arms-dir "${RUN_ROOT}/arms" --out "${RUN_ROOT}/summary.json"
+else
+  python3 -m agentic_experiments.runners.analyze_busy_kv_audit \
+    --run-id "${RUN_ID}" --arms-dir "${RUN_ROOT}/arms" --out "${RUN_ROOT}/summary.json"
+fi
 HARDWARE_PROFILE="$(python3 - "${PROFILE_PATH}" <<'PY'
 import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["hardware_profile"])
 PY
 )"
-WORKLOAD_JSON="$(python3 - "${SEEDS}" "${SESSION_COUNT}" "${TOOL_WAITS}" "${PREFIX_TOKENS}" "${REPLAY_TOKENS}" "${WAIT_MIN_MS}" "${WAIT_MAX_MS}" "${HICACHE_SIZE_GB}" "${MEM_FRACTION_STATIC}" "${ESTIMATED_LOAD_MS}" "${MARGIN_MS}" "${MINIMUM_HOST_TOKENS}" <<'PY'
+WORKLOAD_JSON="$(python3 - "${SEEDS}" "${SESSION_COUNT}" "${TOOL_WAITS}" "${PREFIX_TOKENS}" "${REPLAY_TOKENS}" "${WAIT_MIN_MS}" "${WAIT_MAX_MS}" "${HICACHE_SIZE_GB}" "${MEM_FRACTION_STATIC}" "${ESTIMATED_LOAD_MS}" "${MARGIN_MS}" "${MINIMUM_HOST_TOKENS}" "${MODES}" <<'PY'
 import json, sys
-seeds, sessions, waits, prefix, replay, lo, hi, cache, mem, load, margin, host = sys.argv[1:]
+seeds, sessions, waits, prefix, replay, lo, hi, cache, mem, load, margin, host, modes = sys.argv[1:]
 print(json.dumps({"research_question_id":"RQ8", "frontend_priority":"none", "forced_eviction":False,
-    "capacity_policy":"native_sglang", "modes":["baseline","controller"], "seeds":list(map(int,seeds.split())),
+    "capacity_policy":"native_sglang", "modes":modes.split(), "seeds":list(map(int,seeds.split())),
     "session_count":int(sessions), "tool_waits_per_session":int(waits), "prefix_tokens":int(prefix),
     "replay_tokens":int(replay), "wait_range_ms":[int(lo),int(hi)],
     "initial_stagger_ms":75, "estimated_load_ms":float(load), "load_margin_ms":float(margin),
@@ -184,7 +214,7 @@ python3 "${ROOT}/scripts/create_run_manifest.py" \
   --hardware-profile "${HARDWARE_PROFILE}" \
   --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
   --workload-json "${WORKLOAD_JSON}" \
-  --instrumentation v0510_backend_trace --instrumentation kv_lifecycle_lean \
+  --instrumentation v0510_backend_trace --instrumentation "${TRACE_PROFILE}" \
   --artifact "summary=${RUN_ROOT}/summary.json" --completion-status complete
 python3 -m agentic_reports.builders.build_work_audit_report \
   --results-dir "${DIRECT_ROOT}/artifacts/results/work_audit" \

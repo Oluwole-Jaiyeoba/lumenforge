@@ -77,7 +77,8 @@ def _pair_gates(pairs: list[dict], *, nonblocking: bool = False) -> str:
 def _first_request_ns(path: Path) -> int | None:
     if path.exists():
         summary = json.loads(path.read_text(encoding="utf-8"))
-        if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+        if summary.get("schema") in ("agentic_work_audit.busy_comparison.v1",
+                                     "agentic_work_audit.kv_load_attribution.v1"):
             starts = []
             for events in path.parent.glob("arms/*/harness_events.jsonl"):
                 with events.open(encoding="utf-8") as handle:
@@ -114,13 +115,17 @@ def _time(summary: dict) -> tuple[int, str, str, str]:
 
 
 def _links(path: Path, summary: dict) -> str:
-    if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+    if summary.get("schema") in ("agentic_work_audit.busy_comparison.v1",
+                                 "agentic_work_audit.kv_load_attribution.v1"):
         base = path.parent.as_posix()
         links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>',
                  f'<a href="{_esc(base)}/run_manifest.json">Run manifest</a>']
-        for pair in summary.get("pairs") or []:
-            for mode in ("baseline", "controller"):
-                arm = f"seed{pair['seed']}_{mode}"
+        seeds = summary.get("pairs") or summary.get("seeds") or []
+        modes = (("baseline", "check_only", "controller") if summary.get("seeds")
+                 else ("baseline", "controller"))
+        for seed in seeds:
+            for mode in modes:
+                arm = f"seed{seed['seed']}_{mode}"
                 for name, label in (("summary.json", "metrics"),
                                     ("harness_events.jsonl", "timeline"),
                                     ("instrumentation_audit.json", "hook gate"),
@@ -143,7 +148,8 @@ def _links(path: Path, summary: dict) -> str:
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
-    if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+    if summary.get("schema") in ("agentic_work_audit.busy_comparison.v1",
+                                 "agentic_work_audit.kv_load_attribution.v1"):
         brief = (f"{_esc(workload.get('session_count'))} sessions × "
                  f"{_esc(workload.get('tool_waits_per_session'))} tool waits; "
                  f"{_esc(summary.get('seed_count'))} paired seeds; natural capacity pressure")
@@ -158,7 +164,7 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                   "Controller requires a host-resident prefix and at least "
                   f"{_esc(workload.get('estimated_load_ms'))} + {_esc(workload.get('load_margin_ms'))} "
                   "ms before expected tool return. No frontend importance ranks or forced eviction; "
-                  "lean KV trace.")
+                  + ("focused ingress + KV trace." if summary.get("seeds") else "lean KV trace."))
         return brief, detail
     order = " → ".join(map(str, workload.get("cases") or [])) or "not recorded"
     profile = summary.get("_trace_profile") or next(
@@ -244,10 +250,12 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
-    if summary.get("schema") == "agentic_work_audit.busy_comparison.v1":
+    if summary.get("schema") in ("agentic_work_audit.busy_comparison.v1",
+                                 "agentic_work_audit.kv_load_attribution.v1"):
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
             "WORK_AUDIT_SEEDS": " ".join(map(str, workload.get("seeds") or [])),
+            "WORK_AUDIT_MODES": " ".join(workload.get("modes") or ["baseline", "controller"]),
             "WORK_AUDIT_SESSION_COUNT": workload.get("session_count"),
             "WORK_AUDIT_TOOL_WAITS": workload.get("tool_waits_per_session"),
             "WORK_AUDIT_PREFIX_TOKENS": workload.get("prefix_tokens"),
@@ -596,6 +604,76 @@ def _busy_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
+def _attribution_result(summary: dict) -> tuple[str, str]:
+    attempts = sum(seed["arms"]["controller"]["load_windows"]["load_attempts"]
+                   for seed in summary.get("seeds") or [])
+    extra_ttft = [seed["arms"]["controller"]["total_replay_ttft_ms"] -
+                  seed["arms"]["check_only"]["total_replay_ttft_ms"]
+                  for seed in summary.get("seeds") or []]
+    changes = " / ".join(f"+{value / 1000:.1f} s" if value >= 0 else f"{value / 1000:.1f} s"
+                         for value in extra_ttft)
+    headline = (f"{attempts} early-load attempts · load arm {changes} summed replay TTFT "
+                "vs checks-only")
+    sections = []
+    stage_labels = (
+        ("submit_to_receive", "Submission → backend receive"),
+        ("receive_to_queue", "Receive → queue"),
+        ("queue_to_cache_lookup", "Queue → first cache lookup"),
+        ("receive_to_cache_lookup", "Receive → first cache lookup"),
+        ("cache_lookup_to_first_token", "Cache lookup → first token"),
+        ("first_token_to_finish", "First token → completion"),
+        ("substantive_decode", "First token → completion, multi-chunk replies"),
+    )
+    for seed in summary.get("seeds") or []:
+        arms = seed["arms"]
+        mode_rows = []
+        for mode, label in (("baseline", "No checks"), ("check_only", "Checks only"),
+                            ("controller", "Checks + loads")):
+            arm = arms[mode]
+            mode_rows.append((label, _seconds(arm["total_replay_ttft_ms"]),
+                              _seconds(arm["workflow_makespan_ms"]),
+                              str(arm["controller_plan_checks"]),
+                              str(arm["load_windows"]["load_attempts"]),
+                              str(arm["native_load_events"])))
+        stage_rows = []
+        for key, label in stage_labels:
+            checks = seed["check_cost"][key]
+            loads = seed["load_association"][key]
+            coverage = f"{loads['matched_replays']}/{loads['total_replays']}"
+            stage_rows.append((label,
+                               f"{_ms(checks['mean_added_ms'])} ({_ms(checks['median_added_ms'])})",
+                               f"{_ms(loads['mean_added_ms'])} ({_ms(loads['median_added_ms'])})",
+                               coverage))
+        windows = arms["controller"]["load_windows"]
+        sections.append(
+            f"<h4>Seed {_esc(seed['seed'])}</h4>" +
+            _mode_table(("Arm", "Summed replay TTFT", "Workflow", "Checks", "Load attempts",
+                         "Native loads"), mode_rows) +
+            "<p><strong>Added milliseconds per replay, measured against the preceding arm.</strong> "
+            "Values are mean (median); positive means slower. Missing stage coverage is shown, "
+            "not counted as zero.</p>" +
+            _mode_table(("Stage", "Checks vs no checks", "Loads vs checks only", "Matched replays"),
+                        stage_rows) +
+            f"<p><strong>Load windows:</strong> {_esc(windows['confirmed_control_windows'])} "
+            f"confirmed control-to-completion windows; {_esc(windows['windows_with_other_replay_before_first_token'])} "
+            "overlapped another replay before first token; "
+            f"{_esc(windows['windows_with_other_replay_after_first_token'])} overlapped another "
+            "replay after first token.</p>"
+        )
+    detail = (
+        "<p><strong>What was measured.</strong> All arms use equal-priority sessions and fresh "
+        "backends. Check-only makes the same plan calls and a plan-only placebo call when "
+        "a load would be requested, but never loads KV. The last arm requests real loads. "
+        "Stage times are wall-clock "
+        "observations, not exclusive GPU-kernel time; summed TTFT is not elapsed experiment time.</p>" +
+        "".join(sections) +
+        f"<p><strong>Evidence size.</strong> Only {attempts} early-load attempts across these seeds; "
+        "do not generalize a per-copy cost from the full-workload difference.</p>" +
+        f"<p><strong>Limit.</strong> {_esc(summary.get('interpretation_limit'))}</p>"
+    )
+    return headline, detail
+
+
 def _question_index(milestones: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
     by_id: dict[str, dict] = {}
     by_run: dict[str, str] = {}
@@ -647,6 +725,10 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 
 def _run_finding(summary: dict) -> str:
     status = summary.get("status")
+    if summary.get("schema") == "agentic_work_audit.kv_load_attribution.v1" and status == "complete":
+        return ("The actual-load arm had higher replay TTFT in both seeds, while substantive "
+                "post-first-token generation was not slower. Check-only effects varied by seed; "
+                "the comparison does not prove copy-engine or HBM contention.")
     if status == "failed":
         return "Evidence checks failed; no performance conclusion is supported."
     if summary.get("schema") == "agentic_work_audit.busy_comparison.v1" and status == "inconclusive":
@@ -742,8 +824,10 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         window = summary.get("schema") == "agentic_work_audit.multisession_window.v1"
         controller = summary.get("schema") == "agentic_work_audit.controller_window.v1"
         busy = summary.get("schema") == "agentic_work_audit.busy_comparison.v1"
+        attribution = summary.get("schema") == "agentic_work_audit.kv_load_attribution.v1"
         run = str(summary.get("run_id") or path.parent.name)
-        kind = ("Busy workload · controller KV timing" if busy else
+        kind = ("Busy workload · KV-load attribution" if attribution else
+                "Busy workload · controller KV timing" if busy else
                 "Controller-chosen load window" if controller else "Three concurrent load windows" if window else
                 "Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
                 else "Early vs late" if timing else "Lifecycle validation")
@@ -754,6 +838,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         question_id = manifest_question_id or archived_question_id
         milestone = questions.get(question_id)
         fallback_question = (
+            "Which replay stages change when the controller checks KV residency and then requests early loads?"
+            if attribution else
             "In a busy, naturally evicting system, does using each session's tool-return estimate "
             "to time KV preparation improve the whole workload without harming other sessions?" if busy else
             "Can the controller choose a safe KV load window from observed events?" if controller else
@@ -775,7 +861,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             f'{" (" + _esc(question_id) + ")" if question_id else ""}</span>'
         )
         setup, method = _setup(summary, timing)
-        result, findings = (_busy_result(summary) if busy else
+        result, findings = (_attribution_result(summary) if attribution else
+                            _busy_result(summary) if busy else
                             _controller_window_result(summary) if controller else
                             _multisession_window_result(summary) if window else
                             _multisession_comparison_result(summary) if comparison else
@@ -844,7 +931,7 @@ small{display:block;color:#5a6c77;overflow-wrap:anywhere;font-size:.8rem;margin-
 .status{display:inline-block;font-weight:650}.validated{color:#126746}.failed{color:#b63839}.inconclusive{color:#9a621b}
 .detail-toggle{border:0;background:none;padding:0;color:#086780;font:inherit;font-weight:650;cursor:pointer;text-decoration:underline}
 .detail-toggle:focus-visible{outline:2px solid #086780;outline-offset:3px}
-.detail-row[hidden]{display:none!important}.detail-row>td{padding:16px 20px;background:#f5f9f8}
+.detail-row[hidden]{display:none!important}.detail-row>td{padding:16px 20px;background:#f5f9f8;white-space:normal}
 .detail{width:100%;min-width:0}.detail>p,.detail>ul{max-width:110ch}.detail p{margin:10px 0}.detail-scroll{overflow-x:auto}
 .pair-table{min-width:650px;font-size:.88rem}.pair-table th,.pair-table td{padding:7px 9px}
 .mode-table{min-width:620px;font-size:.88rem;table-layout:fixed}

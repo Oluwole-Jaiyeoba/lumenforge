@@ -8,6 +8,9 @@ from typing import Iterable
 from .events import EvidenceEvent
 
 
+REQUEST_STAGE_ORDERS = {"backend_receive": 10, "queue_enter": 30, "cache_lookup": 70}
+
+
 @dataclass(frozen=True)
 class Signal:
     signal_id: str
@@ -59,6 +62,8 @@ PROFILES: dict[str, Profile] = {
         Profile("kv_lifecycle", ("kv.load_gpu", "kv.prefix_match"), "Cache movement and replay match"),
         Profile("kv_lifecycle_lean", ("kv.load_gpu", "kv.prefix_match"),
                 "Cache movement and replay match without scheduler tracing"),
+        Profile("kv_attribution", ("request.accepted", "kv.load_gpu", "kv.prefix_match"),
+                "Request ingress and KV-load timing without batch or per-layer logging"),
         Profile("copy_timing", ("kv.load_gpu", "kv.layer_copy"), "Host-to-device copy detail"),
         Profile("full_debug", ("request.accepted", "batch.scheduled", "batch.completed"),
                 "All available lifecycle and scheduler evidence",

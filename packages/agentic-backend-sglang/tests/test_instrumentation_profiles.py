@@ -18,6 +18,9 @@ def test_legacy_profile_defaults_remain_unchanged():
     assert profile_flags("controller_queue")["AGENTIC_KV_COPY_TELEMETRY_ENABLE"] == "0"
     assert set(profile_flags("kv_lifecycle_lean").values()) == {"0"}
     assert PROFILES["kv_lifecycle_lean"].required_signals == PROFILES["kv_lifecycle"].required_signals
+    assert profile_flags("kv_attribution")["AGENTIC_KV_TRACE_SCHEDULER"] == "1"
+    assert profile_flags("kv_attribution")["AGENTIC_KV_COPY_TELEMETRY_ENABLE"] == "0"
+    assert profile_flags("kv_attribution")["AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY"] == "1"
 
 
 def test_missing_hook_fails_loud_and_complete_profile_passes():

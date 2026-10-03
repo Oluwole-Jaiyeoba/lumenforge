@@ -39,6 +39,34 @@ def test_busy_audit_report_keeps_pair_numbers_and_limits_visible():
     assert "not an isolated hardware-bandwidth measurement" in page
 
 
+def test_attribution_report_exposes_three_arms_and_stage_coverage():
+    stage = {key: {"mean_added_ms": 5, "median_added_ms": 5,
+                   "matched_replays": 1, "total_replays": 1}
+             for key in ("submit_to_receive", "receive_to_queue", "queue_to_cache_lookup",
+                         "receive_to_cache_lookup", "substantive_decode",
+                         "cache_lookup_to_first_token", "first_token_to_finish")}
+    arm = {"total_replay_ttft_ms": 100, "workflow_makespan_ms": 200,
+           "controller_plan_checks": 1, "native_load_events": 2,
+           "load_windows": {"load_attempts": 1, "confirmed_control_windows": 1,
+                            "windows_with_other_replay_before_first_token": 1,
+                            "windows_with_other_replay_after_first_token": 0}}
+    summary = {"schema": "agentic_work_audit.kv_load_attribution.v1", "run_id": "attr",
+               "status": "complete", "seed_count": 1, "interpretation_limit": "Not physical copy time.",
+               "_manifest": {**_manifest(), "workload": {
+                   "research_question_id": "RQ8", "session_count": 12,
+                   "tool_waits_per_session": 3, "modes": ["baseline", "check_only", "controller"],
+                   "seeds": [1]}},
+               "seeds": [{"seed": 1, "arms": {mode: arm for mode in
+                          ("baseline", "check_only", "controller")},
+                          "check_cost": stage, "load_association": stage}]}
+    page = render([(Path("runs/attr/summary.json"), summary)])
+    assert "Busy workload · KV-load attribution" in page
+    assert "Checks only" in page and "Checks + loads" in page
+    assert "Queue → first cache lookup" in page
+    assert "1/1" in page
+    assert "Not physical copy time" in page
+
+
 def _manifest(order=("warm", "host")):
     return {
         "hardware_profile": "nvidia_a10g_24gb",
