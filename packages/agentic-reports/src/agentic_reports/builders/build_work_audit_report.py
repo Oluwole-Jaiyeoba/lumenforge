@@ -1096,6 +1096,10 @@ def _md_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
+def _md_nowrap(value: object) -> str:
+    return _md_cell(value).replace(" ", "&nbsp;")
+
+
 def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
     if not rows:
         return "No comparable measurements recorded."
@@ -1410,7 +1414,8 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
         comparison, replay, other, workflow, finding, gate = _markdown_index_outcome(summary)
         cells = (stamp, f"[{_kind(summary)}](#run-{run})", question_id,
                  _report_text(setup), comparison, replay, other, workflow, finding, gate)
-        lines.append("| " + " | ".join(_md_cell(cell) for cell in cells) + " |")
+        lines.append("| " + " | ".join(_md_nowrap(cell) if index in (0, 5, 6, 7) else _md_cell(cell)
+                                         for index, cell in enumerate(cells)) + " |")
     lines.extend(("", "## Experiment details", ""))
     for path, summary in ordered:
         run = str(summary.get("run_id") or path.parent.name)

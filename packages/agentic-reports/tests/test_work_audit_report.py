@@ -192,7 +192,7 @@ def test_markdown_rq9_index_shows_absolute_early_and_late_results():
         "pairs": [{"pair": 1, "comparable": True}],
     }
     page = render_markdown([(Path("runs/worker/summary.json"), summary)])
-    index = page.split("## Experiment details", 1)[0]
+    index = page.split("## Experiment details", 1)[0].replace("&nbsp;", " ")
     assert "| Central date / time |" in index
     assert "| Replay / long session | Other session | Whole workflow | Plain-English finding |" in index
     assert "Oct 5, 2026, 1:28:34 p.m. CDT" in index
@@ -211,7 +211,7 @@ def test_markdown_uses_cst_for_winter_and_no_arrow_for_validation_only():
                "_started_ns": int(datetime(2026, 1, 5, 18, 0, tzinfo=timezone.utc).timestamp() * 1e9),
                "cases": [{"case_type": "host_backed", "replay_ttft_ms": 85.1}]}
     index = render_markdown([(Path("runs/winter/summary.json"), summary)]).split(
-        "## Experiment details", 1)[0]
+        "## Experiment details", 1)[0].replace("&nbsp;", " ")
     assert "Jan 5, 2026, 12:00:00 p.m. CST" in index
     assert "Observation only; no policy comparison" in index
     assert "Host-backed replay TTFT: 85.1 ms" in index
