@@ -59,7 +59,7 @@ def test_attribution_report_exposes_three_arms_and_stage_coverage():
                "_manifest": {**_manifest(), "workload": {
                    "research_question_id": "RQ8", "session_count": 12,
                    "tool_waits_per_session": 3, "modes": ["baseline", "check_only", "controller"],
-                   "seeds": [1]}},
+                   "seeds": [1], "hicache_io_backend": "kernel"}},
                "seeds": [{"seed": 1, "arms": {mode: arm for mode in
                           ("baseline", "check_only", "controller")},
                           "check_cost": stage, "load_association": stage}]}
@@ -70,6 +70,7 @@ def test_attribution_report_exposes_three_arms_and_stage_coverage():
     assert "1/1" in page
     assert "Completed early-load phases" in page
     assert "8.5 ms" in page
+    assert "KV I/O backend kernel" in page
     assert "Not physical copy time" in page
 
 

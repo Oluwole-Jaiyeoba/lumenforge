@@ -1,0 +1,2 @@
+{"event": "torch_profiler.start", "label": "prepare_prefix:32", "pid": 55, "ts_ns": 1791217913040386940}
+{"event": "torch_profiler.export", "event_count": 30, "label": "32", "pid": 55, "reason": "first_prepare_load", "table_path": "torch_cuda_profile_pid55_1791217913_first_prepare_load_key_averages.txt", "trace_path": "torch_cuda_profile_pid55_1791217913_first_prepare_load.json.gz", "ts_ns": 1791217915712454045}

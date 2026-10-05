@@ -1,0 +1,16 @@
+{
+  "kind": "diagnostic_profile_not_performance_comparison",
+  "run_id": "work_audit_load_profile_diagnostic_20261005_02",
+  "profiled_operation": "first accepted native direct KV load",
+  "loaded_tokens": 2048,
+  "ready_to_load_wall_ms_with_profiler": 165.143,
+  "host_to_device_copy_count": 3920,
+  "host_to_device_bytes": 117440512,
+  "sum_active_host_to_device_copy_ms": 10.884,
+  "first_to_last_copy_span_ms": 156.859,
+  "gap_within_copy_span_ms": 145.975,
+  "transfer_kv_direct_calls": 28,
+  "limitations": "Profiling perturbs timing. The 145.975 ms gap includes software dispatch and other activity and is not a directly recoverable performance gain. CPU operator totals are nested and must not be added. This diagnostic run must not be compared as a performance arm.",
+  "raw_profile": "torch_cuda_profile_pid55_1791217913_first_prepare_load.json.gz",
+  "operator_table": "torch_cuda_profile_pid55_1791217913_first_prepare_load_key_averages.txt"
+}

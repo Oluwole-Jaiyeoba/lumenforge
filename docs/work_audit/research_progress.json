@@ -6,17 +6,19 @@
       "short_question": "Does timed KV preparation help a busy system?",
       "evidence_date_utc": "2026-10-05",
       "question": "With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?",
-      "answer": "The original two-seed A10G comparison found higher summed replay TTFT and slower workflows with timed preparation. A three-arm comparison separated no checks, plan-only checks, and real early loads: the load arm added +11.04 and +19.42 seconds of summed replay TTFT versus checks-only across 36 replays per seed, while sustained generation did not slow. In a later one-seed phase-timing repeat, three completed early loads spent 121, 308, and 1362 ms inside SGLang's ready-to-load call on the scheduler path; control-queue waits were only 2-12 ms. CUDA-event durations closely matched those calls. The real-load arm added 11.73 seconds summed replay TTFT versus checks-only; multi-chunk post-first-token generation was again not slower.",
-      "unknown": "The phase-timing repeat has only three confirmed early loads and one additional not-admitted attempt. CUDA-event duration overlaps the wall-clock ready-to-load call and must not be added to it. Matched-arm differences locate affected stages but do not prove per-copy causality, HBM contention, or how much a hardware offload would save; concurrent batch trajectories can diverge. A separate sequential tracing-off/on microcheck measured +3.05% median latency but does not bound overhead in the busy workload. Prompts and tool waits remain synthetic.",
+      "answer": "The original two-seed A10G comparison found higher summed replay TTFT and slower workflows with timed preparation. A three-arm comparison separated no checks, plan-only checks, and real early loads: the load arm added +11.04 and +19.42 seconds of summed replay TTFT versus checks-only across 36 replays per seed, while sustained generation did not slow. In a one-seed phase-timing repeat, three completed early loads spent 121, 308, and 1362 ms inside SGLang's ready-to-load call on the scheduler path; control-queue waits were only 2-12 ms. A separate diagnostic profile of one 2048-token direct load found 117.44 MB moved in 3920 small copies: 10.884 ms of active host-to-device copies spread across 156.859 ms. A one-seed control using SGLang's supported kernel I/O backend also held the scheduler for 106, 314, and 1314 ms on its three accepted loads and added 17.61 seconds summed replay TTFT versus checks-only. Neither I/O backend moved the load off the scheduler path; post-first-token generation did not slow in these runs.",
+      "unknown": "The profiler diagnostic perturbs timing and is not a performance comparison; gaps between copy events cannot be assumed recoverable. The phase-timing and kernel controls each have only one seed and three accepted early loads. CUDA-event duration overlaps wall-clock ready-call time and must not be added to it. Matched-arm differences locate affected stages but do not prove per-copy causality, HBM contention, or how much a hardware offload would save; concurrent batch trajectories can diverge. A true off-scheduler native load has not been tested and needs synchronized backend support. A separate sequential tracing-off/on microcheck measured +3.05% median latency but does not bound overhead in the busy workload. Prompts and tool waits remain synthetic.",
       "evidence_run_ids": [
         "work_audit_busy_pair_20261002_01",
         "work_audit_kv_attribution_20261002_04",
-        "work_audit_load_phase_20261005_01"
+        "work_audit_load_phase_20261005_01",
+        "work_audit_load_kernel_20261005_01"
       ],
       "related_run_ids": [
         "work_audit_busy_pair_20261002_01",
         "work_audit_kv_attribution_20261002_04",
         "work_audit_load_phase_20261005_01",
+        "work_audit_load_kernel_20261005_01",
         "work_audit_busy_pilot_20261002"
       ]
     },

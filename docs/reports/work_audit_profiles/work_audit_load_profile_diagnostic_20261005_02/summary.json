@@ -1,0 +1,319 @@
+{
+  "interpretation_limit": "A load control-to-confirmation window is not the physical CUDA copy interval. The CUDA-event duration can overlap CPU calls and must not be added to their wall times. Stage differences isolate check-only from check-plus-load policy, but concurrent batch trajectories can diverge; they do not prove HBM bandwidth contention. Missing request-linked stages are reported as missing coverage, never zero delay.",
+  "run_id": "work_audit_load_profile_diagnostic_20261005_02",
+  "schema": "agentic_work_audit.kv_load_attribution.v1",
+  "seed_count": 1,
+  "seeds": [
+    {
+      "arms": {
+        "baseline": {
+          "controller_plan_checks": 0,
+          "load_phases": [],
+          "load_windows": {
+            "confirmed_control_windows": 0,
+            "load_attempts": 0,
+            "load_decisions": 0,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 0
+          },
+          "native_load_events": 36,
+          "replay_count": 36,
+          "run_id": "work_audit_load_profile_diagnostic_20261005_02_seed1_baseline",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 2700.542,
+              "median_ms": 2377.618,
+              "sum_ms": 97219.507,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 2951.301,
+              "median_ms": 1.77,
+              "sum_ms": 106246.843,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7013.954,
+              "median_ms": 1773.359,
+              "sum_ms": 252502.351,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7087.878,
+              "median_ms": 1852.429,
+              "sum_ms": 255163.626,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 73.924,
+              "median_ms": 80.023,
+              "sum_ms": 2661.275,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 1970.79,
+              "median_ms": 1384.598,
+              "sum_ms": 70948.456,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 423331.565,
+          "workflow_makespan_ms": 90528.764
+        },
+        "check_only": {
+          "controller_plan_checks": 105,
+          "load_phases": [],
+          "load_windows": {
+            "confirmed_control_windows": 0,
+            "load_attempts": 0,
+            "load_decisions": 4,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 0
+          },
+          "native_load_events": 36,
+          "replay_count": 36,
+          "run_id": "work_audit_load_profile_diagnostic_20261005_02_seed1_check_only",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 2681.686,
+              "median_ms": 2371.878,
+              "sum_ms": 96540.704,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 2953.349,
+              "median_ms": 1.796,
+              "sum_ms": 106320.574,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7024.499,
+              "median_ms": 1783.875,
+              "sum_ms": 252881.951,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7098.865,
+              "median_ms": 1864.339,
+              "sum_ms": 255559.142,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 74.366,
+              "median_ms": 78.92,
+              "sum_ms": 2677.191,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 1960.926,
+              "median_ms": 1391.798,
+              "sum_ms": 70593.352,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 422693.175,
+          "workflow_makespan_ms": 90781.452
+        },
+        "controller": {
+          "controller_plan_checks": 106,
+          "load_phases": [
+            {
+              "before_ready_call_ms": 24.562,
+              "control_queue_ms": 4.088,
+              "cuda_elapsed_ms": 163.116135,
+              "load_back_call_ms": 6.672,
+              "load_id": "busy-seed1-session-05-replay-1:1:1791217913009387776",
+              "loaded_tokens": 2048,
+              "ready_to_load_call_ms": 165.143,
+              "scheduler_preparation_ms": 0.257
+            },
+            {
+              "before_ready_call_ms": 0.004,
+              "control_queue_ms": 13.96,
+              "cuda_elapsed_ms": 332.982666,
+              "load_back_call_ms": 30.496,
+              "load_id": "busy-seed1-session-07-replay-1:0:1791217923794801251",
+              "loaded_tokens": 7989,
+              "ready_to_load_call_ms": 333.07,
+              "scheduler_preparation_ms": 0.321
+            }
+          ],
+          "load_windows": {
+            "confirmed_control_windows": 2,
+            "load_attempts": 2,
+            "load_decisions": 2,
+            "windows_with_other_replay_after_first_token": 0,
+            "windows_with_other_replay_before_first_token": 2
+          },
+          "native_load_events": 38,
+          "replay_count": 36,
+          "run_id": "work_audit_load_profile_diagnostic_20261005_02_seed1_controller",
+          "stage_timing": {
+            "cache_lookup_to_first_token": {
+              "covered_replays": 36,
+              "mean_ms": 3440.663,
+              "median_ms": 2605.277,
+              "sum_ms": 123863.863,
+              "total_replays": 36
+            },
+            "first_token_to_finish": {
+              "covered_replays": 36,
+              "mean_ms": 2961.856,
+              "median_ms": 1.801,
+              "sum_ms": 106626.801,
+              "total_replays": 36
+            },
+            "queue_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7259.691,
+              "median_ms": 2135.132,
+              "sum_ms": 261348.86,
+              "total_replays": 36
+            },
+            "receive_to_cache_lookup": {
+              "covered_replays": 36,
+              "mean_ms": 7343.298,
+              "median_ms": 2225.673,
+              "sum_ms": 264358.723,
+              "total_replays": 36
+            },
+            "receive_to_queue": {
+              "covered_replays": 36,
+              "mean_ms": 83.607,
+              "median_ms": 91.041,
+              "sum_ms": 3009.862,
+              "total_replays": 36
+            },
+            "submit_to_receive": {
+              "covered_replays": 36,
+              "mean_ms": 2728.853,
+              "median_ms": 2957.536,
+              "sum_ms": 98238.715,
+              "total_replays": 36
+            }
+          },
+          "total_replay_ttft_ms": 486461.278,
+          "workflow_makespan_ms": 95338.843
+        }
+      },
+      "check_cost": {
+        "cache_lookup_to_first_token": {
+          "matched_replays": 36,
+          "mean_added_ms": -18.856,
+          "median_added_ms": -1.074,
+          "sum_added_ms": -678.803,
+          "total_replays": 36
+        },
+        "first_token_to_finish": {
+          "matched_replays": 36,
+          "mean_added_ms": 2.048,
+          "median_added_ms": 0.157,
+          "sum_added_ms": 73.731,
+          "total_replays": 36
+        },
+        "queue_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 10.544,
+          "median_added_ms": 9.549,
+          "sum_added_ms": 379.6,
+          "total_replays": 36
+        },
+        "receive_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 10.987,
+          "median_added_ms": 9.993,
+          "sum_added_ms": 395.517,
+          "total_replays": 36
+        },
+        "receive_to_queue": {
+          "matched_replays": 36,
+          "mean_added_ms": 0.442,
+          "median_added_ms": 0.453,
+          "sum_added_ms": 15.917,
+          "total_replays": 36
+        },
+        "submit_to_receive": {
+          "matched_replays": 36,
+          "mean_added_ms": -9.864,
+          "median_added_ms": 4.134,
+          "sum_added_ms": -355.103,
+          "total_replays": 36
+        },
+        "substantive_decode": {
+          "excluded_short_responses": 24,
+          "matched_replays": 12,
+          "mean_added_ms": 6.091,
+          "median_added_ms": 6.108,
+          "sum_added_ms": 73.092,
+          "total_replays": 36
+        }
+      },
+      "load_association": {
+        "cache_lookup_to_first_token": {
+          "matched_replays": 36,
+          "mean_added_ms": 758.977,
+          "median_added_ms": 265.049,
+          "sum_added_ms": 27323.158,
+          "total_replays": 36
+        },
+        "first_token_to_finish": {
+          "matched_replays": 36,
+          "mean_added_ms": 8.506,
+          "median_added_ms": 0.618,
+          "sum_added_ms": 306.226,
+          "total_replays": 36
+        },
+        "queue_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 235.192,
+          "median_added_ms": 28.686,
+          "sum_added_ms": 8466.91,
+          "total_replays": 36
+        },
+        "receive_to_cache_lookup": {
+          "matched_replays": 36,
+          "mean_added_ms": 244.433,
+          "median_added_ms": 28.533,
+          "sum_added_ms": 8799.581,
+          "total_replays": 36
+        },
+        "receive_to_queue": {
+          "matched_replays": 36,
+          "mean_added_ms": 9.241,
+          "median_added_ms": 7.256,
+          "sum_added_ms": 332.671,
+          "total_replays": 36
+        },
+        "submit_to_receive": {
+          "matched_replays": 36,
+          "mean_added_ms": 767.927,
+          "median_added_ms": 524.375,
+          "sum_added_ms": 27645.363,
+          "total_replays": 36
+        },
+        "substantive_decode": {
+          "excluded_short_responses": 24,
+          "matched_replays": 12,
+          "mean_added_ms": 25.161,
+          "median_added_ms": 22.757,
+          "sum_added_ms": 301.931,
+          "total_replays": 36
+        }
+      },
+      "seed": 1
+    }
+  ],
+  "status": "complete"
+}

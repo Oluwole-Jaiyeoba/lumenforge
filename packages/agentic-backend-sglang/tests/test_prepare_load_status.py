@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unittest
 from unittest.mock import patch
 
@@ -45,6 +46,10 @@ class PrepareLoadStatusTest(unittest.TestCase):
         self.assertEqual(finished["status"], "finished")
         self.assertTrue(finished["native_finished"])
         self.assertEqual(finished["cuda_elapsed_ms"], 12.5)
+
+    def test_one_load_profile_does_not_start_on_request_hooks(self) -> None:
+        with patch.dict(os.environ, {"AGENTIC_KV_PREPARE_PROFILE_ONCE": "1"}):
+            self.assertFalse(trace_patch._should_start_torch_profiler("request", {}))
 
 
 if __name__ == "__main__":

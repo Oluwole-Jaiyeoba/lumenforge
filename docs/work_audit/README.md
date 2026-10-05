@@ -539,3 +539,34 @@ generation after their first token. This locates a blocking backend call but
 does not prove a specific memory-bandwidth collision or how much hardware
 could remove. The [run manifest](../reports/work_audit/work_audit_load_phase_20261005_01/run_manifest.json)
 and compressed traces preserve the settings and event timeline.
+
+### What occupies the load interval?
+
+An opt-in [single-load profiler diagnostic](../reports/work_audit_profiles/work_audit_load_profile_diagnostic_20261005_02/profile_summary.json)
+captured the first accepted 2048-token `direct` load in the same one-seed,
+three-arm workload. It moved 117,440,512 bytes in 3,920 pinned host-to-device
+copies. Active copy operations summed to 10.884 ms, but those copies spanned
+156.859 ms and the profiled `ready_to_load_host_cache()` call took 165.143 ms.
+The intervening time includes launch/dispatch and other activity; it is **not**
+a measured amount that a hardware change can simply eliminate. Profiling
+itself changes timing, so this run is diagnostic only and is excluded from the
+performance report. The compressed [raw trace](../reports/work_audit_profiles/work_audit_load_profile_diagnostic_20261005_02/torch_cuda_profile_pid55_1791217913_first_prepare_load.json.gz)
+and [operator table](../reports/work_audit_profiles/work_audit_load_profile_diagnostic_20261005_02/torch_cuda_profile_pid55_1791217913_first_prepare_load_key_averages.txt)
+are retained for reanalysis.
+
+The [supported `kernel` I/O control](../reports/work_audit/work_audit_load_kernel_20261005_01/summary.json)
+used the same three modes and one seed with profiling off. Its three accepted
+loads held the scheduler's ready call for 106, 314, and 1314 ms; control-queue
+waits were 2-14 ms. Summed replay TTFT was 437.55 s for baseline, 435.27 s
+for checks-only, and 452.88 s for real loads across 36 replays. The load arm
+therefore added 17.61 s versus checks-only. The 12 multi-chunk replies did not
+show slower post-first-token generation. Changing this native I/O backend did
+not move the load off the scheduler path, and differences from the `direct`
+run are not paired evidence of an I/O backend effect because the trajectories
+can diverge.
+
+To reproduce the `kernel` control on a supported host, use the busy-workload
+command above with `HICACHE_IO_BACKEND=kernel`, `WORK_AUDIT_SEEDS="1"`, and
+`WORK_AUDIT_MODES="baseline check_only controller"`. A true nonblocking-load
+comparison remains untested; it requires a version-specific backend change
+with synchronization and correctness checks before a performance claim.

@@ -23,6 +23,7 @@ ESTIMATED_LOAD_MS="${WORK_AUDIT_ESTIMATED_LOAD_MS:-250}"
 MARGIN_MS="${WORK_AUDIT_MARGIN_MS:-150}"
 MINIMUM_HOST_TOKENS="${WORK_AUDIT_MINIMUM_HOST_TOKENS:-512}"
 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
+HICACHE_IO_BACKEND="${HICACHE_IO_BACKEND:-direct}"
 MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.80}"
 if [[ " ${MODES} " == *" check_only "* ]]; then
   TRACE_PROFILE=kv_attribution
@@ -134,7 +135,7 @@ for seed in "${seed_values[@]}"; do
       export AGENTIC_KV_PREPARE_CONTROL_ENABLE=1
       export AGENTIC_KV_PREPARE_CONTROL_HOST=127.0.0.1
       export AGENTIC_KV_PREPARE_CONTROL_PORT=31991
-      export HICACHE_SIZE_GB MEM_FRACTION_STATIC
+      export HICACHE_SIZE_GB HICACHE_IO_BACKEND MEM_FRACTION_STATIC
       bash scripts/run_sglang_hicache_server.sh "${MODEL}"
     ) >"${ARM_ROOT}/server.log" 2>&1 &
     SERVER_PID="$!"
@@ -196,16 +197,17 @@ import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["hardware_profile"])
 PY
 )"
-WORKLOAD_JSON="$(python3 - "${SEEDS}" "${SESSION_COUNT}" "${TOOL_WAITS}" "${PREFIX_TOKENS}" "${REPLAY_TOKENS}" "${WAIT_MIN_MS}" "${WAIT_MAX_MS}" "${HICACHE_SIZE_GB}" "${MEM_FRACTION_STATIC}" "${ESTIMATED_LOAD_MS}" "${MARGIN_MS}" "${MINIMUM_HOST_TOKENS}" "${MODES}" <<'PY'
+WORKLOAD_JSON="$(python3 - "${SEEDS}" "${SESSION_COUNT}" "${TOOL_WAITS}" "${PREFIX_TOKENS}" "${REPLAY_TOKENS}" "${WAIT_MIN_MS}" "${WAIT_MAX_MS}" "${HICACHE_SIZE_GB}" "${HICACHE_IO_BACKEND}" "${MEM_FRACTION_STATIC}" "${ESTIMATED_LOAD_MS}" "${MARGIN_MS}" "${MINIMUM_HOST_TOKENS}" "${MODES}" <<'PY'
 import json, sys
-seeds, sessions, waits, prefix, replay, lo, hi, cache, mem, load, margin, host, modes = sys.argv[1:]
+seeds, sessions, waits, prefix, replay, lo, hi, cache, io_backend, mem, load, margin, host, modes = sys.argv[1:]
 print(json.dumps({"research_question_id":"RQ8", "frontend_priority":"none", "forced_eviction":False,
     "capacity_policy":"native_sglang", "modes":modes.split(), "seeds":list(map(int,seeds.split())),
     "session_count":int(sessions), "tool_waits_per_session":int(waits), "prefix_tokens":int(prefix),
     "replay_tokens":int(replay), "wait_range_ms":[int(lo),int(hi)],
     "initial_stagger_ms":75, "estimated_load_ms":float(load), "load_margin_ms":float(margin),
     "minimum_host_tokens":int(host),
-    "hicache_size_gb":float(cache), "mem_fraction_static":float(mem)}))
+    "hicache_size_gb":float(cache), "hicache_io_backend":io_backend,
+    "mem_fraction_static":float(mem)}))
 PY
 )"
 python3 "${ROOT}/scripts/create_run_manifest.py" \

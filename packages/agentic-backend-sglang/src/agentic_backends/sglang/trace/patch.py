@@ -31,6 +31,7 @@ import re
 import threading
 import time
 import traceback
+from contextlib import nullcontext
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Callable
@@ -41,10 +42,12 @@ from ..instrumentation.nvtx import range_scope
 from ..instrumentation.runtime_telemetry import emit_runtime_event
 from ..instrumentation.torch_cuda_profiler import maybe_start as maybe_start_torch_profiler
 from ..instrumentation.torch_cuda_profiler import record_event as record_torch_profiler_event
+from ..instrumentation.torch_cuda_profiler import stop_and_export as stop_torch_profiler
 from ..selection import installed_sglang_version, select_adapter
 
 
 _INSTALLED = False
+_PREPARE_PROFILE_CAPTURED = False
 _CALL_SEQ = 0
 _SESSION_RE = re.compile(r"coding agent session ([A-Za-z0-9_.:-]+)")
 _ACTIVE_AGENT_CONTEXT: ContextVar[dict[str, Any]] = ContextVar("agentic_kv_active_agent_context", default={})
@@ -1886,13 +1889,24 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "reason": "SGLang load_back skipped this node because of threshold, quota, or memory pressure.",
         }
 
+    global _PREPARE_PROFILE_CAPTURED
+    profile_this_load = (
+        _truthy_env("AGENTIC_KV_PREPARE_PROFILE_ONCE")
+        and _truthy_env("AGENTIC_KV_TORCH_PROFILER_ENABLE")
+        and not _PREPARE_PROFILE_CAPTURED
+    )
+    if profile_this_load:
+        _PREPARE_PROFILE_CAPTURED = True
+        maybe_start_torch_profiler(f"prepare_prefix:{node_id}")
     ready_to_load_started_ns = time.time_ns()
     try:
-        with torch.cuda.stream(load_stream):
-            timing_start_event.record()
-        producer_id = int(tree_cache.ready_to_load_host_cache())
-        with torch.cuda.stream(load_stream):
-            timing_finish_event.record()
+        scope = torch.profiler.record_function("agentic_kv.ready_to_load_host_cache") if profile_this_load else nullcontext()
+        with scope:
+            with torch.cuda.stream(load_stream):
+                timing_start_event.record()
+            producer_id = int(tree_cache.ready_to_load_host_cache())
+            with torch.cuda.stream(load_stream):
+                timing_finish_event.record()
     except Exception as exc:  # noqa: BLE001
         return {
             "ok": False,
@@ -1902,7 +1916,10 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "loaded_tokens": int(len(device_indices)),
             "error": f"{type(exc).__name__}: {exc}",
         }
-    ready_to_load_returned_ns = time.time_ns()
+    finally:
+        ready_to_load_returned_ns = time.time_ns()
+        if profile_this_load:
+            stop_torch_profiler("first_prepare_load", node_id)
 
     load_id = str(command.get("load_id") or f"{command.get('request_id') or node_id}:{producer_id}:{start_ns}")
     try:
@@ -3488,6 +3505,8 @@ def _context_has_agent_phase(context: dict[str, Any], phase: str) -> bool:
 
 
 def _should_start_torch_profiler(event_name: str, context: dict[str, Any]) -> bool:
+    if _truthy_env("AGENTIC_KV_PREPARE_PROFILE_ONCE"):
+        return False
     start_events = _env_set("AGENTIC_KV_TORCH_PROFILER_START_EVENTS")
     if start_events and event_name not in start_events:
         return False
