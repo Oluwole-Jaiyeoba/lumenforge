@@ -20,7 +20,8 @@ shared signal catalog, profile and gates; do not install lane-local hooks.
   SGLang-visible H2D events as proof of physical GPU saturation. The first
   platform is the accessible standard-NVIDIA remote GPU; GH200 requires a
   separate run and manifest.
-- [KV Lifecycle Audit](KV_LIFECYCLE_AUDIT.html) tracks when agentic cache work happens.
+- [KV Lifecycle Audit](KV_LIFECYCLE_AUDIT.md) ([interactive HTML](KV_LIFECYCLE_AUDIT.html))
+  tracks when agentic cache work happens.
   Its lifecycle validation checks event linkage; its paired timing study
   compares early and late KV preparation. See
   [`docs/work_audit/README.md`](docs/work_audit/README.md); do not convert its

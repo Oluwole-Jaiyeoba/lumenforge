@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import html
+from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -318,6 +319,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
     if summary.get("schema") == "agentic_work_audit.multisession.v1":
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+            "WORK_AUDIT_RESEARCH_QUESTION_ID": workload.get("research_question_id"),
             "WORK_AUDIT_STUDY": "multisession",
             "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
             "WORK_AUDIT_SHORT_WAIT_MS": workload.get("short_wait_ms"),
@@ -326,6 +328,8 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_MAX_OUTPUT_TOKENS": workload.get("max_output_tokens"),
             "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
             "WORK_AUDIT_EVICTION_ROUNDS": workload.get("eviction_rounds"),
+            "AGENTIC_KV_PREPARE_LOAD_WORKER": ("1" if workload.get("load_execution") == "worker" else "0"
+                                               if "load_execution" in workload else None),
             "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
             "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
         }
@@ -337,6 +341,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
         return "<p>Original invocation was not saved; see run manifest for recorded settings.</p>"
     settings = {
         "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+        "WORK_AUDIT_RESEARCH_QUESTION_ID": workload.get("research_question_id"),
         "WORK_AUDIT_STUDY": "timing" if timing else "validation",
         "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
         "WORK_AUDIT_CASE_ORDER": "-".join(map(str, cases)),
@@ -348,6 +353,8 @@ def _reproduction(summary: dict, timing: bool) -> str:
         "WORK_AUDIT_MAX_OUTPUT_TOKENS": workload.get("max_output_tokens"),
         "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
         "WORK_AUDIT_EVICTION_ROUNDS": workload.get("eviction_rounds"),
+        "AGENTIC_KV_PREPARE_LOAD_WORKER": ("1" if workload.get("load_execution") == "worker" else "0"
+                                           if "load_execution" in workload else None),
         "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
         "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
         "WORK_AUDIT_EXACT_INDICES": workload.get("exact_trace_indices") if timing else None,
@@ -834,6 +841,44 @@ def _run_finding(summary: dict) -> str:
     return "No run-specific interpretation is available for this evidence format."
 
 
+def _kind(summary: dict) -> str:
+    schema = summary.get("schema")
+    names = {
+        "agentic_work_audit.kv_load_attribution.v1": "Busy workload · KV-load attribution",
+        "agentic_work_audit.busy_comparison.v1": "Busy workload · controller KV timing",
+        "agentic_work_audit.controller_window.v1": "Controller-chosen load window",
+        "agentic_work_audit.multisession_window.v1": "Three concurrent load windows",
+        "agentic_work_audit.multisession_comparison.v1": "Concurrent early vs late",
+        "agentic_work_audit.multisession.v1": "Concurrent timeline",
+        "agentic_work_audit.timing.v1": "Early vs late",
+        "agentic_work_audit.validation.v1": "Lifecycle validation",
+    }
+    kind = names.get(schema, "Audit experiment")
+    workload = (summary.get("_manifest") or {}).get("workload") or {}
+    if workload.get("research_question_id") == "RQ9":
+        kind += f" · {workload.get('load_execution') or 'scheduler'} load"
+    return kind
+
+
+def _result_parts(summary: dict) -> tuple[str, str]:
+    schema = summary.get("schema")
+    if schema == "agentic_work_audit.kv_load_attribution.v1":
+        return _attribution_result(summary)
+    if schema == "agentic_work_audit.busy_comparison.v1":
+        return _busy_result(summary)
+    if schema == "agentic_work_audit.controller_window.v1":
+        return _controller_window_result(summary)
+    if schema == "agentic_work_audit.multisession_window.v1":
+        return _multisession_window_result(summary)
+    if schema == "agentic_work_audit.multisession_comparison.v1":
+        return _multisession_comparison_result(summary)
+    if schema == "agentic_work_audit.multisession.v1":
+        return _multisession_result(summary)
+    if schema == "agentic_work_audit.timing.v1":
+        return _timing_result(summary)
+    return _lifecycle_result(summary)
+
+
 def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = None) -> str:
     ordered = sorted(summaries, key=lambda item: (_time(item[1])[0], item[0].parent.name), reverse=True)
     run_ids = {str(summary.get("run_id") or path.parent.name) for path, summary in ordered}
@@ -849,15 +894,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         busy = summary.get("schema") == "agentic_work_audit.busy_comparison.v1"
         attribution = summary.get("schema") == "agentic_work_audit.kv_load_attribution.v1"
         run = str(summary.get("run_id") or path.parent.name)
-        kind = ("Busy workload · KV-load attribution" if attribution else
-                "Busy workload · controller KV timing" if busy else
-                "Controller-chosen load window" if controller else "Three concurrent load windows" if window else
-                "Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
-                else "Early vs late" if timing else "Lifecycle validation")
+        kind = _kind(summary)
         manifest_question_id = ((summary.get("_manifest") or {}).get("workload") or {}).get("research_question_id")
-        if manifest_question_id == "RQ9":
-            execution = ((summary.get("_manifest") or {}).get("workload") or {}).get("load_execution")
-            kind += f" · {execution or 'scheduler'} load"
         archived_question_id = run_questions.get(run)
         if manifest_question_id and archived_question_id and manifest_question_id != archived_question_id:
             raise ValueError(f"Run {run} has conflicting research question IDs")
@@ -887,13 +925,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             f'{" (" + _esc(question_id) + ")" if question_id else ""}</span>'
         )
         setup, method = _setup(summary, timing)
-        result, findings = (_attribution_result(summary) if attribution else
-                            _busy_result(summary) if busy else
-                            _controller_window_result(summary) if controller else
-                            _multisession_window_result(summary) if window else
-                            _multisession_comparison_result(summary) if comparison else
-                            _multisession_result(summary) if multisession else
-                            _timing_result(summary) if timing else _lifecycle_result(summary))
+        result, findings = _result_parts(summary)
         status = str(summary.get("status") or "unknown")
         finding = _run_finding(summary)
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
@@ -1010,10 +1042,217 @@ document.querySelectorAll('.detail-toggle').forEach((button) => {
 </script></body></html>"""
 
 
+class _ReportText(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.command_parts: list[str] = []
+        self.in_pre = False
+
+    def handle_starttag(self, tag: str, _attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "pre":
+            self.in_pre = True
+        elif tag in ("br", "p", "li", "tr"):
+            self.parts.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "pre":
+            self.in_pre = False
+        elif tag in ("p", "li", "tr"):
+            self.parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+        if self.in_pre:
+            self.command_parts.append(data)
+
+
+def _report_text(fragment: str) -> str:
+    parser = _ReportText()
+    parser.feed(fragment)
+    return " ".join("".join(parser.parts).split())
+
+
+def _reproduction_command(summary: dict) -> str | None:
+    parser = _ReportText()
+    parser.feed(_reproduction(summary, summary.get("schema") == "agentic_work_audit.timing.v1"))
+    return "".join(parser.command_parts).strip() or None
+
+
+def _md_cell(value: object) -> str:
+    if value is None:
+        return "not recorded"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, float):
+        return f"{value:.1f}"
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
+def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
+    if not rows:
+        return "No comparable measurements recorded."
+    head = "| " + " | ".join(headers) + " |"
+    rule = "| " + " | ".join("---" for _ in headers) + " |"
+    body = ["| " + " | ".join(_md_cell(cell) for cell in row) + " |" for row in rows]
+    return "\n".join((head, rule, *body))
+
+
+def _markdown_metrics(summary: dict) -> str:
+    schema = summary.get("schema")
+    if schema == "agentic_work_audit.kv_load_attribution.v1":
+        rows = []
+        for seed in summary.get("seeds") or []:
+            for mode, arm in (seed.get("arms") or {}).items():
+                rows.append((f"Seed {seed.get('seed')} · {mode}", arm.get("replay_count"),
+                             arm.get("total_replay_ttft_ms"), arm.get("workflow_makespan_ms"),
+                             len(arm.get("load_phases") or [])))
+        return _md_table(("Arm", "Replays", "Total replay TTFT (ms)",
+                          "Workflow (ms)", "Recorded load phases"), rows)
+    if schema == "agentic_work_audit.busy_comparison.v1":
+        rows = []
+        for pair in summary.get("pairs") or []:
+            for mode in ("baseline", "controller"):
+                arm = pair.get(mode) or {}
+                rows.append((f"Seed {pair.get('seed')} · {mode}", pair.get("replay_count"),
+                             arm.get("total_replay_ttft_ms"), arm.get("workflow_makespan_ms"),
+                             arm.get("native_load_events")))
+        return _md_table(("Arm", "Replays", "Total replay TTFT (ms)",
+                          "Workflow (ms)", "Native loads"), rows)
+    if schema in ("agentic_work_audit.multisession_comparison.v1",
+                  "agentic_work_audit.multisession_window.v1",
+                  "agentic_work_audit.controller_window.v1"):
+        rows = []
+        for case in summary.get("cases") or []:
+            if case.get("warmup"):
+                continue
+            sessions = case.get("sessions") or {}
+            long = sessions.get("long") or {}
+            short = sessions.get("short") or {}
+            rows.append((f"Trial {case.get('pair')} · {case.get('load_timing')}",
+                         long.get("first_token_after_tool_ms"),
+                         short.get("completion_after_tool_ms"),
+                         case.get("workflow_makespan_ms"),
+                         long.get("load_completion_observed_after_tool_ms")))
+        return _md_table(("Trial / mode", "Long first token after tool (ms)",
+                          "Short finish after tool (ms)", "Workflow (ms)",
+                          "Load complete relative to tool return (ms)"), rows)
+    if schema == "agentic_work_audit.multisession.v1":
+        rows = [(label, session.get("observed_tool_wait_ms"),
+                 session.get("first_token_after_tool_ms"), session.get("replay_ttft_ms"),
+                 session.get("cached_prefix_tokens"))
+                for label, session in (summary.get("sessions") or {}).items()]
+        return _md_table(("Session", "Tool wait (ms)", "First token after tool (ms)",
+                          "Replay TTFT (ms)", "Cached prefix tokens"), rows)
+    if schema == "agentic_work_audit.timing.v1":
+        rows = [(f"Trial {case.get('pair')} · {case.get('condition')}",
+                 case.get("submission_after_due_ms"), case.get("first_token_after_due_ms"),
+                 case.get("replay_ttft_ms"), case.get("task_latency_ms"))
+                for case in summary.get("cases") or [] if case.get("status") == "validated"]
+        return _md_table(("Trial / mode", "Submit after due (ms)",
+                          "First token after due (ms)", "Replay TTFT (ms)",
+                          "Task duration (ms)"), rows)
+    rows = [(case.get("case_type"), case.get("replay_ttft_ms"),
+             case.get("host_resident_tokens"), case.get("native_loaded_tokens"),
+             case.get("max_cached_prefix_tokens"))
+            for case in summary.get("cases") or []]
+    return _md_table(("Case", "Replay TTFT (ms)", "Host tokens", "Loaded tokens",
+                      "Largest matched prefix (tokens)"), rows)
+
+
+def _markdown_index_result(summary: dict) -> str:
+    workload = (summary.get("_manifest") or {}).get("workload") or {}
+    if (workload.get("research_question_id") == "RQ9" and
+            summary.get("schema") == "agentic_work_audit.multisession_comparison.v1"):
+        cases = {case.get("load_timing"): case for case in summary.get("cases") or []
+                 if not case.get("warmup")}
+        early = ((cases.get("early") or {}).get("sessions") or {}).get("long") or {}
+        late = ((cases.get("late_nonblocking") or {}).get("sessions") or {}).get("long") or {}
+        early_ms = early.get("first_token_after_tool_ms")
+        late_ms = late.get("first_token_after_tool_ms")
+        if early_ms is not None and late_ms is not None:
+            return f"Long replay first token after tool: early {early_ms:.1f} ms; late {late_ms:.1f} ms"
+    result, _findings = _result_parts(summary)
+    return _report_text(result)
+
+
+def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = None) -> str:
+    ordered = sorted(summaries, key=lambda item: (_time(item[1])[0], item[0].parent.name), reverse=True)
+    questions, run_questions = _question_index(milestones or [])
+    lines = [
+        "# KV Lifecycle Audit", "",
+        "**Research question:** Given what the harness knew, was KV moved, kept, or rebuilt at the wrong time?",
+        "",
+        "This audit compares observed cache work with replay timing and whole-workload outcomes. "
+        "A faster control call is not automatically a faster agent task. All times below are from "
+        "saved runs; experimental and hypothetical claims are kept separate.", "",
+        "## Research progress", "",
+    ]
+    for milestone in milestones or []:
+        lines.extend((f"### {milestone['id']}: {milestone['short_question']}", "",
+                      f"**Question.** {milestone['question']}", "",
+                      f"**What the evidence says.** {milestone['answer']}", "",
+                      f"**Not yet proved.** {milestone['unknown']}", ""))
+    lines.extend(("## Experiment index", "",
+                  "Newest first. Select a run to see its setup, measurements, limits, and reproduction command.", "",
+                  "| UTC date / time | Experiment | Question | Setup | Main result | Gate |",
+                  "| --- | --- | --- | --- | --- | --- |"))
+    for path, summary in ordered:
+        _timestamp, date, time, _source = _time(summary)
+        run = str(summary.get("run_id") or path.parent.name)
+        workload = (summary.get("_manifest") or {}).get("workload") or {}
+        question_id = workload.get("research_question_id") or run_questions.get(run)
+        if workload.get("research_question_id") and run_questions.get(run) and question_id != run_questions[run]:
+            raise ValueError(f"Run {run} has conflicting research question IDs")
+        setup, _detail = _setup(summary, summary.get("schema") == "agentic_work_audit.timing.v1")
+        cells = (f"{date} {time}", f"[{_kind(summary)}](#run-{run})", question_id,
+                 _report_text(setup), _markdown_index_result(summary), summary.get("status"))
+        lines.append("| " + " | ".join(_md_cell(cell) for cell in cells) + " |")
+    lines.extend(("", "## Experiment details", ""))
+    for path, summary in ordered:
+        run = str(summary.get("run_id") or path.parent.name)
+        _timestamp, date, time, source = _time(summary)
+        workload = (summary.get("_manifest") or {}).get("workload") or {}
+        question_id = workload.get("research_question_id") or run_questions.get(run)
+        question = (questions.get(question_id) or {}).get("question", "Question not recorded")
+        _brief, setup = _setup(summary, summary.get("schema") == "agentic_work_audit.timing.v1")
+        setup_text = _report_text(setup).removeprefix("How it ran. ")
+        limits = list(summary.get("failures") or []) + list(summary.get("limitations") or [])
+        if summary.get("interpretation_limit"):
+            limits.append(summary["interpretation_limit"])
+        base = path.parent.as_posix()
+        files = summary.get("_files") or {"summary.json"}
+        evidence = [f"[Summary]({path.as_posix()})"]
+        for filename, label in (("run_manifest.json", "Run manifest"),
+                                ("instrumentation_audit.json", "Hook gate"),
+                                ("harness_events.jsonl", "Harness timeline"),
+                                ("backend_trace.jsonl.gz", "Raw trace")):
+            if filename in files:
+                evidence.append(f"[{label}]({base}/{filename})")
+        command = _reproduction_command(summary)
+        lines.extend((f'<a id="run-{html.escape(run, quote=True)}"></a>',
+                      "<details>",
+                      f"<summary><strong>{html.escape(date)} {html.escape(time)} UTC · "
+                      f"{html.escape(_kind(summary))}</strong> · {html.escape(run)}</summary>",
+                      "", f"**Question ({question_id or 'unmapped'}).** {question}", "",
+                      f"**Finding.** {_run_finding(summary)}", "",
+                      f"**Setup.** {setup_text}", "",
+                      "**Key measurements**", "", _markdown_metrics(summary), "",
+                      f"**Evidence gate.** {summary.get('status', 'unknown')}. Timestamp: {source}.", ""))
+        if limits:
+            lines.extend(("**Limits**", "", *(f"- {limit}" for limit in limits[:3]), ""))
+        if command:
+            lines.extend(("**Reproduce** (set the container image and model cache for the target host):",
+                          "", "```bash", command, "```", ""))
+        lines.extend(("**Evidence:** " + " · ".join(evidence), "", "</details>", ""))
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results-dir", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--markdown-out", type=Path)
     parser.add_argument("--progress-file", type=Path)
     args = parser.parse_args()
     summaries = []
@@ -1037,6 +1276,15 @@ def main() -> None:
         milestones = json.loads(args.progress_file.read_text(encoding="utf-8"))["milestones"]
     args.out.write_text(render(summaries, milestones), encoding="utf-8")
     print(f"Wrote {args.out} with {len(summaries)} saved run(s)")
+    if args.markdown_out:
+        markdown_summaries = [
+            (Path(os.path.relpath(args.results_dir / path.parent.name / "summary.json",
+                                  args.markdown_out.parent)), summary)
+            for path, summary in summaries
+        ]
+        args.markdown_out.parent.mkdir(parents=True, exist_ok=True)
+        args.markdown_out.write_text(render_markdown(markdown_summaries, milestones), encoding="utf-8")
+        print(f"Wrote {args.markdown_out} with {len(summaries)} saved run(s)")
 
 
 if __name__ == "__main__":

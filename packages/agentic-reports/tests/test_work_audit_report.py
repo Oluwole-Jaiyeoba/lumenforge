@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agentic_reports.builders.build_work_audit_report import _run_finding, main, render
+from agentic_reports.builders.build_work_audit_report import _run_finding, main, render, render_markdown
 
 
 def test_busy_audit_report_keeps_pair_numbers_and_limits_visible():
@@ -123,8 +123,10 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
         "evidence_run_ids": ["first", "second"],
         "related_run_ids": ["first", "second"],
     }]}), encoding="utf-8")
+    markdown_out = tmp_path / "index.md"
     monkeypatch.setattr(sys, "argv", ["report", "--results-dir", str(runs),
-                                      "--progress-file", str(progress), "--out", str(out)])
+                                      "--progress-file", str(progress), "--out", str(out),
+                                      "--markdown-out", str(markdown_out)])
     main()
     page = out.read_text(encoding="utf-8")
     assert "Given what the harness knew at the time" in page
@@ -157,6 +159,37 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     assert page.count('href="#rq-RQ1"') == 2
     assert 'id=\'rq-RQ1\'' in page
     assert page.count("this was not a policy-speed comparison") == 2
+    markdown = markdown_out.read_text(encoding="utf-8")
+    assert "# KV Lifecycle Audit" in markdown
+    assert "Does early KV preparation help?" in markdown
+    assert markdown.index("[Lifecycle validation](#run-second)") < markdown.index(
+        "[Lifecycle validation](#run-first)")
+    assert markdown.count("<details>") == 2
+    assert "| Case | Replay TTFT (ms)" in markdown
+    assert "**Setup.**" in markdown and "**Limits**" not in markdown
+    assert "```bash" in markdown
+    assert "[Run manifest](runs/first/run_manifest.json)" in markdown
+    assert "[Harness timeline](runs/second/harness_events.jsonl)" in markdown
+
+
+def test_markdown_rq9_index_shows_absolute_early_and_late_results():
+    manifest = _manifest()
+    manifest["workload"]["research_question_id"] = "RQ9"
+    summary = {
+        "schema": "agentic_work_audit.multisession_comparison.v1",
+        "run_id": "worker", "status": "validated", "_manifest": manifest,
+        "cases": [
+            {"pair": 1, "load_timing": "early", "sessions": {
+                "long": {"first_token_after_tool_ms": 89.9}}},
+            {"pair": 1, "load_timing": "late_nonblocking", "sessions": {
+                "long": {"first_token_after_tool_ms": 1131.2}}},
+        ],
+    }
+    page = render_markdown([(Path("runs/worker/summary.json"), summary)])
+    index = page.split("## Experiment details", 1)[0]
+    assert "early 89.9 ms; late 1131.2 ms" in index
+    assert "1041.3 ms faster" not in index
+    assert "89.9" in page and "1131.2" in page
 
 
 def test_timing_details_keep_pair_metrics_separate():

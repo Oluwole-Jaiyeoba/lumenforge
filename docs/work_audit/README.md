@@ -21,7 +21,8 @@ linked evidence and a feasible comparison.
   translator and tests; unknown hooks must fail the gate.
 - `packages/agentic-experiments/.../run_work_audit_validation.py` runs the
   small validation. `packages/agentic-reports/.../build_work_audit_report.py`
-  builds the top-level `KV_LIFECYCLE_AUDIT.html` index from saved summaries.
+  builds the top-level `KV_LIFECYCLE_AUDIT.html` and GitHub-friendly
+  `KV_LIFECYCLE_AUDIT.md` from the same saved summaries and research progress.
   It keeps one row per archived run, ordered by the first request's UTC date
   and time. Expand a row for setup, pair-level measurements, limits, a
   reconstructed command, and immutable evidence links. If the request time is
@@ -41,13 +42,14 @@ linked evidence and a feasible comparison.
   different question from its study's default. Prepend new milestones after
   checking their evidence; do
   not rewrite older conclusions without explicitly correcting them. Regenerate
-  the top-level page from the repo root with:
+  both top-level reports from the repo root with:
 
 ```bash
 PYTHONPATH="$(printf '%s:' packages/*/src)" python3 -m agentic_reports.builders.build_work_audit_report \
   --results-dir docs/reports/work_audit \
   --progress-file docs/work_audit/research_progress.json \
-  --out KV_LIFECYCLE_AUDIT.html
+  --out KV_LIFECYCLE_AUDIT.html \
+  --markdown-out KV_LIFECYCLE_AUDIT.md
 ```
 - The imported `hicache_audit.zip` is reference material, not an installed
   plugin. Its proposed UnifiedRadixCache hooks are not assumed to exist in

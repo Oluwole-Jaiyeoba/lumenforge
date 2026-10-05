@@ -12,8 +12,8 @@ agentic inference experiments.
 - [GPU Interference](GPU_INTERFERENCE.html): controlled GPU
   compute and memory-movement measurements, with measured and planned cases
   clearly separated; see [the lane protocol](docs/hardware_bottlenecks/README.md).
-- [KV Lifecycle Audit](KV_LIFECYCLE_AUDIT.html): when cache work happens, whether a
-  replay reuses it, and which opportunities remain unproven; see
+- [KV Lifecycle Audit](KV_LIFECYCLE_AUDIT.md) ([interactive HTML](KV_LIFECYCLE_AUDIT.html)):
+  when cache work happens, whether a replay reuses it, and which opportunities remain unproven; see
   [the validation protocol](docs/work_audit/README.md).
 
 The active Scenario 1 controller experiment gives every request equal application
