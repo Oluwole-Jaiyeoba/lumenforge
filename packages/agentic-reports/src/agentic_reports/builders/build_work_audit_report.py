@@ -160,7 +160,8 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                   f"{_esc(workload.get('replay_tokens'))} tokens, tool waits "
                   f"{_esc(workload.get('wait_range_ms'))} ms, host cache "
                   f"{_esc(workload.get(CACHE_SIZE_FIELD))} GB, KV I/O backend "
-                  f"{_esc(workload.get('hicache_io_backend', 'direct'))}, GPU memory fraction "
+                  f"{_esc(workload.get('hicache_io_backend', 'direct'))}, load execution "
+                  f"{_esc(workload.get('load_execution', 'scheduler'))}, GPU memory fraction "
                   f"{_esc(workload.get('mem_fraction_static'))}. "
                   "Controller requires a host-resident prefix and at least "
                   f"{_esc(workload.get('estimated_load_ms'))} + {_esc(workload.get('load_margin_ms'))} "
@@ -183,10 +184,13 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
         brief = (f"3 equal-importance sessions · {_esc(measured_count)} measured "
                  f"{unit if measured_count == 1 else unit + 's'} · "
                  f"{_esc(workload.get('short_wait_ms'))} / {_esc(workload.get('long_wait_ms'))} ms waits")
+        if workload.get("load_execution"):
+            brief += f" · {_esc(workload['load_execution'])} KV load"
         detail = (
             f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
             f"{_esc(manifest.get('model'))}; SGLang {_esc(manifest.get('backend_version'))}; "
-            f"trace {_esc(profile)}. Each case started three equal-importance sessions; "
+            f"trace {_esc(profile)}; load execution {_esc(workload.get('load_execution', 'scheduler'))}. "
+            "Each case started three equal-importance sessions; "
             "two waited for tools and one ended. The long prefix was explicitly evicted to host. "
             "The ended session's prefix was released in every mode before load-back, "
             "enforcing a logical two-prefix budget. Only load timing changed: late control "
@@ -255,6 +259,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
                                  "agentic_work_audit.kv_load_attribution.v1"):
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+            "WORK_AUDIT_RESEARCH_QUESTION_ID": workload.get("research_question_id"),
             "WORK_AUDIT_SEEDS": " ".join(map(str, workload.get("seeds") or [])),
             "WORK_AUDIT_MODES": " ".join(workload.get("modes") or ["baseline", "controller"]),
             "WORK_AUDIT_SESSION_COUNT": workload.get("session_count"),
@@ -266,6 +271,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_ESTIMATED_LOAD_MS": workload.get("estimated_load_ms"),
             "WORK_AUDIT_MARGIN_MS": workload.get("load_margin_ms"),
             "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
+            "WORK_AUDIT_LOAD_EXECUTION": workload.get("load_execution"),
             CACHE_SIZE_FIELD.upper(): workload.get(CACHE_SIZE_FIELD),
             "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
         }
@@ -282,6 +288,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
                                  "agentic_work_audit.controller_window.v1"):
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+            "WORK_AUDIT_RESEARCH_QUESTION_ID": workload.get("research_question_id"),
             "WORK_AUDIT_STUDY": ("multisession_controller" if summary.get("schema") ==
                                  "agentic_work_audit.controller_window.v1" else
                                  "multisession_window" if summary.get("schema") ==
@@ -299,6 +306,8 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_MAX_OUTPUT_TOKENS": workload.get("max_output_tokens"),
             "WORK_AUDIT_MINIMUM_HOST_TOKENS": workload.get("minimum_host_tokens"),
             "WORK_AUDIT_EVICTION_ROUNDS": workload.get("eviction_rounds"),
+            "AGENTIC_KV_PREPARE_LOAD_WORKER": ("1" if workload.get("load_execution") == "worker" else "0"
+                                               if "load_execution" in workload else None),
             "HICACHE_SIZE_GB": workload.get(CACHE_SIZE_FIELD),
             "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
         }
@@ -846,6 +855,9 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
                 "Concurrent early vs late" if comparison else "Concurrent timeline" if multisession
                 else "Early vs late" if timing else "Lifecycle validation")
         manifest_question_id = ((summary.get("_manifest") or {}).get("workload") or {}).get("research_question_id")
+        if manifest_question_id == "RQ9":
+            execution = ((summary.get("_manifest") or {}).get("workload") or {}).get("load_execution")
+            kind += f" · {execution or 'scheduler'} load"
         archived_question_id = run_questions.get(run)
         if manifest_question_id and archived_question_id and manifest_question_id != archived_question_id:
             raise ValueError(f"Run {run} has conflicting research question IDs")
@@ -979,7 +991,7 @@ body{padding:16px 10px 40px}.scope li{grid-template-columns:1fr;gap:2px}
 <h2>Five audit ledgers</h2><ul class="scope">
 <li><strong>Host backups</strong><span>Host residency and load-back observed; useful versus insurance versus wasted backup not yet graded.</span></li>
 <li><strong>GPU evictions</strong><span>Forced eviction observed; capacity necessity and avoidability not yet graded.</span></li>
-<li><strong>Session resumes</strong><span>Early, late, and controller timing measured; RQ8 tests a busy workload with natural cache pressure.</span></li>
+<li><strong>Session resumes</strong><span>Early, late, and controller timing measured; RQ8 tests busy cache pressure, and RQ9 tests off-scheduler loading.</span></li>
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """

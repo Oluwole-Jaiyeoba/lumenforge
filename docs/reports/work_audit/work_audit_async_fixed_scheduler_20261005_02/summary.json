@@ -1,0 +1,419 @@
+{
+  "schema": "agentic_work_audit.multisession_comparison.v1",
+  "run_id": "work_audit_async_fixed_scheduler_20261005_02",
+  "status": "validated",
+  "failures": [],
+  "pairs": [
+    {
+      "pair": 1,
+      "comparable": true,
+      "reasons": [],
+      "early_case_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-early",
+      "late_case_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-late_nonblocking",
+      "long_due_to_token_saved_ms": 186.496,
+      "short_due_to_token_change_ms": -8.64,
+      "short_due_to_finish_change_ms": 180.375,
+      "workflow_makespan_saved_ms": 192.775,
+      "early_long_due_to_token_ms": 89.518,
+      "late_long_due_to_token_ms": 276.014,
+      "early_short_due_to_finish_ms": 991.061,
+      "late_short_due_to_finish_ms": 810.686,
+      "early_initial_phase_ms": 4146.351,
+      "late_initial_phase_ms": 4153.847
+    }
+  ],
+  "comparable_pairs": 1,
+  "median_long_due_to_token_saved_ms": 186.496,
+  "median_short_due_to_finish_change_ms": 180.375,
+  "median_workflow_makespan_saved_ms": 192.775,
+  "interpretation": "Positive long/workflow savings favor early loading; positive short change is harm. These are matched synthetic policy outcomes, not proof of naturally avoidable work.",
+  "limitations": [
+    "The two-prefix cap is a test policy enforced by explicit evictions, not measured physical occupancy.",
+    "Session-specific prompts have equal shape but are not byte-identical.",
+    "The comparison is concurrent but synthetic and does not establish a production effect."
+  ],
+  "cases": [
+    {
+      "schema": "agentic_work_audit.multisession.v1",
+      "run_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-early",
+      "load_timing": "early",
+      "controller_decisions": [],
+      "controller_outcome": null,
+      "status": "validated",
+      "failures": [],
+      "setup": {
+        "session_count": 3,
+        "equal_importance": true,
+        "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+        "tool_waits_overlap": true,
+        "ended_session_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-early-ends"
+      },
+      "sessions": {
+        "short": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-early-short",
+          "expected_tool_wait_ms": 900,
+          "observed_tool_wait_ms": 901.549,
+          "submission_after_tool_ms": 0.092,
+          "first_token_after_tool_ms": 263.323,
+          "completion_after_tool_ms": 991.061,
+          "replay_total_ms": 990.969,
+          "replay_ttft_ms": 263.232,
+          "cached_prefix_tokens": 4183
+        },
+        "long": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-early-long",
+          "expected_tool_wait_ms": 2500,
+          "observed_tool_wait_ms": 2501.597,
+          "submission_after_tool_ms": 0.095,
+          "first_token_after_tool_ms": 89.518,
+          "completion_after_tool_ms": 627.819,
+          "replay_total_ms": 627.724,
+          "replay_ttft_ms": 89.423,
+          "cached_prefix_tokens": 4183,
+          "second_replay_cached_prefix_tokens": 4200,
+          "load_requested_after_tool_return": false,
+          "load_request_after_tool_ms": -1301.212,
+          "load_acceptance_after_tool_ms": -1079.811,
+          "load_completion_observed_after_tool_ms": -1078.491,
+          "native_load_accepted_before_replay": true
+        }
+      },
+      "initial_phase_ms": 4146.351,
+      "workflow_makespan_ms": 7896.368,
+      "load_overlapped_short_request": true,
+      "event_counts": {
+        "runtime_hooks": 6,
+        "case_start": 1,
+        "initial_sent": 3,
+        "cache_match": 26,
+        "initial_finished": 3,
+        "tool_start": 2,
+        "capacity_policy": 1,
+        "backend_device_evict": 17,
+        "device_evict_proof": 1,
+        "host_resident_proof": 1,
+        "session_end": 1,
+        "ended_prefix_evict_proof": 1,
+        "tool_end": 2,
+        "replay_sent": 2,
+        "layer_copy": 56,
+        "replay_first_token": 2,
+        "load_requested": 1,
+        "load_accepted": 1,
+        "client_load_confirmed": 1,
+        "load_complete": 1,
+        "replay_finished": 2,
+        "replay_2_sent": 1,
+        "replay_2_first_token": 1,
+        "replay_2_finished": 1,
+        "case_end": 1
+      },
+      "backend_cache_match_observations": 26,
+      "observations": [
+        "Long session was explicitly evicted to host and later underwent a native load",
+        "The short and long tool waits overlapped",
+        "One session ended without replay"
+      ],
+      "plausibly_mistimed": [],
+      "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+      "limitations": [
+        "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+        "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+        "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+        "A cache match is not proof that model kernels consumed those exact KV slots.",
+        "Backend cache-match events indicate request activity, not measured GPU occupancy."
+      ],
+      "pair": 1,
+      "warmup": false
+    },
+    {
+      "schema": "agentic_work_audit.multisession.v1",
+      "run_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-late_nonblocking",
+      "load_timing": "late_nonblocking",
+      "controller_decisions": [],
+      "controller_outcome": null,
+      "status": "validated",
+      "failures": [],
+      "setup": {
+        "session_count": 3,
+        "equal_importance": true,
+        "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+        "tool_waits_overlap": true,
+        "ended_session_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-late_nonblocking-ends"
+      },
+      "sessions": {
+        "short": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-late_nonblocking-short",
+          "expected_tool_wait_ms": 900,
+          "observed_tool_wait_ms": 901.314,
+          "submission_after_tool_ms": 0.089,
+          "first_token_after_tool_ms": 271.963,
+          "completion_after_tool_ms": 810.686,
+          "replay_total_ms": 810.597,
+          "replay_ttft_ms": 271.874,
+          "cached_prefix_tokens": 4185
+        },
+        "long": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-pair01-late_nonblocking-long",
+          "expected_tool_wait_ms": 2500,
+          "observed_tool_wait_ms": 2501.183,
+          "submission_after_tool_ms": 0.419,
+          "first_token_after_tool_ms": 276.014,
+          "completion_after_tool_ms": 814.309,
+          "replay_total_ms": 813.89,
+          "replay_ttft_ms": 275.595,
+          "cached_prefix_tokens": 4185,
+          "second_replay_cached_prefix_tokens": 4202,
+          "load_requested_after_tool_return": true,
+          "load_request_after_tool_ms": 0.12,
+          "load_acceptance_after_tool_ms": 199.763,
+          "load_completion_observed_after_tool_ms": 201.711,
+          "native_load_accepted_before_replay": false
+        }
+      },
+      "initial_phase_ms": 4153.847,
+      "workflow_makespan_ms": 8089.143,
+      "load_overlapped_short_request": false,
+      "event_counts": {
+        "runtime_hooks": 6,
+        "case_start": 1,
+        "initial_sent": 3,
+        "cache_match": 26,
+        "initial_finished": 3,
+        "tool_start": 2,
+        "capacity_policy": 1,
+        "backend_device_evict": 8,
+        "device_evict_proof": 1,
+        "host_resident_proof": 1,
+        "session_end": 1,
+        "ended_prefix_evict_proof": 1,
+        "tool_end": 2,
+        "replay_sent": 2,
+        "layer_copy": 56,
+        "replay_first_token": 2,
+        "replay_finished": 2,
+        "load_requested": 1,
+        "load_accepted": 1,
+        "client_load_confirmed": 1,
+        "load_complete": 1,
+        "replay_2_sent": 1,
+        "replay_2_first_token": 1,
+        "replay_2_finished": 1,
+        "case_end": 1
+      },
+      "backend_cache_match_observations": 26,
+      "observations": [
+        "Long session was explicitly evicted to host and later underwent a native load",
+        "The short and long tool waits overlapped",
+        "One session ended without replay"
+      ],
+      "plausibly_mistimed": [
+        "Host-backed load was not requested until the long tool call returned; an earlier request was possible in this trace, but its effect under the same load is unmeasured"
+      ],
+      "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+      "limitations": [
+        "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+        "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+        "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+        "A cache match is not proof that model kernels consumed those exact KV slots.",
+        "Backend cache-match events indicate request activity, not measured GPU occupancy."
+      ],
+      "pair": 1,
+      "warmup": false
+    }
+  ],
+  "warmup_cases": [
+    {
+      "schema": "agentic_work_audit.multisession.v1",
+      "run_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-late_nonblocking",
+      "load_timing": "late_nonblocking",
+      "controller_decisions": [],
+      "controller_outcome": null,
+      "status": "validated",
+      "failures": [],
+      "setup": {
+        "session_count": 3,
+        "equal_importance": true,
+        "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+        "tool_waits_overlap": true,
+        "ended_session_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-late_nonblocking-ends"
+      },
+      "sessions": {
+        "short": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-late_nonblocking-short",
+          "expected_tool_wait_ms": 900,
+          "observed_tool_wait_ms": 900.763,
+          "submission_after_tool_ms": 0.111,
+          "first_token_after_tool_ms": 257.746,
+          "completion_after_tool_ms": 1119.996,
+          "replay_total_ms": 1119.885,
+          "replay_ttft_ms": 257.635,
+          "cached_prefix_tokens": 4186
+        },
+        "long": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-late_nonblocking-long",
+          "expected_tool_wait_ms": 2500,
+          "observed_tool_wait_ms": 2501.62,
+          "submission_after_tool_ms": 0.739,
+          "first_token_after_tool_ms": 300.698,
+          "completion_after_tool_ms": 839.486,
+          "replay_total_ms": 838.747,
+          "replay_ttft_ms": 299.96,
+          "cached_prefix_tokens": 4186,
+          "second_replay_cached_prefix_tokens": 4203,
+          "load_requested_after_tool_return": true,
+          "load_request_after_tool_ms": 0.194,
+          "load_acceptance_after_tool_ms": 193.783,
+          "load_completion_observed_after_tool_ms": 195.924,
+          "native_load_accepted_before_replay": false
+        }
+      },
+      "initial_phase_ms": 31543.731,
+      "workflow_makespan_ms": 35502.787,
+      "load_overlapped_short_request": false,
+      "event_counts": {
+        "runtime_hooks": 6,
+        "case_start": 1,
+        "initial_sent": 3,
+        "cache_match": 26,
+        "initial_finished": 3,
+        "tool_start": 2,
+        "capacity_policy": 1,
+        "backend_device_evict": 18,
+        "device_evict_proof": 1,
+        "host_resident_proof": 1,
+        "session_end": 1,
+        "ended_prefix_evict_proof": 1,
+        "tool_end": 2,
+        "replay_sent": 2,
+        "layer_copy": 84,
+        "replay_first_token": 2,
+        "replay_finished": 2,
+        "load_requested": 1,
+        "load_accepted": 1,
+        "client_load_confirmed": 1,
+        "load_complete": 1,
+        "replay_2_sent": 1,
+        "replay_2_first_token": 1,
+        "replay_2_finished": 1,
+        "case_end": 1
+      },
+      "backend_cache_match_observations": 26,
+      "observations": [
+        "Long session was explicitly evicted to host and later underwent a native load",
+        "The short and long tool waits overlapped",
+        "One session ended without replay"
+      ],
+      "plausibly_mistimed": [
+        "Host-backed load was not requested until the long tool call returned; an earlier request was possible in this trace, but its effect under the same load is unmeasured"
+      ],
+      "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+      "limitations": [
+        "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+        "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+        "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+        "A cache match is not proof that model kernels consumed those exact KV slots.",
+        "Backend cache-match events indicate request activity, not measured GPU occupancy."
+      ],
+      "pair": 1,
+      "warmup": true
+    },
+    {
+      "schema": "agentic_work_audit.multisession.v1",
+      "run_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-early",
+      "load_timing": "early",
+      "controller_decisions": [],
+      "controller_outcome": null,
+      "status": "validated",
+      "failures": [],
+      "setup": {
+        "session_count": 3,
+        "equal_importance": true,
+        "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+        "tool_waits_overlap": true,
+        "ended_session_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-early-ends"
+      },
+      "sessions": {
+        "short": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-early-short",
+          "expected_tool_wait_ms": 900,
+          "observed_tool_wait_ms": 901.344,
+          "submission_after_tool_ms": 0.113,
+          "first_token_after_tool_ms": 742.137,
+          "completion_after_tool_ms": 1283.393,
+          "replay_total_ms": 1283.281,
+          "replay_ttft_ms": 742.024,
+          "cached_prefix_tokens": 4184
+        },
+        "long": {
+          "session_id": "work_audit_async_fixed_scheduler_20261005_02-warmup01-early-long",
+          "expected_tool_wait_ms": 2500,
+          "observed_tool_wait_ms": 2500.649,
+          "submission_after_tool_ms": 0.116,
+          "first_token_after_tool_ms": 83.258,
+          "completion_after_tool_ms": 622.878,
+          "replay_total_ms": 622.763,
+          "replay_ttft_ms": 83.142,
+          "cached_prefix_tokens": 4184,
+          "second_replay_cached_prefix_tokens": 4201,
+          "load_requested_after_tool_return": false,
+          "load_request_after_tool_ms": -1299.128,
+          "load_acceptance_after_tool_ms": -870.892,
+          "load_completion_observed_after_tool_ms": -869.395,
+          "native_load_accepted_before_replay": true
+        }
+      },
+      "initial_phase_ms": 4133.835,
+      "workflow_makespan_ms": 7880.207,
+      "load_overlapped_short_request": true,
+      "event_counts": {
+        "runtime_hooks": 6,
+        "case_start": 1,
+        "initial_sent": 3,
+        "cache_match": 26,
+        "initial_finished": 3,
+        "tool_start": 2,
+        "capacity_policy": 1,
+        "backend_device_evict": 18,
+        "device_evict_proof": 1,
+        "host_resident_proof": 1,
+        "session_end": 1,
+        "ended_prefix_evict_proof": 1,
+        "tool_end": 2,
+        "replay_sent": 2,
+        "layer_copy": 56,
+        "load_requested": 1,
+        "load_accepted": 1,
+        "client_load_confirmed": 1,
+        "load_complete": 1,
+        "replay_first_token": 2,
+        "replay_finished": 2,
+        "replay_2_sent": 1,
+        "replay_2_first_token": 1,
+        "replay_2_finished": 1,
+        "case_end": 1
+      },
+      "backend_cache_match_observations": 26,
+      "observations": [
+        "Long session was explicitly evicted to host and later underwent a native load",
+        "The short and long tool waits overlapped",
+        "One session ended without replay"
+      ],
+      "plausibly_mistimed": [],
+      "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+      "limitations": [
+        "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+        "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+        "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+        "A cache match is not proof that model kernels consumed those exact KV slots.",
+        "Backend cache-match events indicate request activity, not measured GPU occupancy."
+      ],
+      "pair": 1,
+      "warmup": true
+    }
+  ],
+  "source_paths": {
+    "harness": "./sglang_direct_kv/artifacts/results/work_audit/work_audit_async_fixed_scheduler_20261005_02/harness_events.jsonl",
+    "backend_trace": "./sglang_direct_kv/artifacts/results/work_audit/work_audit_async_fixed_scheduler_20261005_02/backend_trace.jsonl"
+  }
+}

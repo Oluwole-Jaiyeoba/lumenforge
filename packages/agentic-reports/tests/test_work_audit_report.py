@@ -59,7 +59,7 @@ def test_attribution_report_exposes_three_arms_and_stage_coverage():
                "_manifest": {**_manifest(), "workload": {
                    "research_question_id": "RQ8", "session_count": 12,
                    "tool_waits_per_session": 3, "modes": ["baseline", "check_only", "controller"],
-                   "seeds": [1], "hicache_io_backend": "kernel"}},
+                   "seeds": [1], "hicache_io_backend": "kernel", "load_execution": "worker"}},
                "seeds": [{"seed": 1, "arms": {mode: arm for mode in
                           ("baseline", "check_only", "controller")},
                           "check_cost": stage, "load_association": stage}]}
@@ -71,6 +71,8 @@ def test_attribution_report_exposes_three_arms_and_stage_coverage():
     assert "Completed early-load phases" in page
     assert "8.5 ms" in page
     assert "KV I/O backend kernel" in page
+    assert "load execution worker" in page
+    assert "WORK_AUDIT_LOAD_EXECUTION" in page
     assert "Not physical copy time" in page
 
 
@@ -131,7 +133,7 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
         "Host backups", "GPU evictions", "Session resumes", "HBM occupancy", "GPU time",
     ))
     assert "not yet graded" in page
-    assert "RQ8 tests a busy workload with natural cache pressure" in page
+    assert "RQ8 tests busy cache pressure, and RQ9 tests off-scheduler loading" in page
     assert "<th>Date</th><th>Time (UTC)</th>" in page
     assert page.index("second</small>") < page.index("first</small>")
     assert "14:30:02" in page and "14:30:01" in page
@@ -334,7 +336,8 @@ def test_concurrent_comparison_shows_both_session_effects_and_reproduction():
     manifest = _manifest(("late_nonblocking", "early"))
     manifest["workload"].update({"pairs": 2, "short_wait_ms": 900,
                                  "long_wait_ms": 2500, "early_at_ms": 1200,
-                                 "prompt_words_target": 4090})
+                                 "prompt_words_target": 4090,
+                                 "load_execution": "worker", "research_question_id": "RQ9"})
     summary = {
         "schema": "agentic_work_audit.multisession_comparison.v1",
         "run_id": "compare", "status": "validated", "_manifest": manifest,
@@ -355,6 +358,8 @@ def test_concurrent_comparison_shows_both_session_effects_and_reproduction():
     assert "7.90 s" in page and "7.95 s" in page
     assert "WORK_AUDIT_STUDY=multisession_compare" in page
     assert "WORK_AUDIT_EARLY_AT_MS=1200" in page
+    assert "AGENTIC_KV_PREPARE_LOAD_WORKER=1" in page
+    assert "WORK_AUDIT_RESEARCH_QUESTION_ID=RQ9" in page
 
 
 def test_three_window_report_shows_raw_session_and_workflow_metrics():

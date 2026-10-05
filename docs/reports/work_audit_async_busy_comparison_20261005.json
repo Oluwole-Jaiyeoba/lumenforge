@@ -1,0 +1,157 @@
+{
+  "arms": {
+    "scheduler": {
+      "baseline": {
+        "accepted_loads": 0,
+        "confirmed_loads": 0,
+        "load_attempts": 0,
+        "load_errors": [],
+        "load_sessions": [],
+        "load_submit_ms": [],
+        "other_session_replay_count": 27,
+        "other_session_total_ttft_ms": 314660.353,
+        "replay_count": 36,
+        "total_replay_ttft_ms": 421934.371,
+        "total_return_to_first_token_ms": 421943.707,
+        "workflow_makespan_ms": 90257.424
+      },
+      "check_only": {
+        "accepted_loads": 0,
+        "confirmed_loads": 0,
+        "load_attempts": 0,
+        "load_errors": [],
+        "load_sessions": [],
+        "load_submit_ms": [],
+        "other_session_replay_count": 27,
+        "other_session_total_ttft_ms": 319199.743,
+        "replay_count": 36,
+        "total_replay_ttft_ms": 423615.939,
+        "total_return_to_first_token_ms": 423624.953,
+        "workflow_makespan_ms": 90480.792
+      },
+      "controller": {
+        "accepted_loads": 3,
+        "confirmed_loads": 3,
+        "load_attempts": 5,
+        "load_errors": [],
+        "load_sessions": [
+          "busy-seed1-session-03",
+          "busy-seed1-session-05",
+          "busy-seed1-session-07"
+        ],
+        "load_submit_ms": [
+          135.769,
+          356.595,
+          1377.95
+        ],
+        "other_session_replay_count": 27,
+        "other_session_total_ttft_ms": 328091.605,
+        "replay_count": 36,
+        "total_replay_ttft_ms": 436774.074,
+        "total_return_to_first_token_ms": 436782.717,
+        "workflow_makespan_ms": 91271.953
+      },
+      "controller_minus_check_only": {
+        "other_session_total_ttft_ms": 8891.862,
+        "total_replay_ttft_ms": 13158.135,
+        "workflow_makespan_ms": 791.161
+      }
+    },
+    "worker": {
+      "baseline": {
+        "accepted_loads": 0,
+        "confirmed_loads": 0,
+        "load_attempts": 0,
+        "load_errors": [],
+        "load_sessions": [],
+        "load_submit_ms": [],
+        "other_session_replay_count": 27,
+        "other_session_total_ttft_ms": 319398.952,
+        "replay_count": 36,
+        "total_replay_ttft_ms": 423918.674,
+        "total_return_to_first_token_ms": 423927.887,
+        "workflow_makespan_ms": 92364.555
+      },
+      "check_only": {
+        "accepted_loads": 0,
+        "confirmed_loads": 0,
+        "load_attempts": 0,
+        "load_errors": [],
+        "load_sessions": [],
+        "load_submit_ms": [],
+        "other_session_replay_count": 27,
+        "other_session_total_ttft_ms": 316761.524,
+        "replay_count": 36,
+        "total_replay_ttft_ms": 420453.724,
+        "total_return_to_first_token_ms": 420462.338,
+        "workflow_makespan_ms": 92069.026
+      },
+      "controller": {
+        "accepted_loads": 2,
+        "confirmed_loads": 2,
+        "load_attempts": 2,
+        "load_errors": [],
+        "load_sessions": [
+          "busy-seed1-session-05",
+          "busy-seed1-session-07"
+        ],
+        "load_submit_ms": [
+          15.716,
+          46.742
+        ],
+        "other_session_replay_count": 27,
+        "other_session_total_ttft_ms": 332574.486,
+        "replay_count": 36,
+        "total_replay_ttft_ms": 442849.575,
+        "total_return_to_first_token_ms": 442858.167,
+        "workflow_makespan_ms": 91877.689
+      },
+      "controller_minus_check_only": {
+        "other_session_total_ttft_ms": 15812.962,
+        "total_replay_ttft_ms": 22395.851,
+        "workflow_makespan_ms": -191.337
+      }
+    }
+  },
+  "hardware_profile": "nvidia_a10g_24gb",
+  "limitations": "Fresh backends and equal synthetic inputs, but one seed per implementation; batch trajectories and natural cache admissions can differ. Summed TTFT is not wall-clock duration. CUDA work may overlap other requests.",
+  "load_affected_sessions_union": [
+    "busy-seed1-session-03",
+    "busy-seed1-session-05",
+    "busy-seed1-session-07"
+  ],
+  "runs": {
+    "scheduler": "work_audit_async_scheduler_busy_20261005_01",
+    "worker": "work_audit_async_worker_busy_20261005_01"
+  },
+  "schema": "agentic_work_audit.async_kv_comparison.v1",
+  "workload": {
+    "capacity_policy": "native_sglang",
+    "estimated_load_ms": 250.0,
+    "forced_eviction": false,
+    "frontend_priority": "none",
+    "hicache_io_backend": "direct",
+    "hicache_size_gb": 8.0,
+    "initial_stagger_ms": 75,
+    "load_margin_ms": 150.0,
+    "mem_fraction_static": 0.8,
+    "minimum_host_tokens": 512,
+    "modes": [
+      "baseline",
+      "check_only",
+      "controller"
+    ],
+    "prefix_tokens": 8192,
+    "replay_tokens": 64,
+    "research_question_id": "RQ9",
+    "seeds": [
+      1
+    ],
+    "session_count": 12,
+    "tool_waits_per_session": 3,
+    "wait_range_ms": [
+      800,
+      3500
+    ]
+  }
+}

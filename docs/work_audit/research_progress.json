@@ -2,12 +2,34 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ9",
+      "short_question": "Does off-scheduler KV loading help?",
+      "evidence_date_utc": "2026-10-05",
+      "question": "If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?",
+      "answer": "An opt-in prototype for pinned SGLang 0.5.10.post1 passed a live exact host-versus-device K/V equality check across all model layers before publishing a 4096-token prefix; the trace recorded 56 K/V copy events. In one warmed, comparable three-session pair per execution mode, early-load replay delay was 89.5 ms with scheduler copies and 89.9 ms with worker copies. For a load requested at tool return, the worker control response fell from about 200 ms to 16 ms, but the replay arrived before commit, recomputed its prefix, and its first-token delay rose from 276 to 1131 ms. In separate one-seed 12-session busy runs, summed replay TTFT was 13.16 seconds above check-only for scheduler copies and 22.40 seconds above check-only for worker copies; the runs admitted three and two loads respectively, so this is not a matched causal difference. Moving copy submission off the scheduler is feasible, but these runs do not show an end-to-end performance win.",
+      "unknown": "The prototype only handles explicit prepare-control loads, direct host I/O, and one tensor-parallel rank. A replay reaching the backend before commit may recompute rather than wait for the prefix. One warmed pair and one busy seed per mode cannot establish general performance. The busy admissions differed. Dedicated-stream copy time also changed under overlap, so scheduler relief is not an isolated hardware-speed measurement. Production replay gating, multi-rank safety, and native automatic load paths remain unimplemented.",
+      "evidence_run_ids": [
+        "work_audit_async_worker_verify_20261005_01",
+        "work_audit_async_fixed_scheduler_20261005_02",
+        "work_audit_async_fixed_worker_20261005_01",
+        "work_audit_async_scheduler_busy_20261005_01",
+        "work_audit_async_worker_busy_20261005_01"
+      ],
+      "related_run_ids": [
+        "work_audit_async_worker_verify_20261005_01",
+        "work_audit_async_fixed_scheduler_20261005_02",
+        "work_audit_async_fixed_worker_20261005_01",
+        "work_audit_async_scheduler_busy_20261005_01",
+        "work_audit_async_worker_busy_20261005_01"
+      ]
+    },
+    {
       "id": "RQ8",
       "short_question": "Does timed KV preparation help a busy system?",
       "evidence_date_utc": "2026-10-05",
       "question": "With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?",
       "answer": "The original two-seed A10G comparison found higher summed replay TTFT and slower workflows with timed preparation. A three-arm comparison separated no checks, plan-only checks, and real early loads: the load arm added +11.04 and +19.42 seconds of summed replay TTFT versus checks-only across 36 replays per seed, while sustained generation did not slow. In a one-seed phase-timing repeat, three completed early loads spent 121, 308, and 1362 ms inside SGLang's ready-to-load call on the scheduler path; control-queue waits were only 2-12 ms. A separate diagnostic profile of one 2048-token direct load found 117.44 MB moved in 3920 small copies: 10.884 ms of active host-to-device copies spread across 156.859 ms. A one-seed control using SGLang's supported kernel I/O backend also held the scheduler for 106, 314, and 1314 ms on its three accepted loads and added 17.61 seconds summed replay TTFT versus checks-only. Neither I/O backend moved the load off the scheduler path; post-first-token generation did not slow in these runs.",
-      "unknown": "The profiler diagnostic perturbs timing and is not a performance comparison; gaps between copy events cannot be assumed recoverable. The phase-timing and kernel controls each have only one seed and three accepted early loads. CUDA-event duration overlaps wall-clock ready-call time and must not be added to it. Matched-arm differences locate affected stages but do not prove per-copy causality, HBM contention, or how much a hardware offload would save; concurrent batch trajectories can diverge. A true off-scheduler native load has not been tested and needs synchronized backend support. A separate sequential tracing-off/on microcheck measured +3.05% median latency but does not bound overhead in the busy workload. Prompts and tool waits remain synthetic.",
+      "unknown": "The profiler diagnostic perturbs timing and is not a performance comparison; gaps between copy events cannot be assumed recoverable. The phase-timing and kernel controls each have only one seed and three accepted early loads. CUDA-event duration overlaps wall-clock ready-call time and must not be added to it. Matched-arm differences locate affected stages but do not prove per-copy causality, HBM contention, or how much a hardware offload would save; concurrent batch trajectories can diverge. An opt-in off-scheduler prototype is evaluated separately in RQ9. A separate sequential tracing-off/on microcheck measured +3.05% median latency but does not bound overhead in the busy workload. Prompts and tool waits remain synthetic.",
       "evidence_run_ids": [
         "work_audit_busy_pair_20261002_01",
         "work_audit_kv_attribution_20261002_04",

@@ -44,6 +44,7 @@ from ..instrumentation.torch_cuda_profiler import maybe_start as maybe_start_tor
 from ..instrumentation.torch_cuda_profiler import record_event as record_torch_profiler_event
 from ..instrumentation.torch_cuda_profiler import stop_and_export as stop_torch_profiler
 from ..selection import installed_sglang_version, select_adapter
+from ..versions.v0510_async_kv import AsyncHiCacheLoader
 
 
 _INSTALLED = False
@@ -1667,6 +1668,18 @@ def _prepare_load_status(load_id: str) -> dict[str, Any]:
     if entry is None:
         return {"ok": False, "status": "load_not_found", "load_id": load_id}
 
+    async_loader = entry.get("async_loader")
+    if async_loader is not None:
+        snapshot = async_loader.snapshot(load_id)
+        if snapshot is None:
+            return {"ok": False, "status": "load_not_found", "load_id": load_id}
+        with _PREPARE_LOADS_LOCK:
+            previous = entry.get("last_reported_status")
+            entry["last_reported_status"] = snapshot["status"]
+        if snapshot["status"] != previous:
+            _write_event({"event": "agentic_kv.prepare_prefix.load_status", **snapshot})
+        return {"ok": snapshot["status"] != "failed", **snapshot}
+
     try:
         # SGLang's producer event spans all layer copies and is the authority
         # for whether a native load has finished. The benchmark timing events
@@ -1807,6 +1820,9 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
     node = selected["node"]
     node_id = str(selected["node_id"])
     host_tokens = int(selected["host_tokens"])
+    async_loader = getattr(tree_cache, "_agentic_async_kv_loader", None)
+    if async_loader is not None and id(node) in async_loader.pending_node_ids:
+        return {"ok": False, "status": "load_in_progress", "node_id": node_id}
     if plan_only:
         return {
             "ok": True,
@@ -1861,6 +1877,17 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         }
 
     start_ns = time.time_ns()
+    worker_load = _truthy_env("AGENTIC_KV_PREPARE_LOAD_WORKER")
+    if worker_load:
+        if async_loader is None:
+            try:
+                async_loader = AsyncHiCacheLoader(tree_cache)
+                tree_cache._agentic_async_kv_loader = async_loader
+            except Exception as exc:  # noqa: BLE001
+                return {"ok": False, "status": "async_loader_unsupported", "error": f"{type(exc).__name__}: {exc}"}
+        if tree_cache.cache_controller.load_queue:
+            return {"ok": False, "status": "async_loader_busy", "reason": "Native load queue was not empty"}
+        evicted_chain = async_loader.capture_evicted_chain(node)
     try:
         device_indices = tree_cache.load_back(node, mem_quota)
     except Exception as exc:  # noqa: BLE001
@@ -1887,6 +1914,29 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "load_back_threshold_original": original_threshold,
             "load_back_threshold_effective": effective_threshold,
             "reason": "SGLang load_back skipped this node because of threshold, quota, or memory pressure.",
+        }
+
+    if worker_load:
+        load_id = str(command.get("load_id") or f"{command.get('request_id') or node_id}:async:{start_ns}")
+        job = async_loader.submit(load_id, node, evicted_chain)
+        with _PREPARE_LOADS_LOCK:
+            _PREPARE_LOADS[load_id] = {"async_loader": async_loader, "last_reported_status": None}
+        submitted_ns = time.time_ns()
+        return {
+            "ok": True,
+            "status": "queued",
+            "matched_key": matched_key,
+            "node_id": node_id,
+            "loaded_tokens": int(len(device_indices)),
+            "load_id": load_id,
+            "command_started_ns": start_ns,
+            "control_queued_ns": command.get("control_queued_ns"),
+            "control_dequeued_ns": command.get("control_dequeued_ns"),
+            "load_back_returned_ns": load_back_returned_ns,
+            "worker_submitted_ns": submitted_ns,
+            "scheduler_submit_ms": round((submitted_ns - start_ns) / 1_000_000, 3),
+            "control_path": "hiradix.load_back+v0510_async_worker",
+            "reason": "Reserved native SGLang slots; worker enqueues per-layer KV copies.",
         }
 
     global _PREPARE_PROFILE_CAPTURED
@@ -1995,6 +2045,11 @@ def _process_prepare_prefix_commands(scheduler_or_cache: Any) -> None:
         return
     if not hasattr(scheduler_or_cache, "tree_cache") and not hasattr(scheduler_or_cache, "load_back"):
         return
+    tree_cache = getattr(scheduler_or_cache, "tree_cache", scheduler_or_cache)
+    async_loader = getattr(tree_cache, "_agentic_async_kv_loader", None)
+    if async_loader is not None:
+        for job in async_loader.poll():
+            _write_event({"event": "agentic_kv.prepare_prefix.async_commit", **async_loader.snapshot(job.load_id)})
     if hasattr(scheduler_or_cache, "tree_cache"):
         _start_prepare_prefix_control_server()
     for _ in range(16):

@@ -1,0 +1,133 @@
+[
+  {
+    "session_id": "work_audit_async_worker_verify_20261005_01-host",
+    "case": "host",
+    "initial": {
+      "request_start_ns": 1791223242607924434,
+      "request_end_ns": 1791223277226667768,
+      "first_token_ns": 1791223264058871919,
+      "ttft_ms": 21450.946,
+      "total_latency_ms": 34618.741,
+      "stream_chunks": 17
+    },
+    "replay": {
+      "request_start_ns": 1791223278174443578,
+      "request_end_ns": 1791223283063540689,
+      "first_token_ns": 1791223279073959798,
+      "ttft_ms": 899.515,
+      "total_latency_ms": 4889.096,
+      "stream_chunks": 17
+    },
+    "host_plan": {
+      "admission": "admit",
+      "admission_reason": "admit_host_resident_evicted_prefix",
+      "candidate_nodes": [
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 15,
+          "node_id": "7",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 48,
+          "node_id": "4",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 2048,
+          "node_id": "3",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": true,
+          "host_tokens": 2048,
+          "node_id": "2",
+          "source": "last_host_node"
+        },
+        {
+          "backuped": true,
+          "evicted": false,
+          "host_tokens": 0,
+          "node_id": "0",
+          "source": "last_host_node"
+        }
+      ],
+      "control_path": "hiradix.load_back+hicache.start_loading",
+      "host_tokens": 2048,
+      "loaded_tokens": 0,
+      "matched_key": "session_prompt:work_audit_async_worker_verify_20261005_01-host:6658476d2f979968",
+      "minimum_host_tokens": 512,
+      "node_id": "3",
+      "ok": true,
+      "plan_only": true,
+      "producer_id": -1,
+      "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+      "status": "would_load_back",
+      "http_status": 200,
+      "control_request_started_ns": 1791223277740422308,
+      "control_response_ns": 1791223277746441597,
+      "control_duration_ms": 6.02
+    },
+    "load_status": {
+      "committed_ns": 1791223278168963176,
+      "cuda_elapsed_ms": 187.059708,
+      "error": null,
+      "finished_observed_ns": 1791223278168963176,
+      "full_copy_verified": true,
+      "load_id": "work_audit_async_worker_verify_20261005_01-host-initial:async:1791223277748919495",
+      "loaded_tokens": 4096,
+      "node_id": "3",
+      "observed_ns": 1791223278172997049,
+      "ok": true,
+      "status": "finished",
+      "submitted_ns": 1791223277758166519,
+      "worker_enqueued_ns": 1791223277945859259,
+      "worker_started_ns": 1791223277758293265,
+      "http_status": 200
+    },
+    "replay_2": {
+      "request_start_ns": 1791223283564717017,
+      "request_end_ns": 1791223287785158842,
+      "first_token_ns": 1791223283785809669,
+      "ttft_ms": 221.092,
+      "total_latency_ms": 4220.441,
+      "stream_chunks": 17
+    }
+  },
+  {
+    "session_id": "work_audit_async_worker_verify_20261005_01-warm",
+    "case": "warm",
+    "initial": {
+      "request_start_ns": 1791223288067377442,
+      "request_end_ns": 1791223293731210112,
+      "first_token_ns": 1791223289756339931,
+      "ttft_ms": 1688.961,
+      "total_latency_ms": 5663.831,
+      "stream_chunks": 17
+    },
+    "replay": {
+      "request_start_ns": 1791223294232272180,
+      "request_end_ns": 1791223298423921110,
+      "first_token_ns": 1791223294454970183,
+      "ttft_ms": 222.697,
+      "total_latency_ms": 4191.648,
+      "stream_chunks": 17
+    },
+    "host_plan": null,
+    "load_status": null,
+    "replay_2": {
+      "request_start_ns": 1791223298925030280,
+      "request_end_ns": 1791223303127654765,
+      "first_token_ns": 1791223299154278066,
+      "ttft_ms": 229.247,
+      "total_latency_ms": 4202.623,
+      "stream_chunks": 17
+    }
+  }
+]

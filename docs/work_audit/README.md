@@ -409,7 +409,7 @@ lifecycle trace.
 
 ```bash
 SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 \
-  AGENTIC_MODEL_CACHE=/home/ec2-user/.cache/huggingface \
+  AGENTIC_MODEL_CACHE=/path/to/model/cache \
   WORK_AUDIT_STUDY=multisession_window \
   WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
   WORK_AUDIT_CASE_ORDER=late_nonblocking-early-post_short \
@@ -447,7 +447,7 @@ against backend load events. All tasks retain equal frontend importance.
 
 ```bash
 SGLANG_DOCKER_IMAGE=agentic-sglang-standard:0.5.10.post1 \
-  AGENTIC_MODEL_CACHE=/home/ec2-user/.cache/huggingface \
+  AGENTIC_MODEL_CACHE=/path/to/model/cache \
   WORK_AUDIT_STUDY=multisession_controller \
   WORK_AUDIT_TRACE_PROFILE=kv_lifecycle_lean \
   WORK_AUDIT_CASE_ORDER=late_nonblocking-early-post_short-controller_window \
@@ -567,6 +567,43 @@ can diverge.
 
 To reproduce the `kernel` control on a supported host, use the busy-workload
 command above with `HICACHE_IO_BACKEND=kernel`, `WORK_AUDIT_SEEDS="1"`, and
-`WORK_AUDIT_MODES="baseline check_only controller"`. A true nonblocking-load
-comparison remains untested; it requires a version-specific backend change
-with synchronization and correctness checks before a performance claim.
+`WORK_AUDIT_MODES="baseline check_only controller"`.
+
+### Off-scheduler load prototype
+
+`AGENTIC_KV_PREPARE_LOAD_WORKER=1` enables an experimental `v0510` path for
+explicit prepare-control requests only. SGLang reserves device slots on its
+scheduler thread, hides the pending cache nodes, and sends the native per-layer
+host-to-device copies to a dedicated CUDA stream and worker. The scheduler
+publishes the nodes only after the stream's completion event is observed. A
+copy error fails closed. With `AGENTIC_KV_ASYNC_VERIFY_FULL_COPY=1`, a diagnostic
+run compares every copied K/V tensor with its host source before publication;
+this expensive check must stay off in performance runs.
+
+The path requires SGLang `0.5.10.post1`, `HiRadixCache`, direct host I/O, and
+one tensor-parallel rank. It does not change SGLang's automatic load path.
+If a replay arrives while its explicit load is pending, the incomplete prefix
+is unavailable and SGLang may recompute it rather than wait. It does not read
+half-copied KV, but this is not a production replay-gating policy.
+
+The [full-copy validation](../reports/work_audit/work_audit_async_worker_verify_20261005_01/summary.json)
+passed with a 4096-token native load and 56 K/V copy events. The raw trace
+records `full_copy_verified=true`. The [scheduler](../reports/work_audit/work_audit_async_fixed_scheduler_20261005_02/summary.json)
+and [worker](../reports/work_audit/work_audit_async_fixed_worker_20261005_01/summary.json)
+runs each used one warm-up pair and one comparable three-session pair. An early
+load left the long replay at 89.5 versus 89.9 ms after tool return. A load
+requested at tool return gave a 200 versus 16 ms control response, but the
+worker's late replay first token was 1131 versus 276 ms after tool return;
+it arrived before commit and recomputed its prefix. This is one pair per mode,
+not a general performance estimate.
+
+Separate one-seed busy runs compare [scheduler](../reports/work_audit/work_audit_async_scheduler_busy_20261005_01/summary.json)
+and [worker](../reports/work_audit/work_audit_async_worker_busy_20261005_01/summary.json)
+copy paths under 12 equal-importance sessions. Relative to each run's
+check-only arm, real loads increased summed replay TTFT by 13.16 and 22.40 s,
+respectively. The runs accepted different numbers of loads (three and two),
+so they do not isolate the worker's causal effect. No whole-workload win is
+claimed. The [raw paired-arm comparison](../reports/work_audit_async_busy_comparison_20261005.json)
+retains the accepted-load counts and per-arm timing totals. To rerun, use the
+commands in each run's manifest-derived details on the top-level KV lifecycle
+audit page and set the container image and model cache for the target host.
