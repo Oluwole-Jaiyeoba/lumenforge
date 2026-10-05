@@ -127,6 +127,23 @@ def test_decode_overlap_report_keeps_stage_attribution_and_runner():
     assert "WORK_AUDIT_STUDY=multisession_overlap" in markdown
     assert "WORK_AUDIT_FORWARD_TRACE=1" in markdown
     assert "815" in markdown and "970" in markdown
+    summary["_cuda_kernel_subset"] = {"status": "validated_subset", "pairs": [{
+        "pair": 1,
+        "early_minus_post_short_ms": {"kernel_duration_sum_ms": 0.3,
+                                      "kernel_gap_inside_span_ms": 172.4},
+        "early": {"kernel_count": 4872, "kernel_duration_sum_ms": 470.0,
+                  "kernel_gap_inside_span_ms": 190.0,
+                  "htod_during_kernel_span_ms": 0.0},
+        "post_short": {"kernel_count": 4872, "kernel_duration_sum_ms": 469.7,
+                       "kernel_gap_inside_span_ms": 17.6,
+                       "htod_during_kernel_span_ms": 0.0},
+    }]}
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "GPU kernel check (captured pair only)" in page
+    assert "Between-kernel gaps" in markdown
+    assert "WORK_AUDIT_NSYS_ENABLE=1" in markdown
+    assert "partial CUDA capture" in markdown
 
 
 def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):

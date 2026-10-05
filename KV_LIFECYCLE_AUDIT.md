@@ -10,9 +10,9 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Question.** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
 
-**What the evidence says.** In three warmed, order-balanced A10G pairs, early loading made the short session finish 128-182 ms later than loading after that session finished; first-token timing was nearly unchanged. Backend batch time increased 173-225 ms while gaps between batches decreased. A follow-up two-pair run instrumented nested model forward: short completion increased about 153 ms in both pairs, summed model-forward time increased 185-190 ms, and non-forward batch time changed only 1-2 ms. Both arms generated 16 backend output tokens per short replay. This locates the measured slowdown inside the model-forward call while the other session's worker KV load is active.
+**What the evidence says.** In three warmed, order-balanced A10G pairs, early loading made the short session finish 128-182 ms later than loading after that session finished; first-token timing was nearly unchanged. Backend batch time increased 173-225 ms while gaps between batches decreased. A follow-up two-pair run placed 185-190 ms of added time inside model forward. In two later Nsight captures, the first pair in each had complete CUDA linkage: both modes launched 4872 short-replay kernels, total kernel execution changed by only 0.3-0.6 ms, but between-kernel gaps grew by 126 and 174 ms. No host-to-device copy was recorded during those kernel spans. This points away from slower decode kernels or direct concurrent copy-bandwidth contention in those captured pairs; the observed delay is between kernels.
 
-**Not yet proved.** Model-forward wall time includes GPU execution and synchronization, so these runs do not distinguish HBM bandwidth contention from another GPU or runtime dependency. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait to accommodate variable copy times. It does not prove that hardware offload would remove the delay or that the same effect occurs under natural production pressure.
+**Not yet proved.** Nsight lost CUDA activity for later cases in both two-pair profiling runs; the kernel result is a validated subset, not a complete order-balanced profiler experiment. A reverse-order run had no CUDA kernel capture and is excluded. Between-kernel gaps do not by themselves distinguish CPU launch delay from GPU synchronization or other dependencies. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait; hardware offload benefits and production frequency remain unproven.
 
 ### RQ9: Does off-scheduler KV loading help?
 
@@ -92,6 +92,8 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;4:54:36&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_cuda_kernels_graceful_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;2&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | GPU mechanism check; profiled timing not used | See&nbsp;clean&nbsp;RQ10&nbsp;run | See&nbsp;captured&nbsp;kernel&nbsp;table | No&nbsp;profiled&nbsp;workflow&nbsp;claim | In&nbsp;the&nbsp;captured&nbsp;pair,&nbsp;GPU&nbsp;kernels&nbsp;ran&nbsp;for&nbsp;about&nbsp;the&nbsp;same&nbsp;time;&nbsp;pauses&nbsp;between&nbsp;them&nbsp;grew.&nbsp;No&nbsp;H-to-D&nbsp;copy&nbsp;overlapped&nbsp;those&nbsp;kernel&nbsp;spans.&nbsp;Later&nbsp;profiler&nbsp;data&nbsp;was&nbsp;incomplete,&nbsp;so&nbsp;hardware&nbsp;attribution&nbsp;remains&nbsp;provisional. | validated timing; partial CUDA capture |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;4:45:44&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_cuda_kernels_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;2&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | GPU mechanism check; profiled timing not used | See&nbsp;clean&nbsp;RQ10&nbsp;run | See&nbsp;captured&nbsp;kernel&nbsp;table | No&nbsp;profiled&nbsp;workflow&nbsp;claim | In&nbsp;the&nbsp;captured&nbsp;pair,&nbsp;GPU&nbsp;kernels&nbsp;ran&nbsp;for&nbsp;about&nbsp;the&nbsp;same&nbsp;time;&nbsp;pauses&nbsp;between&nbsp;them&nbsp;grew.&nbsp;No&nbsp;H-to-D&nbsp;copy&nbsp;overlapped&nbsp;those&nbsp;kernel&nbsp;spans.&nbsp;Later&nbsp;profiler&nbsp;data&nbsp;was&nbsp;incomplete,&nbsp;so&nbsp;hardware&nbsp;attribution&nbsp;remains&nbsp;provisional. | validated timing; partial CUDA capture |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;4:05:08&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_decode_forward_repeated_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;2&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | After-short → early worker load, both before tool return | 121&nbsp;→&nbsp;281&nbsp;ms&nbsp;(160&nbsp;ms&nbsp;slower) | 819&nbsp;→&nbsp;972&nbsp;ms&nbsp;(153&nbsp;ms&nbsp;slower) | 15.4&nbsp;→&nbsp;15.6&nbsp;s&nbsp;(0.2&nbsp;s&nbsp;slower) | Early&nbsp;worker&nbsp;loading&nbsp;delayed&nbsp;the&nbsp;short&nbsp;response&nbsp;in&nbsp;every&nbsp;pair;&nbsp;the&nbsp;added&nbsp;batch&nbsp;time&nbsp;was&nbsp;in&nbsp;model&nbsp;forward,&nbsp;not&nbsp;queue&nbsp;gaps.&nbsp;HBM&nbsp;contention&nbsp;is&nbsp;not&nbsp;established. | validated |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;3:52:46&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_decode_overlap_repeated_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;3&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | After-short → early worker load, both before tool return | 123&nbsp;→&nbsp;118&nbsp;ms&nbsp;(6&nbsp;ms&nbsp;faster) | 826&nbsp;→&nbsp;955&nbsp;ms&nbsp;(130&nbsp;ms&nbsp;slower) | 15.4&nbsp;→&nbsp;15.5&nbsp;s&nbsp;(0.0&nbsp;s&nbsp;slower) | Early&nbsp;worker&nbsp;loading&nbsp;delayed&nbsp;the&nbsp;short&nbsp;response&nbsp;in&nbsp;every&nbsp;pair.&nbsp;The&nbsp;trace&nbsp;places&nbsp;the&nbsp;added&nbsp;time&nbsp;inside&nbsp;backend&nbsp;batches,&nbsp;not&nbsp;queue&nbsp;gaps. | validated |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;1:28:34&nbsp;p.m.&nbsp;CDT | [Concurrent early vs late · worker load](#run-work_audit_async_fixed_worker_20261005_01) | RQ9 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;1&nbsp;measured&nbsp;pair&nbsp;·&nbsp;900&nbsp;/&nbsp;2500&nbsp;ms&nbsp;waits&nbsp;·&nbsp;worker&nbsp;KV&nbsp;load | Late loading → early loading (1 pair) | 1,131&nbsp;→&nbsp;90&nbsp;ms&nbsp;(1,041&nbsp;ms&nbsp;faster) | 809&nbsp;→&nbsp;1,006&nbsp;ms&nbsp;(198&nbsp;ms&nbsp;later) | 8,953&nbsp;→&nbsp;7,900&nbsp;ms&nbsp;(1,053&nbsp;ms&nbsp;sooner) | Replay&nbsp;sooner;&nbsp;short&nbsp;session&nbsp;finished&nbsp;later;&nbsp;workflow&nbsp;sooner&nbsp;(1&nbsp;pair). | validated; 1 pair |
@@ -120,6 +122,94 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | Oct&nbsp;1,&nbsp;2026,&nbsp;5:42:31&nbsp;p.m.&nbsp;CDT | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | Case&nbsp;order:&nbsp;warm&nbsp;→&nbsp;host&nbsp;·&nbsp;not&nbsp;recorded&nbsp;replays/case&nbsp;·&nbsp;wait&nbsp;not&nbsp;recorded | Observation only; no policy comparison | Host-backed&nbsp;replay&nbsp;TTFT:&nbsp;230.3&nbsp;ms | No&nbsp;other&nbsp;session | Not&nbsp;measured | Linked&nbsp;host-backed&nbsp;KV&nbsp;movement&nbsp;to&nbsp;replay;&nbsp;no&nbsp;speed&nbsp;win&nbsp;tested. | validated |
 
 ## Experiment details
+
+<a id="run-work_audit_cuda_kernels_graceful_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 4:54:36 p.m. CDT · Decode overlap attribution</strong> · work_audit_cuda_kernels_graceful_20261005</summary>
+
+**Question (RQ10).** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
+
+**Finding.** In the captured pair, GPU kernels ran for about the same time; pauses between them grew. No H-to-D copy overlapped those kernel spans. Later profiler data was incomplete, so hardware attribution remains provisional.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; trace kv_decode_overlap; model-forward trace on. Each case began three equal-importance sessions: a short tool wait, a long tool wait, and one session that ended. The long prefix was explicitly evicted to host. Its worker load began either during short decode or after short completion; both loads had to finish before long tool return. Tool waits: 900 / 10000 ms; early load at 1200 ms. 1 warmup pairs excluded; order reversed by pair. Prompt target 4090 words, output cap 16 tokens, host cache 8 GB, GPU memory fraction 0.7.
+
+**Key measurements**
+
+| Trial / mode | Short first token (ms) | Short finish (ms) | Batch time (ms) | Model forward (ms) | Other batch time (ms) | Between batches (ms) | Load overlap (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Trial 1 · post_short | 319.2 | 838.7 | 296.4 | 292.0 | 4.4 | 190.9 | 0.0 |
+| Trial 1 · early | 320.7 | 1045.8 | 514.0 | 506.5 | 7.5 | 166.6 | 339.1 |
+| Trial 2 · early | 323.7 | 998.8 | 482.2 | 477.0 | 5.1 | 150.8 | 288.2 |
+| Trial 2 · post_short | 348.5 | 867.6 | 294.8 | 290.5 | 4.3 | 191.8 | 0.0 |
+
+**Nsight GPU check (captured pair only).** The full profiler run lost later CUDA data; these rows have complete kernel linkage. Profiled time is mechanism evidence, not the clean performance estimate.
+
+| Captured case | Kernels | Kernel execution (ms) | Between-kernel gaps (ms) | H-to-D overlap (ms) |
+| --- | --- | --- | --- | --- |
+| Pair 1 · post_short | 4872 | 469.7 | 17.6 | 0.0 |
+| Pair 1 · early | 4872 | 469.9 | 191.8 | 0.0 |
+
+**Evidence gate.** validated timing; partial CUDA capture. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Worker start-to-commit is an upper bound on GPU-copy activity, not exact HBM overlap.
+- Client stream content chunks need not equal model tokens; backend decode steps are separate evidence.
+- Batch wall time includes CPU submission and synchronization; it is not GPU kernel time.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_graceful_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=1 WORK_AUDIT_NSYS_ENABLE=1 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/kernel_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/backend.sqlite.gz)
+
+</details>
+
+<a id="run-work_audit_cuda_kernels_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 4:45:44 p.m. CDT · Decode overlap attribution</strong> · work_audit_cuda_kernels_20261005</summary>
+
+**Question (RQ10).** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
+
+**Finding.** In the captured pair, GPU kernels ran for about the same time; pauses between them grew. No H-to-D copy overlapped those kernel spans. Later profiler data was incomplete, so hardware attribution remains provisional.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; trace kv_decode_overlap; model-forward trace on. Each case began three equal-importance sessions: a short tool wait, a long tool wait, and one session that ended. The long prefix was explicitly evicted to host. Its worker load began either during short decode or after short completion; both loads had to finish before long tool return. Tool waits: 900 / 10000 ms; early load at 1200 ms. 1 warmup pairs excluded; order reversed by pair. Prompt target 4090 words, output cap 16 tokens, host cache 8 GB, GPU memory fraction 0.7.
+
+**Key measurements**
+
+| Trial / mode | Short first token (ms) | Short finish (ms) | Batch time (ms) | Model forward (ms) | Other batch time (ms) | Between batches (ms) | Load overlap (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Trial 1 · post_short | 311.0 | 828.3 | 285.7 | 281.5 | 4.3 | 199.5 | 0.0 |
+| Trial 1 · early | 320.6 | 994.1 | 459.3 | 452.8 | 6.5 | 168.3 | 287.4 |
+| Trial 2 · early | 320.5 | 989.5 | 473.5 | 466.5 | 7.1 | 150.8 | 319.0 |
+| Trial 2 · post_short | 343.3 | 861.3 | 298.8 | 294.3 | 4.5 | 188.3 | 0.0 |
+
+**Nsight GPU check (captured pair only).** The full profiler run lost later CUDA data; these rows have complete kernel linkage. Profiled time is mechanism evidence, not the clean performance estimate.
+
+| Captured case | Kernels | Kernel execution (ms) | Between-kernel gaps (ms) | H-to-D overlap (ms) |
+| --- | --- | --- | --- | --- |
+| Pair 1 · post_short | 4872 | 469.5 | 17.1 | 0.0 |
+| Pair 1 · early | 4872 | 470.1 | 143.3 | 0.0 |
+
+**Evidence gate.** validated timing; partial CUDA capture. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Worker start-to-commit is an upper bound on GPU-copy activity, not exact HBM overlap.
+- Client stream content chunks need not equal model tokens; backend decode steps are separate evidence.
+- Batch wall time includes CPU submission and synchronization; it is not GPU kernel time.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=1 WORK_AUDIT_NSYS_ENABLE=1 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/kernel_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/backend.sqlite.gz)
+
+</details>
 
 <a id="run-work_audit_decode_forward_repeated_20261005"></a>
 <details>

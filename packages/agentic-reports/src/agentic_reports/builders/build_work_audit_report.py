@@ -153,8 +153,13 @@ def _links(path: Path, summary: dict) -> str:
         ("backend_trace.jsonl.gz", "Raw trace"),
     )
     files = summary.get("_files") or {"summary.json"}
-    return " · ".join(f'<a href="{_esc(path.with_name(name).as_posix())}">{label}</a>'
-                      for name, label in labels if name in files)
+    links = [f'<a href="{_esc(path.with_name(name).as_posix())}">{label}</a>'
+             for name, label in labels if name in files]
+    if summary.get("_cuda_kernel_subset"):
+        base = path.parent.as_posix()
+        links.append(f'<a href="{_esc(base)}/nsys/kernel_attribution_pair01.json">Captured GPU kernels</a>')
+        links.append(f'<a href="{_esc(base)}/nsys/backend.sqlite.gz">Nsight SQLite trace</a>')
+    return " · ".join(links)
 
 
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
@@ -341,6 +346,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
             "WORK_AUDIT_FORWARD_TRACE": ("1" if _forward_trace_enabled(summary) else "0")
                                             if summary.get("schema") == "agentic_work_audit.decode_overlap.v1" else None,
+            "WORK_AUDIT_NSYS_ENABLE": "1" if summary.get("_cuda_kernel_subset") else None,
             "WORK_AUDIT_CASE_ORDER": "-".join(map(str, cases)),
             "WORK_AUDIT_PAIRS": workload.get("pairs"),
             "WORK_AUDIT_WARMUP_PAIRS": workload.get("warmup_pairs"),
@@ -631,6 +637,31 @@ def _decode_overlap_result(summary: dict) -> tuple[str, str]:
         "This identifies the affected software stage but does not isolate HBM bandwidth or "
         "prove a hardware offload benefit.</p>"
     )
+    cuda = summary.get("_cuda_kernel_subset")
+    if cuda:
+        delta = cuda["pairs"][0]["early_minus_post_short_ms"]
+        headline = (f"Captured pair: kernel execution {_direction(delta['kernel_duration_sum_ms'], 'longer', 'shorter')}; "
+                    f"between-kernel gaps {_direction(delta['kernel_gap_inside_span_ms'], 'longer', 'shorter')}. "
+                    "Later CUDA capture incomplete.")
+        kernel_rows = []
+        for pair in cuda.get("pairs") or []:
+            for mode, label in (("post_short", "After short response"), ("early", "Early worker load")):
+                arm = pair[mode]
+                kernel_rows.append((f"Pair {pair['pair']} · {label}", arm["kernel_count"],
+                                    _ms(arm["kernel_duration_sum_ms"]),
+                                    _ms(arm["kernel_gap_inside_span_ms"]),
+                                    _ms(arm["htod_during_kernel_span_ms"])))
+        detail += (
+            "<p><strong>GPU kernel check (captured pair only).</strong> Nsight lost CUDA activity "
+            "for a later case, so the full profiler run did not pass the gate. These forward "
+            "calls have complete kernel linkage; this is mechanism evidence, not a new clean "
+            "latency comparison.</p>" +
+            _mode_table(("Captured case", "Kernels", "Kernel execution", "Between-kernel gaps",
+                         "H-to-D during kernel spans"), kernel_rows) +
+            "<p><strong>Limit.</strong> Unchanged kernel execution and longer gaps do not identify "
+            "CPU launch delay versus GPU synchronization. No H-to-D copy overlapped these kernel "
+            "spans, which argues against direct copy-bandwidth contention in the captured pair.</p>"
+        )
     return headline, detail
 
 
@@ -859,6 +890,10 @@ def _run_finding(summary: dict) -> str:
     schema = summary.get("schema")
     pairs = summary.get("pairs") or []
     if schema == "agentic_work_audit.decode_overlap.v1":
+        if summary.get("_cuda_kernel_subset"):
+            return ("In the captured pair, GPU kernels ran for about the same time; pauses "
+                    "between them grew. No H-to-D copy overlapped those kernel spans. Later "
+                    "profiler data was incomplete, so hardware attribution remains provisional.")
         cases = {(case.get("pair"), case.get("condition")): case
                  for case in summary.get("cases") or []}
         if not pairs or not all(pair.get("comparable") for pair in pairs):
@@ -1044,7 +1079,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         )
         setup, method = _setup(summary, timing)
         result, findings = _result_parts(summary)
-        status = str(summary.get("status") or "unknown")
+        status = ("partial CUDA capture" if summary.get("_cuda_kernel_subset") else
+                  str(summary.get("status") or "unknown"))
         finding = _run_finding(summary)
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
                          [*(summary.get("failures") or []), *(summary.get("limitations") or [])])
@@ -1052,7 +1088,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         rows.append(
             f"<tr class='run-row' id='run-{_esc(quote(run, safe=''))}'>"
             f"<td data-label='Date' title='{_esc(source)}'>{_esc(date)}</td>"
-            f"<td data-label='Time (UTC)' title='{_esc(source)}'>{_esc(time)}</td>"
+            f"<td data-label='Time (Central)' title='{_esc(source)}'>{_esc(time)}</td>"
             f"<td data-label='Experiment'><strong>{kind}</strong><small>{_esc(run)}</small></td>"
             f"<td data-label='Research question' class='question-cell'>{question_cell}</td>"
             f"<td data-label='Setup'>{setup}</td>"
@@ -1237,9 +1273,25 @@ def _markdown_metrics(summary: dict) -> str:
                          total("non_forward_ms"),
                          round(sum(short.get("inter_batch_gaps_ms") or []), 1),
                          (case.get("load_overlap") or {}).get("short_decode_overlap_ms")))
-        return _md_table(("Trial / mode", "Short first token (ms)", "Short finish (ms)",
-                          "Batch time (ms)", "Model forward (ms)", "Other batch time (ms)",
-                          "Between batches (ms)", "Load overlap (ms)"), rows)
+        table = _md_table(("Trial / mode", "Short first token (ms)", "Short finish (ms)",
+                           "Batch time (ms)", "Model forward (ms)", "Other batch time (ms)",
+                           "Between batches (ms)", "Load overlap (ms)"), rows)
+        cuda = summary.get("_cuda_kernel_subset")
+        if cuda:
+            kernel_rows = []
+            for pair in cuda.get("pairs") or []:
+                for mode in ("post_short", "early"):
+                    arm = pair[mode]
+                    kernel_rows.append((f"Pair {pair['pair']} · {mode}", arm["kernel_count"],
+                                        arm["kernel_duration_sum_ms"],
+                                        arm["kernel_gap_inside_span_ms"],
+                                        arm["htod_during_kernel_span_ms"]))
+            table += ("\n\n**Nsight GPU check (captured pair only).** The full profiler run lost "
+                      "later CUDA data; these rows have complete kernel linkage. Profiled time is "
+                      "mechanism evidence, not the clean performance estimate.\n\n" +
+                      _md_table(("Captured case", "Kernels", "Kernel execution (ms)",
+                                 "Between-kernel gaps (ms)", "H-to-D overlap (ms)"), kernel_rows))
+        return table
     if schema == "agentic_work_audit.kv_load_attribution.v1":
         rows = []
         for seed in summary.get("seeds") or []:
@@ -1482,6 +1534,10 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
     if schema == "agentic_work_audit.decode_overlap.v1":
+        if summary.get("_cuda_kernel_subset"):
+            return ("GPU mechanism check; profiled timing not used", "See clean RQ10 run",
+                    "See captured kernel table", "No profiled workflow claim",
+                    _run_finding(summary), "validated timing; partial CUDA capture")
         pairs = [pair for pair in summary.get("pairs") or [] if pair.get("comparable")]
         def med(key: str) -> float | None:
             values = [pair[key] for pair in pairs if isinstance(pair.get(key), (int, float))]
@@ -1490,7 +1546,9 @@ def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str
                 _arrow(med("post_short_long_first_token_ms"), med("early_long_first_token_ms")),
                 _arrow(med("post_short_finish_ms"), med("early_short_finish_ms")),
                 _arrow(med("post_short_workflow_ms"), med("early_workflow_ms"), seconds=True),
-                _run_finding(summary), summary.get("status", "unknown"))
+                _run_finding(summary),
+                "validated timing; partial CUDA capture" if summary.get("_cuda_kernel_subset")
+                else summary.get("status", "unknown"))
     if schema in ("agentic_work_audit.multisession_comparison.v1",
                   "agentic_work_audit.multisession_window.v1",
                   "agentic_work_audit.controller_window.v1"):
@@ -1567,6 +1625,8 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
         limits = list(summary.get("failures") or []) + list(summary.get("limitations") or [])
         if summary.get("interpretation_limit"):
             limits.append(summary["interpretation_limit"])
+        if summary.get("_cuda_kernel_subset"):
+            limits.append("Nsight lost CUDA activity for a later case; only pair 1 has complete GPU kernel attribution.")
         base = path.parent.as_posix()
         files = summary.get("_files") or {"summary.json"}
         evidence = [f"[Summary]({path.as_posix()})"]
@@ -1576,6 +1636,9 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                                 ("backend_trace.jsonl.gz", "Raw trace")):
             if filename in files:
                 evidence.append(f"[{label}]({base}/{filename})")
+        if summary.get("_cuda_kernel_subset"):
+            evidence.append(f"[Captured GPU kernels]({base}/nsys/kernel_attribution_pair01.json)")
+            evidence.append(f"[Nsight SQLite trace]({base}/nsys/backend.sqlite.gz)")
         command = _reproduction_command(summary)
         lines.extend((f'<a id="run-{html.escape(run, quote=True)}"></a>',
                       "<details>",
@@ -1585,7 +1648,7 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                       f"**Finding.** {_run_finding(summary)}", "",
                       f"**Setup.** {setup_text}", "",
                       "**Key measurements**", "", _markdown_metrics(summary), "",
-                      f"**Evidence gate.** {summary.get('status', 'unknown')}. Timestamp: {source}; displayed in Central Time.", ""))
+                      f"**Evidence gate.** {'validated timing; partial CUDA capture' if summary.get('_cuda_kernel_subset') else summary.get('status', 'unknown')}. Timestamp: {source}; displayed in Central Time.", ""))
         if limits:
             lines.extend(("**Limits**", "", *(f"- {limit}" for limit in limits[:3]), ""))
         if command:
@@ -1614,6 +1677,9 @@ def main() -> None:
         audit = path.with_name("instrumentation_audit.json")
         if audit.exists():
             summary["_trace_profile"] = (json.loads(audit.read_text(encoding="utf-8")).get("gate") or {}).get("profile")
+        cuda = path.parent / "nsys" / "kernel_attribution_pair01.json"
+        if cuda.exists():
+            summary["_cuda_kernel_subset"] = json.loads(cuda.read_text(encoding="utf-8"))
         summary["_started_ns"] = _first_request_ns(path)
         summary["_files"] = {evidence.name for evidence in path.parent.iterdir() if evidence.is_file()}
         summaries.append((Path(os.path.relpath(path, args.out.parent)), summary))

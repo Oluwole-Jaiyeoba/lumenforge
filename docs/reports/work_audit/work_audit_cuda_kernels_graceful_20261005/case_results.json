@@ -1,0 +1,1835 @@
+[
+  {
+    "case_id": "work_audit_cuda_kernels_graceful_20261005-warmup01-early",
+    "condition": "early",
+    "initials": {
+      "long": {
+        "request_start_ns": 1791237276424782036,
+        "request_end_ns": 1791237328272060035,
+        "first_token_ns": 1791237309894472327,
+        "ttft_ms": 33469.689,
+        "total_latency_ms": 51847.277,
+        "stream_chunks": 17
+      },
+      "short": {
+        "request_start_ns": 1791237276430823046,
+        "request_end_ns": 1791237328271778501,
+        "first_token_ns": 1791237311108527645,
+        "ttft_ms": 34677.703,
+        "total_latency_ms": 51840.954,
+        "stream_chunks": 17
+      },
+      "ends": {
+        "request_start_ns": 1791237276431261117,
+        "request_end_ns": 1791237328272179570,
+        "first_token_ns": 1791237311753666584,
+        "ttft_ms": 35322.405,
+        "total_latency_ms": 51840.918,
+        "stream_chunks": 17
+      }
+    },
+    "short": {
+      "replay": {
+        "request_start_ns": 1791237329173824997,
+        "request_end_ns": 1791237331366219689,
+        "first_token_ns": 1791237330660125705,
+        "ttft_ms": 1486.302,
+        "total_latency_ms": 2192.394,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237330660125705,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237330790209093,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237330907215823,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237330952405710,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237330990245268,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331026024809,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331061937436,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331097820033,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331133732330,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331169777863,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331205500451,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331241281524,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331277166950,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331313027594,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237331365925885,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      }
+    },
+    "long": {
+      "host_plan": {
+        "admission": "admit",
+        "admission_reason": "admit_host_resident_evicted_prefix",
+        "candidate_nodes": [
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 15,
+            "node_id": "14",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 55,
+            "node_id": "6",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2048,
+            "node_id": "5",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 1996,
+            "node_id": "3",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 52,
+            "node_id": "4",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 0,
+            "node_id": "0",
+            "source": "last_host_node"
+          }
+        ],
+        "control_path": "hiradix.load_back+hicache.start_loading",
+        "host_tokens": 2048,
+        "loaded_tokens": 0,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-warmup01-early-long:6b813193dc2b8864",
+        "minimum_host_tokens": 512,
+        "node_id": "5",
+        "ok": true,
+        "plan_only": true,
+        "producer_id": -1,
+        "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+        "status": "would_load_back",
+        "http_status": 200,
+        "control_request_started_ns": 1791237328286593283,
+        "control_response_ns": 1791237328296927881,
+        "control_duration_ms": 10.335
+      },
+      "replay": {
+        "request_start_ns": 1791237338275824476,
+        "request_end_ns": 1791237338953035094,
+        "first_token_ns": 1791237338434184260,
+        "ttft_ms": 158.361,
+        "total_latency_ms": 677.21,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237338434184260,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338469823634,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338505640097,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338541385148,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338577161108,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338612907847,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338648668207,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338684493541,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338720988466,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338756812999,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338792694345,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338828428214,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338864262388,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338899949214,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237338952737930,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      },
+      "replay_2": {
+        "request_start_ns": 1791237338953576490,
+        "request_end_ns": 1791237339589062624,
+        "first_token_ns": 1791237339036328390,
+        "ttft_ms": 82.751,
+        "total_latency_ms": 635.485,
+        "stream_chunks": 17
+      },
+      "load_acceptance": {
+        "command_started_ns": 1791237330659248914,
+        "control_dequeued_ns": 1791237330659103817,
+        "control_path": "hiradix.load_back+v0510_async_worker",
+        "control_queued_ns": 1791237329475026592,
+        "load_back_returned_ns": 1791237330671720594,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-warmup01-early-long-initial:async:1791237330659248914",
+        "loaded_tokens": 4044,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-warmup01-early-long:6b813193dc2b8864",
+        "node_id": "5",
+        "ok": true,
+        "reason": "Reserved native SGLang slots; worker enqueues per-layer KV copies.",
+        "scheduler_submit_ms": 12.522,
+        "status": "queued",
+        "worker_submitted_ns": 1791237330671771136,
+        "http_status": 200,
+        "control_request_started_ns": 1791237329473535232,
+        "control_response_ns": 1791237330672917631,
+        "control_duration_ms": 1199.382
+      },
+      "load_status": {
+        "committed_ns": 1791237330951573751,
+        "cuda_elapsed_ms": 245.420319,
+        "error": null,
+        "finished_observed_ns": 1791237330951573751,
+        "full_copy_verified": false,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-warmup01-early-long-initial:async:1791237330659248914",
+        "loaded_tokens": 4044,
+        "node_id": "5",
+        "observed_ns": 1791237330951963240,
+        "ok": true,
+        "status": "finished",
+        "submitted_ns": 1791237330671727534,
+        "worker_enqueued_ns": 1791237330918079647,
+        "worker_started_ns": 1791237330671862761,
+        "http_status": 200
+      }
+    },
+    "ends": {
+      "ended_without_replay": true
+    },
+    "pair": 1,
+    "warmup": true
+  },
+  {
+    "case_id": "work_audit_cuda_kernels_graceful_20261005-warmup01-post_short",
+    "condition": "post_short",
+    "initials": {
+      "long": {
+        "request_start_ns": 1791237340458155931,
+        "request_end_ns": 1791237344951557039,
+        "first_token_ns": 1791237342158665526,
+        "ttft_ms": 1700.509,
+        "total_latency_ms": 4493.4,
+        "stream_chunks": 17
+      },
+      "short": {
+        "request_start_ns": 1791237340458588802,
+        "request_end_ns": 1791237344951916636,
+        "first_token_ns": 1791237343369240002,
+        "ttft_ms": 2910.65,
+        "total_latency_ms": 4493.327,
+        "stream_chunks": 17
+      },
+      "ends": {
+        "request_start_ns": 1791237340458924707,
+        "request_end_ns": 1791237344951812411,
+        "first_token_ns": 1791237344330742907,
+        "ttft_ms": 3871.818,
+        "total_latency_ms": 4492.887,
+        "stream_chunks": 17
+      }
+    },
+    "short": {
+      "replay": {
+        "request_start_ns": 1791237345852806366,
+        "request_end_ns": 1791237346691608631,
+        "first_token_ns": 1791237346170722652,
+        "ttft_ms": 317.918,
+        "total_latency_ms": 838.801,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237346170722652,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346206653740,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346242649622,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346278568199,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346314542569,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346350746891,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346386795215,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346422639729,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346458626059,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346494541988,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346530688736,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346566524969,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346602487219,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346638430329,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237346691181831,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      }
+    },
+    "long": {
+      "host_plan": {
+        "admission": "admit",
+        "admission_reason": "admit_host_resident_evicted_prefix",
+        "candidate_nodes": [
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 15,
+            "node_id": "37",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 5,
+            "node_id": "30",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2048,
+            "node_id": "29",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2046,
+            "node_id": "27",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 2,
+            "node_id": "28",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 50,
+            "node_id": "26",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 0,
+            "node_id": "0",
+            "source": "last_host_node"
+          }
+        ],
+        "control_path": "hiradix.load_back+hicache.start_loading",
+        "host_tokens": 2048,
+        "loaded_tokens": 0,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-warmup01-post_short-long:29adebc45ab4e26f",
+        "minimum_host_tokens": 512,
+        "node_id": "29",
+        "ok": true,
+        "plan_only": true,
+        "producer_id": -1,
+        "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+        "status": "would_load_back",
+        "http_status": 200,
+        "control_request_started_ns": 1791237345136763193,
+        "control_response_ns": 1791237345142941155,
+        "control_duration_ms": 6.178
+      },
+      "replay": {
+        "request_start_ns": 1791237354959087747,
+        "request_end_ns": 1791237355606445755,
+        "first_token_ns": 1791237355085001149,
+        "ttft_ms": 125.914,
+        "total_latency_ms": 647.357,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237355085001149,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355120984109,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355156908467,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355192797894,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355228684350,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355264635319,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355300737785,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355336721597,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355372642804,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355408560131,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355444471108,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355480391817,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355516369337,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355552225901,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237355606117819,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      },
+      "replay_2": {
+        "request_start_ns": 1791237355606971470,
+        "request_end_ns": 1791237356249606733,
+        "first_token_ns": 1791237355695881141,
+        "ttft_ms": 88.909,
+        "total_latency_ms": 642.634,
+        "stream_chunks": 17
+      },
+      "load_acceptance": {
+        "command_started_ns": 1791237346696315734,
+        "control_dequeued_ns": 1791237346696120905,
+        "control_path": "hiradix.load_back+v0510_async_worker",
+        "control_queued_ns": 1791237346696045321,
+        "load_back_returned_ns": 1791237346706353608,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-warmup01-post_short-long-initial:async:1791237346696315734",
+        "loaded_tokens": 4094,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-warmup01-post_short-long:29adebc45ab4e26f",
+        "node_id": "29",
+        "ok": true,
+        "reason": "Reserved native SGLang slots; worker enqueues per-layer KV copies.",
+        "scheduler_submit_ms": 10.098,
+        "status": "queued",
+        "worker_submitted_ns": 1791237346706413771,
+        "http_status": 200,
+        "control_request_started_ns": 1791237346692597308,
+        "control_response_ns": 1791237346719348342,
+        "control_duration_ms": 26.751
+      },
+      "load_status": {
+        "committed_ns": 1791237348884875635,
+        "cuda_elapsed_ms": 2172.906738,
+        "error": null,
+        "finished_observed_ns": 1791237348884875635,
+        "full_copy_verified": false,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-warmup01-post_short-long-initial:async:1791237346696315734",
+        "loaded_tokens": 4094,
+        "node_id": "29",
+        "observed_ns": 1791237348890203807,
+        "ok": true,
+        "status": "finished",
+        "submitted_ns": 1791237346706361738,
+        "worker_enqueued_ns": 1791237348884768550,
+        "worker_started_ns": 1791237346706507095,
+        "http_status": 200
+      }
+    },
+    "ends": {
+      "ended_without_replay": true
+    },
+    "pair": 1,
+    "warmup": true
+  },
+  {
+    "case_id": "work_audit_cuda_kernels_graceful_20261005-pair01-post_short",
+    "condition": "post_short",
+    "initials": {
+      "long": {
+        "request_start_ns": 1791237357109268364,
+        "request_end_ns": 1791237361317143946,
+        "first_token_ns": 1791237358819112778,
+        "ttft_ms": 1709.844,
+        "total_latency_ms": 4207.875,
+        "stream_chunks": 17
+      },
+      "short": {
+        "request_start_ns": 1791237357109681153,
+        "request_end_ns": 1791237361316899994,
+        "first_token_ns": 1791237360030739245,
+        "ttft_ms": 2921.057,
+        "total_latency_ms": 4207.218,
+        "stream_chunks": 17
+      },
+      "ends": {
+        "request_start_ns": 1791237357109983037,
+        "request_end_ns": 1791237361317246810,
+        "first_token_ns": 1791237360696314123,
+        "ttft_ms": 3586.33,
+        "total_latency_ms": 4207.263,
+        "stream_chunks": 17
+      }
+    },
+    "short": {
+      "replay": {
+        "request_start_ns": 1791237362218211675,
+        "request_end_ns": 1791237363056803580,
+        "first_token_ns": 1791237362537267874,
+        "ttft_ms": 319.057,
+        "total_latency_ms": 838.592,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237362537267874,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362573015493,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362608831026,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362644696752,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362680568947,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362716472714,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362752334639,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362788099820,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362823922113,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362859865181,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362895655464,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362931586202,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237362967485048,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237363003319691,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237363056505346,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      }
+    },
+    "long": {
+      "host_plan": {
+        "admission": "admit",
+        "admission_reason": "admit_host_resident_evicted_prefix",
+        "candidate_nodes": [
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 15,
+            "node_id": "59",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 9,
+            "node_id": "52",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2048,
+            "node_id": "51",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2042,
+            "node_id": "49",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 6,
+            "node_id": "50",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 45,
+            "node_id": "48",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 0,
+            "node_id": "0",
+            "source": "last_host_node"
+          }
+        ],
+        "control_path": "hiradix.load_back+hicache.start_loading",
+        "host_tokens": 2048,
+        "loaded_tokens": 0,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair01-post_short-long:c12bdb20fb4f3a08",
+        "minimum_host_tokens": 512,
+        "node_id": "51",
+        "ok": true,
+        "plan_only": true,
+        "producer_id": -1,
+        "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+        "status": "would_load_back",
+        "http_status": 200,
+        "control_request_started_ns": 1791237361506889945,
+        "control_response_ns": 1791237361512520031,
+        "control_duration_ms": 5.63
+      },
+      "replay": {
+        "request_start_ns": 1791237371322359184,
+        "request_end_ns": 1791237371966908904,
+        "first_token_ns": 1791237371449636820,
+        "ttft_ms": 127.278,
+        "total_latency_ms": 644.549,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237371449636820,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371485226095,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371521054930,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371556740930,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371592424439,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371628114558,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371663830429,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371699528998,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371735304682,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371771177059,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371807172954,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371843095194,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371878572524,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371914362447,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237371966557537,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      },
+      "replay_2": {
+        "request_start_ns": 1791237371967466370,
+        "request_end_ns": 1791237372604324002,
+        "first_token_ns": 1791237372051339778,
+        "ttft_ms": 83.873,
+        "total_latency_ms": 636.857,
+        "stream_chunks": 17
+      },
+      "load_acceptance": {
+        "command_started_ns": 1791237363059019585,
+        "control_dequeued_ns": 1791237363058835046,
+        "control_path": "hiradix.load_back+v0510_async_worker",
+        "control_queued_ns": 1791237363058786434,
+        "load_back_returned_ns": 1791237363069804145,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair01-post_short-long-initial:async:1791237363059019585",
+        "loaded_tokens": 4090,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair01-post_short-long:c12bdb20fb4f3a08",
+        "node_id": "51",
+        "ok": true,
+        "reason": "Reserved native SGLang slots; worker enqueues per-layer KV copies.",
+        "scheduler_submit_ms": 10.834,
+        "status": "queued",
+        "worker_submitted_ns": 1791237363069853727,
+        "http_status": 200,
+        "control_request_started_ns": 1791237363057363497,
+        "control_response_ns": 1791237363071225632,
+        "control_duration_ms": 13.862
+      },
+      "load_status": {
+        "committed_ns": 1791237365102590992,
+        "cuda_elapsed_ms": 2030.609619,
+        "error": null,
+        "finished_observed_ns": 1791237365102590992,
+        "full_copy_verified": false,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair01-post_short-long-initial:async:1791237363059019585",
+        "loaded_tokens": 4090,
+        "node_id": "51",
+        "observed_ns": 1791237365112548362,
+        "ok": true,
+        "status": "finished",
+        "submitted_ns": 1791237363069811545,
+        "worker_enqueued_ns": 1791237365102487377,
+        "worker_started_ns": 1791237363069909599,
+        "http_status": 200
+      }
+    },
+    "ends": {
+      "ended_without_replay": true
+    },
+    "pair": 1,
+    "warmup": false
+  },
+  {
+    "case_id": "work_audit_cuda_kernels_graceful_20261005-pair01-early",
+    "condition": "early",
+    "initials": {
+      "long": {
+        "request_start_ns": 1791237373483910268,
+        "request_end_ns": 1791237377714365722,
+        "first_token_ns": 1791237375197127222,
+        "ttft_ms": 1713.216,
+        "total_latency_ms": 4230.455,
+        "stream_chunks": 17
+      },
+      "short": {
+        "request_start_ns": 1791237373484319678,
+        "request_end_ns": 1791237377714542401,
+        "first_token_ns": 1791237376420232751,
+        "ttft_ms": 2935.912,
+        "total_latency_ms": 4230.222,
+        "stream_chunks": 17
+      },
+      "ends": {
+        "request_start_ns": 1791237373484614352,
+        "request_end_ns": 1791237377714715939,
+        "first_token_ns": 1791237377090640069,
+        "ttft_ms": 3606.025,
+        "total_latency_ms": 4230.101,
+        "stream_chunks": 17
+      }
+    },
+    "short": {
+      "replay": {
+        "request_start_ns": 1791237378615747921,
+        "request_end_ns": 1791237379661410763,
+        "first_token_ns": 1791237378936328415,
+        "ttft_ms": 320.581,
+        "total_latency_ms": 1045.663,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237378936328415,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379044233104,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379142383294,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379240340947,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379285379983,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379321960385,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379357601043,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379393504851,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379429247294,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379464953434,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379500717797,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379536762893,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379572278344,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379608001775,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237379661113019,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      }
+    },
+    "long": {
+      "host_plan": {
+        "admission": "admit",
+        "admission_reason": "admit_host_resident_evicted_prefix",
+        "candidate_nodes": [
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 15,
+            "node_id": "82",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 5,
+            "node_id": "75",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2048,
+            "node_id": "74",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2046,
+            "node_id": "72",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 2,
+            "node_id": "73",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 4,
+            "node_id": "71",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 45,
+            "node_id": "48",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 0,
+            "node_id": "0",
+            "source": "last_host_node"
+          }
+        ],
+        "control_path": "hiradix.load_back+hicache.start_loading",
+        "host_tokens": 2048,
+        "loaded_tokens": 0,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair01-early-long:1e11edec6ab20df2",
+        "minimum_host_tokens": 512,
+        "node_id": "74",
+        "ok": true,
+        "plan_only": true,
+        "producer_id": -1,
+        "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+        "status": "would_load_back",
+        "http_status": 200,
+        "control_request_started_ns": 1791237377893106543,
+        "control_response_ns": 1791237377900810202,
+        "control_duration_ms": 7.704
+      },
+      "replay": {
+        "request_start_ns": 1791237387720305589,
+        "request_end_ns": 1791237388357491465,
+        "first_token_ns": 1791237387839970426,
+        "ttft_ms": 119.666,
+        "total_latency_ms": 637.185,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237387839970426,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237387875655194,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237387911372425,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237387947179299,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237387983042677,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388018889943,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388054391532,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388090520873,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388126607450,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388161930242,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388197612230,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388233384413,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388269064271,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388304717508,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237388357193260,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      },
+      "replay_2": {
+        "request_start_ns": 1791237388358015960,
+        "request_end_ns": 1791237388992022592,
+        "first_token_ns": 1791237388440338358,
+        "ttft_ms": 82.322,
+        "total_latency_ms": 634.006,
+        "stream_chunks": 17
+      },
+      "load_acceptance": {
+        "command_started_ns": 1791237378935525977,
+        "control_dequeued_ns": 1791237378935367569,
+        "control_path": "hiradix.load_back+v0510_async_worker",
+        "control_queued_ns": 1791237378916575390,
+        "load_back_returned_ns": 1791237378945380509,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair01-early-long-initial:async:1791237378935525977",
+        "loaded_tokens": 4094,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair01-early-long:1e11edec6ab20df2",
+        "node_id": "74",
+        "ok": true,
+        "reason": "Reserved native SGLang slots; worker enqueues per-layer KV copies.",
+        "scheduler_submit_ms": 9.91,
+        "status": "queued",
+        "worker_submitted_ns": 1791237378945436012,
+        "http_status": 200,
+        "control_request_started_ns": 1791237378915075719,
+        "control_response_ns": 1791237378946502003,
+        "control_duration_ms": 31.426
+      },
+      "load_status": {
+        "committed_ns": 1791237379284566945,
+        "cuda_elapsed_ms": 304.559204,
+        "error": null,
+        "finished_observed_ns": 1791237379284566945,
+        "full_copy_verified": false,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair01-early-long-initial:async:1791237378935525977",
+        "loaded_tokens": 4094,
+        "node_id": "74",
+        "observed_ns": 1791237379293677871,
+        "ok": true,
+        "status": "finished",
+        "submitted_ns": 1791237378945388739,
+        "worker_enqueued_ns": 1791237379250823908,
+        "worker_started_ns": 1791237378945512945,
+        "http_status": 200
+      }
+    },
+    "ends": {
+      "ended_without_replay": true
+    },
+    "pair": 1,
+    "warmup": false
+  },
+  {
+    "case_id": "work_audit_cuda_kernels_graceful_20261005-pair02-early",
+    "condition": "early",
+    "initials": {
+      "long": {
+        "request_start_ns": 1791237389838545768,
+        "request_end_ns": 1791237394088108959,
+        "first_token_ns": 1791237391561457837,
+        "ttft_ms": 1722.911,
+        "total_latency_ms": 4249.563,
+        "stream_chunks": 17
+      },
+      "short": {
+        "request_start_ns": 1791237389838969599,
+        "request_end_ns": 1791237394087699179,
+        "first_token_ns": 1791237392788056373,
+        "ttft_ms": 2949.086,
+        "total_latency_ms": 4248.729,
+        "stream_chunks": 17
+      },
+      "ends": {
+        "request_start_ns": 1791237389839278604,
+        "request_end_ns": 1791237394087993154,
+        "first_token_ns": 1791237393465928379,
+        "ttft_ms": 3626.649,
+        "total_latency_ms": 4248.714,
+        "stream_chunks": 17
+      }
+    },
+    "short": {
+      "replay": {
+        "request_start_ns": 1791237394989538906,
+        "request_end_ns": 1791237395988203121,
+        "first_token_ns": 1791237395313120340,
+        "ttft_ms": 323.582,
+        "total_latency_ms": 998.664,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237395313120340,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395400568046,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395476948336,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395553423400,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395611172718,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395647870145,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395683564965,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395719568709,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395755422216,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395791462211,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395827316968,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395863456279,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395899079924,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395934968373,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237395987910467,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      }
+    },
+    "long": {
+      "host_plan": {
+        "admission": "admit",
+        "admission_reason": "admit_host_resident_evicted_prefix",
+        "candidate_nodes": [
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 15,
+            "node_id": "104",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 6,
+            "node_id": "97",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2048,
+            "node_id": "96",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2045,
+            "node_id": "94",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 3,
+            "node_id": "95",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 3,
+            "node_id": "93",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 45,
+            "node_id": "48",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 0,
+            "node_id": "0",
+            "source": "last_host_node"
+          }
+        ],
+        "control_path": "hiradix.load_back+hicache.start_loading",
+        "host_tokens": 2048,
+        "loaded_tokens": 0,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair02-early-long:0e3be63d51019eb1",
+        "minimum_host_tokens": 512,
+        "node_id": "96",
+        "ok": true,
+        "plan_only": true,
+        "producer_id": -1,
+        "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+        "status": "would_load_back",
+        "http_status": 200,
+        "control_request_started_ns": 1791237394268266876,
+        "control_response_ns": 1791237394277022470,
+        "control_duration_ms": 8.756
+      },
+      "replay": {
+        "request_start_ns": 1791237404095879793,
+        "request_end_ns": 1791237405923174758,
+        "first_token_ns": 1791237405404816877,
+        "ttft_ms": 1308.938,
+        "total_latency_ms": 1827.294,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237405404816877,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405440581934,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405476411824,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405512261106,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405548039812,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405583883974,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405619637650,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405655838438,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405691421296,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405727057028,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405763174661,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405798813953,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405834602330,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405870404300,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237405922863253,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      },
+      "replay_2": {
+        "request_start_ns": 1791237405923715964,
+        "request_end_ns": 1791237406559443317,
+        "first_token_ns": 1791237406007095954,
+        "ttft_ms": 83.379,
+        "total_latency_ms": 635.727,
+        "stream_chunks": 17
+      },
+      "load_acceptance": {
+        "command_started_ns": 1791237395312382014,
+        "control_dequeued_ns": 1791237395312240177,
+        "control_path": "hiradix.load_back+v0510_async_worker",
+        "control_queued_ns": 1791237395290243252,
+        "load_back_returned_ns": 1791237395322072113,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair02-early-long-initial:async:1791237395312382014",
+        "loaded_tokens": 4093,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair02-early-long:0e3be63d51019eb1",
+        "node_id": "96",
+        "ok": true,
+        "reason": "Reserved native SGLang slots; worker enqueues per-layer KV copies.",
+        "scheduler_submit_ms": 9.743,
+        "status": "queued",
+        "worker_submitted_ns": 1791237395322125346,
+        "http_status": 200,
+        "control_request_started_ns": 1791237395289119908,
+        "control_response_ns": 1791237395323154026,
+        "control_duration_ms": 34.034
+      },
+      "load_status": {
+        "committed_ns": 1791237395610364609,
+        "cuda_elapsed_ms": 270.140045,
+        "error": null,
+        "finished_observed_ns": 1791237395610364609,
+        "full_copy_verified": false,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair02-early-long-initial:async:1791237395312382014",
+        "loaded_tokens": 4093,
+        "node_id": "96",
+        "observed_ns": 1791237395618401288,
+        "ok": true,
+        "status": "finished",
+        "submitted_ns": 1791237395322079754,
+        "worker_enqueued_ns": 1791237395593012659,
+        "worker_started_ns": 1791237395322191669,
+        "http_status": 200
+      }
+    },
+    "ends": {
+      "ended_without_replay": true
+    },
+    "pair": 2,
+    "warmup": false
+  },
+  {
+    "case_id": "work_audit_cuda_kernels_graceful_20261005-pair02-post_short",
+    "condition": "post_short",
+    "initials": {
+      "long": {
+        "request_start_ns": 1791237407431070578,
+        "request_end_ns": 1791237411695649030,
+        "first_token_ns": 1791237409157774221,
+        "ttft_ms": 1726.703,
+        "total_latency_ms": 4264.578,
+        "stream_chunks": 17
+      },
+      "short": {
+        "request_start_ns": 1791237407431485227,
+        "request_end_ns": 1791237411695903823,
+        "first_token_ns": 1791237410393474800,
+        "ttft_ms": 2961.989,
+        "total_latency_ms": 4264.418,
+        "stream_chunks": 17
+      },
+      "ends": {
+        "request_start_ns": 1791237407431787152,
+        "request_end_ns": 1791237411696019938,
+        "first_token_ns": 1791237411071796695,
+        "ttft_ms": 3640.009,
+        "total_latency_ms": 4264.232,
+        "stream_chunks": 17
+      }
+    },
+    "short": {
+      "replay": {
+        "request_start_ns": 1791237412597739436,
+        "request_end_ns": 1791237413465268553,
+        "first_token_ns": 1791237412946146865,
+        "ttft_ms": 348.408,
+        "total_latency_ms": 867.529,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237412946146865,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237412982087032,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413017823387,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413053652787,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413089576191,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413125573750,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413161533746,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413197299174,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413233120063,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413269021397,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413304792703,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413340565822,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413376371690,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413412108786,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237413464960309,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      }
+    },
+    "long": {
+      "host_plan": {
+        "admission": "admit",
+        "admission_reason": "admit_host_resident_evicted_prefix",
+        "candidate_nodes": [
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 15,
+            "node_id": "127",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 5,
+            "node_id": "120",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2048,
+            "node_id": "119",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": true,
+            "host_tokens": 2046,
+            "node_id": "117",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 2,
+            "node_id": "118",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 1,
+            "node_id": "116",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 3,
+            "node_id": "93",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 45,
+            "node_id": "48",
+            "source": "last_host_node"
+          },
+          {
+            "backuped": true,
+            "evicted": false,
+            "host_tokens": 0,
+            "node_id": "0",
+            "source": "last_host_node"
+          }
+        ],
+        "control_path": "hiradix.load_back+hicache.start_loading",
+        "host_tokens": 2048,
+        "loaded_tokens": 0,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair02-post_short-long:d51115783caf1fa3",
+        "minimum_host_tokens": 512,
+        "node_id": "119",
+        "ok": true,
+        "plan_only": true,
+        "producer_id": -1,
+        "reason": "Selected the largest eligible evicted, host-backed node on the donor cache path.",
+        "status": "would_load_back",
+        "http_status": 200,
+        "control_request_started_ns": 1791237411883046056,
+        "control_response_ns": 1791237411894863050,
+        "control_duration_ms": 11.817
+      },
+      "replay": {
+        "request_start_ns": 1791237421702775486,
+        "request_end_ns": 1791237422338102475,
+        "first_token_ns": 1791237421821857833,
+        "ttft_ms": 119.083,
+        "total_latency_ms": 635.326,
+        "stream_chunks": 17,
+        "content_chunks": [
+          {
+            "ts_ns": 1791237421821857833,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237421857498013,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237421893350492,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237421928878236,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237421964619630,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422000305500,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422036015664,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422071720816,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422107430268,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422143162611,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422178826311,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422214655870,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422250555661,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422285917868,
+            "characters": 8
+          },
+          {
+            "ts_ns": 1791237422337798610,
+            "characters": 8
+          }
+        ],
+        "content_chunk_count": 15,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "completion_tokens": null
+      },
+      "replay_2": {
+        "request_start_ns": 1791237422338681472,
+        "request_end_ns": 1791237422973286106,
+        "first_token_ns": 1791237422421705910,
+        "ttft_ms": 83.024,
+        "total_latency_ms": 634.604,
+        "stream_chunks": 17
+      },
+      "load_acceptance": {
+        "command_started_ns": 1791237413467651927,
+        "control_dequeued_ns": 1791237413467425336,
+        "control_path": "hiradix.load_back+v0510_async_worker",
+        "control_queued_ns": 1791237413467373124,
+        "load_back_returned_ns": 1791237413477076767,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair02-post_short-long-initial:async:1791237413467651927",
+        "loaded_tokens": 4094,
+        "matched_key": "session_prompt:work_audit_cuda_kernels_graceful_20261005-pair02-post_short-long:d51115783caf1fa3",
+        "node_id": "119",
+        "ok": true,
+        "reason": "Reserved native SGLang slots; worker enqueues per-layer KV copies.",
+        "scheduler_submit_ms": 9.475,
+        "status": "queued",
+        "worker_submitted_ns": 1791237413477126730,
+        "http_status": 200,
+        "control_request_started_ns": 1791237413465872212,
+        "control_response_ns": 1791237413486502527,
+        "control_duration_ms": 20.63
+      },
+      "load_status": {
+        "committed_ns": 1791237415587813899,
+        "cuda_elapsed_ms": 2101.304199,
+        "error": null,
+        "finished_observed_ns": 1791237415587813899,
+        "full_copy_verified": false,
+        "load_id": "work_audit_cuda_kernels_graceful_20261005-pair02-post_short-long-initial:async:1791237413467651927",
+        "loaded_tokens": 4094,
+        "node_id": "119",
+        "observed_ns": 1791237415598364513,
+        "ok": true,
+        "status": "finished",
+        "submitted_ns": 1791237413477084548,
+        "worker_enqueued_ns": 1791237415587714995,
+        "worker_started_ns": 1791237413477149761,
+        "http_status": 200
+      }
+    },
+    "ends": {
+      "ended_without_replay": true
+    },
+    "pair": 2,
+    "warmup": false
+  }
+]

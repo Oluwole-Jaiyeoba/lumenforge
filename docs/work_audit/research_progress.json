@@ -6,15 +6,19 @@
       "short_question": "Which stage slows another decoder?",
       "evidence_date_utc": "2026-10-05",
       "question": "When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?",
-      "answer": "In three warmed, order-balanced A10G pairs, early loading made the short session finish 128-182 ms later than loading after that session finished; first-token timing was nearly unchanged. Backend batch time increased 173-225 ms while gaps between batches decreased. A follow-up two-pair run instrumented nested model forward: short completion increased about 153 ms in both pairs, summed model-forward time increased 185-190 ms, and non-forward batch time changed only 1-2 ms. Both arms generated 16 backend output tokens per short replay. This locates the measured slowdown inside the model-forward call while the other session's worker KV load is active.",
-      "unknown": "Model-forward wall time includes GPU execution and synchronization, so these runs do not distinguish HBM bandwidth contention from another GPU or runtime dependency. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait to accommodate variable copy times. It does not prove that hardware offload would remove the delay or that the same effect occurs under natural production pressure.",
+      "answer": "In three warmed, order-balanced A10G pairs, early loading made the short session finish 128-182 ms later than loading after that session finished; first-token timing was nearly unchanged. Backend batch time increased 173-225 ms while gaps between batches decreased. A follow-up two-pair run placed 185-190 ms of added time inside model forward. In two later Nsight captures, the first pair in each had complete CUDA linkage: both modes launched 4872 short-replay kernels, total kernel execution changed by only 0.3-0.6 ms, but between-kernel gaps grew by 126 and 174 ms. No host-to-device copy was recorded during those kernel spans. This points away from slower decode kernels or direct concurrent copy-bandwidth contention in those captured pairs; the observed delay is between kernels.",
+      "unknown": "Nsight lost CUDA activity for later cases in both two-pair profiling runs; the kernel result is a validated subset, not a complete order-balanced profiler experiment. A reverse-order run had no CUDA kernel capture and is excluded. Between-kernel gaps do not by themselves distinguish CPU launch delay from GPU synchronization or other dependencies. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait; hardware offload benefits and production frequency remain unproven.",
       "evidence_run_ids": [
         "work_audit_decode_overlap_repeated_20261005",
-        "work_audit_decode_forward_repeated_20261005"
+        "work_audit_decode_forward_repeated_20261005",
+        "work_audit_cuda_kernels_20261005",
+        "work_audit_cuda_kernels_graceful_20261005"
       ],
       "related_run_ids": [
         "work_audit_decode_overlap_repeated_20261005",
-        "work_audit_decode_forward_repeated_20261005"
+        "work_audit_decode_forward_repeated_20261005",
+        "work_audit_cuda_kernels_20261005",
+        "work_audit_cuda_kernels_graceful_20261005"
       ]
     },
     {

@@ -55,7 +55,8 @@ def _short_decode(case: dict[str, Any], trace: list[dict[str, Any]]) -> dict[str
         elif event == "worker.forward_batch_generation.end":
             start = forward_starts.pop(str(row.get("call_id")), None)
             if start:
-                forwards.append({"start_ns": start["ts_ns"], "end_ns": row["ts_ns"]})
+                forwards.append({"call_id": str(row.get("call_id")),
+                                 "start_ns": start["ts_ns"], "end_ns": row["ts_ns"]})
         elif event == "scheduler.process_batch_result_decode.end" and _has_request(row, request_id):
             request = next(item for item in _requests(row)
                            if item.get("agent_request_id") == request_id or item.get("request_id") == request_id)
@@ -66,6 +67,7 @@ def _short_decode(case: dict[str, Any], trace: list[dict[str, Any]]) -> dict[str
     for batch in batches:
         nested = [row for row in forwards if batch["start_ns"] <= row["start_ns"] and
                   row["end_ns"] <= batch["end_ns"]]
+        batch["model_forward_call_ids"] = [row["call_id"] for row in nested]
         batch["model_forward_ms"] = round(sum((row["end_ns"] - row["start_ns"]) / 1e6
                                               for row in nested), 3) if nested else None
         batch["non_forward_ms"] = (round(batch["duration_ms"] - batch["model_forward_ms"], 3)

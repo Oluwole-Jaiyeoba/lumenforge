@@ -27,6 +27,7 @@ if [[ -z "${CASE_ORDER}" ]]; then
 fi
 TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( if [[ "${STUDY}" == "multisession_overlap" ]]; then echo kv_decode_overlap; elif [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then echo kv_lifecycle_lean; else echo kv_lifecycle; fi )}"
 FORWARD_TRACE="${WORK_AUDIT_FORWARD_TRACE:-0}"
+NSYS_ENABLE="${WORK_AUDIT_NSYS_ENABLE:-0}"
 PAIRS="${WORK_AUDIT_PAIRS:-1}"
 WARMUP_PAIRS="${WORK_AUDIT_WARMUP_PAIRS:-1}"
 WAIT_MS="${WORK_AUDIT_WAIT_MS:-$( [[ "${STUDY}" == "timing" ]] && echo 2000 || echo 500 )}"
@@ -46,6 +47,7 @@ MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"
 RESULTS_BASE="${DIRECT_ROOT}/artifacts/results/work_audit"
 RUN_ROOT="${RESULTS_BASE}/${RUN_ID}"
 SERVER_PID=""
+NSYS_CONTAINER_NAME=""
 
 [[ -f "${PROFILE_PATH}" ]] || { echo "Missing runtime profile: ${PROFILE_PATH}" >&2; exit 2; }
 [[ -n "${IMAGE}" ]] || { echo "Set SGLANG_DOCKER_IMAGE" >&2; exit 2; }
@@ -140,6 +142,12 @@ fi
 [[ "${FORWARD_TRACE}" == "0" || "${FORWARD_TRACE}" == "1" ]] || {
   echo "WORK_AUDIT_FORWARD_TRACE must be 0 or 1" >&2; exit 2;
 }
+[[ "${NSYS_ENABLE}" == "0" || "${NSYS_ENABLE}" == "1" ]] || {
+  echo "WORK_AUDIT_NSYS_ENABLE must be 0 or 1" >&2; exit 2;
+}
+[[ "${NSYS_ENABLE}" == "0" || ( "${STUDY}" == "multisession_overlap" && "${FORWARD_TRACE}" == "1" ) ]] || {
+  echo "Nsight capture requires multisession_overlap with forward tracing" >&2; exit 2;
+}
 [[ "${FORWARD_TRACE}" == "0" || "${STUDY}" == "multisession_overlap" ]] || {
   echo "Forward-only tracing is supported only for multisession_overlap" >&2; exit 2;
 }
@@ -201,6 +209,16 @@ print(json.load(open(sys.argv[1], encoding="utf-8"))["model_cache_mount"])
 PY
 )"
 export SGLANG_DOCKER_EXTRA_ARGS="-v ${MODEL_CACHE}:${MODEL_CACHE_MOUNT} -e HF_HOME=${MODEL_CACHE_MOUNT} ${SGLANG_DOCKER_EXTRA_ARGS:-}"
+if [[ "${NSYS_ENABLE}" == "1" ]]; then
+  command -v nsys >/dev/null || { echo "Nsight Systems is required on the host" >&2; exit 2; }
+  NSYS_HOST_DIR="$(dirname "$(dirname "$(readlink -f "$(command -v nsys)")")")"
+  NSYS_CONTAINER_NAME="agentic-work-audit-${RUN_ID//[^a-zA-Z0-9_.-]/-}"
+  mkdir -p "${RUN_ROOT}/nsys"
+  export AGENTIC_NSYS_BIN="/opt/agentic_nsight/target-linux-x64/nsys"
+  export AGENTIC_NSYS_OUTPUT="${RUN_ROOT}/nsys/backend"
+  export AGENTIC_KV_NVTX_ENABLE=1
+  export SGLANG_DOCKER_EXTRA_ARGS="${SGLANG_DOCKER_EXTRA_ARGS} --cap-add SYS_ADMIN -v ${NSYS_HOST_DIR}:/opt/agentic_nsight:ro --name ${NSYS_CONTAINER_NAME}"
+fi
 
 "${SCRIPT_DIR}/probe_sglang_runtime.sh"
 python3 - "${BACKEND_RUNTIME_CONTRACT_OUT}" <<'PY'
@@ -361,6 +379,42 @@ else
     --harness "${RUN_ROOT}/harness_events.jsonl" \
     --summary "${RUN_ROOT}/summary.json" --out "${RUN_ROOT}/block_audit.json"
 fi
+if [[ "${NSYS_ENABLE}" == "1" ]]; then
+  docker exec "${NSYS_CONTAINER_NAME}" python3 -c '
+import os
+import signal
+for entry in os.scandir("/proc"):
+    if not entry.name.isdigit():
+        continue
+    try:
+        args = open(f"{entry.path}/cmdline", "rb").read().split(b"\0")
+    except (OSError, PermissionError):
+        continue
+    if len(args) >= 3 and args[0].endswith(b"python3") and args[1:3] == [b"-m", b"sglang.launch_server"]:
+        os.kill(int(entry.name), signal.SIGTERM)
+        break
+else:
+    raise SystemExit("Nsight shutdown failed: SGLang launcher not found")
+'
+  for _ in {1..45}; do
+    [[ "$(docker inspect -f '{{.State.Running}}' "${NSYS_CONTAINER_NAME}" 2>/dev/null)" == "true" ]] || break
+    sleep 1
+  done
+  if [[ "$(docker inspect -f '{{.State.Running}}' "${NSYS_CONTAINER_NAME}" 2>/dev/null)" == "true" ]]; then
+    docker stop --time 20 "${NSYS_CONTAINER_NAME}" >/dev/null
+  fi
+  wait "${SERVER_PID}" || true
+  SERVER_PID=""
+  [[ -s "${RUN_ROOT}/nsys/backend.nsys-rep" ]] || {
+    echo "Nsight capture failed: no backend.nsys-rep" >&2; exit 1;
+  }
+  nsys export --type sqlite --force-overwrite=true \
+    -o "${RUN_ROOT}/nsys/backend.sqlite" "${RUN_ROOT}/nsys/backend.nsys-rep" >/dev/null
+  python3 -m agentic_experiments.runners.analyze_work_audit_cuda_kernels \
+    --sqlite "${RUN_ROOT}/nsys/backend.sqlite" \
+    --summary "${RUN_ROOT}/summary.json" \
+    --out "${RUN_ROOT}/nsys/kernel_attribution.json"
+fi
 HARDWARE_PROFILE="$(python3 - "${PROFILE_PATH}" <<'PY'
 import json
 import sys
@@ -369,7 +423,7 @@ PY
 )"
 CASE_ORDER_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split("-")))' "${CASE_ORDER}")"
 if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
-  WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"forward_trace_enabled\":${FORWARD_TRACE},\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
+  WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"multisession\",\"load_execution\":\"${LOAD_EXECUTION}\",\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 else
@@ -377,6 +431,9 @@ else
 fi
 MANIFEST_ARTIFACTS=(--artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json"
   --artifact "summary=${RUN_ROOT}/summary.json" --artifact "report=${RUN_ROOT}/report.html")
+if [[ "${NSYS_ENABLE}" == "1" ]]; then
+  MANIFEST_ARTIFACTS+=(--artifact "kernel_attribution=${RUN_ROOT}/nsys/kernel_attribution.json")
+fi
 if [[ "${STUDY}" == "validation" ]]; then
   MANIFEST_ARTIFACTS+=(--artifact "block_audit=${RUN_ROOT}/block_audit.json")
 fi

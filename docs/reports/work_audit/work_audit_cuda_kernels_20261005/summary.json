@@ -1,0 +1,2261 @@
+{
+  "schema": "agentic_work_audit.decode_overlap.v1",
+  "run_id": "work_audit_cuda_kernels_20261005",
+  "model_forward_required": true,
+  "status": "validated",
+  "failures": [],
+  "pairs": [
+    {
+      "pair": 1,
+      "comparable": true,
+      "reasons": [],
+      "early_case_id": "work_audit_cuda_kernels_20261005-pair01-early",
+      "post_short_case_id": "work_audit_cuda_kernels_20261005-pair01-post_short",
+      "early_short_first_token_ms": 320.565,
+      "post_short_first_token_ms": 310.955,
+      "early_short_finish_ms": 994.095,
+      "post_short_finish_ms": 828.258,
+      "early_long_first_token_ms": 119.379,
+      "post_short_long_first_token_ms": 127.052,
+      "early_workflow_ms": 15504.191,
+      "post_short_workflow_ms": 15495.016
+    },
+    {
+      "pair": 2,
+      "comparable": true,
+      "reasons": [],
+      "early_case_id": "work_audit_cuda_kernels_20261005-pair02-early",
+      "post_short_case_id": "work_audit_cuda_kernels_20261005-pair02-post_short",
+      "early_short_first_token_ms": 320.464,
+      "post_short_first_token_ms": 343.252,
+      "early_short_finish_ms": 989.54,
+      "post_short_finish_ms": 861.261,
+      "early_long_first_token_ms": 1310.509,
+      "post_short_long_first_token_ms": 119.466,
+      "early_workflow_ms": 16718.516,
+      "post_short_workflow_ms": 15540.291
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "work_audit_cuda_kernels_20261005-pair01-post_short",
+      "condition": "post_short",
+      "pair": 1,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_cuda_kernels_20261005-pair01-post_short",
+        "load_timing": "post_short",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_cuda_kernels_20261005-pair01-post_short-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair01-post_short-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.528,
+            "submission_after_tool_ms": 0.1,
+            "first_token_after_tool_ms": 310.955,
+            "completion_after_tool_ms": 828.258,
+            "replay_total_ms": 828.158,
+            "replay_ttft_ms": 310.856,
+            "cached_prefix_tokens": 4180
+          },
+          "long": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair01-post_short-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10006.629,
+            "submission_after_tool_ms": 0.143,
+            "first_token_after_tool_ms": 127.052,
+            "completion_after_tool_ms": 644.802,
+            "replay_total_ms": 644.658,
+            "replay_ttft_ms": 126.909,
+            "cached_prefix_tokens": 4180,
+            "second_replay_cached_prefix_tokens": 4197,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8276.333,
+            "load_acceptance_after_tool_ms": -8245.435,
+            "load_completion_observed_after_tool_ms": -6171.351,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4206.479,
+        "workflow_makespan_ms": 15495.016,
+        "load_overlapped_short_request": false,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 17,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "replay_finished": 2,
+          "load_requested": 1,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_cuda_kernels_20261005-pair01-post_short-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          35.668,
+          35.715,
+          35.735,
+          35.747,
+          36.015,
+          35.522,
+          35.797,
+          35.699,
+          35.775,
+          35.81,
+          36.054,
+          35.444,
+          35.789,
+          52.211
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791236830856585433,
+            "end_ns": 1791236830877009976,
+            "duration_ms": 20.425,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906531147991"
+            ],
+            "model_forward_ms": 20.117,
+            "non_forward_ms": 0.308
+          },
+          {
+            "start_ns": 1791236830892334739,
+            "end_ns": 1791236830912691149,
+            "duration_ms": 20.356,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906566897377"
+            ],
+            "model_forward_ms": 20.059,
+            "non_forward_ms": 0.297
+          },
+          {
+            "start_ns": 1791236830928063545,
+            "end_ns": 1791236830948449087,
+            "duration_ms": 20.386,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906602635554"
+            ],
+            "model_forward_ms": 20.076,
+            "non_forward_ms": 0.31
+          },
+          {
+            "start_ns": 1791236830963799701,
+            "end_ns": 1791236830984140250,
+            "duration_ms": 20.341,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906638361749"
+            ],
+            "model_forward_ms": 20.042,
+            "non_forward_ms": 0.299
+          },
+          {
+            "start_ns": 1791236830999547957,
+            "end_ns": 1791236831019920059,
+            "duration_ms": 20.372,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906674109135"
+            ],
+            "model_forward_ms": 20.075,
+            "non_forward_ms": 0.297
+          },
+          {
+            "start_ns": 1791236831035275863,
+            "end_ns": 1791236831055549610,
+            "duration_ms": 20.274,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906709835711"
+            ],
+            "model_forward_ms": 19.974,
+            "non_forward_ms": 0.3
+          },
+          {
+            "start_ns": 1791236831071055691,
+            "end_ns": 1791236831091438203,
+            "duration_ms": 20.383,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906745619269"
+            ],
+            "model_forward_ms": 20.079,
+            "non_forward_ms": 0.304
+          },
+          {
+            "start_ns": 1791236831106829879,
+            "end_ns": 1791236831127140397,
+            "duration_ms": 20.311,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906781390997"
+            ],
+            "model_forward_ms": 20.012,
+            "non_forward_ms": 0.299
+          },
+          {
+            "start_ns": 1791236831142557244,
+            "end_ns": 1791236831162869782,
+            "duration_ms": 20.313,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906817118692"
+            ],
+            "model_forward_ms": 20.015,
+            "non_forward_ms": 0.298
+          },
+          {
+            "start_ns": 1791236831178313292,
+            "end_ns": 1791236831198700953,
+            "duration_ms": 20.388,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906852888520"
+            ],
+            "model_forward_ms": 20.068,
+            "non_forward_ms": 0.32
+          },
+          {
+            "start_ns": 1791236831214072829,
+            "end_ns": 1791236831234395947,
+            "duration_ms": 20.323,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906888634147"
+            ],
+            "model_forward_ms": 20.024,
+            "non_forward_ms": 0.299
+          },
+          {
+            "start_ns": 1791236831249843106,
+            "end_ns": 1791236831270166435,
+            "duration_ms": 20.323,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906924405294"
+            ],
+            "model_forward_ms": 20.013,
+            "non_forward_ms": 0.31
+          },
+          {
+            "start_ns": 1791236831285650156,
+            "end_ns": 1791236831306876937,
+            "duration_ms": 21.227,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906960223754"
+            ],
+            "model_forward_ms": 20.912,
+            "non_forward_ms": 0.315
+          },
+          {
+            "start_ns": 1791236831321454284,
+            "end_ns": 1791236831341749402,
+            "duration_ms": 20.295,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26906996016362"
+            ],
+            "model_forward_ms": 19.989,
+            "non_forward_ms": 0.306
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791236830891865737,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791236830927601264,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791236830963337169,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791236830999074034,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791236831034818232,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791236831070574948,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791236831106359067,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791236831142082352,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791236831177845890,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791236831213606647,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791236831249362144,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791236831285113700,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791236831320967901,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791236831372827338,
+            "output_ids_count": 16
+          }
+        ],
+        "final_output_ids_count": 16,
+        "inter_batch_gaps_ms": [
+          15.325,
+          15.372,
+          15.351,
+          15.408,
+          15.356,
+          15.506,
+          15.392,
+          15.417,
+          15.444,
+          15.372,
+          15.447,
+          15.484,
+          14.577
+        ],
+        "first_token_ns": 1791236830857160380,
+        "finish_ns": 1791236831374462906
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791236831389908254,
+        "load_committed_ns": 1791236833479235028,
+        "worker_active_ms": 2089.327,
+        "short_decode_overlap_ms": 0.0,
+        "overlapping_batch_count": 0,
+        "overlapping_batch_median_ms": null,
+        "nonoverlapping_batch_median_ms": 20.349,
+        "overlapping_forward_median_ms": null,
+        "nonoverlapping_forward_median_ms": 20.05,
+        "overlapping_non_forward_median_ms": null,
+        "nonoverlapping_non_forward_median_ms": 0.302,
+        "cuda_elapsed_ms": 2072.45459
+      }
+    },
+    {
+      "case_id": "work_audit_cuda_kernels_20261005-pair01-early",
+      "condition": "early",
+      "pair": 1,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_cuda_kernels_20261005-pair01-early",
+        "load_timing": "early",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_cuda_kernels_20261005-pair01-early-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair01-early-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.158,
+            "submission_after_tool_ms": 0.1,
+            "first_token_after_tool_ms": 320.565,
+            "completion_after_tool_ms": 994.095,
+            "replay_total_ms": 993.995,
+            "replay_ttft_ms": 320.465,
+            "cached_prefix_tokens": 4180
+          },
+          "long": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair01-early-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10004.859,
+            "submission_after_tool_ms": 0.145,
+            "first_token_after_tool_ms": 119.379,
+            "completion_after_tool_ms": 636.511,
+            "replay_total_ms": 636.366,
+            "replay_ttft_ms": 119.234,
+            "cached_prefix_tokens": 4180,
+            "second_replay_cached_prefix_tokens": 4197,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8804.405,
+            "load_acceptance_after_tool_ms": -8772.893,
+            "load_completion_observed_after_tool_ms": -8476.076,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4227.774,
+        "workflow_makespan_ms": 15504.191,
+        "load_overlapped_short_request": true,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 18,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "load_requested": 1,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_finished": 2,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_cuda_kernels_20261005-pair01-early-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          93.049,
+          81.404,
+          80.098,
+          42.912,
+          36.734,
+          35.666,
+          35.802,
+          35.756,
+          35.786,
+          35.831,
+          35.847,
+          35.773,
+          35.737,
+          52.828
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791236847269788634,
+            "end_ns": 1791236847346394927,
+            "duration_ms": 76.606,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26922944666807"
+            ],
+            "model_forward_ms": 76.005,
+            "non_forward_ms": 0.601
+          },
+          {
+            "start_ns": 1791236847353034081,
+            "end_ns": 1791236847428620437,
+            "duration_ms": 75.586,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923027768267"
+            ],
+            "model_forward_ms": 73.721,
+            "non_forward_ms": 1.865
+          },
+          {
+            "start_ns": 1791236847434576197,
+            "end_ns": 1791236847507930678,
+            "duration_ms": 73.354,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923109244890"
+            ],
+            "model_forward_ms": 72.969,
+            "non_forward_ms": 0.385
+          },
+          {
+            "start_ns": 1791236847514500117,
+            "end_ns": 1791236847540573127,
+            "duration_ms": 26.073,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923189230623"
+            ],
+            "model_forward_ms": 25.521,
+            "non_forward_ms": 0.552
+          },
+          {
+            "start_ns": 1791236847554454312,
+            "end_ns": 1791236847577892838,
+            "duration_ms": 23.439,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923229038371"
+            ],
+            "model_forward_ms": 23.034,
+            "non_forward_ms": 0.405
+          },
+          {
+            "start_ns": 1791236847590642949,
+            "end_ns": 1791236847611133017,
+            "duration_ms": 20.49,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923265208307"
+            ],
+            "model_forward_ms": 20.182,
+            "non_forward_ms": 0.308
+          },
+          {
+            "start_ns": 1791236847626465499,
+            "end_ns": 1791236847646915154,
+            "duration_ms": 20.45,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923301027967"
+            ],
+            "model_forward_ms": 20.146,
+            "non_forward_ms": 0.304
+          },
+          {
+            "start_ns": 1791236847662248957,
+            "end_ns": 1791236847682640919,
+            "duration_ms": 20.392,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923336810035"
+            ],
+            "model_forward_ms": 20.087,
+            "non_forward_ms": 0.305
+          },
+          {
+            "start_ns": 1791236847698015065,
+            "end_ns": 1791236847719208984,
+            "duration_ms": 21.194,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923372577303"
+            ],
+            "model_forward_ms": 20.888,
+            "non_forward_ms": 0.306
+          },
+          {
+            "start_ns": 1791236847733854715,
+            "end_ns": 1791236847754212306,
+            "duration_ms": 20.358,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923408418144"
+            ],
+            "model_forward_ms": 20.058,
+            "non_forward_ms": 0.3
+          },
+          {
+            "start_ns": 1791236847769634193,
+            "end_ns": 1791236847789977142,
+            "duration_ms": 20.343,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923444204271"
+            ],
+            "model_forward_ms": 20.036,
+            "non_forward_ms": 0.307
+          },
+          {
+            "start_ns": 1791236847805422821,
+            "end_ns": 1791236847825826023,
+            "duration_ms": 20.403,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923479985949"
+            ],
+            "model_forward_ms": 20.103,
+            "non_forward_ms": 0.3
+          },
+          {
+            "start_ns": 1791236847841286563,
+            "end_ns": 1791236847861585281,
+            "duration_ms": 20.299,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923515855532"
+            ],
+            "model_forward_ms": 19.998,
+            "non_forward_ms": 0.301
+          },
+          {
+            "start_ns": 1791236847877047060,
+            "end_ns": 1791236847897391960,
+            "duration_ms": 20.345,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26923551608398"
+            ],
+            "model_forward_ms": 20.047,
+            "non_forward_ms": 0.298
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791236847348899695,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791236847430368719,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791236847510482238,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791236847553608052,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791236847590123845,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791236847625979656,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791236847661779755,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791236847697547653,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791236847733385503,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791236847769173141,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791236847804943418,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791236847840822372,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791236847876580718,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791236847928990890,
+            "output_ids_count": 16
+          }
+        ],
+        "final_output_ids_count": 16,
+        "inter_batch_gaps_ms": [
+          6.639,
+          5.956,
+          6.569,
+          13.881,
+          12.75,
+          15.332,
+          15.334,
+          15.374,
+          14.646,
+          15.422,
+          15.446,
+          15.461,
+          15.462
+        ],
+        "first_token_ns": 1791236847257074765,
+        "finish_ns": 1791236847930604666
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791236847266477437,
+        "load_committed_ns": 1791236847553879555,
+        "worker_active_ms": 287.402,
+        "short_decode_overlap_ms": 287.402,
+        "overlapping_batch_count": 4,
+        "overlapping_batch_median_ms": 74.47,
+        "nonoverlapping_batch_median_ms": 20.398,
+        "overlapping_forward_median_ms": 73.345,
+        "nonoverlapping_forward_median_ms": 20.095,
+        "overlapping_non_forward_median_ms": 0.577,
+        "nonoverlapping_non_forward_median_ms": 0.304,
+        "cuda_elapsed_ms": 253.688889
+      }
+    },
+    {
+      "case_id": "work_audit_cuda_kernels_20261005-pair02-early",
+      "condition": "early",
+      "pair": 2,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_cuda_kernels_20261005-pair02-early",
+        "load_timing": "early",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_cuda_kernels_20261005-pair02-early-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair02-early-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 900.916,
+            "submission_after_tool_ms": 0.1,
+            "first_token_after_tool_ms": 320.464,
+            "completion_after_tool_ms": 989.54,
+            "replay_total_ms": 989.439,
+            "replay_ttft_ms": 320.363,
+            "cached_prefix_tokens": 4180
+          },
+          "long": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair02-early-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10008.36,
+            "submission_after_tool_ms": 0.182,
+            "first_token_after_tool_ms": 1310.509,
+            "completion_after_tool_ms": 1829.004,
+            "replay_total_ms": 1828.822,
+            "replay_ttft_ms": 1310.327,
+            "cached_prefix_tokens": 4180,
+            "second_replay_cached_prefix_tokens": 4197,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8807.992,
+            "load_acceptance_after_tool_ms": -8777.175,
+            "load_completion_observed_after_tool_ms": -8446.641,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4244.362,
+        "workflow_makespan_ms": 16718.516,
+        "load_overlapped_short_request": true,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 17,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "load_requested": 1,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_finished": 2,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_cuda_kernels_20261005-pair02-early-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          82.279,
+          68.809,
+          70.162,
+          70.924,
+          36.641,
+          36.508,
+          35.668,
+          35.883,
+          35.837,
+          35.773,
+          35.779,
+          35.789,
+          36.079,
+          52.652
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791236863651756862,
+            "end_ns": 1791236863717256484,
+            "duration_ms": 65.5,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939326515760"
+            ],
+            "model_forward_ms": 65.0,
+            "non_forward_ms": 0.5
+          },
+          {
+            "start_ns": 1791236863723794263,
+            "end_ns": 1791236863786654140,
+            "duration_ms": 62.86,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939398567761"
+            ],
+            "model_forward_ms": 62.361,
+            "non_forward_ms": 0.499
+          },
+          {
+            "start_ns": 1791236863792105907,
+            "end_ns": 1791236863857373998,
+            "duration_ms": 65.268,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939468478271"
+            ],
+            "model_forward_ms": 63.176,
+            "non_forward_ms": 2.092
+          },
+          {
+            "start_ns": 1791236863862938491,
+            "end_ns": 1791236863927057967,
+            "duration_ms": 64.119,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939537700079"
+            ],
+            "model_forward_ms": 63.632,
+            "non_forward_ms": 0.487
+          },
+          {
+            "start_ns": 1791236863931746749,
+            "end_ns": 1791236863954255411,
+            "duration_ms": 22.509,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939606338119"
+            ],
+            "model_forward_ms": 21.941,
+            "non_forward_ms": 0.568
+          },
+          {
+            "start_ns": 1791236863968084124,
+            "end_ns": 1791236863991309900,
+            "duration_ms": 23.226,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939642664183"
+            ],
+            "model_forward_ms": 22.825,
+            "non_forward_ms": 0.401
+          },
+          {
+            "start_ns": 1791236864004163778,
+            "end_ns": 1791236864025517895,
+            "duration_ms": 21.354,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939678729826"
+            ],
+            "model_forward_ms": 21.037,
+            "non_forward_ms": 0.317
+          },
+          {
+            "start_ns": 1791236864040049301,
+            "end_ns": 1791236864061321445,
+            "duration_ms": 21.272,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939714618599"
+            ],
+            "model_forward_ms": 20.955,
+            "non_forward_ms": 0.317
+          },
+          {
+            "start_ns": 1791236864075902164,
+            "end_ns": 1791236864097202459,
+            "duration_ms": 21.3,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939750486493"
+            ],
+            "model_forward_ms": 20.966,
+            "non_forward_ms": 0.334
+          },
+          {
+            "start_ns": 1791236864111750125,
+            "end_ns": 1791236864132996929,
+            "duration_ms": 21.247,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939786312483"
+            ],
+            "model_forward_ms": 20.941,
+            "non_forward_ms": 0.306
+          },
+          {
+            "start_ns": 1791236864147529445,
+            "end_ns": 1791236864168696524,
+            "duration_ms": 21.167,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939822091133"
+            ],
+            "model_forward_ms": 20.861,
+            "non_forward_ms": 0.306
+          },
+          {
+            "start_ns": 1791236864183298873,
+            "end_ns": 1791236864204531405,
+            "duration_ms": 21.233,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939857867961"
+            ],
+            "model_forward_ms": 20.913,
+            "non_forward_ms": 0.32
+          },
+          {
+            "start_ns": 1791236864219068521,
+            "end_ns": 1791236864240277223,
+            "duration_ms": 21.209,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939893630349"
+            ],
+            "model_forward_ms": 20.896,
+            "non_forward_ms": 0.313
+          },
+          {
+            "start_ns": 1791236864254857500,
+            "end_ns": 1791236864276139036,
+            "duration_ms": 21.282,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26939929433049"
+            ],
+            "model_forward_ms": 20.959,
+            "non_forward_ms": 0.323
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791236863720724498,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791236863789281504,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791236863859743330,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791236863930660618,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791236863967342789,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791236864003653543,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791236864039562318,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791236864075387600,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791236864111277063,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791236864147054153,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791236864182834931,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791236864218597578,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791236864254366027,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791236864306983011,
+            "output_ids_count": 16
+          }
+        ],
+        "final_output_ids_count": 16,
+        "inter_batch_gaps_ms": [
+          6.538,
+          5.452,
+          5.564,
+          4.689,
+          13.829,
+          12.854,
+          14.531,
+          14.581,
+          14.548,
+          14.533,
+          14.602,
+          14.537,
+          14.58
+        ],
+        "first_token_ns": 1791236863639522325,
+        "finish_ns": 1791236864308598148
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791236863648515159,
+        "load_committed_ns": 1791236863967560670,
+        "worker_active_ms": 319.046,
+        "short_decode_overlap_ms": 319.046,
+        "overlapping_batch_count": 5,
+        "overlapping_batch_median_ms": 64.119,
+        "nonoverlapping_batch_median_ms": 21.272,
+        "overlapping_forward_median_ms": 63.176,
+        "nonoverlapping_forward_median_ms": 20.955,
+        "overlapping_non_forward_median_ms": 0.5,
+        "nonoverlapping_non_forward_median_ms": 0.317,
+        "cuda_elapsed_ms": 282.394745
+      }
+    },
+    {
+      "case_id": "work_audit_cuda_kernels_20261005-pair02-post_short",
+      "condition": "post_short",
+      "pair": 2,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_cuda_kernels_20261005-pair02-post_short",
+        "load_timing": "post_short",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_cuda_kernels_20261005-pair02-post_short-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair02-post_short-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.401,
+            "submission_after_tool_ms": 0.1,
+            "first_token_after_tool_ms": 343.252,
+            "completion_after_tool_ms": 861.261,
+            "replay_total_ms": 861.161,
+            "replay_ttft_ms": 343.152,
+            "cached_prefix_tokens": 4180
+          },
+          "long": {
+            "session_id": "work_audit_cuda_kernels_20261005-pair02-post_short-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10004.962,
+            "submission_after_tool_ms": 0.153,
+            "first_token_after_tool_ms": 119.466,
+            "completion_after_tool_ms": 635.671,
+            "replay_total_ms": 635.518,
+            "replay_ttft_ms": 119.313,
+            "cached_prefix_tokens": 4180,
+            "second_replay_cached_prefix_tokens": 4197,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8241.814,
+            "load_acceptance_after_tool_ms": -8226.941,
+            "load_completion_observed_after_tool_ms": -6296.765,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4265.395,
+        "workflow_makespan_ms": 15540.291,
+        "load_overlapped_short_request": false,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 8,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "replay_finished": 2,
+          "load_requested": 1,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_cuda_kernels_20261005-pair02-post_short-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          35.933,
+          35.773,
+          35.975,
+          35.708,
+          36.032,
+          36.075,
+          35.975,
+          35.695,
+          35.515,
+          35.827,
+          35.755,
+          35.83,
+          35.832,
+          51.782
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791236881274828297,
+            "end_ns": 1791236881296353965,
+            "duration_ms": 21.526,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26956949395515"
+            ],
+            "model_forward_ms": 21.212,
+            "non_forward_ms": 0.314
+          },
+          {
+            "start_ns": 1791236881310744925,
+            "end_ns": 1791236881331992101,
+            "duration_ms": 21.247,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26956985309574"
+            ],
+            "model_forward_ms": 20.919,
+            "non_forward_ms": 0.328
+          },
+          {
+            "start_ns": 1791236881346550689,
+            "end_ns": 1791236881367909579,
+            "duration_ms": 21.359,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957021117827"
+            ],
+            "model_forward_ms": 21.048,
+            "non_forward_ms": 0.311
+          },
+          {
+            "start_ns": 1791236881382344382,
+            "end_ns": 1791236881403751784,
+            "duration_ms": 21.407,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957056926581"
+            ],
+            "model_forward_ms": 21.077,
+            "non_forward_ms": 0.33
+          },
+          {
+            "start_ns": 1791236881418361374,
+            "end_ns": 1791236881439846421,
+            "duration_ms": 21.485,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957092954334"
+            ],
+            "model_forward_ms": 21.148,
+            "non_forward_ms": 0.337
+          },
+          {
+            "start_ns": 1791236881454256142,
+            "end_ns": 1791236881475677616,
+            "duration_ms": 21.421,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957128832260"
+            ],
+            "model_forward_ms": 21.072,
+            "non_forward_ms": 0.349
+          },
+          {
+            "start_ns": 1791236881490130108,
+            "end_ns": 1791236881511891478,
+            "duration_ms": 21.761,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957164695267"
+            ],
+            "model_forward_ms": 21.425,
+            "non_forward_ms": 0.336
+          },
+          {
+            "start_ns": 1791236881525932562,
+            "end_ns": 1791236881547331323,
+            "duration_ms": 21.399,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957200505891"
+            ],
+            "model_forward_ms": 21.07,
+            "non_forward_ms": 0.329
+          },
+          {
+            "start_ns": 1791236881561739825,
+            "end_ns": 1791236881583121296,
+            "duration_ms": 21.381,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957236301723"
+            ],
+            "model_forward_ms": 21.074,
+            "non_forward_ms": 0.307
+          },
+          {
+            "start_ns": 1791236881597560228,
+            "end_ns": 1791236881618600484,
+            "duration_ms": 21.04,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957272123907"
+            ],
+            "model_forward_ms": 20.735,
+            "non_forward_ms": 0.305
+          },
+          {
+            "start_ns": 1791236881633363802,
+            "end_ns": 1791236881654604647,
+            "duration_ms": 21.241,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957307932780"
+            ],
+            "model_forward_ms": 20.928,
+            "non_forward_ms": 0.313
+          },
+          {
+            "start_ns": 1791236881669142904,
+            "end_ns": 1791236881690279343,
+            "duration_ms": 21.136,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957343704932"
+            ],
+            "model_forward_ms": 20.833,
+            "non_forward_ms": 0.303
+          },
+          {
+            "start_ns": 1791236881704949767,
+            "end_ns": 1791236881726236763,
+            "duration_ms": 21.287,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957379513126"
+            ],
+            "model_forward_ms": 20.981,
+            "non_forward_ms": 0.306
+          },
+          {
+            "start_ns": 1791236881740803633,
+            "end_ns": 1791236881761890710,
+            "duration_ms": 21.087,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26957415366151"
+            ],
+            "model_forward_ms": 20.783,
+            "non_forward_ms": 0.304
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791236881310257772,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791236881346061066,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791236881381861889,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791236881417819709,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791236881453785339,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791236881489666397,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791236881525410987,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791236881561267413,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791236881597072315,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791236881632896520,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791236881668675852,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791236881704463104,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791236881740335220,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791236881791771513,
+            "output_ids_count": 16
+          }
+        ],
+        "final_output_ids_count": 16,
+        "inter_batch_gaps_ms": [
+          14.391,
+          14.559,
+          14.435,
+          14.61,
+          14.41,
+          14.452,
+          14.041,
+          14.409,
+          14.439,
+          14.763,
+          14.538,
+          14.67,
+          14.567
+        ],
+        "first_token_ns": 1791236881275337481,
+        "finish_ns": 1791236881793346717
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791236881805838828,
+        "load_committed_ns": 1791236883728667945,
+        "worker_active_ms": 1922.829,
+        "short_decode_overlap_ms": 0.0,
+        "overlapping_batch_count": 0,
+        "overlapping_batch_median_ms": null,
+        "nonoverlapping_batch_median_ms": 21.37,
+        "overlapping_forward_median_ms": null,
+        "nonoverlapping_forward_median_ms": 21.059,
+        "overlapping_non_forward_median_ms": null,
+        "nonoverlapping_non_forward_median_ms": 0.314,
+        "cuda_elapsed_ms": 1918.457397
+      }
+    }
+  ],
+  "warmup_cases": [
+    {
+      "case_id": "work_audit_cuda_kernels_20261005-warmup01-early",
+      "condition": "early",
+      "pair": 1,
+      "warmup": true,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_cuda_kernels_20261005-warmup01-early",
+        "load_timing": "early",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_cuda_kernels_20261005-warmup01-early-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_cuda_kernels_20261005-warmup01-early-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.211,
+            "submission_after_tool_ms": 0.156,
+            "first_token_after_tool_ms": 1487.524,
+            "completion_after_tool_ms": 2191.762,
+            "replay_total_ms": 2191.606,
+            "replay_ttft_ms": 1487.368,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_cuda_kernels_20261005-warmup01-early-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10006.647,
+            "submission_after_tool_ms": 0.235,
+            "first_token_after_tool_ms": 158.836,
+            "completion_after_tool_ms": 677.062,
+            "replay_total_ms": 676.827,
+            "replay_ttft_ms": 158.601,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8805.733,
+            "load_acceptance_after_tool_ms": -7605.179,
+            "load_completion_observed_after_tool_ms": -7323.575,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 52444.742,
+        "workflow_makespan_ms": 63763.941,
+        "load_overlapped_short_request": true,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 18,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 84,
+          "load_requested": 1,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_finished": 2,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_cuda_kernels_20261005-warmup01-early-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          136.752,
+          112.284,
+          42.746,
+          37.053,
+          35.665,
+          35.758,
+          35.791,
+          35.82,
+          35.944,
+          35.798,
+          35.783,
+          35.771,
+          35.755,
+          53.012
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791236799012941189,
+            "end_ns": 1791236799129474991,
+            "duration_ms": 116.534,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26874688690653"
+            ],
+            "model_forward_ms": 114.906,
+            "non_forward_ms": 1.628
+          },
+          {
+            "start_ns": 1791236799134571813,
+            "end_ns": 1791236799244053151,
+            "duration_ms": 109.481,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26874809153462"
+            ],
+            "model_forward_ms": 108.671,
+            "non_forward_ms": 0.81
+          },
+          {
+            "start_ns": 1791236799250276145,
+            "end_ns": 1791236799276436023,
+            "duration_ms": 26.16,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26874925134157"
+            ],
+            "model_forward_ms": 25.519,
+            "non_forward_ms": 0.641
+          },
+          {
+            "start_ns": 1791236799289331223,
+            "end_ns": 1791236799312635895,
+            "duration_ms": 23.305,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26874963904401"
+            ],
+            "model_forward_ms": 22.922,
+            "non_forward_ms": 0.383
+          },
+          {
+            "start_ns": 1791236799326094751,
+            "end_ns": 1791236799346604442,
+            "duration_ms": 20.51,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875000662199"
+            ],
+            "model_forward_ms": 20.2,
+            "non_forward_ms": 0.31
+          },
+          {
+            "start_ns": 1791236799361881145,
+            "end_ns": 1791236799382314671,
+            "duration_ms": 20.434,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875036444673"
+            ],
+            "model_forward_ms": 20.125,
+            "non_forward_ms": 0.309
+          },
+          {
+            "start_ns": 1791236799397642347,
+            "end_ns": 1791236799418626938,
+            "duration_ms": 20.985,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875072206485"
+            ],
+            "model_forward_ms": 20.673,
+            "non_forward_ms": 0.312
+          },
+          {
+            "start_ns": 1791236799433447080,
+            "end_ns": 1791236799453899097,
+            "duration_ms": 20.452,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875108011748"
+            ],
+            "model_forward_ms": 20.152,
+            "non_forward_ms": 0.3
+          },
+          {
+            "start_ns": 1791236799469234783,
+            "end_ns": 1791236799489679080,
+            "duration_ms": 20.444,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875143800171"
+            ],
+            "model_forward_ms": 20.142,
+            "non_forward_ms": 0.302
+          },
+          {
+            "start_ns": 1791236799505059698,
+            "end_ns": 1791236799526467849,
+            "duration_ms": 21.408,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875179624536"
+            ],
+            "model_forward_ms": 21.084,
+            "non_forward_ms": 0.324
+          },
+          {
+            "start_ns": 1791236799541010908,
+            "end_ns": 1791236799562006781,
+            "duration_ms": 20.996,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875215574946"
+            ],
+            "model_forward_ms": 20.69,
+            "non_forward_ms": 0.306
+          },
+          {
+            "start_ns": 1791236799576815091,
+            "end_ns": 1791236799597727821,
+            "duration_ms": 20.913,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875251388000"
+            ],
+            "model_forward_ms": 20.593,
+            "non_forward_ms": 0.32
+          },
+          {
+            "start_ns": 1791236799612555942,
+            "end_ns": 1791236799633660001,
+            "duration_ms": 21.104,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875287123810"
+            ],
+            "model_forward_ms": 20.788,
+            "non_forward_ms": 0.316
+          },
+          {
+            "start_ns": 1791236799648324844,
+            "end_ns": 1791236799669411812,
+            "duration_ms": 21.087,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26875322894002"
+            ],
+            "model_forward_ms": 20.767,
+            "non_forward_ms": 0.32
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791236799133506502,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791236799245952571,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791236799288614659,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791236799325561986,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791236799361415343,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791236799397172595,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791236799432971007,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791236799468765331,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791236799504566844,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791236799540533905,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791236799576347419,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791236799612087760,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791236799647857422,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791236799700490962,
+            "output_ids_count": 16
+          }
+        ],
+        "final_output_ids_count": 16,
+        "inter_batch_gaps_ms": [
+          5.097,
+          6.223,
+          12.895,
+          13.459,
+          15.277,
+          15.328,
+          14.82,
+          15.336,
+          15.381,
+          14.543,
+          14.808,
+          14.828,
+          14.665
+        ],
+        "first_token_ns": 1791236798997891376,
+        "finish_ns": 1791236799702129270
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791236799009526957,
+        "load_committed_ns": 1791236799288824859,
+        "worker_active_ms": 279.298,
+        "short_decode_overlap_ms": 279.298,
+        "overlapping_batch_count": 3,
+        "overlapping_batch_median_ms": 109.481,
+        "nonoverlapping_batch_median_ms": 20.985,
+        "overlapping_forward_median_ms": 108.671,
+        "nonoverlapping_forward_median_ms": 20.673,
+        "overlapping_non_forward_median_ms": 0.81,
+        "nonoverlapping_non_forward_median_ms": 0.312,
+        "cuda_elapsed_ms": 244.031494
+      }
+    },
+    {
+      "case_id": "work_audit_cuda_kernels_20261005-warmup01-post_short",
+      "condition": "post_short",
+      "pair": 1,
+      "warmup": true,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_cuda_kernels_20261005-warmup01-post_short",
+        "load_timing": "post_short",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_cuda_kernels_20261005-warmup01-post_short-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_cuda_kernels_20261005-warmup01-post_short-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.322,
+            "submission_after_tool_ms": 0.094,
+            "first_token_after_tool_ms": 309.454,
+            "completion_after_tool_ms": 828.036,
+            "replay_total_ms": 827.942,
+            "replay_ttft_ms": 309.359,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_cuda_kernels_20261005-warmup01-post_short-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10007.08,
+            "submission_after_tool_ms": 0.15,
+            "first_token_after_tool_ms": 119.754,
+            "completion_after_tool_ms": 636.189,
+            "replay_total_ms": 636.039,
+            "replay_ttft_ms": 119.604,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8277.212,
+            "load_acceptance_after_tool_ms": -8260.95,
+            "load_completion_observed_after_tool_ms": -6469.369,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4488.117,
+        "workflow_makespan_ms": 15766.97,
+        "load_overlapped_short_request": false,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 18,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "replay_finished": 2,
+          "load_requested": 1,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_cuda_kernels_20261005-warmup01-post_short-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          35.841,
+          35.837,
+          35.832,
+          35.816,
+          35.955,
+          35.741,
+          35.697,
+          35.741,
+          35.856,
+          35.737,
+          35.806,
+          35.912,
+          35.808,
+          52.69
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791236814509074049,
+            "end_ns": 1791236814530280762,
+            "duration_ms": 21.207,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890183638758"
+            ],
+            "model_forward_ms": 20.899,
+            "non_forward_ms": 0.308
+          },
+          {
+            "start_ns": 1791236814544915913,
+            "end_ns": 1791236814566498645,
+            "duration_ms": 21.583,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890219482501"
+            ],
+            "model_forward_ms": 21.261,
+            "non_forward_ms": 0.322
+          },
+          {
+            "start_ns": 1791236814580834252,
+            "end_ns": 1791236814602022173,
+            "duration_ms": 21.188,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890255402890"
+            ],
+            "model_forward_ms": 20.866,
+            "non_forward_ms": 0.322
+          },
+          {
+            "start_ns": 1791236814616601084,
+            "end_ns": 1791236814637778974,
+            "duration_ms": 21.178,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890291165432"
+            ],
+            "model_forward_ms": 20.868,
+            "non_forward_ms": 0.31
+          },
+          {
+            "start_ns": 1791236814652554753,
+            "end_ns": 1791236814673952504,
+            "duration_ms": 21.398,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890327122391"
+            ],
+            "model_forward_ms": 21.085,
+            "non_forward_ms": 0.313
+          },
+          {
+            "start_ns": 1791236814688382867,
+            "end_ns": 1791236814709488494,
+            "duration_ms": 21.106,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890362951196"
+            ],
+            "model_forward_ms": 20.793,
+            "non_forward_ms": 0.313
+          },
+          {
+            "start_ns": 1791236814724130136,
+            "end_ns": 1791236814745314739,
+            "duration_ms": 21.185,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890398692954"
+            ],
+            "model_forward_ms": 20.882,
+            "non_forward_ms": 0.303
+          },
+          {
+            "start_ns": 1791236814759866907,
+            "end_ns": 1791236814780894810,
+            "duration_ms": 21.028,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890434429125"
+            ],
+            "model_forward_ms": 20.726,
+            "non_forward_ms": 0.302
+          },
+          {
+            "start_ns": 1791236814795651198,
+            "end_ns": 1791236814816938885,
+            "duration_ms": 21.288,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890470221966"
+            ],
+            "model_forward_ms": 20.977,
+            "non_forward_ms": 0.311
+          },
+          {
+            "start_ns": 1791236814831438230,
+            "end_ns": 1791236814852530567,
+            "duration_ms": 21.092,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890506000098"
+            ],
+            "model_forward_ms": 20.784,
+            "non_forward_ms": 0.308
+          },
+          {
+            "start_ns": 1791236814867182369,
+            "end_ns": 1791236814888564041,
+            "duration_ms": 21.382,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890541757228"
+            ],
+            "model_forward_ms": 21.062,
+            "non_forward_ms": 0.32
+          },
+          {
+            "start_ns": 1791236814903059066,
+            "end_ns": 1791236814924275569,
+            "duration_ms": 21.217,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890577624424"
+            ],
+            "model_forward_ms": 20.902,
+            "non_forward_ms": 0.315
+          },
+          {
+            "start_ns": 1791236814938890820,
+            "end_ns": 1791236814960114804,
+            "duration_ms": 21.224,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890613457918"
+            ],
+            "model_forward_ms": 20.915,
+            "non_forward_ms": 0.309
+          },
+          {
+            "start_ns": 1791236814974718464,
+            "end_ns": 1791236814996076223,
+            "duration_ms": 21.358,
+            "forward_mode": "ForwardMode.DECODE",
+            "model_forward_call_ids": [
+              "116-26890649299373"
+            ],
+            "model_forward_ms": 21.027,
+            "non_forward_ms": 0.331
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791236814544422840,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791236814580367080,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791236814616122461,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791236814652021407,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791236814687913635,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791236814723658574,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791236814759397884,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791236814795136823,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791236814830977188,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791236814866695536,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791236814902584954,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791236814938405127,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791236814974228711,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791236815026558115,
+            "output_ids_count": 16
+          }
+        ],
+        "final_output_ids_count": 16,
+        "inter_batch_gaps_ms": [
+          14.635,
+          14.336,
+          14.579,
+          14.776,
+          14.43,
+          14.642,
+          14.552,
+          14.756,
+          14.499,
+          14.652,
+          14.495,
+          14.615,
+          14.604
+        ],
+        "first_token_ns": 1791236814509605555,
+        "finish_ns": 1791236815028187862
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791236815040539846,
+        "load_committed_ns": 1791236816835913278,
+        "worker_active_ms": 1795.373,
+        "short_decode_overlap_ms": 0.0,
+        "overlapping_batch_count": 0,
+        "overlapping_batch_median_ms": null,
+        "nonoverlapping_batch_median_ms": 21.212,
+        "overlapping_forward_median_ms": null,
+        "nonoverlapping_forward_median_ms": 20.901,
+        "overlapping_non_forward_median_ms": null,
+        "nonoverlapping_non_forward_median_ms": 0.312,
+        "cuda_elapsed_ms": 1780.142212
+      }
+    }
+  ],
+  "limitations": [
+    "Worker start-to-commit is an upper bound on GPU-copy activity, not exact HBM overlap.",
+    "Client stream content chunks need not equal model tokens; backend decode steps are separate evidence.",
+    "Batch wall time includes CPU submission and synchronization; it is not GPU kernel time.",
+    "A timing difference is not direct proof of bandwidth contention or recoverable hardware work."
+  ],
+  "source_paths": {
+    "harness": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/work_audit_cuda_kernels_20261005/harness_events.jsonl",
+    "backend_trace": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/work_audit_cuda_kernels_20261005/backend_trace.jsonl"
+  }
+}

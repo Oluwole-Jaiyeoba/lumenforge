@@ -28,6 +28,8 @@ SGLANG_DOCKER_IMAGE="${SGLANG_DOCKER_IMAGE:-}"
 SGLANG_DOCKER_PULL="${SGLANG_DOCKER_PULL:-0}"
 SGLANG_DOCKER_GPU_ARGS="${SGLANG_DOCKER_GPU_ARGS:---gpus all}"
 SGLANG_DOCKER_EXTRA_ARGS="${SGLANG_DOCKER_EXTRA_ARGS:-}"
+AGENTIC_NSYS_BIN="${AGENTIC_NSYS_BIN:-}"
+AGENTIC_NSYS_OUTPUT="${AGENTIC_NSYS_OUTPUT:-}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 AGENTIC_RUNTIME_TELEMETRY="${AGENTIC_RUNTIME_TELEMETRY:-0}"
 AGENTIC_RUNTIME_TELEMETRY_PATH="${AGENTIC_RUNTIME_TELEMETRY_PATH:-}"
@@ -147,6 +149,11 @@ if [[ -n "${SGLANG_DOCKER_IMAGE}" ]]; then
   # That path/name is not meaningful inside the backend image.
   docker_launch_args=("${launch_args[@]}")
   docker_launch_args[0]="python3"
+  if [[ -n "${AGENTIC_NSYS_BIN}" ]]; then
+    [[ -n "${AGENTIC_NSYS_OUTPUT}" ]] || { echo "Set AGENTIC_NSYS_OUTPUT with AGENTIC_NSYS_BIN" >&2; exit 2; }
+    docker_launch_args=("${AGENTIC_NSYS_BIN}" profile --trace=cuda,nvtx --sample=none
+      --cpuctxsw=none --force-overwrite=true -o "${AGENTIC_NSYS_OUTPUT}" "${docker_launch_args[@]}")
+  fi
   echo "Launching SGLang in Docker image: ${SGLANG_DOCKER_IMAGE}"
   exec docker run --rm \
     ${SGLANG_DOCKER_GPU_ARGS} \
@@ -165,6 +172,7 @@ if [[ -n "${SGLANG_DOCKER_IMAGE}" ]]; then
     -e AGENTIC_KV_TRACE_CONTROL_ONLY="${AGENTIC_KV_TRACE_CONTROL_ONLY:-0}" \
     -e AGENTIC_KV_TRACE_DECODE_BATCH_ONLY="${AGENTIC_KV_TRACE_DECODE_BATCH_ONLY:-0}" \
     -e AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY="${AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY:-0}" \
+    -e AGENTIC_KV_NVTX_ENABLE="${AGENTIC_KV_NVTX_ENABLE:-0}" \
     -e AGENTIC_KV_TRACE_MAX_EXACT_INDICES="${AGENTIC_KV_TRACE_MAX_EXACT_INDICES:-256}" \
     -e AGENTIC_KV_TRACE_KV_POOL="${AGENTIC_KV_TRACE_KV_POOL:-0}" \
     -e AGENTIC_KV_PREPARE_CONTROL_ENABLE="${AGENTIC_KV_PREPARE_CONTROL_ENABLE:-0}" \

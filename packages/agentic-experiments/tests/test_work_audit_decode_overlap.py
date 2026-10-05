@@ -32,6 +32,7 @@ def test_short_decode_links_only_its_batches_and_counts_output():
     assert short["final_output_ids_count"] == 2
     assert len(short["decode_batches"]) == 1
     assert short["decode_batches"][0]["model_forward_ms"] == 15
+    assert short["decode_batches"][0]["model_forward_call_ids"] == ["f"]
     assert short["decode_batches"][0]["non_forward_ms"] == 5
     assert overlap["overlapping_batch_count"] == 1
     assert overlap["overlapping_forward_median_ms"] == 15

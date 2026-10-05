@@ -67,6 +67,16 @@ lifecycle evidence. Set `WORK_AUDIT_FORWARD_TRACE=1` to also time nested model
 forward calls for the RQ10 audit. The gate then requires the additional worker
 hook; with the knob off, earlier batch-only runs remain reproducible. Neither
 variant enables full scheduler debug tracing.
+For a small RQ10 kernel-attribution run, set `WORK_AUDIT_NSYS_ENABLE=1` as
+well. The host needs `nsys`; the launcher mounts its CLI into the pinned
+SGLang container and adds call-linked NVTX ranges without enabling full debug
+logging. The resulting CUDA trace is expensive and must be interpreted
+separately from an unprofiled timing run. If Nsight loses CUDA records, the
+analyzer fails the full run; `--pair 1` can extract an explicitly labeled
+`validated_subset` from a fully captured pair, never a full-run claim. On the
+A10G host, two longer captures lost later CUDA events and a shorter reverse
+capture produced no kernel events; this path is not yet a reliable full-run
+profiler recipe.
 `kv_attribution` combines request-ingress timestamps with KV load and
 prefix-match events, but keeps per-batch scheduler logging, per-layer copy
 detail, GPU sampling, and full debug off. The three-arm busy audit

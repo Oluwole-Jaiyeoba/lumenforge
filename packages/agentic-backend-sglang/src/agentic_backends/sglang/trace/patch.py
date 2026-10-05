@@ -3590,6 +3590,8 @@ def _wrap_method(cls: type, method_name: str, event_name: str) -> str:
         start_ns = time.perf_counter_ns()
         start_kv_context = _kv_context(event_name, method_name, self, args, kwargs)
         nvtx_name = _nvtx_label(event_name, cls.__name__, method_name, start_kv_context)
+        if event_name in ("scheduler.run_batch", "worker.forward_batch_generation"):
+            nvtx_name = f"{nvtx_name} call_id={call_id}"
         agent_context = _propagated_context_from_context(start_kv_context)
         context_token = _ACTIVE_AGENT_CONTEXT.set(agent_context) if agent_context else None
         start_event = {
@@ -3869,7 +3871,8 @@ def _wrap_decode_batch_only(cls: type, method_name: str, event_name: str) -> str
         _write_event({"event": f"{event_name}.start", "ts_ns": started_ns,
                       "call_id": call_id, "kv_context": {"batch": _minimal_decode_batch(batch)}})
         try:
-            result = original(self, *args, **kwargs)
+            with range_scope(f"agentic_kv:{event_name}:{cls.__name__}.{method_name} call_id={call_id}"):
+                result = original(self, *args, **kwargs)
         except Exception as exc:
             _write_event({"event": f"{event_name}.error", "call_id": call_id,
                           "error_type": type(exc).__name__})
