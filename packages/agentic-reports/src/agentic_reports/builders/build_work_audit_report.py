@@ -1247,7 +1247,7 @@ def _paired_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
          for before, _after in selected],
         [((after.get("sessions") or {}).get("long") or {}).get("first_token_after_tool_ms")
          for _before, after in selected],
-        "long replay came sooner", "long replay came later", "long-replay effect varied")
+        "replay sooner", "replay later", "replay effect varied")
     short_trend = trend(
         [((before.get("sessions") or {}).get("short") or {}).get("completion_after_tool_ms")
          for before, _after in selected],
@@ -1256,10 +1256,10 @@ def _paired_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
         "short session finished sooner", "short session finished later", "short-session effect varied")
     workflow_trend = trend([before.get("workflow_makespan_ms") for before, _after in selected],
                            [after.get("workflow_makespan_ms") for _before, after in selected],
-                           "full workflow finished sooner", "full workflow finished later",
+                           "workflow sooner", "workflow later",
                            "workflow effect varied")
-    scope = "in this matched pair" if count == 1 else f"across {count} matched pairs"
-    finding = f"{long_trend.capitalize()}; {short_trend}; {workflow_trend} {scope}."
+    scope = "1 pair" if count == 1 else f"{count} pairs"
+    finding = f"{long_trend.capitalize()}; {short_trend}; {workflow_trend} ({scope})."
     return (comparison, _arrow(long_before, long_after),
             _arrow(short_before, short_after, lower="earlier", higher="later"),
             _arrow(workflow_before, workflow_after, lower="sooner", higher="later"),
@@ -1414,7 +1414,7 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
         comparison, replay, other, workflow, finding, gate = _markdown_index_outcome(summary)
         cells = (stamp, f"[{_kind(summary)}](#run-{run})", question_id,
                  _report_text(setup), comparison, replay, other, workflow, finding, gate)
-        lines.append("| " + " | ".join(_md_nowrap(cell) if index in (0, 5, 6, 7) else _md_cell(cell)
+        lines.append("| " + " | ".join(_md_nowrap(cell) if index in (0, 3, 5, 6, 7, 8) else _md_cell(cell)
                                          for index, cell in enumerate(cells)) + " |")
     lines.extend(("", "## Experiment details", ""))
     for path, summary in ordered:

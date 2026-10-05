@@ -238,10 +238,10 @@ def test_markdown_does_not_call_mixed_other_session_trials_a_consistent_win():
                "status": "validated", "_manifest": manifest, "cases": cases,
                "pairs": [{"pair": 1, "comparable": True}, {"pair": 2, "comparable": True}]}
     index = render_markdown([(Path("runs/mixed/summary.json"), summary)]).split(
-        "## Experiment details", 1)[0]
+        "## Experiment details", 1)[0].replace("&nbsp;", " ")
     assert "Late loading → controller-timed loading (per-mode median, 2 pairs)" in index
     assert "short-session effect varied" in index
-    assert "full workflow finished sooner" in index
+    assert "workflow sooner" in index
 
 
 def test_timing_details_keep_pair_metrics_separate():
