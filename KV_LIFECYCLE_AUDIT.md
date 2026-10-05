@@ -6,6 +6,14 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ10: Which stage slows another decoder?
+
+**Question.** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
+
+**What the evidence says.** In three warmed, order-balanced A10G pairs, early loading made the short session finish 128-182 ms later than loading after that session finished; first-token timing was nearly unchanged. Backend batch time increased 173-225 ms while gaps between batches decreased. A follow-up two-pair run instrumented nested model forward: short completion increased about 153 ms in both pairs, summed model-forward time increased 185-190 ms, and non-forward batch time changed only 1-2 ms. Both arms generated 16 backend output tokens per short replay. This locates the measured slowdown inside the model-forward call while the other session's worker KV load is active.
+
+**Not yet proved.** Model-forward wall time includes GPU execution and synchronization, so these runs do not distinguish HBM bandwidth contention from another GPU or runtime dependency. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait to accommodate variable copy times. It does not prove that hardware offload would remove the delay or that the same effect occurs under natural production pressure.
+
 ### RQ9: Does off-scheduler KV loading help?
 
 **Question.** If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?
@@ -84,6 +92,8 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;4:05:08&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_decode_forward_repeated_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;2&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | After-short → early worker load, both before tool return | 121&nbsp;→&nbsp;281&nbsp;ms&nbsp;(160&nbsp;ms&nbsp;slower) | 819&nbsp;→&nbsp;972&nbsp;ms&nbsp;(153&nbsp;ms&nbsp;slower) | 15.4&nbsp;→&nbsp;15.6&nbsp;s&nbsp;(0.2&nbsp;s&nbsp;slower) | Early&nbsp;worker&nbsp;loading&nbsp;delayed&nbsp;the&nbsp;short&nbsp;response&nbsp;in&nbsp;every&nbsp;pair;&nbsp;the&nbsp;added&nbsp;batch&nbsp;time&nbsp;was&nbsp;in&nbsp;model&nbsp;forward,&nbsp;not&nbsp;queue&nbsp;gaps.&nbsp;HBM&nbsp;contention&nbsp;is&nbsp;not&nbsp;established. | validated |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;3:52:46&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_decode_overlap_repeated_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;3&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | After-short → early worker load, both before tool return | 123&nbsp;→&nbsp;118&nbsp;ms&nbsp;(6&nbsp;ms&nbsp;faster) | 826&nbsp;→&nbsp;955&nbsp;ms&nbsp;(130&nbsp;ms&nbsp;slower) | 15.4&nbsp;→&nbsp;15.5&nbsp;s&nbsp;(0.0&nbsp;s&nbsp;slower) | Early&nbsp;worker&nbsp;loading&nbsp;delayed&nbsp;the&nbsp;short&nbsp;response&nbsp;in&nbsp;every&nbsp;pair.&nbsp;The&nbsp;trace&nbsp;places&nbsp;the&nbsp;added&nbsp;time&nbsp;inside&nbsp;backend&nbsp;batches,&nbsp;not&nbsp;queue&nbsp;gaps. | validated |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;1:28:34&nbsp;p.m.&nbsp;CDT | [Concurrent early vs late · worker load](#run-work_audit_async_fixed_worker_20261005_01) | RQ9 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;1&nbsp;measured&nbsp;pair&nbsp;·&nbsp;900&nbsp;/&nbsp;2500&nbsp;ms&nbsp;waits&nbsp;·&nbsp;worker&nbsp;KV&nbsp;load | Late loading → early loading (1 pair) | 1,131&nbsp;→&nbsp;90&nbsp;ms&nbsp;(1,041&nbsp;ms&nbsp;faster) | 809&nbsp;→&nbsp;1,006&nbsp;ms&nbsp;(198&nbsp;ms&nbsp;later) | 8,953&nbsp;→&nbsp;7,900&nbsp;ms&nbsp;(1,053&nbsp;ms&nbsp;sooner) | Replay&nbsp;sooner;&nbsp;short&nbsp;session&nbsp;finished&nbsp;later;&nbsp;workflow&nbsp;sooner&nbsp;(1&nbsp;pair). | validated; 1 pair |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;1:26:11&nbsp;p.m.&nbsp;CDT | [Concurrent early vs late · scheduler load](#run-work_audit_async_fixed_scheduler_20261005_02) | RQ9 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;1&nbsp;measured&nbsp;pair&nbsp;·&nbsp;900&nbsp;/&nbsp;2500&nbsp;ms&nbsp;waits&nbsp;·&nbsp;scheduler&nbsp;KV&nbsp;load | Late loading → early loading (1 pair) | 276&nbsp;→&nbsp;90&nbsp;ms&nbsp;(186&nbsp;ms&nbsp;faster) | 811&nbsp;→&nbsp;991&nbsp;ms&nbsp;(180&nbsp;ms&nbsp;later) | 8,089&nbsp;→&nbsp;7,896&nbsp;ms&nbsp;(193&nbsp;ms&nbsp;sooner) | Replay&nbsp;sooner;&nbsp;short&nbsp;session&nbsp;finished&nbsp;later;&nbsp;workflow&nbsp;sooner&nbsp;(1&nbsp;pair). | validated; 1 pair |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;1:12:20&nbsp;p.m.&nbsp;CDT | [Busy workload · KV-load attribution · scheduler load](#run-work_audit_async_scheduler_busy_20261005_01) | RQ9 | 12&nbsp;sessions&nbsp;×&nbsp;3&nbsp;tool&nbsp;waits;&nbsp;1&nbsp;paired&nbsp;seed;&nbsp;natural&nbsp;capacity&nbsp;pressure | Checks only → checks + early loads (1 seed); 36 replays/seed | 423.6&nbsp;→&nbsp;436.8&nbsp;s&nbsp;(13.2&nbsp;s&nbsp;higher) | Other-session&nbsp;effect&nbsp;not&nbsp;isolated | 90.5&nbsp;→&nbsp;91.3&nbsp;s&nbsp;(0.8&nbsp;s&nbsp;later) | Combined&nbsp;replay&nbsp;first-token&nbsp;time&nbsp;and&nbsp;total&nbsp;workload&nbsp;time&nbsp;both&nbsp;increased&nbsp;in&nbsp;this&nbsp;sample. | complete; 1 seed |
@@ -110,6 +120,82 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | Oct&nbsp;1,&nbsp;2026,&nbsp;5:42:31&nbsp;p.m.&nbsp;CDT | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | Case&nbsp;order:&nbsp;warm&nbsp;→&nbsp;host&nbsp;·&nbsp;not&nbsp;recorded&nbsp;replays/case&nbsp;·&nbsp;wait&nbsp;not&nbsp;recorded | Observation only; no policy comparison | Host-backed&nbsp;replay&nbsp;TTFT:&nbsp;230.3&nbsp;ms | No&nbsp;other&nbsp;session | Not&nbsp;measured | Linked&nbsp;host-backed&nbsp;KV&nbsp;movement&nbsp;to&nbsp;replay;&nbsp;no&nbsp;speed&nbsp;win&nbsp;tested. | validated |
 
 ## Experiment details
+
+<a id="run-work_audit_decode_forward_repeated_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 4:05:08 p.m. CDT · Decode overlap attribution</strong> · work_audit_decode_forward_repeated_20261005</summary>
+
+**Question (RQ10).** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
+
+**Finding.** Early worker loading delayed the short response in every pair; the added batch time was in model forward, not queue gaps. HBM contention is not established.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; trace kv_decode_overlap; model-forward trace on. Each case began three equal-importance sessions: a short tool wait, a long tool wait, and one session that ended. The long prefix was explicitly evicted to host. Its worker load began either during short decode or after short completion; both loads had to finish before long tool return. Tool waits: 900 / 10000 ms; early load at 1200 ms. 1 warmup pairs excluded; order reversed by pair. Prompt target 4090 words, output cap 16 tokens, host cache 8 GB, GPU memory fraction 0.7.
+
+**Key measurements**
+
+| Trial / mode | Short first token (ms) | Short finish (ms) | Batch time (ms) | Model forward (ms) | Other batch time (ms) | Between batches (ms) | Load overlap (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Trial 1 · post_short | 303.0 | 813.6 | 241.9 | 237.8 | 4.1 | 233.7 | 0.0 |
+| Trial 1 · early | 306.4 | 967.2 | 428.3 | 422.7 | 5.6 | 185.9 | 278.7 |
+| Trial 2 · early | 311.6 | 976.4 | 429.1 | 423.4 | 5.8 | 190.4 | 285.1 |
+| Trial 2 · post_short | 313.8 | 823.6 | 237.2 | 233.2 | 4.0 | 238.7 | 0.0 |
+
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Worker start-to-commit is an upper bound on GPU-copy activity, not exact HBM overlap.
+- Client stream content chunks need not equal model tokens; backend decode steps are separate evidence.
+- Batch wall time includes CPU submission and synchronization; it is not GPU kernel time.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID=work_audit_decode_forward_repeated_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=1 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_decode_forward_repeated_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_decode_forward_repeated_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_decode_forward_repeated_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_decode_forward_repeated_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_decode_forward_repeated_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-work_audit_decode_overlap_repeated_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 3:52:46 p.m. CDT · Decode overlap attribution</strong> · work_audit_decode_overlap_repeated_20261005</summary>
+
+**Question (RQ10).** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
+
+**Finding.** Early worker loading delayed the short response in every pair. The trace places the added time inside backend batches, not queue gaps.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; trace kv_decode_overlap; model-forward trace off. Each case began three equal-importance sessions: a short tool wait, a long tool wait, and one session that ended. The long prefix was explicitly evicted to host. Its worker load began either during short decode or after short completion; both loads had to finish before long tool return. Tool waits: 900 / 10000 ms; early load at 1200 ms. 1 warmup pairs excluded; order reversed by pair. Prompt target 4090 words, output cap 16 tokens, host cache 8 GB, GPU memory fraction 0.7.
+
+**Key measurements**
+
+| Trial / mode | Short first token (ms) | Short finish (ms) | Batch time (ms) | Model forward (ms) | Other batch time (ms) | Between batches (ms) | Load overlap (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Trial 1 · post_short | 298.9 | 808.0 | 230.0 | not recorded | not recorded | 244.2 | 0.0 |
+| Trial 1 · early | 306.3 | 955.4 | 412.9 | not recorded | not recorded | 189.2 | 270.1 |
+| Trial 2 · early | 311.0 | 954.0 | 406.9 | not recorded | not recorded | 189.7 | 298.9 |
+| Trial 2 · post_short | 317.2 | 825.9 | 233.9 | not recorded | not recorded | 240.3 | 0.0 |
+| Trial 3 · post_short | 319.8 | 829.2 | 236.5 | not recorded | not recorded | 238.9 | 0.0 |
+| Trial 3 · early | 317.5 | 1011.3 | 461.8 | not recorded | not recorded | 184.0 | 351.0 |
+
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Worker start-to-commit is an upper bound on GPU-copy activity, not exact HBM overlap.
+- Client stream content chunks need not equal model tokens; backend decode steps are separate evidence.
+- Batch wall time includes CPU submission and synchronization; it is not GPU kernel time.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID=work_audit_decode_overlap_repeated_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=0 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=3 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_decode_overlap_repeated_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_decode_overlap_repeated_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_decode_overlap_repeated_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_decode_overlap_repeated_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_decode_overlap_repeated_20261005/backend_trace.jsonl.gz)
+
+</details>
 
 <a id="run-work_audit_async_fixed_worker_20261005_01"></a>
 <details>

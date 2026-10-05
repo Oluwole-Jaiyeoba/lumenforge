@@ -30,6 +30,7 @@ _SCHEDULER_SIGNALS = {
     "scheduler.handle_generate_request.end": "request.accepted",
     "scheduler.get_next_batch_to_run.end": "batch.scheduled",
     "scheduler.process_batch_result.end": "batch.completed",
+    "scheduler.process_batch_result_decode.end": "batch.decode_step",
     "worker.forward_batch_generation.end": "model.forward",
 }
 

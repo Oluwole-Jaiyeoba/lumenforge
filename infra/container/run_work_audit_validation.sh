@@ -20,16 +20,18 @@ if [[ -z "${CASE_ORDER}" ]]; then
     multisession_compare) CASE_ORDER="late_nonblocking-early" ;;
     multisession_window) CASE_ORDER="late_nonblocking-early-post_short" ;;
     multisession_controller) CASE_ORDER="late_nonblocking-early-post_short-controller_window" ;;
+    multisession_overlap) CASE_ORDER="early-post_short" ;;
     multisession) CASE_ORDER="long-short-ends" ;;
     *) CASE_ORDER="warm-host" ;;
   esac
 fi
-TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]] && echo kv_lifecycle_lean || echo kv_lifecycle )}"
+TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( if [[ "${STUDY}" == "multisession_overlap" ]]; then echo kv_decode_overlap; elif [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then echo kv_lifecycle_lean; else echo kv_lifecycle; fi )}"
+FORWARD_TRACE="${WORK_AUDIT_FORWARD_TRACE:-0}"
 PAIRS="${WORK_AUDIT_PAIRS:-1}"
 WARMUP_PAIRS="${WORK_AUDIT_WARMUP_PAIRS:-1}"
 WAIT_MS="${WORK_AUDIT_WAIT_MS:-$( [[ "${STUDY}" == "timing" ]] && echo 2000 || echo 500 )}"
 SHORT_WAIT_MS="${WORK_AUDIT_SHORT_WAIT_MS:-900}"
-LONG_WAIT_MS="${WORK_AUDIT_LONG_WAIT_MS:-2500}"
+LONG_WAIT_MS="${WORK_AUDIT_LONG_WAIT_MS:-$( [[ "${STUDY}" == "multisession_overlap" ]] && echo 10000 || echo 2500 )}"
 EARLY_AT_MS="${WORK_AUDIT_EARLY_AT_MS:-1200}"
 ESTIMATED_LOAD_MS="${WORK_AUDIT_ESTIMATED_LOAD_MS:-250}"
 LOAD_MARGIN_MS="${WORK_AUDIT_LOAD_MARGIN_MS:-150}"
@@ -48,7 +50,7 @@ SERVER_PID=""
 [[ -f "${PROFILE_PATH}" ]] || { echo "Missing runtime profile: ${PROFILE_PATH}" >&2; exit 2; }
 [[ -n "${IMAGE}" ]] || { echo "Set SGLANG_DOCKER_IMAGE" >&2; exit 2; }
 [[ -d "${MODEL_CACHE}" ]] || { echo "Set AGENTIC_MODEL_CACHE to a directory" >&2; exit 2; }
-[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]] || {
+[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]] || {
   echo "Unsupported WORK_AUDIT_STUDY: ${STUDY}" >&2; exit 2;
 }
 [[ "${SECOND_REPLAY}" == "0" || "${SECOND_REPLAY}" == "1" ]] || {
@@ -58,12 +60,12 @@ SERVER_PID=""
 for value in "${PROMPT_WORDS}" "${MAX_OUTPUT_TOKENS}" "${MINIMUM_HOST_TOKENS}" "${EVICTION_ROUNDS}"; do
   [[ "${value}" =~ ^[1-9][0-9]*$ ]] || { echo "Work-audit request settings must be positive integers" >&2; exit 2; }
 done
-if [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
+if [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   [[ "${SHORT_WAIT_MS}" =~ ^[1-9][0-9]*$ &&
      "${LONG_WAIT_MS}" =~ ^[1-9][0-9]*$ && "${SHORT_WAIT_MS}" -lt "${LONG_WAIT_MS}" ]] || {
     echo "Multisession requires positive, ordered tool waits" >&2; exit 2;
   }
-  if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
+  if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
     if [[ "${STUDY}" == "multisession_controller" ]]; then
       [[ "${CASE_ORDER}" == "late_nonblocking-early-post_short-controller_window" ||
          "${CASE_ORDER}" == "controller_window-post_short-early-late_nonblocking" ]] || {
@@ -76,6 +78,13 @@ if [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "$
       [[ "${CASE_ORDER}" == "late_nonblocking-early-post_short" ||
          "${CASE_ORDER}" == "post_short-early-late_nonblocking" ]] || {
         echo "Window study requires all three timing modes" >&2; exit 2;
+      }
+    elif [[ "${STUDY}" == "multisession_overlap" ]]; then
+      [[ "${CASE_ORDER}" == "early-post_short" || "${CASE_ORDER}" == "post_short-early" ]] || {
+        echo "Decode overlap study requires early and post_short only" >&2; exit 2;
+      }
+      [[ "${AGENTIC_KV_PREPARE_LOAD_WORKER:-0}" == "1" ]] || {
+        echo "Decode overlap study requires worker KV loading" >&2; exit 2;
       }
     else
       [[ "${CASE_ORDER}" == "late_nonblocking-early" || "${CASE_ORDER}" == "early-late_nonblocking" ]] || {
@@ -90,9 +99,15 @@ if [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "$
   else
     [[ "${CASE_ORDER}" == "long-short-ends" ]] || { echo "Multisession requires long-short-ends" >&2; exit 2; }
   fi
-  [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]] || {
-    echo "Multisession requires kv_lifecycle_lean" >&2; exit 2;
-  }
+  if [[ "${STUDY}" == "multisession_overlap" ]]; then
+    [[ "${TRACE_PROFILE}" == "kv_decode_overlap" ]] || {
+      echo "Decode overlap study requires kv_decode_overlap" >&2; exit 2;
+    }
+  else
+    [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]] || {
+      echo "Multisession requires kv_lifecycle_lean" >&2; exit 2;
+    }
+  fi
 elif [[ "${STUDY}" == "validation" ]]; then
   [[ "${CASE_ORDER}" == "warm-host" || "${CASE_ORDER}" == "host-warm" ]] || {
     echo "WORK_AUDIT_CASE_ORDER must be warm-host or host-warm for validation" >&2; exit 2;
@@ -119,8 +134,14 @@ else
     echo "WORK_AUDIT_REQUIRE_SLOT_PROOF must be 0 or 1" >&2; exit 2;
   }
 fi
-[[ "${TRACE_PROFILE}" == "kv_lifecycle" || "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]] || {
-  echo "WORK_AUDIT_TRACE_PROFILE must be kv_lifecycle or kv_lifecycle_lean" >&2; exit 2;
+[[ "${TRACE_PROFILE}" == "kv_lifecycle" || "${TRACE_PROFILE}" == "kv_lifecycle_lean" || "${TRACE_PROFILE}" == "kv_decode_overlap" ]] || {
+  echo "Unsupported WORK_AUDIT_TRACE_PROFILE" >&2; exit 2;
+}
+[[ "${FORWARD_TRACE}" == "0" || "${FORWARD_TRACE}" == "1" ]] || {
+  echo "WORK_AUDIT_FORWARD_TRACE must be 0 or 1" >&2; exit 2;
+}
+[[ "${FORWARD_TRACE}" == "0" || "${STUDY}" == "multisession_overlap" ]] || {
+  echo "Forward-only tracing is supported only for multisession_overlap" >&2; exit 2;
 }
 if [[ "${STUDY}" == "validation" ]]; then
   DEFAULT_QUESTION_ID="RQ1"
@@ -130,6 +151,8 @@ elif [[ "${STUDY}" == "multisession_window" ]]; then
   DEFAULT_QUESTION_ID="RQ6"
 elif [[ "${STUDY}" == "multisession_compare" ]]; then
   DEFAULT_QUESTION_ID="RQ5"
+elif [[ "${STUDY}" == "multisession_overlap" ]]; then
+  DEFAULT_QUESTION_ID="RQ10"
 elif [[ "${STUDY}" == "multisession" ]]; then
   DEFAULT_QUESTION_ID="RQ4"
 elif [[ "${CASE_ORDER}" == *late_nonblocking* ]]; then
@@ -199,10 +222,11 @@ echo "Starting pinned backend for ${RUN_ID}"
     printf -v "${name}" '%s' "${!name:-${value}}"
     export "${name}"
   done <<< "${profile_values}"
-  if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" ]]; then
+  export AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY="${FORWARD_TRACE}"
+  if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" || "${TRACE_PROFILE}" == "kv_decode_overlap" ]]; then
     export AGENTIC_KV_TRACE_CONTROL_ONLY=1
   fi
-  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
+  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
     export AGENTIC_KV_TRACE_MAX_EXACT_INDICES="${EXACT_INDICES}"
   fi
   export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
@@ -227,7 +251,7 @@ until curl -fsS http://127.0.0.1:30000/v1/models >/dev/null 2>&1; do
   sleep 2
 done
 
-python3 - "${RUN_ROOT}/backend_trace.jsonl" "${TRACE_PROFILE}" <<'PY'
+python3 - "${RUN_ROOT}/backend_trace.jsonl" "${TRACE_PROFILE}" "${FORWARD_TRACE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -241,15 +265,25 @@ if not summaries:
 result = validate_installation(sys.argv[2], "v0510", summaries[-1])
 if not result["valid"]:
     raise SystemExit(f"Work-audit gate failed: {json.dumps(result['missing'])}")
-if sys.argv[2] == "kv_lifecycle_lean":
+if sys.argv[2] in ("kv_lifecycle_lean", "kv_decode_overlap"):
     pump = "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run"
     if pump not in summaries[-1].get("installed_hooks", []):
         raise SystemExit("Work-audit gate failed: control-only scheduler pump is missing")
+if sys.argv[2] == "kv_decode_overlap":
+    installed = set(summaries[-1].get("installed_hooks", []))
+    required = {f"sglang.srt.managers.scheduler.Scheduler.{name}" for name in
+                ("run_batch", "process_batch_result_decode")}
+    if sys.argv[3] == "1":
+        required.add("sglang.srt.managers.tp_worker.TpModelWorker.forward_batch_generation")
+    if required - installed:
+        raise SystemExit(f"Work-audit gate failed: missing decode hooks {sorted(required - installed)}")
 print("Work-audit lifecycle hooks installed")
 PY
 
 SECOND_REPLAY_RUN_ARGS=()
 SECOND_REPLAY_ANALYSIS_ARGS=()
+STREAM_ARGS=()
+[[ "${STUDY}" == "multisession_overlap" ]] && STREAM_ARGS+=(--capture-stream-chunks)
 if [[ "${SECOND_REPLAY}" == "1" ]]; then
   SECOND_REPLAY_RUN_ARGS+=(--second-replay)
   SECOND_REPLAY_ANALYSIS_ARGS+=(--require-second-replay)
@@ -261,7 +295,7 @@ if [[ "${STUDY}" == "timing" ]]; then
     --wait-ms "${WAIT_MS}" --prompt-tokens "${PROMPT_WORDS}" \
     --max-tokens "${MAX_OUTPUT_TOKENS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
     --eviction-rounds "${EVICTION_ROUNDS}"
-elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
+elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   python3 -m agentic_experiments.runners.run_work_audit_multisession \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
     --case-order "${CASE_ORDER}" --pairs "${PAIRS}" --warmup-pairs "${WARMUP_PAIRS}" \
@@ -269,7 +303,8 @@ elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_wind
     --load-margin-ms "${LOAD_MARGIN_MS}" \
     --short-wait-ms "${SHORT_WAIT_MS}" --long-wait-ms "${LONG_WAIT_MS}" \
     --prompt-tokens "${PROMPT_WORDS}" --max-tokens "${MAX_OUTPUT_TOKENS}" \
-    --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}"
+    --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}" \
+    "${STREAM_ARGS[@]}"
 elif [[ "${STUDY}" == "multisession" ]]; then
   python3 -m agentic_experiments.runners.run_work_audit_multisession \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
@@ -289,7 +324,15 @@ python3 -m agentic_backends.sglang.trace_contract \
   --adapter v0510 --profile "${TRACE_PROFILE}" \
   --trace "${RUN_ROOT}/backend_trace.jsonl" \
   --out "${RUN_ROOT}/instrumentation_audit.json"
-if [[ "${STUDY}" == "timing" ]]; then
+if [[ "${STUDY}" == "multisession_overlap" ]]; then
+  FORWARD_ARGS=()
+  [[ "${FORWARD_TRACE}" == "1" ]] && FORWARD_ARGS+=(--require-model-forward)
+  python3 -m agentic_experiments.runners.analyze_work_audit_decode_overlap \
+    --run-id "${RUN_ID}" --trace "${RUN_ROOT}/backend_trace.jsonl" \
+    --harness "${RUN_ROOT}/harness_events.jsonl" \
+    --case-results "${RUN_ROOT}/case_results.json" --out-dir "${RUN_ROOT}" \
+    "${FORWARD_ARGS[@]}"
+elif [[ "${STUDY}" == "timing" ]]; then
   SLOT_PROOF_ARGS=()
   if [[ "${REQUIRE_SLOT_PROOF}" == "1" ]]; then
     SLOT_PROOF_ARGS+=(--require-slot-proof)
@@ -325,8 +368,8 @@ print(json.load(open(sys.argv[1], encoding="utf-8"))["hardware_profile"])
 PY
 )"
 CASE_ORDER_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split("-")))' "${CASE_ORDER}")"
-if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then
-  WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
+if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
+  WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"forward_trace_enabled\":${FORWARD_TRACE},\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"multisession\",\"load_execution\":\"${LOAD_EXECUTION}\",\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 else

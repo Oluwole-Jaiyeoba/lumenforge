@@ -16,7 +16,7 @@ names, hook installation, version adapters, and raw-to-stable translation.
 ## Profiles and Gates
 
 The shared catalog defines `request_boundary`, `controller_queue`,
-`kv_lifecycle`, `kv_lifecycle_lean`, `kv_attribution`, `copy_timing`, and `full_debug`. SGLang launch flags are resolved only in
+`kv_lifecycle`, `kv_lifecycle_lean`, `kv_decode_overlap`, `kv_attribution`, `copy_timing`, and `full_debug`. SGLang launch flags are resolved only in
 `agentic_backends.sglang.instrumentation_profiles`. Historical launcher names
 (`minimal`, `deadline`, `controller_decision`, `idle_gap`, `cache_debug`,
 `full_debug`) keep their existing flag defaults. Unknown names fail.
@@ -62,6 +62,11 @@ can enable its control-only scheduler pump with
 commands without writing scheduler events. Its installation and live evidence
 must pass the same fail-loud gates. The original `kv_lifecycle` flag defaults
 remain unchanged for archived runs.
+`kv_decode_overlap` adds request-linked decode-batch timestamps to the lean
+lifecycle evidence. Set `WORK_AUDIT_FORWARD_TRACE=1` to also time nested model
+forward calls for the RQ10 audit. The gate then requires the additional worker
+hook; with the knob off, earlier batch-only runs remain reproducible. Neither
+variant enables full scheduler debug tracing.
 `kv_attribution` combines request-ingress timestamps with KV load and
 prefix-match events, but keeps per-batch scheduler logging, per-layer copy
 detail, GPU sampling, and full debug off. The three-arm busy audit

@@ -90,6 +90,45 @@ def _manifest(order=("warm", "host")):
     }
 
 
+def test_decode_overlap_report_keeps_stage_attribution_and_runner():
+    manifest = _manifest(("early", "post_short"))
+    manifest["workload"].update({"research_question_id": "RQ10", "session_count": 3,
+                                  "short_wait_ms": 900, "long_wait_ms": 10000,
+                                  "early_at_ms": 1200, "load_execution": "worker",
+                                  "prompt_words_target": 4090, "max_output_tokens": 16})
+    cases = []
+    for mode, finish, forward, overlap in (("early", 970, 420, 280),
+                                           ("post_short", 815, 235, 0)):
+        cases.append({"pair": 1, "condition": mode,
+                      "audit": {"sessions": {"short": {"first_token_after_tool_ms": 305,
+                                                         "completion_after_tool_ms": finish}}},
+                      "short_decode": {"decode_batches": [{"duration_ms": forward + 5,
+                                                               "model_forward_ms": forward,
+                                                               "non_forward_ms": 5}],
+                                       "inter_batch_gaps_ms": [200]},
+                      "load_overlap": {"short_decode_overlap_ms": overlap}})
+    summary = {"schema": "agentic_work_audit.decode_overlap.v1", "run_id": "overlap",
+               "status": "validated", "_manifest": manifest,
+               "_trace_profile": "kv_decode_overlap", "cases": cases,
+               "pairs": [{"pair": 1, "comparable": True, "reasons": [],
+                          "early_short_first_token_ms": 305,
+                          "post_short_first_token_ms": 305,
+                          "early_short_finish_ms": 970, "post_short_finish_ms": 815,
+                          "early_long_first_token_ms": 120,
+                          "post_short_long_first_token_ms": 120,
+                          "early_workflow_ms": 15000,
+                          "post_short_workflow_ms": 15000}]}
+    path = Path("runs/overlap/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "Decode overlap attribution" in page
+    assert "Model forward" in page and "420.0 ms" in page
+    assert "WORK_AUDIT_STUDY=multisession_overlap" in page
+    assert "WORK_AUDIT_STUDY=multisession_overlap" in markdown
+    assert "WORK_AUDIT_FORWARD_TRACE=1" in markdown
+    assert "815" in markdown and "970" in markdown
+
+
 def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     runs = tmp_path / "runs"
     for name, second in (("first", 1), ("second", 2)):

@@ -85,12 +85,16 @@ async def completion(
     prompt: str,
     request_context: dict[str, Any],
     max_tokens: int,
+    capture_chunks: bool = False,
 ) -> dict[str, Any]:
     started_ns = time.time_ns()
     started = time.perf_counter()
     first_token: float | None = None
     first_token_ns: int | None = None
     chunks = 0
+    content_chunks: list[dict[str, int]] = []
+    output_parts: list[str] = []
+    usage: dict[str, Any] = {}
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -109,6 +113,26 @@ async def completion(
             if line.removeprefix("data: ").strip() == "[DONE]":
                 break
             chunks += 1
+            if capture_chunks:
+                try:
+                    data = json.loads(line.removeprefix("data: "))
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(data.get("usage"), dict):
+                    usage = data["usage"]
+                for choice in data.get("choices") or []:
+                    delta = choice.get("delta") or {}
+                    content = delta.get("content")
+                    if not isinstance(content, str) or not content:
+                        continue
+                    output_parts.append(content)
+                    chunk_ns = time.time_ns()
+                    content_chunks.append({"ts_ns": chunk_ns, "characters": len(content)})
+                    if first_token is None:
+                        first_token = time.perf_counter()
+                        first_token_ns = chunk_ns
+                if not content_chunks:
+                    continue
             if first_token is None:
                 first_token = time.perf_counter()
                 first_token_ns = time.time_ns()
@@ -117,7 +141,7 @@ async def completion(
     if first_token is None:
         first_token = ended
         first_token_ns = ended_ns
-    return {
+    result = {
         "request_start_ns": started_ns,
         "request_end_ns": ended_ns,
         "first_token_ns": first_token_ns,
@@ -125,6 +149,16 @@ async def completion(
         "total_latency_ms": round((ended - started) * 1000, 3),
         "stream_chunks": chunks,
     }
+    if capture_chunks:
+        output = "".join(output_parts)
+        result.update({
+            "content_chunks": content_chunks,
+            "content_chunk_count": len(content_chunks),
+            "output_characters": len(output),
+            "output_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
+            "completion_tokens": usage.get("completion_tokens"),
+        })
+    return result
 
 
 async def prepare_prefix(

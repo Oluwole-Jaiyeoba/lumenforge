@@ -21,6 +21,8 @@ def test_legacy_profile_defaults_remain_unchanged():
     assert profile_flags("kv_attribution")["AGENTIC_KV_TRACE_SCHEDULER"] == "1"
     assert profile_flags("kv_attribution")["AGENTIC_KV_COPY_TELEMETRY_ENABLE"] == "0"
     assert profile_flags("kv_attribution")["AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY"] == "1"
+    assert profile_flags("kv_decode_overlap")["AGENTIC_KV_TRACE_DECODE_BATCH_ONLY"] == "1"
+    assert profile_flags("kv_decode_overlap")["AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY"] == "0"
 
 
 def test_missing_hook_fails_loud_and_complete_profile_passes():

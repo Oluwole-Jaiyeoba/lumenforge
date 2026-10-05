@@ -1,0 +1,2411 @@
+{
+  "schema": "agentic_work_audit.decode_overlap.v1",
+  "run_id": "work_audit_decode_overlap_repeated_20261005",
+  "status": "validated",
+  "failures": [],
+  "pairs": [
+    {
+      "pair": 1,
+      "comparable": true,
+      "reasons": [],
+      "early_case_id": "work_audit_decode_overlap_repeated_20261005-pair01-early",
+      "post_short_case_id": "work_audit_decode_overlap_repeated_20261005-pair01-post_short",
+      "early_short_first_token_ms": 306.305,
+      "post_short_first_token_ms": 298.887,
+      "early_short_finish_ms": 955.445,
+      "post_short_finish_ms": 807.978,
+      "early_long_first_token_ms": 117.511,
+      "post_short_long_first_token_ms": 124.353,
+      "early_workflow_ms": 15419.287,
+      "post_short_workflow_ms": 15419.093
+    },
+    {
+      "pair": 2,
+      "comparable": true,
+      "reasons": [],
+      "early_case_id": "work_audit_decode_overlap_repeated_20261005-pair02-early",
+      "post_short_case_id": "work_audit_decode_overlap_repeated_20261005-pair02-post_short",
+      "early_short_first_token_ms": 311.049,
+      "post_short_first_token_ms": 317.174,
+      "early_short_finish_ms": 953.995,
+      "post_short_finish_ms": 825.915,
+      "early_long_first_token_ms": 443.128,
+      "post_short_long_first_token_ms": 116.87,
+      "early_workflow_ms": 15755.764,
+      "post_short_workflow_ms": 15436.101
+    },
+    {
+      "pair": 3,
+      "comparable": true,
+      "reasons": [],
+      "early_case_id": "work_audit_decode_overlap_repeated_20261005-pair03-early",
+      "post_short_case_id": "work_audit_decode_overlap_repeated_20261005-pair03-post_short",
+      "early_short_first_token_ms": 317.497,
+      "post_short_first_token_ms": 319.778,
+      "early_short_finish_ms": 1011.272,
+      "post_short_finish_ms": 829.221,
+      "early_long_first_token_ms": 116.664,
+      "post_short_long_first_token_ms": 123.273,
+      "early_workflow_ms": 15476.52,
+      "post_short_workflow_ms": 15454.857
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-pair01-post_short",
+      "condition": "post_short",
+      "pair": 1,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-pair01-post_short",
+        "load_timing": "post_short",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-pair01-post_short-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair01-post_short-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 900.795,
+            "submission_after_tool_ms": 0.102,
+            "first_token_after_tool_ms": 298.887,
+            "completion_after_tool_ms": 807.978,
+            "replay_total_ms": 807.876,
+            "replay_ttft_ms": 298.785,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair01-post_short-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10004.335,
+            "submission_after_tool_ms": 0.115,
+            "first_token_after_tool_ms": 124.353,
+            "completion_after_tool_ms": 633.666,
+            "replay_total_ms": 633.551,
+            "replay_ttft_ms": 124.237,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8294.601,
+            "load_acceptance_after_tool_ms": -8275.67,
+            "load_completion_observed_after_tool_ms": -4167.474,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4154.311,
+        "workflow_makespan_ms": 15419.093,
+        "load_overlapped_short_request": false,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 17,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "replay_finished": 2,
+          "load_requested": 1,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-pair01-post_short-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          35.27,
+          34.942,
+          35.101,
+          35.217,
+          35.337,
+          34.805,
+          35.183,
+          35.104,
+          35.181,
+          35.126,
+          35.162,
+          35.229,
+          35.359,
+          51.647
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233631810042165,
+            "end_ns": 1791233631826505769,
+            "duration_ms": 16.464,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233631845231709,
+            "end_ns": 1791233631861529325,
+            "duration_ms": 16.298,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233631880359710,
+            "end_ns": 1791233631896567761,
+            "duration_ms": 16.208,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233631915487130,
+            "end_ns": 1791233631931844139,
+            "duration_ms": 16.357,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233631950662693,
+            "end_ns": 1791233631966977260,
+            "duration_ms": 16.315,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233631985803674,
+            "end_ns": 1791233632002088240,
+            "duration_ms": 16.285,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632020915774,
+            "end_ns": 1791233632037195889,
+            "duration_ms": 16.28,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632056068446,
+            "end_ns": 1791233632072290998,
+            "duration_ms": 16.223,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632091167986,
+            "end_ns": 1791233632107501183,
+            "duration_ms": 16.333,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632126338908,
+            "end_ns": 1791233632142663355,
+            "duration_ms": 16.324,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632161474129,
+            "end_ns": 1791233632177741154,
+            "duration_ms": 16.267,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632196631511,
+            "end_ns": 1791233632212900396,
+            "duration_ms": 16.269,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632231829345,
+            "end_ns": 1791233632249128058,
+            "duration_ms": 17.299,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233632267178566,
+            "end_ns": 1791233632284215667,
+            "duration_ms": 17.037,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233631844825260,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233631879959841,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233631915080561,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233631950241703,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233631985383355,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233632020516266,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233632055667877,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233632090764987,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233632125932129,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233632161075481,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233632196219812,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233632231377584,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233632266750736,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233632317980313,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          18.726,
+          18.83,
+          18.919,
+          18.819,
+          18.826,
+          18.828,
+          18.873,
+          18.877,
+          18.838,
+          18.811,
+          18.89,
+          18.929,
+          18.051
+        ],
+        "first_token_ns": 1791233631810718847,
+        "finish_ns": 1791233632319810310
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233632337076021,
+        "load_committed_ns": 1791233636440021891,
+        "worker_active_ms": 4102.946,
+        "short_decode_overlap_ms": 0.0,
+        "overlapping_batch_count": 0,
+        "overlapping_batch_median_ms": null,
+        "nonoverlapping_batch_median_ms": 16.306,
+        "cuda_elapsed_ms": 4098.232422
+      }
+    },
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-pair01-early",
+      "condition": "early",
+      "pair": 1,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-pair01-early",
+        "load_timing": "early",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-pair01-early-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair01-early-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.32,
+            "submission_after_tool_ms": 0.094,
+            "first_token_after_tool_ms": 306.305,
+            "completion_after_tool_ms": 955.445,
+            "replay_total_ms": 955.35,
+            "replay_ttft_ms": 306.211,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair01-early-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10009.655,
+            "submission_after_tool_ms": 0.122,
+            "first_token_after_tool_ms": 117.511,
+            "completion_after_tool_ms": 625.335,
+            "replay_total_ms": 625.213,
+            "replay_ttft_ms": 117.389,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8809.432,
+            "load_acceptance_after_tool_ms": -8792.169,
+            "load_completion_observed_after_tool_ms": -8519.329,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4160.872,
+        "workflow_makespan_ms": 15419.287,
+        "load_overlapped_short_request": true,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 18,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "load_requested": 1,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_finished": 2,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-pair01-early-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          80.285,
+          68.576,
+          71.334,
+          60.074,
+          35.749,
+          35.1,
+          35.02,
+          35.225,
+          35.323,
+          35.114,
+          35.21,
+          35.187,
+          35.154,
+          51.492
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233648125577360,
+            "end_ns": 1791233648192106628,
+            "duration_ms": 66.529,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648193687963,
+            "end_ns": 1791233648258232407,
+            "duration_ms": 64.544,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648265338502,
+            "end_ns": 1791233648329865575,
+            "duration_ms": 64.527,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648337121319,
+            "end_ns": 1791233648383974016,
+            "duration_ms": 46.853,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648393936777,
+            "end_ns": 1791233648412456904,
+            "duration_ms": 18.52,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648429465498,
+            "end_ns": 1791233648446454012,
+            "duration_ms": 16.989,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648464699896,
+            "end_ns": 1791233648481246168,
+            "duration_ms": 16.546,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648499921282,
+            "end_ns": 1791233648516754828,
+            "duration_ms": 16.834,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648535121197,
+            "end_ns": 1791233648552272599,
+            "duration_ms": 17.151,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648570397016,
+            "end_ns": 1791233648587301276,
+            "duration_ms": 16.904,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648605567441,
+            "end_ns": 1791233648622664919,
+            "duration_ms": 17.097,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648640813478,
+            "end_ns": 1791233648657733469,
+            "duration_ms": 16.92,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648676007262,
+            "end_ns": 1791233648692990717,
+            "duration_ms": 16.983,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233648711165086,
+            "end_ns": 1791233648727628945,
+            "duration_ms": 16.464,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233648193226361,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233648261432478,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233648333064397,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233648393254165,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233648429019727,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233648464287726,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233648499508082,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233648534694977,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233648569971956,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233648605157321,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233648640405058,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233648675556181,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233648710760137,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233648761842244,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          1.581,
+          7.106,
+          7.256,
+          9.963,
+          17.009,
+          18.246,
+          18.675,
+          18.366,
+          18.124,
+          18.266,
+          18.149,
+          18.274,
+          18.174
+        ],
+        "first_token_ns": 1791233648114272466,
+        "finish_ns": 1791233648763411969
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233648123320843,
+        "load_committed_ns": 1791233648393464505,
+        "worker_active_ms": 270.144,
+        "short_decode_overlap_ms": 270.144,
+        "overlapping_batch_count": 4,
+        "overlapping_batch_median_ms": 64.535,
+        "nonoverlapping_batch_median_ms": 16.952,
+        "cuda_elapsed_ms": 252.880539
+      }
+    },
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-pair02-early",
+      "condition": "early",
+      "pair": 2,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-pair02-early",
+        "load_timing": "early",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-pair02-early-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair02-early-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.332,
+            "submission_after_tool_ms": 0.094,
+            "first_token_after_tool_ms": 311.049,
+            "completion_after_tool_ms": 953.995,
+            "replay_total_ms": 953.901,
+            "replay_ttft_ms": 310.955,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair02-early-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10009.275,
+            "submission_after_tool_ms": 0.152,
+            "first_token_after_tool_ms": 443.128,
+            "completion_after_tool_ms": 950.895,
+            "replay_total_ms": 950.743,
+            "replay_ttft_ms": 442.976,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8808.168,
+            "load_acceptance_after_tool_ms": -8787.015,
+            "load_completion_observed_after_tool_ms": -8486.9,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4167.95,
+        "workflow_makespan_ms": 15755.764,
+        "load_overlapped_short_request": true,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 17,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "load_requested": 1,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_finished": 2,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-pair02-early-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          76.604,
+          66.235,
+          64.515,
+          61.991,
+          39.485,
+          36.355,
+          35.387,
+          35.115,
+          35.026,
+          35.072,
+          35.43,
+          34.966,
+          35.204,
+          51.267
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233664440644344,
+            "end_ns": 1791233664503408142,
+            "duration_ms": 62.764,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664508889310,
+            "end_ns": 1791233664567687961,
+            "duration_ms": 58.799,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664574222330,
+            "end_ns": 1791233664633366186,
+            "duration_ms": 59.144,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664639516006,
+            "end_ns": 1791233664695756487,
+            "duration_ms": 56.24,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664700524342,
+            "end_ns": 1791233664721444947,
+            "duration_ms": 20.921,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664738421898,
+            "end_ns": 1791233664756111271,
+            "duration_ms": 17.689,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664774558931,
+            "end_ns": 1791233664791050408,
+            "duration_ms": 16.491,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664809821052,
+            "end_ns": 1791233664826228996,
+            "duration_ms": 16.408,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664844949327,
+            "end_ns": 1791233664861372642,
+            "duration_ms": 16.423,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664880132006,
+            "end_ns": 1791233664896575982,
+            "duration_ms": 16.444,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664915264581,
+            "end_ns": 1791233664931658354,
+            "duration_ms": 16.394,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664950484592,
+            "end_ns": 1791233664966837642,
+            "duration_ms": 16.353,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233664985643809,
+            "end_ns": 1791233665002076192,
+            "duration_ms": 16.432,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233665020854928,
+            "end_ns": 1791233665037270391,
+            "duration_ms": 16.415,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233664505424847,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233664572356632,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233664636163428,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233664697971662,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233664737776468,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233664774103950,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233664809415313,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233664844545208,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233664879724036,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233664914860632,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233664950070432,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233664985197348,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233665020452049,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233665071376609,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          5.481,
+          6.534,
+          6.15,
+          4.768,
+          16.977,
+          18.448,
+          18.771,
+          18.72,
+          18.759,
+          18.689,
+          18.826,
+          18.806,
+          18.779
+        ],
+        "first_token_ns": 1791233664429954980,
+        "finish_ns": 1791233665072901321
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233664439052939,
+        "load_committed_ns": 1791233664737975947,
+        "worker_active_ms": 298.923,
+        "short_decode_overlap_ms": 298.923,
+        "overlapping_batch_count": 5,
+        "overlapping_batch_median_ms": 58.799,
+        "nonoverlapping_batch_median_ms": 16.423,
+        "cuda_elapsed_ms": 266.275452
+      }
+    },
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-pair02-post_short",
+      "condition": "post_short",
+      "pair": 2,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-pair02-post_short",
+        "load_timing": "post_short",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-pair02-post_short-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair02-post_short-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.587,
+            "submission_after_tool_ms": 0.163,
+            "first_token_after_tool_ms": 317.174,
+            "completion_after_tool_ms": 825.915,
+            "replay_total_ms": 825.752,
+            "replay_ttft_ms": 317.011,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair02-post_short-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10003.218,
+            "submission_after_tool_ms": 0.114,
+            "first_token_after_tool_ms": 116.87,
+            "completion_after_tool_ms": 625.801,
+            "replay_total_ms": 625.687,
+            "replay_ttft_ms": 116.756,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8275.213,
+            "load_acceptance_after_tool_ms": -8253.021,
+            "load_completion_observed_after_tool_ms": -4823.132,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4182.616,
+        "workflow_makespan_ms": 15436.101,
+        "load_overlapped_short_request": false,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 18,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "replay_finished": 2,
+          "load_requested": 1,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-pair02-post_short-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          35.21,
+          35.444,
+          34.951,
+          35.274,
+          35.382,
+          35.207,
+          35.167,
+          35.28,
+          35.14,
+          35.263,
+          35.085,
+          35.173,
+          35.187,
+          50.674
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233681080560787,
+            "end_ns": 1791233681097438122,
+            "duration_ms": 16.877,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681115872102,
+            "end_ns": 1791233681132653372,
+            "duration_ms": 16.781,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681151100790,
+            "end_ns": 1791233681167903073,
+            "duration_ms": 16.802,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681186249177,
+            "end_ns": 1791233681202692141,
+            "duration_ms": 16.443,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681221655414,
+            "end_ns": 1791233681238665307,
+            "duration_ms": 17.01,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681256923666,
+            "end_ns": 1791233681273819732,
+            "duration_ms": 16.896,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681292133315,
+            "end_ns": 1791233681308786460,
+            "duration_ms": 16.653,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681327290381,
+            "end_ns": 1791233681344233089,
+            "duration_ms": 16.943,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681362533522,
+            "end_ns": 1791233681379253680,
+            "duration_ms": 16.72,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681397716879,
+            "end_ns": 1791233681414621855,
+            "duration_ms": 16.905,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681432973720,
+            "end_ns": 1791233681449752871,
+            "duration_ms": 16.779,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681468099785,
+            "end_ns": 1791233681484375031,
+            "duration_ms": 16.275,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681503258242,
+            "end_ns": 1791233681519702486,
+            "duration_ms": 16.444,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233681538424558,
+            "end_ns": 1791233681554815669,
+            "duration_ms": 16.391,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233681115398869,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233681150672140,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233681185816107,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233681221173071,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233681256486196,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233681291703185,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233681326854111,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233681362086431,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233681397276008,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233681432560301,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233681467698916,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233681502836592,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233681537995468,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233681588336510,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          18.434,
+          18.447,
+          18.346,
+          18.963,
+          18.258,
+          18.314,
+          18.504,
+          18.3,
+          18.463,
+          18.352,
+          18.347,
+          18.883,
+          18.722
+        ],
+        "first_token_ns": 1791233681081134714,
+        "finish_ns": 1791233681589875902
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233681605781691,
+        "load_committed_ns": 1791233685034673589,
+        "worker_active_ms": 3428.892,
+        "short_decode_overlap_ms": 0.0,
+        "overlapping_batch_count": 0,
+        "overlapping_batch_median_ms": null,
+        "nonoverlapping_batch_median_ms": 16.78,
+        "cuda_elapsed_ms": 3360.837158
+      }
+    },
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-pair03-post_short",
+      "condition": "post_short",
+      "pair": 3,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-pair03-post_short",
+        "load_timing": "post_short",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-pair03-post_short-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair03-post_short-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 900.932,
+            "submission_after_tool_ms": 0.09,
+            "first_token_after_tool_ms": 319.778,
+            "completion_after_tool_ms": 829.221,
+            "replay_total_ms": 829.132,
+            "replay_ttft_ms": 319.688,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair03-post_short-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10002.529,
+            "submission_after_tool_ms": 0.118,
+            "first_token_after_tool_ms": 123.273,
+            "completion_after_tool_ms": 631.043,
+            "replay_total_ms": 630.925,
+            "replay_ttft_ms": 123.154,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8271.863,
+            "load_acceptance_after_tool_ms": -8228.678,
+            "load_completion_observed_after_tool_ms": -4862.577,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4198.09,
+        "workflow_makespan_ms": 15454.857,
+        "load_overlapped_short_request": false,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 17,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "replay_finished": 2,
+          "load_requested": 1,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-pair03-post_short-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          35.213,
+          35.331,
+          35.203,
+          35.252,
+          35.276,
+          35.258,
+          35.29,
+          35.263,
+          35.216,
+          35.274,
+          35.323,
+          35.144,
+          35.222,
+          50.849
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233697386029432,
+            "end_ns": 1791233697403082807,
+            "duration_ms": 17.053,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697421355998,
+            "end_ns": 1791233697438412933,
+            "duration_ms": 17.057,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697456658203,
+            "end_ns": 1791233697473343890,
+            "duration_ms": 16.686,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697491899595,
+            "end_ns": 1791233697508768370,
+            "duration_ms": 16.869,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697527133606,
+            "end_ns": 1791233697543883816,
+            "duration_ms": 16.75,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697562390319,
+            "end_ns": 1791233697579364100,
+            "duration_ms": 16.974,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697597664602,
+            "end_ns": 1791233697614353880,
+            "duration_ms": 16.689,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697632940466,
+            "end_ns": 1791233697649988130,
+            "duration_ms": 17.048,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697668197008,
+            "end_ns": 1791233697684909077,
+            "duration_ms": 16.712,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697703442051,
+            "end_ns": 1791233697720423112,
+            "duration_ms": 16.981,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697738690233,
+            "end_ns": 1791233697755420112,
+            "duration_ms": 16.73,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697773912514,
+            "end_ns": 1791233697790963478,
+            "duration_ms": 17.051,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697809174316,
+            "end_ns": 1791233697825997180,
+            "duration_ms": 16.823,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233697844378707,
+            "end_ns": 1791233697861444192,
+            "duration_ms": 17.065,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233697420852325,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233697456153549,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233697491398801,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233697526634423,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233697561869135,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233697597167279,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233697632433992,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233697667694065,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233697702949598,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233697738176948,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233697773416461,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233697808679613,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233697843875163,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233697894293481,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          18.273,
+          18.245,
+          18.556,
+          18.365,
+          18.507,
+          18.301,
+          18.587,
+          18.209,
+          18.533,
+          18.267,
+          18.492,
+          18.211,
+          18.382
+        ],
+        "first_token_ns": 1791233697386611060,
+        "finish_ns": 1791233697896054624
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233697910358038,
+        "load_committed_ns": 1791233701293628294,
+        "worker_active_ms": 3383.27,
+        "short_decode_overlap_ms": 0.0,
+        "overlapping_batch_count": 0,
+        "overlapping_batch_median_ms": null,
+        "nonoverlapping_batch_median_ms": 16.922,
+        "cuda_elapsed_ms": 3353.416016
+      }
+    },
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-pair03-early",
+      "condition": "early",
+      "pair": 3,
+      "warmup": false,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-pair03-early",
+        "load_timing": "early",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-pair03-early-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair03-early-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 900.785,
+            "submission_after_tool_ms": 0.15,
+            "first_token_after_tool_ms": 317.497,
+            "completion_after_tool_ms": 1011.272,
+            "replay_total_ms": 1011.123,
+            "replay_ttft_ms": 317.347,
+            "cached_prefix_tokens": 4181
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-pair03-early-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10004.903,
+            "submission_after_tool_ms": 0.118,
+            "first_token_after_tool_ms": 116.664,
+            "completion_after_tool_ms": 623.543,
+            "replay_total_ms": 623.425,
+            "replay_ttft_ms": 116.546,
+            "cached_prefix_tokens": 4181,
+            "second_replay_cached_prefix_tokens": 4198,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8804.049,
+            "load_acceptance_after_tool_ms": -8776.885,
+            "load_completion_observed_after_tool_ms": -8421.673,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4225.022,
+        "workflow_makespan_ms": 15476.52,
+        "load_overlapped_short_request": true,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 8,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "load_requested": 1,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_finished": 2,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-pair03-early-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          83.405,
+          75.289,
+          74.454,
+          71.371,
+          56.161,
+          35.629,
+          35.326,
+          35.423,
+          34.751,
+          35.186,
+          35.228,
+          35.211,
+          35.006,
+          51.038
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233713771567674,
+            "end_ns": 1791233713837721182,
+            "duration_ms": 66.154,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233713845447496,
+            "end_ns": 1791233713915223874,
+            "duration_ms": 69.776,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233713918001475,
+            "end_ns": 1791233713987696349,
+            "duration_ms": 69.695,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233713995378300,
+            "end_ns": 1791233714059389828,
+            "duration_ms": 64.012,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714067291770,
+            "end_ns": 1791233714109514319,
+            "duration_ms": 42.223,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714119329992,
+            "end_ns": 1791233714137233216,
+            "duration_ms": 17.903,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714154751251,
+            "end_ns": 1791233714171370174,
+            "duration_ms": 16.619,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714190031384,
+            "end_ns": 1791233714206434836,
+            "duration_ms": 16.403,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714225172430,
+            "end_ns": 1791233714242224563,
+            "duration_ms": 17.052,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714260386908,
+            "end_ns": 1791233714276775022,
+            "duration_ms": 16.388,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714295515114,
+            "end_ns": 1791233714312008842,
+            "duration_ms": 16.494,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714330762665,
+            "end_ns": 1791233714347135546,
+            "duration_ms": 16.373,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714365877400,
+            "end_ns": 1791233714382243571,
+            "duration_ms": 16.366,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233714401029756,
+            "end_ns": 1791233714417359416,
+            "duration_ms": 16.33,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233713841269259,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233713916512505,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233713991220505,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233714063009428,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233714118685261,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233714154283839,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233714189615314,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233714224762471,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233714259970159,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233714295104305,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233714330337765,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233714365453700,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233714400629728,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233714451237733,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          7.726,
+          2.778,
+          7.682,
+          7.902,
+          9.816,
+          17.518,
+          18.661,
+          18.738,
+          18.162,
+          18.74,
+          18.754,
+          18.742,
+          18.786
+        ],
+        "first_token_ns": 1791233713759020783,
+        "finish_ns": 1791233714452796166
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233713767914092,
+        "load_committed_ns": 1791233714118892621,
+        "worker_active_ms": 350.979,
+        "short_decode_overlap_ms": 350.979,
+        "overlapping_batch_count": 5,
+        "overlapping_batch_median_ms": 66.154,
+        "nonoverlapping_batch_median_ms": 16.403,
+        "cuda_elapsed_ms": 332.759735
+      }
+    }
+  ],
+  "warmup_cases": [
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-warmup01-early",
+      "condition": "early",
+      "pair": 1,
+      "warmup": true,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-warmup01-early",
+        "load_timing": "early",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-warmup01-early-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-warmup01-early-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 900.765,
+            "submission_after_tool_ms": 0.112,
+            "first_token_after_tool_ms": 624.126,
+            "completion_after_tool_ms": 1315.846,
+            "replay_total_ms": 1315.734,
+            "replay_ttft_ms": 624.014,
+            "cached_prefix_tokens": 4182
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-warmup01-early-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10004.485,
+            "submission_after_tool_ms": 0.151,
+            "first_token_after_tool_ms": 153.786,
+            "completion_after_tool_ms": 664.486,
+            "replay_total_ms": 664.335,
+            "replay_ttft_ms": 153.635,
+            "cached_prefix_tokens": 4182,
+            "second_replay_cached_prefix_tokens": 4199,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8803.263,
+            "load_acceptance_after_tool_ms": -8467.321,
+            "load_completion_observed_after_tool_ms": -8189.729,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 31581.28,
+        "workflow_makespan_ms": 42881.401,
+        "load_overlapped_short_request": true,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 18,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 84,
+          "load_requested": 1,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_finished": 2,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-warmup01-early-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          120.656,
+          111.152,
+          55.888,
+          35.655,
+          35.204,
+          35.12,
+          35.11,
+          35.192,
+          35.168,
+          35.116,
+          35.532,
+          34.745,
+          35.18,
+          51.702
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233599243230709,
+            "end_ns": 1791233599347144728,
+            "duration_ms": 103.914,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599348585225,
+            "end_ns": 1791233599457122989,
+            "duration_ms": 108.538,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599463243086,
+            "end_ns": 1791233599501306419,
+            "duration_ms": 38.063,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599515850510,
+            "end_ns": 1791233599534285564,
+            "duration_ms": 18.435,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599551340844,
+            "end_ns": 1791233599567938441,
+            "duration_ms": 16.598,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599586595344,
+            "end_ns": 1791233599602970031,
+            "duration_ms": 16.375,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599621766692,
+            "end_ns": 1791233599638124259,
+            "duration_ms": 16.358,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599656915839,
+            "end_ns": 1791233599673259184,
+            "duration_ms": 16.343,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599692093016,
+            "end_ns": 1791233599709062782,
+            "duration_ms": 16.97,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599727291436,
+            "end_ns": 1791233599743624491,
+            "duration_ms": 16.333,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599762426101,
+            "end_ns": 1791233599778850221,
+            "duration_ms": 16.424,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599797564798,
+            "end_ns": 1791233599813853601,
+            "duration_ms": 16.289,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599832688603,
+            "end_ns": 1791233599849006868,
+            "duration_ms": 16.318,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233599867836290,
+            "end_ns": 1791233599884043519,
+            "duration_ms": 16.207,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233599348119243,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233599459363724,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233599515150387,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233599550894043,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233599586165264,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233599621353643,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233599656511510,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233599691675317,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233599726876636,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233599762004402,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233599797168909,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233599832278784,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233599867435801,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233599918752995,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          1.44,
+          6.12,
+          14.544,
+          17.055,
+          18.657,
+          18.797,
+          18.792,
+          18.834,
+          18.229,
+          18.802,
+          18.715,
+          18.835,
+          18.829
+        ],
+        "first_token_ns": 1791233599228609824,
+        "finish_ns": 1791233599920329579
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233599239807659,
+        "load_committed_ns": 1791233599515358917,
+        "worker_active_ms": 275.551,
+        "short_decode_overlap_ms": 275.551,
+        "overlapping_batch_count": 3,
+        "overlapping_batch_median_ms": 103.914,
+        "nonoverlapping_batch_median_ms": 16.358,
+        "cuda_elapsed_ms": 245.932632
+      }
+    },
+    {
+      "case_id": "work_audit_decode_overlap_repeated_20261005-warmup01-post_short",
+      "condition": "post_short",
+      "pair": 1,
+      "warmup": true,
+      "audit": {
+        "schema": "agentic_work_audit.multisession.v1",
+        "run_id": "work_audit_decode_overlap_repeated_20261005-warmup01-post_short",
+        "load_timing": "post_short",
+        "controller_decisions": [],
+        "controller_outcome": null,
+        "status": "validated",
+        "failures": [],
+        "setup": {
+          "session_count": 3,
+          "equal_importance": true,
+          "capacity_policy": "explicit two-prefix logical budget; not physical occupancy proof",
+          "tool_waits_overlap": true,
+          "ended_session_id": "work_audit_decode_overlap_repeated_20261005-warmup01-post_short-ends"
+        },
+        "sessions": {
+          "short": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-warmup01-post_short-short",
+            "expected_tool_wait_ms": 900,
+            "observed_tool_wait_ms": 901.511,
+            "submission_after_tool_ms": 0.087,
+            "first_token_after_tool_ms": 298.11,
+            "completion_after_tool_ms": 807.258,
+            "replay_total_ms": 807.171,
+            "replay_ttft_ms": 298.023,
+            "cached_prefix_tokens": 4182
+          },
+          "long": {
+            "session_id": "work_audit_decode_overlap_repeated_20261005-warmup01-post_short-long",
+            "expected_tool_wait_ms": 10000,
+            "observed_tool_wait_ms": 10005.339,
+            "submission_after_tool_ms": 0.125,
+            "first_token_after_tool_ms": 118.467,
+            "completion_after_tool_ms": 628.137,
+            "replay_total_ms": 628.012,
+            "replay_ttft_ms": 118.343,
+            "cached_prefix_tokens": 4182,
+            "second_replay_cached_prefix_tokens": 4199,
+            "load_requested_after_tool_return": false,
+            "load_request_after_tool_ms": -8296.031,
+            "load_acceptance_after_tool_ms": -8255.887,
+            "load_completion_observed_after_tool_ms": -4494.754,
+            "native_load_accepted_before_replay": true
+          }
+        },
+        "initial_phase_ms": 4441.931,
+        "workflow_makespan_ms": 15701.841,
+        "load_overlapped_short_request": false,
+        "event_counts": {
+          "runtime_hooks": 6,
+          "case_start": 1,
+          "initial_sent": 3,
+          "cache_match": 26,
+          "initial_finished": 3,
+          "tool_start": 2,
+          "capacity_policy": 1,
+          "backend_device_evict": 18,
+          "device_evict_proof": 1,
+          "host_resident_proof": 1,
+          "session_end": 1,
+          "ended_prefix_evict_proof": 1,
+          "tool_end": 2,
+          "replay_sent": 2,
+          "layer_copy": 56,
+          "replay_first_token": 2,
+          "replay_stream_chunk": 30,
+          "replay_finished": 2,
+          "load_requested": 1,
+          "load_accepted": 1,
+          "client_load_confirmed": 1,
+          "load_complete": 1,
+          "replay_2_sent": 1,
+          "replay_2_first_token": 1,
+          "replay_2_finished": 1,
+          "case_end": 1
+        },
+        "backend_cache_match_observations": 26,
+        "observations": [
+          "Long session was explicitly evicted to host and later underwent a native load",
+          "The short and long tool waits overlapped",
+          "One session ended without replay"
+        ],
+        "plausibly_mistimed": [],
+        "avoidable_work": "unknown: no same-capacity, same-load counterfactual was run",
+        "limitations": [
+          "Explicit test-budget eviction is not evidence of organic backend capacity pressure.",
+          "The two-prefix budget is enforced by explicit actions, not measured physical GPU occupancy.",
+          "The three initial sessions are candidates; only the long session has direct eviction and host-residency proof.",
+          "A cache match is not proof that model kernels consumed those exact KV slots.",
+          "Backend cache-match events indicate request activity, not measured GPU occupancy."
+        ]
+      },
+      "short_decode": {
+        "request_id": "work_audit_decode_overlap_repeated_20261005-warmup01-post_short-short-replay",
+        "content_chunk_count": 15,
+        "content_intervals_ms": [
+          35.072,
+          35.187,
+          35.116,
+          35.344,
+          35.888,
+          34.671,
+          35.213,
+          35.173,
+          35.117,
+          35.154,
+          35.137,
+          35.222,
+          35.309,
+          51.208
+        ],
+        "completion_tokens": null,
+        "output_characters": 120,
+        "output_sha256": "b10d474fa40ae930c3c8b88680287b33b0db33e32da4dde8cf6faeab0dbc5903",
+        "decode_batches": [
+          {
+            "start_ns": 1791233615524277258,
+            "end_ns": 1791233615540760422,
+            "duration_ms": 16.483,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615559501113,
+            "end_ns": 1791233615575890493,
+            "duration_ms": 16.389,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615594663206,
+            "end_ns": 1791233615611014624,
+            "duration_ms": 16.351,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615629810836,
+            "end_ns": 1791233615646983024,
+            "duration_ms": 17.172,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615665233782,
+            "end_ns": 1791233615682558116,
+            "duration_ms": 17.324,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615700604593,
+            "end_ns": 1791233615716897159,
+            "duration_ms": 16.293,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615735742045,
+            "end_ns": 1791233615752845687,
+            "duration_ms": 17.104,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615770923997,
+            "end_ns": 1791233615787284317,
+            "duration_ms": 16.36,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615806078560,
+            "end_ns": 1791233615822497620,
+            "duration_ms": 16.419,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615841228531,
+            "end_ns": 1791233615857548558,
+            "duration_ms": 16.32,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615876355242,
+            "end_ns": 1791233615893135770,
+            "duration_ms": 16.781,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615911510653,
+            "end_ns": 1791233615927842861,
+            "duration_ms": 16.332,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615946676247,
+            "end_ns": 1791233615963028894,
+            "duration_ms": 16.353,
+            "forward_mode": "ForwardMode.DECODE"
+          },
+          {
+            "start_ns": 1791233615981810417,
+            "end_ns": 1791233615998169446,
+            "duration_ms": 16.359,
+            "forward_mode": "ForwardMode.DECODE"
+          }
+        ],
+        "decode_steps": [
+          {
+            "ts_ns": 1791233615559089953,
+            "output_ids_count": 3
+          },
+          {
+            "ts_ns": 1791233615594249046,
+            "output_ids_count": 4
+          },
+          {
+            "ts_ns": 1791233615629407577,
+            "output_ids_count": 5
+          },
+          {
+            "ts_ns": 1791233615664756259,
+            "output_ids_count": 6
+          },
+          {
+            "ts_ns": 1791233615700204794,
+            "output_ids_count": 7
+          },
+          {
+            "ts_ns": 1791233615735291354,
+            "output_ids_count": 8
+          },
+          {
+            "ts_ns": 1791233615770518048,
+            "output_ids_count": 9
+          },
+          {
+            "ts_ns": 1791233615805673921,
+            "output_ids_count": 10
+          },
+          {
+            "ts_ns": 1791233615840819732,
+            "output_ids_count": 11
+          },
+          {
+            "ts_ns": 1791233615875952753,
+            "output_ids_count": 12
+          },
+          {
+            "ts_ns": 1791233615911104344,
+            "output_ids_count": 13
+          },
+          {
+            "ts_ns": 1791233615946263617,
+            "output_ids_count": 14
+          },
+          {
+            "ts_ns": 1791233615981404888,
+            "output_ids_count": 15
+          },
+          {
+            "ts_ns": 1791233616032192764,
+            "output_ids_count": 16
+          }
+        ],
+        "inter_batch_gaps_ms": [
+          18.741,
+          18.773,
+          18.796,
+          18.251,
+          18.046,
+          18.845,
+          18.078,
+          18.794,
+          18.731,
+          18.807,
+          18.375,
+          18.833,
+          18.782
+        ],
+        "first_token_ns": 1791233615524908838,
+        "finish_ns": 1791233616034056941
+      },
+      "load_overlap": {
+        "bounds_available": true,
+        "worker_started_ns": 1791233616046323769,
+        "load_committed_ns": 1791233619819314409,
+        "worker_active_ms": 3772.991,
+        "short_decode_overlap_ms": 0.0,
+        "overlapping_batch_count": 0,
+        "overlapping_batch_median_ms": null,
+        "nonoverlapping_batch_median_ms": 16.374,
+        "cuda_elapsed_ms": 3744.387207
+      }
+    }
+  ],
+  "limitations": [
+    "Worker start-to-commit is an upper bound on GPU-copy activity, not exact HBM overlap.",
+    "Client stream content chunks need not equal model tokens; backend decode steps are separate evidence.",
+    "Batch wall time includes CPU submission and synchronization; it is not GPU kernel time.",
+    "A timing difference is not direct proof of bandwidth contention or recoverable hardware work."
+  ],
+  "source_paths": {
+    "harness": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/work_audit_decode_overlap_repeated_20261005/harness_events.jsonl",
+    "backend_trace": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/work_audit_decode_overlap_repeated_20261005/backend_trace.jsonl"
+  }
+}

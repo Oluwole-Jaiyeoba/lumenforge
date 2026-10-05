@@ -95,9 +95,13 @@ async def one_case(client: httpx.AsyncClient, args: argparse.Namespace, log: Eve
                 request_context=context(session_id=session, prefix_id=f"{session}-prefix",
                                         phase="audit_replay", request_id=replay_id,
                                         p_hash=prompt_hash(text)), max_tokens=args.max_tokens,
+                capture_chunks=getattr(args, "capture_stream_chunks", False),
             )
             log.emit("replay_sent", session, replay_id, at_ns=result["request_start_ns"])
             log.emit("replay_first_token", session, replay_id, at_ns=result["first_token_ns"])
+            for index, chunk in enumerate(result.get("content_chunks") or []):
+                log.emit("replay_stream_chunk", session, replay_id,
+                         at_ns=chunk["ts_ns"], index=index, characters=chunk["characters"])
             log.emit("replay_finished", session, replay_id, at_ns=result["request_end_ns"])
             if label == "short":
                 short_completion.set()
@@ -218,9 +222,13 @@ async def one_case(client: httpx.AsyncClient, args: argparse.Namespace, log: Eve
                 request_context=context(session_id=session, prefix_id=f"{session}-prefix",
                                         phase="audit_replay", request_id=replay_id,
                                         p_hash=prompt_hash(text)), max_tokens=args.max_tokens,
+                capture_chunks=getattr(args, "capture_stream_chunks", False),
             )
             log.emit("replay_sent", session, replay_id, at_ns=result["request_start_ns"])
             log.emit("replay_first_token", session, replay_id, at_ns=result["first_token_ns"])
+            for index, chunk in enumerate(result.get("content_chunks") or []):
+                log.emit("replay_stream_chunk", session, replay_id,
+                         at_ns=chunk["ts_ns"], index=index, characters=chunk["characters"])
             log.emit("replay_finished", session, replay_id, at_ns=result["request_end_ns"])
             return result
 
@@ -271,7 +279,10 @@ async def main_async() -> None:
     parser.add_argument("--eviction-rounds", type=int, default=4)
     parser.add_argument("--pairs", type=int, default=2)
     parser.add_argument("--warmup-pairs", type=int, default=1)
+    parser.add_argument("--capture-stream-chunks", action="store_true",
+                        help="Record timestamp and length of each response content chunk, not its text")
     parser.add_argument("--case-order", choices=(
+        "early-post_short", "post_short-early",
         "early-late_nonblocking", "late_nonblocking-early",
         "late_nonblocking-early-post_short", "post_short-early-late_nonblocking",
         "late_nonblocking-early-post_short-controller_window",

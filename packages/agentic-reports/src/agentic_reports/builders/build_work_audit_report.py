@@ -28,6 +28,14 @@ def _seconds(value: object) -> str:
     return f"{value / 1000:.2f} s" if isinstance(value, (int, float)) else "not recorded"
 
 
+def _forward_trace_enabled(summary: dict) -> bool:
+    if "model_forward_required" in summary:
+        return bool(summary["model_forward_required"])
+    return any(batch.get("model_forward_ms") is not None
+               for case in summary.get("cases") or []
+               for batch in (case.get("short_decode") or {}).get("decode_batches") or [])
+
+
 def _direction(value: object, positive: str, negative: str) -> str:
     if not isinstance(value, (int, float)):
         return "not recorded"
@@ -50,7 +58,8 @@ def _mode_table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> str:
         "".join(f"<td>{cell}</td>" for cell in row[1:]) + "</tr>"
         for row in rows
     )
-    return ("<div class='detail-scroll'><table class='mode-table'><thead><tr>" + head +
+    width = max(620, len(headers) * 145)
+    return (f"<div class='detail-scroll'><table class='mode-table' style='min-width:{width}px'><thead><tr>" + head +
             "</tr></thead><tbody>" + body + "</tbody></table></div>")
 
 
@@ -174,12 +183,37 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
         return brief, detail
     order = " → ".join(map(str, workload.get("cases") or [])) or "not recorded"
     profile = summary.get("_trace_profile") or next(
-        (name for name in manifest.get("enabled_instrumentation") or [] if name.startswith("kv_lifecycle")),
+        (name for name in manifest.get("enabled_instrumentation") or []
+         if name.startswith("kv_lifecycle") or name == "kv_decode_overlap"),
         None,
     )
+    if summary.get("schema") == "agentic_work_audit.decode_overlap.v1":
+        count = workload.get("pairs")
+        brief = (f"3 equal-importance sessions · {_esc(count)} measured "
+                 f"{'pair' if count == 1 else 'pairs'} · early vs after-short worker load")
+        detail = (
+            f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
+            f"{_esc(manifest.get('model'))}; backend {_esc(manifest.get('backend_version'))}; "
+            f"trace {_esc(profile)}; model-forward trace "
+            f"{'on' if _forward_trace_enabled(summary) else 'off'}. "
+            "Each case began three equal-importance sessions: "
+            "a short tool wait, a long tool wait, and one session that ended. The long prefix "
+            "was explicitly evicted to host. Its worker load began either during short decode "
+            "or after short completion; both loads had to finish before long tool return. "
+            f"Tool waits: {_esc(workload.get('short_wait_ms'))} / "
+            f"{_esc(workload.get('long_wait_ms'))} ms; early load at "
+            f"{_esc(workload.get('early_at_ms'))} ms. "
+            f"{_esc(workload.get('warmup_pairs'))} warmup pairs excluded; order reversed by pair. "
+            f"Prompt target {_esc(workload.get('prompt_words_target'))} words, output cap "
+            f"{_esc(workload.get('max_output_tokens'))} tokens, host cache "
+            f"{_esc(workload.get(CACHE_SIZE_FIELD))} GB, GPU memory fraction "
+            f"{_esc(workload.get('mem_fraction_static'))}."
+        )
+        return brief, detail
     if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
                                  "agentic_work_audit.multisession_window.v1",
-                                 "agentic_work_audit.controller_window.v1"):
+                                 "agentic_work_audit.controller_window.v1",
+                                 "agentic_work_audit.decode_overlap.v1"):
         controller = summary.get("schema") == "agentic_work_audit.controller_window.v1"
         window = controller or summary.get("schema") == "agentic_work_audit.multisession_window.v1"
         unit = "trial" if window else "pair"
@@ -293,15 +327,20 @@ def _reproduction(summary: dict, timing: bool) -> str:
     cases = workload.get("cases") or []
     if summary.get("schema") in ("agentic_work_audit.multisession_comparison.v1",
                                  "agentic_work_audit.multisession_window.v1",
-                                 "agentic_work_audit.controller_window.v1"):
+                                 "agentic_work_audit.controller_window.v1",
+                                 "agentic_work_audit.decode_overlap.v1"):
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
             "WORK_AUDIT_RESEARCH_QUESTION_ID": workload.get("research_question_id"),
             "WORK_AUDIT_STUDY": ("multisession_controller" if summary.get("schema") ==
                                  "agentic_work_audit.controller_window.v1" else
+                                 "multisession_overlap" if summary.get("schema") ==
+                                 "agentic_work_audit.decode_overlap.v1" else
                                  "multisession_window" if summary.get("schema") ==
                                  "agentic_work_audit.multisession_window.v1" else "multisession_compare"),
             "WORK_AUDIT_TRACE_PROFILE": summary.get("_trace_profile"),
+            "WORK_AUDIT_FORWARD_TRACE": ("1" if _forward_trace_enabled(summary) else "0")
+                                            if summary.get("schema") == "agentic_work_audit.decode_overlap.v1" else None,
             "WORK_AUDIT_CASE_ORDER": "-".join(map(str, cases)),
             "WORK_AUDIT_PAIRS": workload.get("pairs"),
             "WORK_AUDIT_WARMUP_PAIRS": workload.get("warmup_pairs"),
@@ -551,6 +590,50 @@ def _multisession_window_result(summary: dict) -> tuple[str, str]:
     return headline, detail
 
 
+def _decode_overlap_result(summary: dict) -> tuple[str, str]:
+    pairs = [pair for pair in summary.get("pairs") or [] if pair.get("comparable")]
+    finish_delta = [pair["early_short_finish_ms"] - pair["post_short_finish_ms"]
+                    for pair in pairs]
+    first_delta = [pair["early_short_first_token_ms"] - pair["post_short_first_token_ms"]
+                   for pair in pairs]
+    headline = (
+        f"{len(pairs)}/{len(summary.get('pairs') or [])} matched pairs · "
+        f"short finish {_direction(median(finish_delta) if finish_delta else None, 'later', 'earlier')} "
+        "with early load; first token "
+        f"{_direction(median(first_delta) if first_delta else None, 'later', 'earlier')}"
+    )
+    rows = []
+    for case in summary.get("cases") or []:
+        short = case.get("short_decode") or {}
+        batches = short.get("decode_batches") or []
+        def total(key: str) -> float | None:
+            values = [batch[key] for batch in batches if isinstance(batch.get(key), (int, float))]
+            return round(sum(values), 1) if values else None
+        rows.append((
+            f"Trial {case.get('pair')} · {case.get('condition')}",
+            _ms((case.get("audit") or {}).get("sessions", {}).get("short", {}).get("first_token_after_tool_ms")),
+            _ms((case.get("audit") or {}).get("sessions", {}).get("short", {}).get("completion_after_tool_ms")),
+            _ms(total("duration_ms")), _ms(total("model_forward_ms")),
+            _ms(total("non_forward_ms")),
+            _ms(sum(short.get("inter_batch_gaps_ms") or [])),
+            _ms((case.get("load_overlap") or {}).get("short_decode_overlap_ms")),
+        ))
+    detail = (
+        "<p><strong>What the times mean.</strong> All short timings begin at short tool return. "
+        "Batch time is measured inside the backend's run_batch call after first token; model-forward "
+        "time is the nested forward_batch_generation call. Gap time is between those batches. "
+        "The overlap column is worker start-to-commit intersected with short decode, an upper "
+        "bound on actual GPU-copy overlap. Both modes load before long tool return.</p>" +
+        _mode_table(("Trial / load timing", "Short first token", "Short finish", "Batch total",
+                     "Model forward", "Other batch time", "Between batches", "Load overlap"), rows) +
+        _pair_gates(summary.get("pairs") or []) +
+        "<p><strong>Limit.</strong> Model-forward wall time includes GPU work and synchronization. "
+        "This identifies the affected software stage but does not isolate HBM bandwidth or "
+        "prove a hardware offload benefit.</p>"
+    )
+    return headline, detail
+
+
 def _controller_window_result(summary: dict) -> tuple[str, str]:
     pairs = summary.get("pairs") or []
     headline = (f"{summary.get('comparable_pairs', 0)}/{len(pairs)} matched four-mode trials · "
@@ -775,6 +858,29 @@ def _run_finding(summary: dict) -> str:
 
     schema = summary.get("schema")
     pairs = summary.get("pairs") or []
+    if schema == "agentic_work_audit.decode_overlap.v1":
+        cases = {(case.get("pair"), case.get("condition")): case
+                 for case in summary.get("cases") or []}
+        if not pairs or not all(pair.get("comparable") for pair in pairs):
+            return "Decode-overlap comparison failed its evidence gate; no timing finding is claimed."
+        finish_later = all(pair["early_short_finish_ms"] > pair["post_short_finish_ms"]
+                           for pair in pairs)
+        forward_available = all(any(batch.get("model_forward_ms") is not None for batch in
+                                    cases[(pair["pair"], mode)]["short_decode"]["decode_batches"])
+                                for pair in pairs for mode in ("early", "post_short"))
+        forward_later = all(
+            sum(batch.get("model_forward_ms") or 0 for batch in
+                cases[(pair["pair"], "early")]["short_decode"]["decode_batches"]) >
+            sum(batch.get("model_forward_ms") or 0 for batch in
+                cases[(pair["pair"], "post_short")]["short_decode"]["decode_batches"])
+            for pair in pairs)
+        if finish_later and forward_available and forward_later:
+            return ("Early worker loading delayed the short response in every pair; the added "
+                    "batch time was in model forward, not queue gaps. HBM contention is not established.")
+        if finish_later:
+            return ("Early worker loading delayed the short response in every pair. "
+                    "The trace places the added time inside backend batches, not queue gaps.")
+        return "The load overlapped short decode, but its effect on short completion varied across pairs."
     if schema == "agentic_work_audit.busy_comparison.v1":
         if all(pair["workflow_saved_ms"] > 0 and pair["total_replay_ttft_saved_ms"] > 0
                for pair in pairs):
@@ -856,6 +962,7 @@ def _kind(summary: dict) -> str:
         "agentic_work_audit.controller_window.v1": "Controller-chosen load window",
         "agentic_work_audit.multisession_window.v1": "Three concurrent load windows",
         "agentic_work_audit.multisession_comparison.v1": "Concurrent early vs late",
+        "agentic_work_audit.decode_overlap.v1": "Decode overlap attribution",
         "agentic_work_audit.multisession.v1": "Concurrent timeline",
         "agentic_work_audit.timing.v1": "Early vs late",
         "agentic_work_audit.validation.v1": "Lifecycle validation",
@@ -869,6 +976,8 @@ def _kind(summary: dict) -> str:
 
 def _result_parts(summary: dict) -> tuple[str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.decode_overlap.v1":
+        return _decode_overlap_result(summary)
     if schema == "agentic_work_audit.kv_load_attribution.v1":
         return _attribution_result(summary)
     if schema == "agentic_work_audit.busy_comparison.v1":
@@ -909,6 +1018,8 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         question_id = manifest_question_id or archived_question_id
         milestone = questions.get(question_id)
         fallback_question = (
+            "When early worker KV loading overlaps another session's decode, which part of its "
+            "response path slows?" if summary.get("schema") == "agentic_work_audit.decode_overlap.v1" else
             "Which replay stages change when the controller checks KV residency and then requests early loads?"
             if attribution else
             "In a busy, naturally evicting system, does using each session's tool-return estimate "
@@ -1111,6 +1222,24 @@ def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
 
 def _markdown_metrics(summary: dict) -> str:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.decode_overlap.v1":
+        rows = []
+        for case in summary.get("cases") or []:
+            short = case.get("short_decode") or {}
+            batches = short.get("decode_batches") or []
+            def total(key: str) -> float | None:
+                values = [batch[key] for batch in batches if isinstance(batch.get(key), (int, float))]
+                return round(sum(values), 1) if values else None
+            rows.append((f"Trial {case.get('pair')} · {case.get('condition')}",
+                         (case.get("audit") or {}).get("sessions", {}).get("short", {}).get("first_token_after_tool_ms"),
+                         (case.get("audit") or {}).get("sessions", {}).get("short", {}).get("completion_after_tool_ms"),
+                         total("duration_ms"), total("model_forward_ms"),
+                         total("non_forward_ms"),
+                         round(sum(short.get("inter_batch_gaps_ms") or []), 1),
+                         (case.get("load_overlap") or {}).get("short_decode_overlap_ms")))
+        return _md_table(("Trial / mode", "Short first token (ms)", "Short finish (ms)",
+                          "Batch time (ms)", "Model forward (ms)", "Other batch time (ms)",
+                          "Between batches (ms)", "Load overlap (ms)"), rows)
     if schema == "agentic_work_audit.kv_load_attribution.v1":
         rows = []
         for seed in summary.get("seeds") or []:
@@ -1352,6 +1481,16 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.decode_overlap.v1":
+        pairs = [pair for pair in summary.get("pairs") or [] if pair.get("comparable")]
+        def med(key: str) -> float | None:
+            values = [pair[key] for pair in pairs if isinstance(pair.get(key), (int, float))]
+            return median(values) if values else None
+        return ("After-short → early worker load, both before tool return",
+                _arrow(med("post_short_long_first_token_ms"), med("early_long_first_token_ms")),
+                _arrow(med("post_short_finish_ms"), med("early_short_finish_ms")),
+                _arrow(med("post_short_workflow_ms"), med("early_workflow_ms"), seconds=True),
+                _run_finding(summary), summary.get("status", "unknown"))
     if schema in ("agentic_work_audit.multisession_comparison.v1",
                   "agentic_work_audit.multisession_window.v1",
                   "agentic_work_audit.controller_window.v1"):

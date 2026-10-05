@@ -162,6 +162,50 @@ class TraceInstallTest(unittest.TestCase):
         self.assertIn("scheduler.handle_generate_request.end", out["events"])
         self.assertNotIn("scheduler.get_next_batch_to_run.end", out["events"])
 
+    def test_decode_batch_only_traces_selected_methods_and_keeps_prepare_pump(self) -> None:
+        root = build_fake_sglang(self.tmp / "site", get_adapter("v0510"), "0.5.10.post1")
+        script = textwrap.dedent("""
+            import json, os
+            from agentic_backends.sglang.trace import install
+            install()
+            from sglang.srt.managers.scheduler import Scheduler
+            from sglang.srt.managers.tp_worker import TpModelWorker
+            scheduler = Scheduler()
+            scheduler.run_batch()
+            scheduler.process_batch_result_decode()
+            scheduler.get_next_batch_to_run()
+            TpModelWorker().forward_batch_generation()
+            rows = [json.loads(line) for line in open(os.environ["AGENTIC_KV_TRACE_PATH"])]
+            print(json.dumps({"events": [row["event"] for row in rows],
+                "pump": getattr(Scheduler.get_next_batch_to_run, "_agentic_kv_control_only", False),
+                "installed": next(row for row in rows if row["event"] == "trace.install.summary")
+                             ["installed_hooks"]}))
+        """)
+        proc = run_install(root, self.tmp / "trace.jsonl", {
+            "AGENTIC_KV_TRACE_SCHEDULER": "0", "AGENTIC_KV_TRACE_CONTROL_ONLY": "1",
+            "AGENTIC_KV_TRACE_DECODE_BATCH_ONLY": "1",
+            "AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY": "1",
+        }, script=script)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = json.loads(proc.stdout.strip().splitlines()[-1])
+        self.assertTrue(out["pump"])
+        self.assertIn("scheduler.run_batch.start", out["events"])
+        self.assertIn("scheduler.process_batch_result_decode.end", out["events"])
+        self.assertIn("worker.forward_batch_generation.end", out["events"])
+        self.assertNotIn("scheduler.get_next_batch_to_run.start", out["events"])
+        self.assertNotIn("scheduler.handle_generate_request.start", out["events"])
+        self.assertNotIn("kv_telemetry.request_stage", out["events"])
+
+        off = run_install(root, self.tmp / "batch_only.jsonl", {
+            "AGENTIC_KV_TRACE_SCHEDULER": "0", "AGENTIC_KV_TRACE_CONTROL_ONLY": "1",
+            "AGENTIC_KV_TRACE_DECODE_BATCH_ONLY": "1",
+            "AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY": "0",
+        }, script=script)
+        self.assertEqual(off.returncode, 0, off.stderr)
+        off_events = json.loads(off.stdout.strip().splitlines()[-1])["events"]
+        self.assertIn("scheduler.run_batch.start", off_events)
+        self.assertNotIn("worker.forward_batch_generation.end", off_events)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,6 +28,7 @@ _VALUES = {
     "request_boundary": (1, 0, 0, 0, 0, 0, 0),
     "kv_lifecycle": (1, 0, 0, 0, 0, 0, 0),
     "kv_lifecycle_lean": (0, 0, 0, 0, 0, 0, 0),
+    "kv_decode_overlap": (0, 0, 0, 0, 0, 0, 0),
     "kv_attribution": (1, 0, 0, 0, 0, 0, 0),
     "copy_timing": (1, 1, 0, 0, 0, 0, 1),
 }
@@ -36,6 +37,7 @@ _HOOK_IDS = {
     "request.accepted": "request_lifecycle",
     "batch.scheduled": "scheduler_batch_observation",
     "batch.completed": "request_completion_timing",
+    "batch.decode_step": "decode_step",
     "kv.write_host": "kv_host_write",
     "kv.evict_gpu": "kv_gpu_evict",
     "kv.evict_host": "kv_host_evict",
@@ -52,6 +54,9 @@ def profile_flags(name: str) -> dict[str, str]:
     flags = dict(zip(_FLAGS, map(str, _VALUES[name])))
     if name == "kv_attribution":
         flags["AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY"] = "1"
+    if name == "kv_decode_overlap":
+        flags["AGENTIC_KV_TRACE_DECODE_BATCH_ONLY"] = "1"
+        flags["AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY"] = "0"
     return flags
 
 

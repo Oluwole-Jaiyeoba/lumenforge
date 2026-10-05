@@ -37,6 +37,10 @@ HOOK_REGISTRY: dict[str, HookCapability] = {
         "SGLang emits batch completion evidence used for request timing.",
         (("Scheduler", "process_batch_result"),),
     ),
+    "decode_step": HookCapability(
+        "decode_step", "Decode result processing for a batch.",
+        (("Scheduler", "process_batch_result_decode"),),
+    ),
     "kv_cache_lifecycle": HookCapability(
         "kv_cache_lifecycle",
         "Prefix-cache matching is visible to the trace.",

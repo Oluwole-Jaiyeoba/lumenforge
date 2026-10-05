@@ -3834,8 +3834,60 @@ def _wrap_control_only(cls: type, method_name: str) -> str:
     return "wrapped"
 
 
+def _minimal_decode_batch(batch: Any) -> dict[str, Any]:
+    requests = []
+    for req in (getattr(batch, "reqs", None) or [])[:32]:
+        params = getattr(getattr(req, "sampling_params", None), "custom_params", None)
+        agentic = params.get("agentic_kv") if isinstance(params, dict) else None
+        request_id = agentic.get("request_id") if isinstance(agentic, dict) else None
+        if not request_id:
+            continue
+        output_ids = getattr(req, "output_ids", None)
+        requests.append({"agent_request_id": str(request_id),
+                         "output_ids": {"count": len(output_ids)} if output_ids is not None else {}})
+    return {"object_id": hex(id(batch)) if batch is not None else "",
+            "forward_mode": str(getattr(batch, "forward_mode", "")),
+            "requests": requests}
+
+
+def _wrap_decode_batch_only(cls: type, method_name: str, event_name: str) -> str:
+    original = getattr(cls, method_name, None)
+    if original is None:
+        return "missing_method"
+    if not callable(original):
+        return "signature_mismatch:not_callable"
+    if getattr(original, "_agentic_kv_wrapped", False):
+        return "already_wrapped"
+
+    @functools.wraps(original)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        batch = _arg_value(args, kwargs, 0, "batch")
+        if batch is None:
+            batch = getattr(self, "running_batch", None)
+        call_id = f"{os.getpid()}-{time.perf_counter_ns()}"
+        started_ns = time.time_ns()
+        _write_event({"event": f"{event_name}.start", "ts_ns": started_ns,
+                      "call_id": call_id, "kv_context": {"batch": _minimal_decode_batch(batch)}})
+        try:
+            result = original(self, *args, **kwargs)
+        except Exception as exc:
+            _write_event({"event": f"{event_name}.error", "call_id": call_id,
+                          "error_type": type(exc).__name__})
+            raise
+        _write_event({"event": f"{event_name}.end", "call_id": call_id,
+                      "duration_ms": round((time.time_ns() - started_ns) / 1e6, 3),
+                      "kv_context": {"batch": _minimal_decode_batch(batch)}})
+        return result
+
+    wrapper._agentic_kv_wrapped = True  # type: ignore[attr-defined]
+    wrapper._agentic_kv_decode_batch_only = True  # type: ignore[attr-defined]
+    setattr(cls, method_name, wrapper)
+    return "wrapped"
+
+
 def _try_patch(
-    importer: Callable[[], Any], class_name: str, methods: dict[str, str], *, control_only: bool = False,
+    importer: Callable[[], Any], class_name: str, methods: dict[str, str], *,
+    control_only: bool = False, decode_only: bool = False,
 ) -> dict[str, str]:
     """Wrap every method of one hook target; returns {method: status}."""
 
@@ -3855,6 +3907,7 @@ def _try_patch(
         return {method_name: f"missing_class:{type(exc).__name__}" for method_name in methods}
 
     return {method_name: (_wrap_control_only(cls, method_name) if control_only
+                          else _wrap_decode_batch_only(cls, method_name, event_name) if decode_only
                           else _wrap_method(cls, method_name, event_name))
             for method_name, event_name in methods.items()}
 
@@ -3905,6 +3958,8 @@ def install_sglang_kv_trace() -> None:
     include_scheduler = os.environ.get("AGENTIC_KV_TRACE_SCHEDULER", "0") == "1"
     ingress_only = include_scheduler and os.environ.get("AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY", "0") == "1"
     control_only = os.environ.get("AGENTIC_KV_TRACE_CONTROL_ONLY", "0") == "1"
+    decode_batch_only = not include_scheduler and _truthy_env("AGENTIC_KV_TRACE_DECODE_BATCH_ONLY")
+    model_forward_only = decode_batch_only and _truthy_env("AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY")
     strict = _truthy_env("AGENTIC_SGLANG_STRICT", default=False)
     sglang_version = installed_sglang_version()
     selection = select_adapter(
@@ -3920,6 +3975,8 @@ def install_sglang_kv_trace() -> None:
             "adapter": adapter.name,
             "scheduler_hooks_enabled": include_scheduler,
             "scheduler_ingress_only": ingress_only,
+            "scheduler_decode_batch_only": decode_batch_only,
+            "model_forward_only": model_forward_only,
             "control_only_scheduler_pump": (control_only and not include_scheduler) or ingress_only,
             "selection": selection.to_dict(),
         }
@@ -3945,7 +4002,20 @@ def install_sglang_kv_trace() -> None:
                 missing_required.append(f"{target.module}.Scheduler.handle_generate_request (missing adapter target)")
                 continue
         if target.scheduler_required and not include_scheduler:
-            if control_only and target.class_name == "Scheduler":
+            if decode_batch_only and target.class_name == "Scheduler":
+                target_methods = {name: target.methods[name] for name in
+                                  ("run_batch", "process_batch_result_decode")
+                                  if name in target.methods}
+                if not target_methods:
+                    missing_required.append(f"{target.module}.Scheduler.run_batch (missing adapter target)")
+                    continue
+            elif model_forward_only and target.class_name == "TpModelWorker":
+                forward_event = target.methods.get("forward_batch_generation")
+                if forward_event is None:
+                    missing_required.append(f"{target.module}.TpModelWorker.forward_batch_generation (missing adapter target)")
+                    continue
+                target_methods = {"forward_batch_generation": forward_event}
+            elif control_only and target.class_name == "Scheduler":
                 pump_event = target.methods.get("get_next_batch_to_run")
                 if pump_event is None:
                     missing_required.append(f"{target.module}.Scheduler.get_next_batch_to_run (missing adapter target)")
@@ -3959,7 +4029,18 @@ def install_sglang_kv_trace() -> None:
             target.class_name,
             target_methods,
             control_only=use_control_only,
+            decode_only=(decode_batch_only and target.class_name == "Scheduler" or
+                         model_forward_only and target.class_name == "TpModelWorker") and not use_control_only,
         )
+        if decode_batch_only and target.class_name == "Scheduler" and control_only:
+            pump_event = target.methods.get("get_next_batch_to_run")
+            if pump_event is None:
+                missing_required.append(f"{target.module}.Scheduler.get_next_batch_to_run (missing adapter target)")
+            else:
+                statuses.update(_try_patch(
+                    lambda module_name=target.module, class_name=target.class_name: __import__(module_name, fromlist=[class_name]),
+                    target.class_name, {"get_next_batch_to_run": pump_event}, control_only=True,
+                ))
         if ingress_only and target.class_name == "Scheduler":
             pump_event = target.methods.get("get_next_batch_to_run")
             if pump_event is None:
