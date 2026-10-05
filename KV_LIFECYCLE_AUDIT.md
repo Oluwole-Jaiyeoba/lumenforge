@@ -80,40 +80,40 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Experiment index
 
-Newest first. Select a run to see its setup, measurements, limits, and reproduction command.
+Newest first. Each arrow goes from the named control to the changed case in the **Compared** column; lower times are better. Three-session rows show the long replay's first token and the short session's finish after tool return. Busy rows show summed replay TTFT across all replays. Workflow is total elapsed time. Rows without a validated comparison have no arrow. For multi-trial runs, arrows compare each mode's median time, which can differ from the median trial-by-trial improvement. Select an experiment for exact trial values and limits.
 
-| UTC date / time | Experiment | Question | Setup | Main result | Gate |
-| --- | --- | --- | --- | --- | --- |
-| 2026-10-05 18:28:34 | [Concurrent early vs late · worker load](#run-work_audit_async_fixed_worker_20261005_01) | RQ9 | 3 equal-importance sessions · 1 measured pair · 900 / 2500 ms waits · worker KV load | Long replay first token after tool: early 89.9 ms; late 1131.2 ms | validated |
-| 2026-10-05 18:26:11 | [Concurrent early vs late · scheduler load](#run-work_audit_async_fixed_scheduler_20261005_02) | RQ9 | 3 equal-importance sessions · 1 measured pair · 900 / 2500 ms waits · scheduler KV load | Long replay first token after tool: early 89.5 ms; late 276.0 ms | validated |
-| 2026-10-05 18:12:20 | [Busy workload · KV-load attribution · scheduler load](#run-work_audit_async_scheduler_busy_20261005_01) | RQ9 | 12 sessions × 3 tool waits; 1 paired seeds; natural capacity pressure | 5 early-load attempts · load arm +13.2 s summed replay TTFT vs checks-only | complete |
-| 2026-10-05 18:03:46 | [Busy workload · KV-load attribution · worker load](#run-work_audit_async_worker_busy_20261005_01) | RQ9 | 12 sessions × 3 tool waits; 1 paired seeds; natural capacity pressure | 2 early-load attempts · load arm +22.4 s summed replay TTFT vs checks-only | complete |
-| 2026-10-05 18:00:42 | [Lifecycle validation · worker load](#run-work_audit_async_worker_verify_20261005_01) | RQ9 | host → warm · 2 replay(s)/case · 500 ms waits | Host load validated · warm replay 222.7 ms; host-backed replay 899.5 ms | validated |
-| 2026-10-05 16:35:35 | [Busy workload · KV-load attribution](#run-work_audit_load_kernel_20261005_01) | RQ8 | 12 sessions × 3 tool waits; 1 paired seeds; natural capacity pressure | 3 early-load attempts · load arm +17.6 s summed replay TTFT vs checks-only | complete |
-| 2026-10-05 14:31:03 | [Busy workload · KV-load attribution](#run-work_audit_load_phase_20261005_01) | RQ8 | 12 sessions × 3 tool waits; 1 paired seeds; natural capacity pressure | 4 early-load attempts · load arm +11.7 s summed replay TTFT vs checks-only | complete |
-| 2026-10-03 01:19:35 | [Busy workload · KV-load attribution](#run-work_audit_kv_attribution_20261002_04) | RQ8 | 12 sessions × 3 tool waits; 2 paired seeds; natural capacity pressure | 5 early-load attempts · load arm +11.0 s / +19.4 s summed replay TTFT vs checks-only | complete |
-| 2026-10-02 22:14:42 | [Busy workload · controller KV timing](#run-work_audit_busy_pair_20261002_01) | RQ8 | 12 sessions × 3 tool waits; 2 paired seeds; natural capacity pressure | 2 paired seeds · workflow 1175.4 ms slower; total replay TTFT 25878.9 ms higher | validated |
-| 2026-10-02 22:08:50 | [Busy workload · controller KV timing](#run-work_audit_busy_pilot_20261002) | RQ8 | 12 sessions × 3 tool waits; 1 paired seeds; natural capacity pressure | 1 paired seeds · workflow 149.3 ms slower; total replay TTFT 20687.8 ms higher | validated |
-| 2026-10-02 21:16:50 | [Controller-chosen load window](#run-work_audit_controller_window_20261002_01) | RQ7 | 3 equal-importance sessions · 4 measured trials · 900 / 2500 ms waits | 4/4 matched four-mode trials · controller long replay 266.3 ms faster vs late; workflow 283.6 ms faster vs late | validated |
-| 2026-10-02 20:34:20 | [Three concurrent load windows](#run-work_audit_post_short_20261002_01) | RQ6 | 3 equal-importance sessions · 2 measured trials · 900 / 2500 ms waits | 2/2 matched triplets · post-short long replay 356.9 ms faster vs late; short completion 206.1 ms faster vs early | validated |
-| 2026-10-02 19:48:50 | [Concurrent early vs late](#run-work_audit_concurrent_compare_20261002_02) | RQ5 | 3 equal-importance sessions · 2 measured pairs · 900 / 2500 ms waits | 2/2 matched pairs · long replay 356.7 ms faster; short completion 186.4 ms slower; workflow 357.3 ms faster | validated |
-| 2026-10-02 18:42:21 | [Concurrent timeline](#run-work_audit_multisession_20261002_01) | RQ4 | 3 concurrent sessions · 900 / 2500 ms tool waits | Overlapping waits · short first token 81.6 ms; long first token 282.4 ms after tool return | validated |
-| 2026-10-02 18:33:37 | [Early vs late](#run-work_audit_nonblocking_20261002_01) | RQ3 | early → late → late_nonblocking · 1 measured pair(s) · 2000 ms waits | Nonblocking late load: 0/1 comparable pair(s) | validated |
-| 2026-10-02 16:41:32 | [Early vs late](#run-work_audit_timing_sampled_late_early_20261002) | RQ2 | late → early · 2 measured pair(s) · 2000 ms waits | Late +170.1 ms / +173.8 ms to first token | validated |
-| 2026-10-02 16:38:54 | [Early vs late](#run-work_audit_timing_sampled_early_late_20261002) | RQ2 | early → late · 2 measured pair(s) · 2000 ms waits | Late +166.4 ms / +178.1 ms to first token | validated |
-| 2026-10-02 16:25:50 | [Early vs late](#run-work_audit_timing_exact_late_early_20261002) | RQ2 | late → early · 2 measured pair(s) · 2000 ms waits | Late +228.7 ms / +228.6 ms to first token | validated |
-| 2026-10-02 16:22:26 | [Early vs late](#run-work_audit_timing_exact_early_late_20261002) | RQ2 | early → late · 2 measured pair(s) · 2000 ms waits | Late +226.8 ms / +236.5 ms to first token | validated |
-| 2026-10-02 15:34:04 | [Lifecycle validation](#run-work_audit_two_replays_lean_reverse_20261002) | RQ1 | host → warm · 2 replay(s)/case · not recorded ms waits | Host load validated · warm replay 82.3 ms; host-backed replay 436.3 ms | validated |
-| 2026-10-02 15:26:59 | [Lifecycle validation](#run-work_audit_two_replays_lean_pump_20261002) | RQ1 | warm → host · 2 replay(s)/case · not recorded ms waits | Host load validated · warm replay 81.5 ms; host-backed replay 82.6 ms | validated |
-| 2026-10-02 14:54:21 | [Lifecycle validation](#run-work_audit_two_replays_20261002_reverse) | RQ1 | host → warm · 2 replay(s)/case · not recorded ms waits | Host load validated · warm replay 217.1 ms; host-backed replay 573.9 ms | validated |
-| 2026-10-02 14:50:49 | [Lifecycle validation](#run-work_audit_two_replays_20261002) | RQ1 | warm → host · 2 replay(s)/case · not recorded ms waits | Host load validated · warm replay 220.9 ms; host-backed replay 229.1 ms | validated |
-| 2026-10-01 22:42:31 | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | warm → host · not recorded replay(s)/case · not recorded ms waits | Host load validated · warm replay 227.1 ms; host-backed replay 230.3 ms | validated |
+| Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct 5, 2026, 1:28:34 p.m. CDT | [Concurrent early vs late · worker load](#run-work_audit_async_fixed_worker_20261005_01) | RQ9 | 3 equal-importance sessions · 1 measured pair · 900 / 2500 ms waits · worker KV load | Late loading → early loading (1 pair) | 1,131 → 90 ms (1,041 ms faster) | 809 → 1,006 ms (198 ms later) | 8,953 → 7,900 ms (1,053 ms sooner) | Long replay came sooner; short session finished later; full workflow finished sooner in this matched pair. | validated; 1 pair |
+| Oct 5, 2026, 1:26:11 p.m. CDT | [Concurrent early vs late · scheduler load](#run-work_audit_async_fixed_scheduler_20261005_02) | RQ9 | 3 equal-importance sessions · 1 measured pair · 900 / 2500 ms waits · scheduler KV load | Late loading → early loading (1 pair) | 276 → 90 ms (186 ms faster) | 811 → 991 ms (180 ms later) | 8,089 → 7,896 ms (193 ms sooner) | Long replay came sooner; short session finished later; full workflow finished sooner in this matched pair. | validated; 1 pair |
+| Oct 5, 2026, 1:12:20 p.m. CDT | [Busy workload · KV-load attribution · scheduler load](#run-work_audit_async_scheduler_busy_20261005_01) | RQ9 | 12 sessions × 3 tool waits; 1 paired seed; natural capacity pressure | Checks only → checks + early loads (1 seed); 36 replays/seed | 423.6 → 436.8 s (13.2 s higher) | Other-session effect not isolated | 90.5 → 91.3 s (0.8 s later) | Combined replay first-token time and total workload time both increased in this sample. | complete; 1 seed |
+| Oct 5, 2026, 1:03:46 p.m. CDT | [Busy workload · KV-load attribution · worker load](#run-work_audit_async_worker_busy_20261005_01) | RQ9 | 12 sessions × 3 tool waits; 1 paired seed; natural capacity pressure | Checks only → checks + early loads (1 seed); 36 replays/seed | 420.5 → 442.8 s (22.4 s higher) | Other-session effect not isolated | 92.1 → 91.9 s (0.2 s sooner) | Combined replay first-token time increased, although the workload finished sooner. | complete; 1 seed |
+| Oct 5, 2026, 1:00:42 p.m. CDT | [Lifecycle validation · worker load](#run-work_audit_async_worker_verify_20261005_01) | RQ9 | Case order: host → warm · 2 replays/case · 500 ms waits | Observation only; no policy comparison | Host-backed replay TTFT: 899.5 ms | No other session | Not measured | Linked host-backed KV movement to replay; no speed win tested. | validated |
+| Oct 5, 2026, 11:35:35 a.m. CDT | [Busy workload · KV-load attribution](#run-work_audit_load_kernel_20261005_01) | RQ8 | 12 sessions × 3 tool waits; 1 paired seed; natural capacity pressure | Checks only → checks + early loads (1 seed); 36 replays/seed | 435.3 → 452.9 s (17.6 s higher) | Other-session effect not isolated | 94.1 → 95.5 s (1.4 s later) | Combined replay first-token time and total workload time both increased in this sample. | complete; 1 seed |
+| Oct 5, 2026, 9:31:03 a.m. CDT | [Busy workload · KV-load attribution](#run-work_audit_load_phase_20261005_01) | RQ8 | 12 sessions × 3 tool waits; 1 paired seed; natural capacity pressure | Checks only → checks + early loads (1 seed); 36 replays/seed | 423.8 → 435.6 s (11.7 s higher) | Other-session effect not isolated | 92.2 → 92.6 s (0.4 s later) | Combined replay first-token time and total workload time both increased in this sample. | complete; 1 seed |
+| Oct 2, 2026, 8:19:35 p.m. CDT | [Busy workload · KV-load attribution](#run-work_audit_kv_attribution_20261002_04) | RQ8 | 12 sessions × 3 tool waits; 2 paired seeds; natural capacity pressure | Checks only → checks + early loads (per-arm median, 2 seeds); 36 replays/seed | 447.9 → 463.1 s (15.2 s higher) | Other-session effect not isolated | 92.7 → 95.6 s (2.9 s later) | Combined replay first-token time and total workload time both increased in this sample. | complete; 2 seeds |
+| Oct 2, 2026, 5:14:42 p.m. CDT | [Busy workload · controller KV timing](#run-work_audit_busy_pair_20261002_01) | RQ8 | 12 sessions × 3 tool waits; 2 paired seeds; natural capacity pressure | Ordinary replay → controller-timed loads (per-arm median, 2 seeds); 36 replays/seed | 334.9 → 360.8 s (25.9 s higher) | Per seed: 0 helped; 12 harmed | 78.8 → 80.0 s (1.2 s later) | Combined replay first-token time and total workload time both increased in this sample. | validated; 2 seeds |
+| Oct 2, 2026, 5:08:50 p.m. CDT | [Busy workload · controller KV timing](#run-work_audit_busy_pilot_20261002) | RQ8 | 12 sessions × 3 tool waits; 1 paired seed; natural capacity pressure | Ordinary replay → controller-timed loads (1 seed); 36 replays/seed | 335.0 → 355.7 s (20.7 s higher) | Per seed: 2 helped; 10 harmed | 79.7 → 79.8 s (0.1 s later) | Combined replay first-token time and total workload time both increased in this sample. | validated; 1 seed |
+| Oct 2, 2026, 4:16:50 p.m. CDT | [Controller-chosen load window](#run-work_audit_controller_window_20261002_01) | RQ7 | 3 equal-importance sessions · 4 measured trials · 900 / 2500 ms waits | Late loading → controller-timed loading (per-mode median, 4 pairs) | 352 → 86 ms (266 ms faster) | 865 → 860 ms (5 ms earlier) | 8,419 → 8,074 ms (345 ms sooner) | Long replay came sooner; short-session effect varied; full workflow finished sooner across 4 matched pairs. | validated; 4 pairs |
+| Oct 2, 2026, 3:34:20 p.m. CDT | [Three concurrent load windows](#run-work_audit_post_short_20261002_01) | RQ6 | 3 equal-importance sessions · 2 measured trials · 900 / 2500 ms waits | Late loading → post-short loading (per-mode median, 2 pairs) | 442 → 85 ms (357 ms faster) | 819 → 822 ms (2 ms later) | 8,287 → 7,928 ms (359 ms sooner) | Long replay came sooner; short-session effect varied; full workflow finished sooner across 2 matched pairs. | validated; 2 pairs |
+| Oct 2, 2026, 2:48:50 p.m. CDT | [Concurrent early vs late](#run-work_audit_concurrent_compare_20261002_02) | RQ5 | 3 equal-importance sessions · 2 measured pairs · 900 / 2500 ms waits | Late loading → early loading (per-mode median, 2 pairs) | 443 → 86 ms (357 ms faster) | 815 → 1,001 ms (186 ms later) | 8,263 → 7,906 ms (357 ms sooner) | Long replay came sooner; short session finished later; full workflow finished sooner across 2 matched pairs. | validated; 2 pairs |
+| Oct 2, 2026, 1:42:21 p.m. CDT | [Concurrent timeline](#run-work_audit_multisession_20261002_01) | RQ4 | 3 concurrent sessions · 900 / 2500 ms tool waits | Observation only; no policy comparison | Long first token: 282.4 ms | Short first token: 81.6 ms | Not measured | Linked tool waits, KV movement, and replay across sessions; no speed win tested. | validated |
+| Oct 2, 2026, 1:33:37 p.m. CDT | [Early vs late](#run-work_audit_nonblocking_20261002_01) | RQ3 | Case order: early → late → late_nonblocking · 1 measured pair · 2000 ms waits | Late blocking → late nonblocking (comparison withheld) | No validated replay-speed delta | No other session | Full-task comparison withheld | Submission was faster, but the measured first-token delay remained; the strict comparison was withheld. | validated |
+| Oct 2, 2026, 11:41:32 a.m. CDT | [Early vs late](#run-work_audit_timing_sampled_late_early_20261002) | RQ2 | Case order: late → early · 2 measured pairs · 2000 ms waits | Late → early loading (per-mode median, 2 pairs) | 255 → 83 ms (172 ms faster) | No other session | Full-task effect not established | Loading during the tool wait brought the first token sooner in the matched replays. | validated; 2 pairs |
+| Oct 2, 2026, 11:38:54 a.m. CDT | [Early vs late](#run-work_audit_timing_sampled_early_late_20261002) | RQ2 | Case order: early → late · 2 measured pairs · 2000 ms waits | Late → early loading (per-mode median, 2 pairs) | 258 → 86 ms (172 ms faster) | No other session | Full-task effect not established | Loading during the tool wait brought the first token sooner in the matched replays. | validated; 2 pairs |
+| Oct 2, 2026, 11:25:50 a.m. CDT | [Early vs late](#run-work_audit_timing_exact_late_early_20261002) | RQ2 | Case order: late → early · 2 measured pairs · 2000 ms waits | Late → early loading (per-mode median, 2 pairs) | 312 → 84 ms (229 ms faster) | No other session | Full-task effect not established | Loading during the tool wait brought the first token sooner in the matched replays. | validated; 2 pairs |
+| Oct 2, 2026, 11:22:26 a.m. CDT | [Early vs late](#run-work_audit_timing_exact_early_late_20261002) | RQ2 | Case order: early → late · 2 measured pairs · 2000 ms waits | Late → early loading (per-mode median, 2 pairs) | 318 → 87 ms (232 ms faster) | No other session | Full-task effect not established | Loading during the tool wait brought the first token sooner in the matched replays. | validated; 2 pairs |
+| Oct 2, 2026, 10:34:04 a.m. CDT | [Lifecycle validation](#run-work_audit_two_replays_lean_reverse_20261002) | RQ1 | Case order: host → warm · 2 replays/case · wait not recorded | Observation only; no policy comparison | Host-backed replay TTFT: 436.3 ms | No other session | Not measured | Linked host-backed KV movement to replay; no speed win tested. | validated |
+| Oct 2, 2026, 10:26:59 a.m. CDT | [Lifecycle validation](#run-work_audit_two_replays_lean_pump_20261002) | RQ1 | Case order: warm → host · 2 replays/case · wait not recorded | Observation only; no policy comparison | Host-backed replay TTFT: 82.6 ms | No other session | Not measured | Linked host-backed KV movement to replay; no speed win tested. | validated |
+| Oct 2, 2026, 9:54:21 a.m. CDT | [Lifecycle validation](#run-work_audit_two_replays_20261002_reverse) | RQ1 | Case order: host → warm · 2 replays/case · wait not recorded | Observation only; no policy comparison | Host-backed replay TTFT: 573.9 ms | No other session | Not measured | Linked host-backed KV movement to replay; no speed win tested. | validated |
+| Oct 2, 2026, 9:50:49 a.m. CDT | [Lifecycle validation](#run-work_audit_two_replays_20261002) | RQ1 | Case order: warm → host · 2 replays/case · wait not recorded | Observation only; no policy comparison | Host-backed replay TTFT: 229.1 ms | No other session | Not measured | Linked host-backed KV movement to replay; no speed win tested. | validated |
+| Oct 1, 2026, 5:42:31 p.m. CDT | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | Case order: warm → host · not recorded replays/case · wait not recorded | Observation only; no policy comparison | Host-backed replay TTFT: 230.3 ms | No other session | Not measured | Linked host-backed KV movement to replay; no speed win tested. | validated |
 
 ## Experiment details
 
 <a id="run-work_audit_async_fixed_worker_20261005_01"></a>
 <details>
-<summary><strong>2026-10-05 18:28:34 UTC · Concurrent early vs late · worker load</strong> · work_audit_async_fixed_worker_20261005_01</summary>
+<summary><strong>Oct 5, 2026, 1:28:34 p.m. CDT · Concurrent early vs late · worker load</strong> · work_audit_async_fixed_worker_20261005_01</summary>
 
 **Question (RQ9).** If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?
 
@@ -128,7 +128,7 @@ Newest first. Select a run to see its setup, measurements, limits, and reproduct
 | Trial 1 · early | 89.9 | 1006.4 | 7900.2 | -959.3 |
 | Trial 1 · late_nonblocking | 1131.2 | 808.5 | 8953.5 | 523.8 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -148,7 +148,7 @@ WORK_AUDIT_RUN_ID=work_audit_async_fixed_worker_20261005_01 WORK_AUDIT_RESEARCH_
 
 <a id="run-work_audit_async_fixed_scheduler_20261005_02"></a>
 <details>
-<summary><strong>2026-10-05 18:26:11 UTC · Concurrent early vs late · scheduler load</strong> · work_audit_async_fixed_scheduler_20261005_02</summary>
+<summary><strong>Oct 5, 2026, 1:26:11 p.m. CDT · Concurrent early vs late · scheduler load</strong> · work_audit_async_fixed_scheduler_20261005_02</summary>
 
 **Question (RQ9).** If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?
 
@@ -163,7 +163,7 @@ WORK_AUDIT_RUN_ID=work_audit_async_fixed_worker_20261005_01 WORK_AUDIT_RESEARCH_
 | Trial 1 · early | 89.5 | 991.1 | 7896.4 | -1078.5 |
 | Trial 1 · late_nonblocking | 276.0 | 810.7 | 8089.1 | 201.7 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -183,7 +183,7 @@ WORK_AUDIT_RUN_ID=work_audit_async_fixed_scheduler_20261005_02 WORK_AUDIT_RESEAR
 
 <a id="run-work_audit_async_scheduler_busy_20261005_01"></a>
 <details>
-<summary><strong>2026-10-05 18:12:20 UTC · Busy workload · KV-load attribution · scheduler load</strong> · work_audit_async_scheduler_busy_20261005_01</summary>
+<summary><strong>Oct 5, 2026, 1:12:20 p.m. CDT · Busy workload · KV-load attribution · scheduler load</strong> · work_audit_async_scheduler_busy_20261005_01</summary>
 
 **Question (RQ9).** If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?
 
@@ -199,7 +199,7 @@ WORK_AUDIT_RUN_ID=work_audit_async_fixed_scheduler_20261005_02 WORK_AUDIT_RESEAR
 | Seed 1 · check_only | 36 | 423615.9 | 90480.8 | 0 |
 | Seed 1 · controller | 36 | 436774.1 | 91272.0 | 3 |
 
-**Evidence gate.** complete. Timestamp: First request (UTC).
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -217,7 +217,7 @@ WORK_AUDIT_RUN_ID='work_audit_async_scheduler_busy_20261005_01' WORK_AUDIT_RESEA
 
 <a id="run-work_audit_async_worker_busy_20261005_01"></a>
 <details>
-<summary><strong>2026-10-05 18:03:46 UTC · Busy workload · KV-load attribution · worker load</strong> · work_audit_async_worker_busy_20261005_01</summary>
+<summary><strong>Oct 5, 2026, 1:03:46 p.m. CDT · Busy workload · KV-load attribution · worker load</strong> · work_audit_async_worker_busy_20261005_01</summary>
 
 **Question (RQ9).** If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?
 
@@ -233,7 +233,7 @@ WORK_AUDIT_RUN_ID='work_audit_async_scheduler_busy_20261005_01' WORK_AUDIT_RESEA
 | Seed 1 · check_only | 36 | 420453.7 | 92069.0 | 0 |
 | Seed 1 · controller | 36 | 442849.6 | 91877.7 | 2 |
 
-**Evidence gate.** complete. Timestamp: First request (UTC).
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -251,7 +251,7 @@ WORK_AUDIT_RUN_ID='work_audit_async_worker_busy_20261005_01' WORK_AUDIT_RESEARCH
 
 <a id="run-work_audit_async_worker_verify_20261005_01"></a>
 <details>
-<summary><strong>2026-10-05 18:00:42 UTC · Lifecycle validation · worker load</strong> · work_audit_async_worker_verify_20261005_01</summary>
+<summary><strong>Oct 5, 2026, 1:00:42 p.m. CDT · Lifecycle validation · worker load</strong> · work_audit_async_worker_verify_20261005_01</summary>
 
 **Question (RQ9).** If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?
 
@@ -266,7 +266,7 @@ WORK_AUDIT_RUN_ID='work_audit_async_worker_busy_20261005_01' WORK_AUDIT_RESEARCH
 | warm_control | 222.7 | 0 | 0 | 4163 |
 | host_backed | 899.5 | 2048 | 4096 | 4162 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 
@@ -280,7 +280,7 @@ WORK_AUDIT_RUN_ID=work_audit_async_worker_verify_20261005_01 WORK_AUDIT_RESEARCH
 
 <a id="run-work_audit_load_kernel_20261005_01"></a>
 <details>
-<summary><strong>2026-10-05 16:35:35 UTC · Busy workload · KV-load attribution</strong> · work_audit_load_kernel_20261005_01</summary>
+<summary><strong>Oct 5, 2026, 11:35:35 a.m. CDT · Busy workload · KV-load attribution</strong> · work_audit_load_kernel_20261005_01</summary>
 
 **Question (RQ8).** With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?
 
@@ -296,7 +296,7 @@ WORK_AUDIT_RUN_ID=work_audit_async_worker_verify_20261005_01 WORK_AUDIT_RESEARCH
 | Seed 1 · check_only | 36 | 435266.4 | 94086.8 | 0 |
 | Seed 1 · controller | 36 | 452880.2 | 95508.3 | 3 |
 
-**Evidence gate.** complete. Timestamp: First request (UTC).
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -314,7 +314,7 @@ WORK_AUDIT_RUN_ID='work_audit_load_kernel_20261005_01' WORK_AUDIT_RESEARCH_QUEST
 
 <a id="run-work_audit_load_phase_20261005_01"></a>
 <details>
-<summary><strong>2026-10-05 14:31:03 UTC · Busy workload · KV-load attribution</strong> · work_audit_load_phase_20261005_01</summary>
+<summary><strong>Oct 5, 2026, 9:31:03 a.m. CDT · Busy workload · KV-load attribution</strong> · work_audit_load_phase_20261005_01</summary>
 
 **Question (RQ8).** With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?
 
@@ -330,7 +330,7 @@ WORK_AUDIT_RUN_ID='work_audit_load_kernel_20261005_01' WORK_AUDIT_RESEARCH_QUEST
 | Seed 1 · check_only | 36 | 423830.5 | 92192.5 | 0 |
 | Seed 1 · controller | 36 | 435562.2 | 92621.3 | 3 |
 
-**Evidence gate.** complete. Timestamp: First request (UTC).
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -348,7 +348,7 @@ WORK_AUDIT_RUN_ID='work_audit_load_phase_20261005_01' WORK_AUDIT_RESEARCH_QUESTI
 
 <a id="run-work_audit_kv_attribution_20261002_04"></a>
 <details>
-<summary><strong>2026-10-03 01:19:35 UTC · Busy workload · KV-load attribution</strong> · work_audit_kv_attribution_20261002_04</summary>
+<summary><strong>Oct 2, 2026, 8:19:35 p.m. CDT · Busy workload · KV-load attribution</strong> · work_audit_kv_attribution_20261002_04</summary>
 
 **Question (RQ8).** With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?
 
@@ -367,7 +367,7 @@ WORK_AUDIT_RUN_ID='work_audit_load_phase_20261005_01' WORK_AUDIT_RESEARCH_QUESTI
 | Seed 2 · check_only | 36 | 442884.2 | 92321.8 | 0 |
 | Seed 2 · controller | 36 | 462304.9 | 95437.8 | 0 |
 
-**Evidence gate.** complete. Timestamp: First request (UTC).
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -385,7 +385,7 @@ WORK_AUDIT_RUN_ID='work_audit_kv_attribution_20261002_04' WORK_AUDIT_RESEARCH_QU
 
 <a id="run-work_audit_busy_pair_20261002_01"></a>
 <details>
-<summary><strong>2026-10-02 22:14:42 UTC · Busy workload · controller KV timing</strong> · work_audit_busy_pair_20261002_01</summary>
+<summary><strong>Oct 2, 2026, 5:14:42 p.m. CDT · Busy workload · controller KV timing</strong> · work_audit_busy_pair_20261002_01</summary>
 
 **Question (RQ8).** With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?
 
@@ -402,7 +402,7 @@ WORK_AUDIT_RUN_ID='work_audit_kv_attribution_20261002_04' WORK_AUDIT_RESEARCH_QU
 | Seed 2 · baseline | 36 | 334372.1 | 79541.3 | 36 |
 | Seed 2 · controller | 36 | 359160.5 | 79872.8 | 47 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -422,7 +422,7 @@ WORK_AUDIT_RUN_ID='work_audit_busy_pair_20261002_01' WORK_AUDIT_RESEARCH_QUESTIO
 
 <a id="run-work_audit_busy_pilot_20261002"></a>
 <details>
-<summary><strong>2026-10-02 22:08:50 UTC · Busy workload · controller KV timing</strong> · work_audit_busy_pilot_20261002</summary>
+<summary><strong>Oct 2, 2026, 5:08:50 p.m. CDT · Busy workload · controller KV timing</strong> · work_audit_busy_pilot_20261002</summary>
 
 **Question (RQ8).** With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?
 
@@ -437,7 +437,7 @@ WORK_AUDIT_RUN_ID='work_audit_busy_pair_20261002_01' WORK_AUDIT_RESEARCH_QUESTIO
 | Seed 1 · baseline | 36 | 335038.7 | 79697.6 | 35 |
 | Seed 1 · controller | 36 | 355726.5 | 79846.9 | 43 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -457,7 +457,7 @@ WORK_AUDIT_RUN_ID='work_audit_busy_pilot_20261002' WORK_AUDIT_RESEARCH_QUESTION_
 
 <a id="run-work_audit_controller_window_20261002_01"></a>
 <details>
-<summary><strong>2026-10-02 21:16:50 UTC · Controller-chosen load window</strong> · work_audit_controller_window_20261002_01</summary>
+<summary><strong>Oct 2, 2026, 4:16:50 p.m. CDT · Controller-chosen load window</strong> · work_audit_controller_window_20261002_01</summary>
 
 **Question (RQ7).** Using observed short-replay completion, host residency, slot release, and the long tool-return estimate, can a controller policy decide when to load KV without frontend importance ranks?
 
@@ -486,7 +486,7 @@ WORK_AUDIT_RUN_ID='work_audit_busy_pilot_20261002' WORK_AUDIT_RESEARCH_QUESTION_
 | Trial 4 · post_short | 81.5 | 911.1 | 8179.8 | -397.2 |
 | Trial 4 · controller_window | 81.7 | 920.2 | 8201.7 | -385.2 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -506,7 +506,7 @@ WORK_AUDIT_RUN_ID=work_audit_controller_window_20261002_01 WORK_AUDIT_RESEARCH_Q
 
 <a id="run-work_audit_post_short_20261002_01"></a>
 <details>
-<summary><strong>2026-10-02 20:34:20 UTC · Three concurrent load windows</strong> · work_audit_post_short_20261002_01</summary>
+<summary><strong>Oct 2, 2026, 3:34:20 p.m. CDT · Three concurrent load windows</strong> · work_audit_post_short_20261002_01</summary>
 
 **Question (RQ6).** Under the same equal-importance, logical two-prefix workload, can loading just after the short replay completes preserve the long replay benefit while avoiding the short-session penalty?
 
@@ -525,7 +525,7 @@ WORK_AUDIT_RUN_ID=work_audit_controller_window_20261002_01 WORK_AUDIT_RESEARCH_Q
 | Trial 2 · early | 81.8 | 1040.4 | 7945.7 | -1063.6 |
 | Trial 2 · post_short | 81.4 | 831.8 | 7953.6 | -545.7 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -545,7 +545,7 @@ WORK_AUDIT_RUN_ID=work_audit_post_short_20261002_01 WORK_AUDIT_RESEARCH_QUESTION
 
 <a id="run-work_audit_concurrent_compare_20261002_02"></a>
 <details>
-<summary><strong>2026-10-02 19:48:50 UTC · Concurrent early vs late</strong> · work_audit_concurrent_compare_20261002_02</summary>
+<summary><strong>Oct 2, 2026, 2:48:50 p.m. CDT · Concurrent early vs late</strong> · work_audit_concurrent_compare_20261002_02</summary>
 
 **Question (RQ5).** With equal-importance sessions and the same logical two-prefix budget, does loading during the wait help the returning session without delaying another session or the whole workflow?
 
@@ -562,7 +562,7 @@ WORK_AUDIT_RUN_ID=work_audit_post_short_20261002_01 WORK_AUDIT_RESEARCH_QUESTION
 | Trial 2 · late_nonblocking | 595.0 | 817.6 | 8417.9 | 201.9 |
 | Trial 2 · early | 82.3 | 1012.1 | 7915.1 | -1092.3 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -582,7 +582,7 @@ WORK_AUDIT_RUN_ID=work_audit_concurrent_compare_20261002_02 WORK_AUDIT_RESEARCH_
 
 <a id="run-work_audit_multisession_20261002_01"></a>
 <details>
-<summary><strong>2026-10-02 18:42:21 UTC · Concurrent timeline</strong> · work_audit_multisession_20261002_01</summary>
+<summary><strong>Oct 2, 2026, 1:42:21 p.m. CDT · Concurrent timeline</strong> · work_audit_multisession_20261002_01</summary>
 
 **Question (RQ4).** Can a small, equal-importance, concurrent workload link tool waits, one controlled host eviction/load, replays, and an ending session?
 
@@ -597,7 +597,7 @@ WORK_AUDIT_RUN_ID=work_audit_concurrent_compare_20261002_02 WORK_AUDIT_RESEARCH_
 | short | 901.5 | 81.6 | 81.5 | 4177 |
 | long | 2501.3 | 282.4 | 282.0 | 4177 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -617,7 +617,7 @@ WORK_AUDIT_RUN_ID=work_audit_multisession_20261002_01 WORK_AUDIT_STUDY=multisess
 
 <a id="run-work_audit_nonblocking_20261002_01"></a>
 <details>
-<summary><strong>2026-10-02 18:33:37 UTC · Early vs late</strong> · work_audit_nonblocking_20261002_01</summary>
+<summary><strong>Oct 2, 2026, 1:33:37 p.m. CDT · Early vs late</strong> · work_audit_nonblocking_20261002_01</summary>
 
 **Question (RQ3).** Does not waiting for the late-load control response remove the observed tool-return-to-first-token penalty?
 
@@ -633,7 +633,7 @@ WORK_AUDIT_RUN_ID=work_audit_multisession_20261002_01 WORK_AUDIT_STUDY=multisess
 | Trial 1 · late | 170.4 | 253.3 | 82.9 | 7014.9 |
 | Trial 1 · late_nonblocking | 0.5 | 243.7 | 243.2 | 7265.2 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -653,7 +653,7 @@ WORK_AUDIT_RUN_ID=work_audit_nonblocking_20261002_01 WORK_AUDIT_STUDY=timing WOR
 
 <a id="run-work_audit_timing_sampled_late_early_20261002"></a>
 <details>
-<summary><strong>2026-10-02 16:41:32 UTC · Early vs late</strong> · work_audit_timing_sampled_late_early_20261002</summary>
+<summary><strong>Oct 2, 2026, 11:41:32 a.m. CDT · Early vs late</strong> · work_audit_timing_sampled_late_early_20261002</summary>
 
 **Question (RQ2).** In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?
 
@@ -670,7 +670,7 @@ WORK_AUDIT_RUN_ID=work_audit_nonblocking_20261002_01 WORK_AUDIT_STUDY=timing WOR
 | Trial 2 · late | 172.9 | 256.5 | 83.6 | 7270.7 |
 | Trial 2 · early | 0.1 | 82.7 | 82.6 | 7095.5 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -690,7 +690,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_sampled_late_early_20261002 WORK_AUDIT_STUDY
 
 <a id="run-work_audit_timing_sampled_early_late_20261002"></a>
 <details>
-<summary><strong>2026-10-02 16:38:54 UTC · Early vs late</strong> · work_audit_timing_sampled_early_late_20261002</summary>
+<summary><strong>Oct 2, 2026, 11:38:54 a.m. CDT · Early vs late</strong> · work_audit_timing_sampled_early_late_20261002</summary>
 
 **Question (RQ2).** In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?
 
@@ -707,7 +707,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_sampled_late_early_20261002 WORK_AUDIT_STUDY
 | Trial 2 · early | 0.1 | 82.8 | 82.7 | 7101.3 |
 | Trial 2 · late | 177.2 | 260.9 | 83.7 | 7295.7 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Limits**
 
@@ -727,7 +727,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_sampled_early_late_20261002 WORK_AUDIT_STUDY
 
 <a id="run-work_audit_timing_exact_late_early_20261002"></a>
 <details>
-<summary><strong>2026-10-02 16:25:50 UTC · Early vs late</strong> · work_audit_timing_exact_late_early_20261002</summary>
+<summary><strong>Oct 2, 2026, 11:25:50 a.m. CDT · Early vs late</strong> · work_audit_timing_exact_late_early_20261002</summary>
 
 **Question (RQ2).** In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?
 
@@ -744,7 +744,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_sampled_early_late_20261002 WORK_AUDIT_STUDY
 | Trial 2 · late | 228.8 | 312.4 | 83.7 | 7330.6 |
 | Trial 2 · early | 0.1 | 83.8 | 83.7 | 7130.1 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 
@@ -758,7 +758,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_exact_late_early_20261002 WORK_AUDIT_STUDY=t
 
 <a id="run-work_audit_timing_exact_early_late_20261002"></a>
 <details>
-<summary><strong>2026-10-02 16:22:26 UTC · Early vs late</strong> · work_audit_timing_exact_early_late_20261002</summary>
+<summary><strong>Oct 2, 2026, 11:22:26 a.m. CDT · Early vs late</strong> · work_audit_timing_exact_early_late_20261002</summary>
 
 **Question (RQ2).** In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?
 
@@ -775,7 +775,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_exact_late_early_20261002 WORK_AUDIT_STUDY=t
 | Trial 2 · early | 0.2 | 83.6 | 83.4 | 7113.2 |
 | Trial 2 · late | 236.1 | 320.1 | 84.0 | 7338.8 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 
@@ -789,7 +789,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_exact_early_late_20261002 WORK_AUDIT_STUDY=t
 
 <a id="run-work_audit_two_replays_lean_reverse_20261002"></a>
 <details>
-<summary><strong>2026-10-02 15:34:04 UTC · Lifecycle validation</strong> · work_audit_two_replays_lean_reverse_20261002</summary>
+<summary><strong>Oct 2, 2026, 10:34:04 a.m. CDT · Lifecycle validation</strong> · work_audit_two_replays_lean_reverse_20261002</summary>
 
 **Question (RQ1).** Can host residency, GPU eviction and load-back, and replay be linked to the same session across one or two tool waits?
 
@@ -804,7 +804,7 @@ WORK_AUDIT_RUN_ID=work_audit_timing_exact_early_late_20261002 WORK_AUDIT_STUDY=t
 | warm_control | 82.3 | 0 | 0 | 4178 |
 | host_backed | 436.3 | 2048 | 4096 | 4177 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 
@@ -818,7 +818,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_lean_reverse_20261002 WORK_AUDIT_STUDY=
 
 <a id="run-work_audit_two_replays_lean_pump_20261002"></a>
 <details>
-<summary><strong>2026-10-02 15:26:59 UTC · Lifecycle validation</strong> · work_audit_two_replays_lean_pump_20261002</summary>
+<summary><strong>Oct 2, 2026, 10:26:59 a.m. CDT · Lifecycle validation</strong> · work_audit_two_replays_lean_pump_20261002</summary>
 
 **Question (RQ1).** Can host residency, GPU eviction and load-back, and replay be linked to the same session across one or two tool waits?
 
@@ -833,7 +833,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_lean_reverse_20261002 WORK_AUDIT_STUDY=
 | warm_control | 81.5 | 0 | 0 | 4179 |
 | host_backed | 82.6 | 2048 | 4096 | 4178 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 
@@ -847,7 +847,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_lean_pump_20261002 WORK_AUDIT_STUDY=val
 
 <a id="run-work_audit_two_replays_20261002_reverse"></a>
 <details>
-<summary><strong>2026-10-02 14:54:21 UTC · Lifecycle validation</strong> · work_audit_two_replays_20261002_reverse</summary>
+<summary><strong>Oct 2, 2026, 9:54:21 a.m. CDT · Lifecycle validation</strong> · work_audit_two_replays_20261002_reverse</summary>
 
 **Question (RQ1).** Can host residency, GPU eviction and load-back, and replay be linked to the same session across one or two tool waits?
 
@@ -862,7 +862,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_lean_pump_20261002 WORK_AUDIT_STUDY=val
 | warm_control | 217.1 | 0 | 0 | 4161 |
 | host_backed | 573.9 | 2048 | 4096 | 4160 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 
@@ -876,7 +876,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_20261002_reverse WORK_AUDIT_STUDY=valid
 
 <a id="run-work_audit_two_replays_20261002"></a>
 <details>
-<summary><strong>2026-10-02 14:50:49 UTC · Lifecycle validation</strong> · work_audit_two_replays_20261002</summary>
+<summary><strong>Oct 2, 2026, 9:50:49 a.m. CDT · Lifecycle validation</strong> · work_audit_two_replays_20261002</summary>
 
 **Question (RQ1).** Can host residency, GPU eviction and load-back, and replay be linked to the same session across one or two tool waits?
 
@@ -891,7 +891,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_20261002_reverse WORK_AUDIT_STUDY=valid
 | warm_control | 220.9 | 0 | 0 | 4160 |
 | host_backed | 229.1 | 2048 | 4096 | 4159 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 
@@ -905,7 +905,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_20261002 WORK_AUDIT_STUDY=validation WO
 
 <a id="run-work_audit_a10g_20261001_final"></a>
 <details>
-<summary><strong>2026-10-01 22:42:31 UTC · Lifecycle validation</strong> · work_audit_a10g_20261001_final</summary>
+<summary><strong>Oct 1, 2026, 5:42:31 p.m. CDT · Lifecycle validation</strong> · work_audit_a10g_20261001_final</summary>
 
 **Question (RQ1).** Can host residency, GPU eviction and load-back, and replay be linked to the same session across one or two tool waits?
 
@@ -920,7 +920,7 @@ WORK_AUDIT_RUN_ID=work_audit_two_replays_20261002 WORK_AUDIT_STUDY=validation WO
 | warm_control | 227.1 | 0 | 0 | 4162 |
 | host_backed | 230.3 | 2048 | 4096 | 4161 |
 
-**Evidence gate.** validated. Timestamp: First request (UTC).
+**Evidence gate.** validated. Timestamp: First request; displayed in Central Time.
 
 **Reproduce** (set the container image and model cache for the target host):
 

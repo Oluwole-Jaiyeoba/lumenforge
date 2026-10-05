@@ -9,7 +9,9 @@ from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
+from statistics import median
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 CACHE_SIZE_FIELD = "hicache_size_gb"
 
@@ -151,9 +153,10 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     workload = manifest.get("workload") or {}
     if summary.get("schema") in ("agentic_work_audit.busy_comparison.v1",
                                  "agentic_work_audit.kv_load_attribution.v1"):
+        seed_count = summary.get("seed_count")
         brief = (f"{_esc(workload.get('session_count'))} sessions × "
                  f"{_esc(workload.get('tool_waits_per_session'))} tool waits; "
-                 f"{_esc(summary.get('seed_count'))} paired seeds; natural capacity pressure")
+                 f"{_esc(seed_count)} paired {'seed' if seed_count == 1 else 'seeds'}; natural capacity pressure")
         detail = (f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
                   f"{_esc(manifest.get('model'))}; backend {_esc(manifest.get('backend_version'))}. "
                   f"Fresh backend per arm, order reversed by seed. Prefix target "
@@ -228,9 +231,13 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
             "No frontend task had higher semantic priority."
         )
         return brief, detail
-    brief = (f"{_esc(order)} · {_esc(workload.get('pairs'))} measured pair(s)" if timing else
-             f"{_esc(order)} · {_esc(workload.get('replays_per_case'))} replay(s)/case")
-    brief += f" · {_esc(workload.get('tool_wait_ms'))} ms waits"
+    pair_count = workload.get("pairs")
+    replay_count = workload.get("replays_per_case")
+    brief = (f"Case order: {_esc(order)} · {_esc(pair_count)} measured "
+             f"{'pair' if pair_count == 1 else 'pairs'}" if timing else
+             f"Case order: {_esc(order)} · {_esc(replay_count)} replays/case")
+    wait_ms = workload.get("tool_wait_ms")
+    brief += f" · {wait_ms} ms waits" if wait_ms is not None else " · wait not recorded"
     detail = (
         f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
         f"{_esc(manifest.get('model'))}; SGLang {_esc(manifest.get('backend_version'))} "
@@ -1160,20 +1167,209 @@ def _markdown_metrics(summary: dict) -> str:
                       "Largest matched prefix (tokens)"), rows)
 
 
-def _markdown_index_result(summary: dict) -> str:
-    workload = (summary.get("_manifest") or {}).get("workload") or {}
-    if (workload.get("research_question_id") == "RQ9" and
-            summary.get("schema") == "agentic_work_audit.multisession_comparison.v1"):
-        cases = {case.get("load_timing"): case for case in summary.get("cases") or []
-                 if not case.get("warmup")}
-        early = ((cases.get("early") or {}).get("sessions") or {}).get("long") or {}
-        late = ((cases.get("late_nonblocking") or {}).get("sessions") or {}).get("long") or {}
-        early_ms = early.get("first_token_after_tool_ms")
-        late_ms = late.get("first_token_after_tool_ms")
-        if early_ms is not None and late_ms is not None:
-            return f"Long replay first token after tool: early {early_ms:.1f} ms; late {late_ms:.1f} ms"
-    result, _findings = _result_parts(summary)
-    return _report_text(result)
+def _central_stamp(summary: dict) -> tuple[str, str]:
+    timestamp_ns, _date, _time_utc, source = _time(summary)
+    if timestamp_ns < 0:
+        return "Not recorded", source
+    instant = datetime.fromtimestamp(timestamp_ns / 1_000_000_000, ZoneInfo("America/Chicago"))
+    date = f"{instant.strftime('%b')} {instant.day}, {instant.year}"
+    clock = instant.strftime("%I:%M:%S").lstrip("0")
+    period = "a.m." if instant.hour < 12 else "p.m."
+    return f"{date}, {clock} {period} {instant.tzname()}", source.replace(" (UTC)", "")
+
+
+def _arrow(before: object, after: object, *, seconds: bool = False,
+           lower: str = "faster", higher: str = "slower") -> str:
+    if not isinstance(before, (int, float)) or not isinstance(after, (int, float)):
+        return "Not measured"
+    scale = 1000 if seconds else 1
+    precision = 1 if seconds else 0
+    unit = "s" if seconds else "ms"
+    change = "unchanged" if abs(after - before) < 0.5 else lower if after < before else higher
+    if change == "unchanged":
+        return f"{before / scale:,.{precision}f} → {after / scale:,.{precision}f} {unit} (unchanged)"
+    return (f"{before / scale:,.{precision}f} → {after / scale:,.{precision}f} {unit} "
+            f"({abs(after - before) / scale:,.{precision}f} {unit} {change})")
+
+
+def _median_field(rows: list[dict], field: str) -> float | None:
+    values = [row.get(field) for row in rows]
+    return median(values) if values and all(isinstance(value, (int, float)) for value in values) else None
+
+
+def _paired_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
+    schema = summary.get("schema")
+    if schema == "agentic_work_audit.controller_window.v1":
+        target_mode, target_label = "controller_window", "controller-timed loading"
+    elif schema == "agentic_work_audit.multisession_window.v1":
+        target_mode, target_label = "post_short", "post-short loading"
+    else:
+        target_mode, target_label = "early", "early loading"
+    valid_pairs = {pair.get("pair") for pair in summary.get("pairs") or []
+                   if pair.get("comparable") and pair.get("pair") is not None}
+    cases = {(case.get("pair"), case.get("load_timing")): case
+             for case in summary.get("cases") or [] if not case.get("warmup")}
+    selected = [(cases[(pair, "late_nonblocking")], cases[(pair, target_mode)])
+                for pair in sorted(valid_pairs) if (pair, "late_nonblocking") in cases and
+                (pair, target_mode) in cases]
+    comparison = f"Late loading → {target_label}"
+    if not selected:
+        return comparison, "Comparison withheld", "Not measured", "Not measured", \
+            "The saved evidence did not validate a matched speed comparison.", "No matched pair"
+    count = len(selected)
+    comparison += f" (per-mode median, {count} pairs)" if count > 1 else " (1 pair)"
+    def values(session: str, field: str) -> tuple[float | None, float | None]:
+        return (_median_field([((before.get("sessions") or {}).get(session) or {})
+                              for before, _after in selected], field),
+                _median_field([((after.get("sessions") or {}).get(session) or {})
+                              for _before, after in selected], field))
+    long_before, long_after = values("long", "first_token_after_tool_ms")
+    short_before, short_after = values("short", "completion_after_tool_ms")
+    workflow_before = _median_field([before for before, _after in selected], "workflow_makespan_ms")
+    workflow_after = _median_field([after for _before, after in selected], "workflow_makespan_ms")
+    def trend(before_values: list[object], after_values: list[object],
+              improved: str, worsened: str, varied: str) -> str:
+        if not all(isinstance(old, (int, float)) and isinstance(new, (int, float))
+                   for old, new in zip(before_values, after_values)):
+            return "effect not measured"
+        changes = [new - old for old, new in zip(before_values, after_values)]
+        if all(change < 0 for change in changes):
+            return improved
+        if all(change > 0 for change in changes):
+            return worsened
+        return varied
+    long_trend = trend(
+        [((before.get("sessions") or {}).get("long") or {}).get("first_token_after_tool_ms")
+         for before, _after in selected],
+        [((after.get("sessions") or {}).get("long") or {}).get("first_token_after_tool_ms")
+         for _before, after in selected],
+        "long replay came sooner", "long replay came later", "long-replay effect varied")
+    short_trend = trend(
+        [((before.get("sessions") or {}).get("short") or {}).get("completion_after_tool_ms")
+         for before, _after in selected],
+        [((after.get("sessions") or {}).get("short") or {}).get("completion_after_tool_ms")
+         for _before, after in selected],
+        "short session finished sooner", "short session finished later", "short-session effect varied")
+    workflow_trend = trend([before.get("workflow_makespan_ms") for before, _after in selected],
+                           [after.get("workflow_makespan_ms") for _before, after in selected],
+                           "full workflow finished sooner", "full workflow finished later",
+                           "workflow effect varied")
+    scope = "in this matched pair" if count == 1 else f"across {count} matched pairs"
+    finding = f"{long_trend.capitalize()}; {short_trend}; {workflow_trend} {scope}."
+    return (comparison, _arrow(long_before, long_after),
+            _arrow(short_before, short_after, lower="earlier", higher="later"),
+            _arrow(workflow_before, workflow_after, lower="sooner", higher="later"),
+            finding, f"{summary.get('status', 'unknown')}; {count} {'pair' if count == 1 else 'pairs'}")
+
+
+def _busy_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
+    attribution = summary.get("schema") == "agentic_work_audit.kv_load_attribution.v1"
+    rows = []
+    for item in (summary.get("seeds") if attribution else summary.get("pairs")) or []:
+        arms = item.get("arms") if attribution else item
+        before = (arms or {}).get("check_only" if attribution else "baseline") or {}
+        after = (arms or {}).get("controller") or {}
+        if before and after:
+            rows.append((before, after, item))
+    comparison = "Checks only → checks + early loads" if attribution else "Ordinary replay → controller-timed loads"
+    if not rows:
+        return comparison, "Not measured", "Not isolated", "Not measured", \
+            "No paired workload result was saved.", "No paired seed"
+    before_ttft = _median_field([before for before, _after, _item in rows], "total_replay_ttft_ms")
+    after_ttft = _median_field([after for _before, after, _item in rows], "total_replay_ttft_ms")
+    before_workflow = _median_field([before for before, _after, _item in rows], "workflow_makespan_ms")
+    after_workflow = _median_field([after for _before, after, _item in rows], "workflow_makespan_ms")
+    replay_count = rows[0][2].get("replay_count")
+    if replay_count is None:
+        replay_count = rows[0][1].get("replay_count")
+    comparison += f" (per-arm median, {len(rows)} seeds)" if len(rows) > 1 else " (1 seed)"
+    if replay_count:
+        comparison += f"; {replay_count} replays/seed"
+    replay_worse = all(isinstance(before.get("total_replay_ttft_ms"), (int, float)) and
+                       isinstance(after.get("total_replay_ttft_ms"), (int, float)) and
+                       after["total_replay_ttft_ms"] > before["total_replay_ttft_ms"]
+                       for before, after, _item in rows)
+    workflow_worse = all(isinstance(before.get("workflow_makespan_ms"), (int, float)) and
+                         isinstance(after.get("workflow_makespan_ms"), (int, float)) and
+                         after["workflow_makespan_ms"] > before["workflow_makespan_ms"]
+                         for before, after, _item in rows)
+    if replay_worse and workflow_worse:
+        finding = "Combined replay first-token time and total workload time both increased in this sample."
+    elif replay_worse and all(isinstance(before.get("workflow_makespan_ms"), (int, float)) and
+                              isinstance(after.get("workflow_makespan_ms"), (int, float)) and
+                              after["workflow_makespan_ms"] < before["workflow_makespan_ms"]
+                              for before, after, _item in rows):
+        finding = "Combined replay first-token time increased, although the workload finished sooner."
+    elif before_ttft is not None and after_ttft is not None:
+        finding = "Replay and workflow effects differed; see the per-seed measurements."
+    else:
+        finding = "The saved run does not contain a comparable replay total."
+    if attribution:
+        other = "Other-session effect not isolated"
+    else:
+        helped = [item.get("sessions_helped") for _before, _after, item in rows]
+        harmed = [item.get("sessions_harmed") for _before, _after, item in rows]
+        other = (f"Per seed: {helped[0]} helped; {harmed[0]} harmed"
+                 if len(set(helped)) == 1 and len(set(harmed)) == 1 and
+                 helped[0] is not None and harmed[0] is not None else "Per-session effect varies; see details")
+    return (comparison, _arrow(before_ttft, after_ttft, seconds=True, lower="lower", higher="higher"),
+            other, _arrow(before_workflow, after_workflow, seconds=True, lower="sooner", higher="later"),
+            finding, f"{summary.get('status', 'unknown')}; {len(rows)} {'seeds' if len(rows) > 1 else 'seed'}")
+
+
+def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
+    cases = {(case.get("pair"), case.get("condition")): case for case in summary.get("cases") or []}
+    pairs = [pair for pair in summary.get("pairs") or [] if pair.get("comparable")]
+    if any(case.get("condition") == "late_nonblocking" for case in summary.get("cases") or []):
+        return ("Late blocking → late nonblocking (comparison withheld)",
+                "No validated replay-speed delta", "No other session", "Full-task comparison withheld",
+                "Submission was faster, but the measured first-token delay remained; the strict comparison was withheld.",
+                summary.get("status", "unknown"))
+    selected = [(cases[(pair.get("pair"), "late")], cases[(pair.get("pair"), "early")])
+                for pair in pairs if (pair.get("pair"), "late") in cases and
+                (pair.get("pair"), "early") in cases]
+    if not selected:
+        return "Late → early loading", "Comparison withheld", "No other session", \
+            "Not comparable", "No matched replay comparison was validated.", summary.get("status", "unknown")
+    before = _median_field([old for old, _new in selected], "first_token_after_due_ms")
+    after = _median_field([new for _old, new in selected], "first_token_after_due_ms")
+    count = len(selected)
+    consistent_benefit = all(isinstance(old.get("first_token_after_due_ms"), (int, float)) and
+                             isinstance(new.get("first_token_after_due_ms"), (int, float)) and
+                             new["first_token_after_due_ms"] < old["first_token_after_due_ms"]
+                             for old, new in selected)
+    return (f"Late → early loading (per-mode median, {count} pairs)" if count > 1 else "Late → early loading (1 pair)",
+            _arrow(before, after), "No other session", "Full-task effect not established",
+            "Loading during the tool wait brought the first token sooner in the matched replays."
+            if consistent_benefit else
+            "The matched replays did not show a consistent first-token benefit.",
+            f"{summary.get('status', 'unknown')}; {count} {'pairs' if count > 1 else 'pair'}")
+
+
+def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
+    schema = summary.get("schema")
+    if schema in ("agentic_work_audit.multisession_comparison.v1",
+                  "agentic_work_audit.multisession_window.v1",
+                  "agentic_work_audit.controller_window.v1"):
+        return _paired_index_outcome(summary)
+    if schema in ("agentic_work_audit.kv_load_attribution.v1",
+                  "agentic_work_audit.busy_comparison.v1"):
+        return _busy_index_outcome(summary)
+    if schema == "agentic_work_audit.timing.v1":
+        return _timing_index_outcome(summary)
+    if schema == "agentic_work_audit.multisession.v1":
+        sessions = summary.get("sessions") or {}
+        long = (sessions.get("long") or {}).get("first_token_after_tool_ms")
+        short = (sessions.get("short") or {}).get("first_token_after_tool_ms")
+        return ("Observation only; no policy comparison",
+                f"Long first token: {_ms(long)}", f"Short first token: {_ms(short)}",
+                "Not measured", "Linked tool waits, KV movement, and replay across sessions; no speed win tested.",
+                summary.get("status", "unknown"))
+    host = next((case for case in summary.get("cases") or [] if case.get("case_type") == "host_backed"), {})
+    return ("Observation only; no policy comparison",
+            f"Host-backed replay TTFT: {_ms(host.get('replay_ttft_ms'))}", "No other session",
+            "Not measured", "Linked host-backed KV movement to replay; no speed win tested.",
+            summary.get("status", "unknown"))
 
 
 def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = None) -> str:
@@ -1194,24 +1390,31 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                       f"**What the evidence says.** {milestone['answer']}", "",
                       f"**Not yet proved.** {milestone['unknown']}", ""))
     lines.extend(("## Experiment index", "",
-                  "Newest first. Select a run to see its setup, measurements, limits, and reproduction command.", "",
-                  "| UTC date / time | Experiment | Question | Setup | Main result | Gate |",
-                  "| --- | --- | --- | --- | --- | --- |"))
+                  "Newest first. Each arrow goes from the named control to the changed case in the "
+                  "**Compared** column; lower times are better. Three-session rows show the long replay's "
+                  "first token and the short session's finish after tool return. Busy rows show summed replay "
+                  "TTFT across all replays. Workflow is total elapsed time. Rows without a validated "
+                  "comparison have no arrow. For multi-trial runs, arrows compare each mode's median "
+                  "time, which can differ from the median trial-by-trial improvement. Select an "
+                  "experiment for exact trial values and limits.", "",
+                  "| Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |",
+                  "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"))
     for path, summary in ordered:
-        _timestamp, date, time, _source = _time(summary)
+        stamp, _source = _central_stamp(summary)
         run = str(summary.get("run_id") or path.parent.name)
         workload = (summary.get("_manifest") or {}).get("workload") or {}
         question_id = workload.get("research_question_id") or run_questions.get(run)
         if workload.get("research_question_id") and run_questions.get(run) and question_id != run_questions[run]:
             raise ValueError(f"Run {run} has conflicting research question IDs")
         setup, _detail = _setup(summary, summary.get("schema") == "agentic_work_audit.timing.v1")
-        cells = (f"{date} {time}", f"[{_kind(summary)}](#run-{run})", question_id,
-                 _report_text(setup), _markdown_index_result(summary), summary.get("status"))
+        comparison, replay, other, workflow, finding, gate = _markdown_index_outcome(summary)
+        cells = (stamp, f"[{_kind(summary)}](#run-{run})", question_id,
+                 _report_text(setup), comparison, replay, other, workflow, finding, gate)
         lines.append("| " + " | ".join(_md_cell(cell) for cell in cells) + " |")
     lines.extend(("", "## Experiment details", ""))
     for path, summary in ordered:
         run = str(summary.get("run_id") or path.parent.name)
-        _timestamp, date, time, source = _time(summary)
+        stamp, source = _central_stamp(summary)
         workload = (summary.get("_manifest") or {}).get("workload") or {}
         question_id = workload.get("research_question_id") or run_questions.get(run)
         question = (questions.get(question_id) or {}).get("question", "Question not recorded")
@@ -1232,13 +1435,13 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
         command = _reproduction_command(summary)
         lines.extend((f'<a id="run-{html.escape(run, quote=True)}"></a>',
                       "<details>",
-                      f"<summary><strong>{html.escape(date)} {html.escape(time)} UTC · "
+                      f"<summary><strong>{html.escape(stamp)} · "
                       f"{html.escape(_kind(summary))}</strong> · {html.escape(run)}</summary>",
                       "", f"**Question ({question_id or 'unmapped'}).** {question}", "",
                       f"**Finding.** {_run_finding(summary)}", "",
                       f"**Setup.** {setup_text}", "",
                       "**Key measurements**", "", _markdown_metrics(summary), "",
-                      f"**Evidence gate.** {summary.get('status', 'unknown')}. Timestamp: {source}.", ""))
+                      f"**Evidence gate.** {summary.get('status', 'unknown')}. Timestamp: {source}; displayed in Central Time.", ""))
         if limits:
             lines.extend(("**Limits**", "", *(f"- {limit}" for limit in limits[:3]), ""))
         if command:

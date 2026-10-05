@@ -23,6 +23,12 @@ linked evidence and a feasible comparison.
   small validation. `packages/agentic-reports/.../build_work_audit_report.py`
   builds the top-level `KV_LIFECYCLE_AUDIT.html` and GitHub-friendly
   `KV_LIFECYCLE_AUDIT.md` from the same saved summaries and research progress.
+  The Markdown index uses America/Chicago time (CDT or CST as appropriate) and
+  control-to-changed-case arrows only for validated comparisons. It shows
+  other-session and whole-workflow costs alongside replay benefits. For
+  multi-trial runs, each arrow compares per-mode median times, not the median
+  of paired gains. The wide GitHub table uses the viewer's native horizontal
+  scrolling; custom scrollbar styling belongs in the HTML report.
   It keeps one row per archived run, ordered by the first request's UTC date
   and time. Expand a row for setup, pair-level measurements, limits, a
   reconstructed command, and immutable evidence links. If the request time is

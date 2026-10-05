@@ -178,18 +178,70 @@ def test_markdown_rq9_index_shows_absolute_early_and_late_results():
     summary = {
         "schema": "agentic_work_audit.multisession_comparison.v1",
         "run_id": "worker", "status": "validated", "_manifest": manifest,
+        "_started_ns": int(datetime(2026, 10, 5, 18, 28, 34, tzinfo=timezone.utc).timestamp() * 1e9),
         "cases": [
             {"pair": 1, "load_timing": "early", "sessions": {
-                "long": {"first_token_after_tool_ms": 89.9}}},
+                "long": {"first_token_after_tool_ms": 89.89},
+                "short": {"completion_after_tool_ms": 1006.444}},
+             "workflow_makespan_ms": 7900.198},
             {"pair": 1, "load_timing": "late_nonblocking", "sessions": {
-                "long": {"first_token_after_tool_ms": 1131.2}}},
+                "long": {"first_token_after_tool_ms": 1131.173},
+                "short": {"completion_after_tool_ms": 808.527}},
+             "workflow_makespan_ms": 8953.478},
         ],
+        "pairs": [{"pair": 1, "comparable": True}],
     }
     page = render_markdown([(Path("runs/worker/summary.json"), summary)])
     index = page.split("## Experiment details", 1)[0]
-    assert "early 89.9 ms; late 1131.2 ms" in index
+    assert "| Central date / time |" in index
+    assert "| Replay / long session | Other session | Whole workflow | Plain-English finding |" in index
+    assert "Oct 5, 2026, 1:28:34 p.m. CDT" in index
+    assert "Late loading → early loading (1 pair)" in index
+    assert "1,131 → 90 ms (1,041 ms faster)" in index
+    assert "809 → 1,006 ms (198 ms later)" in index
+    assert "8,953 → 7,900 ms (1,053 ms sooner)" in index
+    assert "short session finished later" in index
     assert "1041.3 ms faster" not in index
-    assert "89.9" in page and "1131.2" in page
+    assert "1:28:34 p.m. CDT" in page.split("## Experiment details", 1)[1]
+
+
+def test_markdown_uses_cst_for_winter_and_no_arrow_for_validation_only():
+    summary = {"schema": "agentic_work_audit.validation.v1", "run_id": "winter",
+               "status": "validated", "_manifest": _manifest(),
+               "_started_ns": int(datetime(2026, 1, 5, 18, 0, tzinfo=timezone.utc).timestamp() * 1e9),
+               "cases": [{"case_type": "host_backed", "replay_ttft_ms": 85.1}]}
+    index = render_markdown([(Path("runs/winter/summary.json"), summary)]).split(
+        "## Experiment details", 1)[0]
+    assert "Jan 5, 2026, 12:00:00 p.m. CST" in index
+    assert "Observation only; no policy comparison" in index
+    assert "Host-backed replay TTFT: 85.1 ms" in index
+    row = next(line for line in index.splitlines() if line.startswith("| Jan 5, 2026"))
+    assert " → " not in "|".join(row.split("|")[5:9])
+
+
+def test_markdown_does_not_call_mixed_other_session_trials_a_consistent_win():
+    manifest = _manifest()
+    manifest["workload"]["research_question_id"] = "RQ7"
+    cases = []
+    for pair, late_short, controlled_short in ((1, 800, 780), (2, 800, 830)):
+        cases.extend((
+            {"pair": pair, "load_timing": "late_nonblocking", "sessions": {
+                "long": {"first_token_after_tool_ms": 300},
+                "short": {"completion_after_tool_ms": late_short}},
+             "workflow_makespan_ms": 9000},
+            {"pair": pair, "load_timing": "controller_window", "sessions": {
+                "long": {"first_token_after_tool_ms": 90},
+                "short": {"completion_after_tool_ms": controlled_short}},
+             "workflow_makespan_ms": 8000},
+        ))
+    summary = {"schema": "agentic_work_audit.controller_window.v1", "run_id": "mixed",
+               "status": "validated", "_manifest": manifest, "cases": cases,
+               "pairs": [{"pair": 1, "comparable": True}, {"pair": 2, "comparable": True}]}
+    index = render_markdown([(Path("runs/mixed/summary.json"), summary)]).split(
+        "## Experiment details", 1)[0]
+    assert "Late loading → controller-timed loading (per-mode median, 2 pairs)" in index
+    assert "short-session effect varied" in index
+    assert "full workflow finished sooner" in index
 
 
 def test_timing_details_keep_pair_metrics_separate():
