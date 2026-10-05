@@ -645,6 +645,19 @@ def _attribution_result(summary: dict) -> tuple[str, str]:
                                f"{_ms(loads['mean_added_ms'])} ({_ms(loads['median_added_ms'])})",
                                coverage))
         windows = arms["controller"]["load_windows"]
+        load_phases = arms["controller"].get("load_phases") or []
+        phase_rows = [(
+            str(load.get("load_id")), _esc(load.get("loaded_tokens")),
+            _ms(load.get("control_queue_ms")), _ms(load.get("scheduler_preparation_ms")),
+            _ms(load.get("load_back_call_ms")), _ms(load.get("ready_to_load_call_ms")),
+            _ms(load.get("cuda_elapsed_ms")),
+        ) for load in load_phases]
+        phase_detail = (
+            "<p><strong>Completed early-load phases.</strong> Control queue and calls are wall time; "
+            "the CUDA event is device elapsed time and may overlap those calls. Do not sum them.</p>" +
+            _mode_table(("Load ID", "Tokens", "Control queue", "Scheduler prep", "Load call",
+                         "Ready call", "CUDA event"), phase_rows)
+        ) if phase_rows else ""
         sections.append(
             f"<h4>Seed {_esc(seed['seed'])}</h4>" +
             _mode_table(("Arm", "Summed replay TTFT", "Workflow", "Checks", "Load attempts",
@@ -658,7 +671,7 @@ def _attribution_result(summary: dict) -> tuple[str, str]:
             f"confirmed control-to-completion windows; {_esc(windows['windows_with_other_replay_before_first_token'])} "
             "overlapped another replay before first token; "
             f"{_esc(windows['windows_with_other_replay_after_first_token'])} overlapped another "
-            "replay after first token.</p>"
+            "replay after first token.</p>" + phase_detail
         )
     detail = (
         "<p><strong>What was measured.</strong> All arms use equal-priority sessions and fresh "

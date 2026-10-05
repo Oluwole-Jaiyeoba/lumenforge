@@ -525,3 +525,17 @@ proof of HBM contention. A separate
 [tracing-off/on microcheck](../reports/instrumentation_overhead_kv_attribution_20261003.json)
 measured +3.05% median latency for a sequential long-prefix request path;
 it does not bound overhead in the busy, naturally evicting workload.
+
+The [one-seed load-phase repeat](../reports/work_audit/work_audit_load_phase_20261005_01/summary.json)
+used the same three modes and records timestamps within each accepted native
+load. Three completed loads spent 121, 308, and 1362 ms in
+`ready_to_load_host_cache()` on the scheduler control path, while control-queue
+waits were 2-12 ms and `load_back()` calls were 6-29 ms. CUDA-event durations
+closely matched the ready-call wall times; these intervals overlap and must
+not be summed. A fourth attempt was not admitted. Summed replay TTFT was
+420.77 s without checks, 423.83 s with checks only, and 435.56 s with real
+loads across 36 replays. The 12 multi-chunk replies did not show slower
+generation after their first token. This locates a blocking backend call but
+does not prove a specific memory-bandwidth collision or how much hardware
+could remove. The [run manifest](../reports/work_audit/work_audit_load_phase_20261005_01/run_manifest.json)
+and compressed traces preserve the settings and event timeline.

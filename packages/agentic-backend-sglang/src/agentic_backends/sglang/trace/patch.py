@@ -1870,6 +1870,7 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "error_traceback": traceback.format_exc(limit=12),
         }
     finally:
+        load_back_returned_ns = time.time_ns()
         if effective_threshold != original_threshold:
             tree_cache.load_back_threshold = original_threshold
 
@@ -1885,6 +1886,7 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "reason": "SGLang load_back skipped this node because of threshold, quota, or memory pressure.",
         }
 
+    ready_to_load_started_ns = time.time_ns()
     try:
         with torch.cuda.stream(load_stream):
             timing_start_event.record()
@@ -1900,6 +1902,7 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "loaded_tokens": int(len(device_indices)),
             "error": f"{type(exc).__name__}: {exc}",
         }
+    ready_to_load_returned_ns = time.time_ns()
 
     load_id = str(command.get("load_id") or f"{command.get('request_id') or node_id}:{producer_id}:{start_ns}")
     try:
@@ -1910,6 +1913,11 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "producer_id": producer_id,
             "loaded_tokens": int(len(device_indices)),
             "command_started_ns": start_ns,
+            "control_queued_ns": command.get("control_queued_ns"),
+            "control_dequeued_ns": command.get("control_dequeued_ns"),
+            "load_back_returned_ns": load_back_returned_ns,
+            "ready_to_load_started_ns": ready_to_load_started_ns,
+            "ready_to_load_returned_ns": ready_to_load_returned_ns,
             "queued_ns": time.time_ns(),
             "started_observed_ns": None,
             "finished_observed_ns": None,
@@ -1952,6 +1960,11 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         "producer_id": producer_id,
         "load_id": load_id,
         "command_started_ns": start_ns,
+        "control_queued_ns": command.get("control_queued_ns"),
+        "control_dequeued_ns": command.get("control_dequeued_ns"),
+        "load_back_returned_ns": load_back_returned_ns,
+        "ready_to_load_started_ns": ready_to_load_started_ns,
+        "ready_to_load_returned_ns": ready_to_load_returned_ns,
         "duration_ms": round(duration_ms, 3),
         "load_back_threshold_original": original_threshold,
         "load_back_threshold_effective": effective_threshold,
@@ -1975,6 +1988,8 @@ def _process_prepare_prefix_commands(scheduler_or_cache: Any) -> None:
         event = command.get("_event")
         result_holder = command.get("_result_holder")
         public_command = {key: value for key, value in command.items() if not key.startswith("_")}
+        if "control_queued_ns" in public_command:
+            public_command["control_dequeued_ns"] = time.time_ns()
         _write_event({"event": "agentic_kv.prepare_prefix.dequeue", "command": public_command})
         result = _execute_prepare_prefix_command(public_command)
         _write_event({"event": "agentic_kv.prepare_prefix.result", **result, "command": public_command})
@@ -2050,6 +2065,8 @@ class _PreparePrefixControlHandler(BaseHTTPRequestHandler):
         event = threading.Event()
         result_holder: dict[str, Any] = {}
         command = dict(payload)
+        if not payload.get("plan_only") and payload.get("action") != "load_status":
+            command["control_queued_ns"] = time.time_ns()
         command["_event"] = event
         command["_result_holder"] = result_holder
         _PREPARE_COMMAND_QUEUE.put(command)

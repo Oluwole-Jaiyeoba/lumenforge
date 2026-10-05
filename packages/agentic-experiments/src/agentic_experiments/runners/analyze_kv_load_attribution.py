@@ -122,6 +122,36 @@ def _load_windows(arm: dict[str, Any], timeline: dict[str, dict[str, int]]) -> d
     }
 
 
+def _load_phases(arm_dir: Path) -> list[dict[str, Any]]:
+    trace = arm_dir / "backend_trace.jsonl"
+    if not trace.exists():
+        trace = trace.with_suffix(".jsonl.gz")
+    results: dict[str, dict[str, Any]] = {}
+    for event in _trace_rows(trace):
+        load_id = event.get("load_id")
+        if not isinstance(load_id, str):
+            continue
+        if event.get("event") == "agentic_kv.prepare_prefix.result":
+            results[load_id] = event
+        elif event.get("event") == "agentic_kv.prepare_prefix.load_status" and event.get("status") == "finished":
+            results.setdefault(load_id, {})["cuda_elapsed_ms"] = event.get("cuda_elapsed_ms")
+
+    def elapsed(row: dict[str, Any], start: str, end: str) -> float | None:
+        a, b = row.get(start), row.get(end)
+        return round((b - a) / 1_000_000, 3) if isinstance(a, int) and isinstance(b, int) and b >= a else None
+
+    return [{
+        "load_id": load_id,
+        "loaded_tokens": row.get("loaded_tokens"),
+        "control_queue_ms": elapsed(row, "control_queued_ns", "control_dequeued_ns"),
+        "scheduler_preparation_ms": elapsed(row, "control_dequeued_ns", "command_started_ns"),
+        "load_back_call_ms": elapsed(row, "command_started_ns", "load_back_returned_ns"),
+        "before_ready_call_ms": elapsed(row, "load_back_returned_ns", "ready_to_load_started_ns"),
+        "ready_to_load_call_ms": elapsed(row, "ready_to_load_started_ns", "ready_to_load_returned_ns"),
+        "cuda_elapsed_ms": row.get("cuda_elapsed_ms"),
+    } for load_id, row in sorted(results.items())]
+
+
 def compare(arms_dir: Path, run_id: str) -> dict[str, Any]:
     by_seed: dict[int, dict[str, tuple[dict[str, Any], dict[str, dict[str, int]]]]] = {}
     for path in sorted(arms_dir.glob("*/summary.json")):
@@ -154,6 +184,7 @@ def compare(arms_dir: Path, run_id: str) -> dict[str, Any]:
                 "controller_plan_checks": arm["controller_plan_checks"],
                 "stage_timing": _stage_summary(timeline),
                 "load_windows": _load_windows(arm, timeline),
+                "load_phases": _load_phases(arms_dir / f"seed{seed}_{mode}") if mode == "controller" else [],
             }
         check_cost = _paired_deltas(modes["baseline"][1], modes["check_only"][1])
         load_association = _paired_deltas(modes["check_only"][1], modes["controller"][1])
@@ -168,6 +199,7 @@ def compare(arms_dir: Path, run_id: str) -> dict[str, Any]:
         "status": "complete", "seed_count": len(seeds), "seeds": seeds,
         "interpretation_limit": (
             "A load control-to-confirmation window is not the physical CUDA copy interval. "
+            "The CUDA-event duration can overlap CPU calls and must not be added to their wall times. "
             "Stage differences isolate check-only from check-plus-load policy, but concurrent "
             "batch trajectories can diverge; they do not prove HBM bandwidth contention. "
             "Missing request-linked stages are reported as missing coverage, never zero delay."

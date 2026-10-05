@@ -47,6 +47,10 @@ def test_attribution_report_exposes_three_arms_and_stage_coverage():
                          "cache_lookup_to_first_token", "first_token_to_finish")}
     arm = {"total_replay_ttft_ms": 100, "workflow_makespan_ms": 200,
            "controller_plan_checks": 1, "native_load_events": 2,
+           "load_phases": [{"load_id": "load-1", "loaded_tokens": 512,
+                            "control_queue_ms": 2, "scheduler_preparation_ms": 1,
+                            "load_back_call_ms": 6, "ready_to_load_call_ms": 2,
+                            "cuda_elapsed_ms": 8.5}],
            "load_windows": {"load_attempts": 1, "confirmed_control_windows": 1,
                             "windows_with_other_replay_before_first_token": 1,
                             "windows_with_other_replay_after_first_token": 0}}
@@ -64,6 +68,8 @@ def test_attribution_report_exposes_three_arms_and_stage_coverage():
     assert "Checks only" in page and "Checks + loads" in page
     assert "Queue → first cache lookup" in page
     assert "1/1" in page
+    assert "Completed early-load phases" in page
+    assert "8.5 ms" in page
     assert "Not physical copy time" in page
 
 
