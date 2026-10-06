@@ -460,7 +460,8 @@ def test_lifecycle_details_separate_replay_timing_from_host_load_evidence():
 def test_progress_keeps_milestone_order_and_marks_unarchived_evidence():
     milestones = [
         {"id": "RQ2", "short_question": "New question", "question": "New question",
-         "answer": "New answer", "unknown": "Next test", "evidence_run_ids": ["missing"]},
+         "answer": "New answer", "hypothesis": "Host launches may be delayed.",
+         "unknown": "Next test", "evidence_run_ids": ["missing"]},
         {"id": "RQ1", "short_question": "Older question", "question": "Older question",
          "answer": "Older answer", "unknown": "Old limit", "evidence_run_ids": ["saved"]},
     ]
@@ -470,6 +471,9 @@ def test_progress_keeps_milestone_order_and_marks_unarchived_evidence():
     assert 'href="#run-saved"' in page
     assert "Question tested." in page
     assert 'href="#rq-RQ1"' in page
+    assert "Working hypothesis.</strong> Host launches may be delayed." in page
+    markdown = render_markdown([(Path("runs/saved/summary.json"), {"run_id": "saved"})], milestones)
+    assert "**Working hypothesis.** Host launches may be delayed." in markdown
 
 
 def test_manifest_question_id_links_without_archived_run_mapping():

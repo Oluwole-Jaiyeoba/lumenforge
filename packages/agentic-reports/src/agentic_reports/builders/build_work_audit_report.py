@@ -952,13 +952,17 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
         evidence_date = milestone.get("evidence_date_utc")
         evidence_label = (f"Evidence through {_esc(evidence_date)} UTC" if evidence_date and
                           evidence_date != "pending" else "Evidence pending")
+        hypothesis = milestone.get("hypothesis")
+        hypothesis_html = (f"<p><strong>Working hypothesis.</strong> {_esc(hypothesis)}</p>"
+                           if hypothesis else "")
         rows.append(
             f"<tr id='rq-{_esc(quote(question_id, safe=''))}'><td data-label='Question'>"
             f"<small>{_esc(question_id)} · {evidence_label}</small>"
             f"{_esc(milestone.get('question'))}</td>"
             f"<td data-label='Answer supported by evidence'>{_esc(milestone.get('answer'))}"
             f"<small>Supporting runs: {' · '.join(evidence) if evidence else 'not recorded'}</small></td>"
-            f"<td data-label='Still unknown'>{_esc(milestone.get('unknown'))}</td></tr>"
+            f"<td data-label='Still unknown'>{hypothesis_html}"
+            f"{_esc(milestone.get('unknown'))}</td></tr>"
         )
     return (
         '<section class="progress"><h2>Research progress</h2>'
@@ -1838,8 +1842,10 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
     for milestone in milestones or []:
         lines.extend((f"### {milestone['id']}: {milestone['short_question']}", "",
                       f"**Question.** {milestone['question']}", "",
-                      f"**What the evidence says.** {milestone['answer']}", "",
-                      f"**Not yet proved.** {milestone['unknown']}", ""))
+                      f"**What the evidence says.** {milestone['answer']}", ""))
+        if milestone.get("hypothesis"):
+            lines.extend((f"**Working hypothesis.** {milestone['hypothesis']}", ""))
+        lines.extend((f"**Not yet proved.** {milestone['unknown']}", ""))
     lines.extend(("## Experiment index", "",
                   "Newest first. Each arrow goes from the named control to the changed case in the "
                   "**Compared** column; lower times are better. Three-session rows show the long replay's "
