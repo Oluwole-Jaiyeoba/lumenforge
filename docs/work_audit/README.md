@@ -98,6 +98,38 @@ perturbation check, not as a precise overhead subtraction. The archived RQ14
 matrix, including per-turn metrics and compressed traces, is under
 `docs/reports/work_audit/rq14_*` and is indexed by the top-level audit.
 
+## Storage-Tier Replay Timing (RQ15)
+
+This opt-in study asks whether moving a storage-resident session prefix during
+an agent's tool wait can hide replay startup delay, and whether that choice
+disturbs peer sessions. It uses the pinned SGLang 0.5.10.post1 `v0510` adapter,
+the native file-backed HiCache path, and the `kv_lifecycle_lean` trace profile.
+It does not use frontend importance ranks or the controller's scheduling
+policy. Each arm starts a fresh backend with the same model and byte-identical
+prefix, populates it, then explicitly removes the device and host copies. The
+three arms are: `on_demand` (replay fetches L3), `host_stage` (L3 to host during
+the wait), and `full_prepare` (L3 to host and host to GPU during the wait).
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1 2' WORK_AUDIT_STORAGE_WAIT_MS=5000 \
+WORK_AUDIT_STORAGE_PAGE_SIZE=64 AGENTIC_MODEL_CACHE=/path/to/model/cache \
+bash infra/container/run_work_audit_storage.sh
+```
+
+`WORK_AUDIT_STORAGE_PEERS=2` adds two equal-priority requests during the tool
+wait; `WORK_AUDIT_STORAGE_PEER_START_MS=0` starts them with the preparation
+window. The run records their TTFT and completion, plus how many request
+intervals actually intersected preparation. Set `WORK_AUDIT_STORAGE_RUN_ID`
+for a reproducible output name. The launcher refuses a missing storage hook,
+an unproved storage-only precursor, a missing native L3 hit, a staged load
+that misses tool return, or a replay without a matched restored prefix.
+
+The comparison is a controlled timing study, not proof of a production win or
+physical SSD I/O. File-backed L3 reads may be satisfied by the OS page cache.
+The archived manifest records page size, wait, prompt, peers, backend version,
+and runtime profile; the raw per-arm timings and compressed backend traces
+remain linked from the top-level audit.
+
 ## First Live Validation
 
 Use the accessible A10G host with the existing pinned SGLang 0.5.10.post1

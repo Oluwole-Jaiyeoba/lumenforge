@@ -11,6 +11,55 @@ from agentic_reports.builders.build_work_audit_report import (
 )
 
 
+def test_storage_audit_report_shows_native_hits_and_reproduction():
+    rows = [
+        {"seed": 1, "arm": arm, "due_to_first_token_ms": delay,
+         "replay_ttft_ms": delay, "workflow_duration_ms": 21000 + delay,
+         "native_replay_storage_hit_tokens": 2100 if arm == "on_demand" else 0,
+         "control_storage_hit_tokens": 0 if arm == "on_demand" else 2100,
+         "stage_completed_before_due": arm != "on_demand"}
+        for arm, delay in (("on_demand", 4000), ("host_stage", 200), ("full_prepare", 100))
+    ]
+    summary = {"schema": "agentic_work_audit.storage_replay.v1", "run_id": "storage-1",
+               "status": "complete", "rows": rows, "paired": [{"seed": 1}],
+               "median_host_stage_delta_ms": -3800, "median_full_prepare_delta_ms": -3900,
+               "_manifest": {"model": "Qwen/Qwen2.5-1.5B-Instruct",
+                             "hardware_profile": "nvidia_standard", "backend_version": "0.5.10.post1",
+                             "created_at_ms": 1791320000000,
+                             "workload": {"research_question_id": "RQ15", "seeds": [1],
+                                          "prompt_tokens": 2048, "tool_wait_ms": 20000}}}
+    page = render([(Path("runs/storage-1/summary.json"), summary)])
+    markdown = render_markdown([(Path("runs/storage-1/summary.json"), summary)])
+    assert "Storage-tier KV timing" in page
+    assert "L3 tokens at replay" in page
+    assert "4000 → 200 → 100 ms" in markdown.replace("&nbsp;", " ")
+    assert "run_work_audit_storage.sh" in markdown
+    assert "seed1_on_demand" in markdown
+
+
+def test_storage_report_calls_out_peer_cost_when_preparation_overlaps():
+    rows = [
+        {"seed": 1, "arm": arm, "due_to_first_token_ms": delay,
+         "replay_ttft_ms": delay, "peer_count": 2,
+         "peer_ttft_median_ms": peer_ttft,
+         "peers_overlapping_preparation": overlap,
+         "native_replay_storage_hit_tokens": 2048 if arm == "on_demand" else 0,
+         "control_storage_hit_tokens": 0 if arm == "on_demand" else 2048,
+         "stage_completed_before_due": arm != "on_demand"}
+        for arm, delay, peer_ttft, overlap in (
+            ("on_demand", 330, 154, 0),
+            ("host_stage", 165, 196, 2),
+            ("full_prepare", 65, 203, 2),
+        )
+    ]
+    summary = {"schema": "agentic_work_audit.storage_replay.v1", "run_id": "storage-peer",
+               "status": "complete", "rows": rows, "paired": [{"seed": 1}],
+               "_manifest": {"workload": {"seeds": [1], "peer_count": 2}}}
+    assert "This is not a proven win-win" in render_markdown(
+        [(Path("runs/storage-peer/summary.json"), summary)]
+    )
+
+
 def test_tool_cycles_report_keeps_latency_and_load_evidence_separate():
     summary = {
         "schema": "agentic_work_audit.tool_cycles.v1",

@@ -1,0 +1,71 @@
+{
+  "schema": "agentic_work_audit.storage_replay.v1",
+  "run_id": "storage_audit_20261006_213611",
+  "status": "complete",
+  "rows": [
+    {
+      "seed": 3,
+      "arm": "full_prepare",
+      "due_to_first_token_ms": 64.701,
+      "tool_end_to_first_token_ms": 60.09,
+      "replay_ttft_ms": 60.042,
+      "replay_total_latency_ms": 330.201,
+      "workflow_duration_ms": 16109.197,
+      "peer_count": 2,
+      "peers_overlapping_preparation": 2,
+      "peer_ttft_median_ms": 202.812,
+      "peer_completion_median_ms": 2070.614,
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 3,
+      "arm": "host_stage",
+      "due_to_first_token_ms": 165.553,
+      "tool_end_to_first_token_ms": 161.622,
+      "replay_ttft_ms": 161.571,
+      "replay_total_latency_ms": 444.44,
+      "workflow_duration_ms": 16267.527,
+      "peer_count": 2,
+      "peers_overlapping_preparation": 2,
+      "peer_ttft_median_ms": 196.3175,
+      "peer_completion_median_ms": 1938.8045,
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 3,
+      "arm": "on_demand",
+      "due_to_first_token_ms": 336.58,
+      "tool_end_to_first_token_ms": 333.366,
+      "replay_ttft_ms": 333.316,
+      "replay_total_latency_ms": 622.576,
+      "workflow_duration_ms": 16281.529,
+      "peer_count": 2,
+      "peers_overlapping_preparation": 0,
+      "peer_ttft_median_ms": 153.736,
+      "peer_completion_median_ms": 1934.0785,
+      "native_replay_storage_hit_tokens": 2048,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 0,
+      "stage_completed_before_due": false,
+      "removed_host_match_tokens": 2048
+    }
+  ],
+  "paired": [
+    {
+      "seed": 3,
+      "host_stage_delta_ms": -171.027,
+      "full_prepare_delta_ms": -271.879
+    }
+  ],
+  "median_host_stage_delta_ms": -171.027,
+  "median_full_prepare_delta_ms": -271.879,
+  "interpretation_limit": "Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads."
+}

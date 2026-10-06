@@ -48,9 +48,11 @@ HOOK_TARGETS: tuple[SGLangHookTarget, ...] = (
             "cache_finished_req": "hiradix.cache_finished_req",
             "cache_unfinished_req": "hiradix.cache_unfinished_req",
             "evict": "hiradix.evict",
+            "evict_host": "hiradix.evict_host",
             "load_back": "hiradix.load_back",
             "init_load_back": "hiradix.init_load_back",
             "ready_to_load_host_cache": "hiradix.ready_to_load_host_cache",
+            "pop_prefetch_loaded_tokens": "hiradix.storage_hit_tokens",
         },
     ),
     SGLangHookTarget(
@@ -247,6 +249,8 @@ OPTIONAL_HOOKS: frozenset[tuple[str, str]] = frozenset(
         ("Scheduler", "_run_batch_prebuilt"),
         ("Scheduler", "_prefetch_kvcache"),
         ("HiCacheController", "prefetch"),
+        ("HiRadixCache", "evict_host"),
+        ("HiRadixCache", "pop_prefetch_loaded_tokens"),
     }
 )
 

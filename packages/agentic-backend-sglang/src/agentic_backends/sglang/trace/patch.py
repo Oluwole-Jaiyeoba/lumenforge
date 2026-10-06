@@ -1556,6 +1556,11 @@ def _register_preparable_prefix(
         "last_host_node_id": _safe_summary(_node_id(last_host_node)),
         "last_node_id": _safe_summary(_node_id(last_node)),
     }
+    if _truthy_env("AGENTIC_KV_STORAGE_AUDIT_ENABLE"):
+        # Retain IDs only in memory for a bounded, opt-in storage probe. They
+        # never enter the trace or control response.
+        entry["storage_audit_token_ids"] = list(getattr(req, "origin_input_ids", []) or [])
+        entry["storage_audit_extra_key"] = getattr(req, "extra_key", None)
     with _PREPARABLE_PREFIXES_LOCK:
         for key in keys:
             _PREPARABLE_PREFIXES[key] = entry
@@ -1641,6 +1646,86 @@ def _candidate_summary(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
         }
         for candidate in candidates
     ]
+
+
+def _storage_audit_match(entry: dict[str, Any]) -> tuple[Any, int, int]:
+    from sglang.srt.mem_cache.base_prefix_cache import MatchPrefixParams
+    from sglang.srt.mem_cache.radix_cache import RadixKey
+
+    tree_cache = entry["tree_cache"]
+    token_ids = entry.get("storage_audit_token_ids") or []
+    if not token_ids:
+        raise ValueError("No token IDs registered for this storage audit prefix")
+    key = RadixKey(
+        token_ids,
+        entry.get("storage_audit_extra_key"),
+        is_bigram=bool(getattr(tree_cache, "is_eagle", False)),
+    )
+    match = tree_cache.match_prefix(MatchPrefixParams(key=key))
+    return match, len(match.device_indices), int(match.host_hit_length)
+
+
+def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any]) -> dict[str, Any]:
+    """Exercise pinned SGLang's native L3 prefetch on the scheduler thread."""
+    tree_cache = entry["tree_cache"]
+    controller = getattr(tree_cache, "cache_controller", None)
+    if not _truthy_env("AGENTIC_KV_STORAGE_AUDIT_ENABLE") or not getattr(tree_cache, "enable_storage", False):
+        return {"ok": False, "status": "storage_audit_not_enabled"}
+    if controller is None or getattr(controller, "storage_backend", None) is None:
+        return {"ok": False, "status": "storage_backend_missing"}
+    action = command["action"]
+    token_ids = entry.get("storage_audit_token_ids") or []
+    try:
+        match, gpu_tokens, host_tokens = _storage_audit_match(entry)
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "status": "storage_match_failed", "error": f"{type(exc).__name__}: {exc}"}
+    result = {"gpu_tokens": gpu_tokens, "host_tokens": host_tokens, "prefix_tokens": len(token_ids)}
+    if action == "storage_status":
+        return {"ok": True, "status": "residency_observed", **result}
+    if action == "evict_host":
+        if getattr(controller, "write_policy", None) != "write_through":
+            return {"ok": False, "status": "write_through_required", **result}
+        if gpu_tokens or not host_tokens:
+            return {"ok": False, "status": "host_only_residency_required", **result}
+        tree_cache.writing_check()
+        tree_cache.evict_host(len(token_ids))
+        _, gpu_after, host_after = _storage_audit_match(entry)
+        return {
+            "ok": gpu_after == 0 and host_after == 0,
+            "status": "storage_only_candidate" if gpu_after == 0 and host_after == 0 else "host_eviction_incomplete",
+            "removed_host_match_tokens": max(0, host_tokens - host_after), "gpu_tokens_after": gpu_after,
+            "host_tokens_after": host_after, **result,
+        }
+    if action == "prefetch_storage":
+        if gpu_tokens or host_tokens:
+            return {"ok": False, "status": "not_storage_only", **result}
+        request_id = str(command.get("storage_request_id") or "")
+        if not request_id or request_id in tree_cache.ongoing_prefetch:
+            return {"ok": False, "status": "invalid_storage_request_id", **result}
+        root = tree_cache.root_node
+        tree_cache.prefetch_from_storage(request_id, root, token_ids)
+        if request_id not in tree_cache.ongoing_prefetch:
+            return {"ok": False, "status": "native_prefetch_not_admitted", **result}
+        return {"ok": True, "status": "storage_prefetch_accepted", "storage_request_id": request_id, **result}
+    if action == "storage_prefetch_status":
+        request_id = str(command.get("storage_request_id") or "")
+        if not request_id:
+            return {"ok": False, "status": "storage_request_id_required"}
+        pending = request_id in tree_cache.ongoing_prefetch
+        if pending and not tree_cache.check_prefetch_progress(request_id):
+            return {"ok": True, "status": "storage_prefetch_pending", "storage_request_id": request_id}
+        loaded = int(tree_cache.prefetch_loaded_tokens_by_reqid.pop(request_id, 0))
+        match, gpu_after, host_after = _storage_audit_match(entry)
+        if loaded > 0:
+            entry["last_host_node"] = match.last_host_node
+            entry["last_node"] = match.last_device_node
+        return {
+            "ok": loaded > 0 and host_after > 0,
+            "status": "storage_prefetch_complete" if loaded > 0 and host_after > 0 else "storage_prefetch_no_hit",
+            "storage_request_id": request_id, "storage_loaded_tokens": loaded,
+            "gpu_tokens_after": gpu_after, "host_tokens_after": host_after,
+        }
+    return {"ok": False, "status": "unknown_storage_action"}
 
 
 def _wait_for_prepared_load(tree_cache: Any, node_id: str, timeout_ms: int) -> str:
@@ -1753,6 +1838,9 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "lookup_keys": lookup_keys,
             "reason": "No matching SGLang radix/cache prefix has been registered yet.",
         }
+
+    if command.get("action") in {"storage_status", "evict_host", "prefetch_storage", "storage_prefetch_status"}:
+        return _execute_storage_audit_command(command, entry)
 
     tree_cache = entry.get("tree_cache")
     if tree_cache is not None:
@@ -2063,7 +2151,17 @@ def _process_prepare_prefix_commands(scheduler_or_cache: Any) -> None:
         if "control_queued_ns" in public_command:
             public_command["control_dequeued_ns"] = time.time_ns()
         _write_event({"event": "agentic_kv.prepare_prefix.dequeue", "command": public_command})
-        result = _execute_prepare_prefix_command(public_command)
+        identity = {
+            "agent_session_id": public_command.get("session_id"),
+            "agent_request_id": public_command.get("request_id"),
+            "agent_phase": "audit_storage_prepare" if public_command.get("action") in
+                           {"prefetch_storage", "storage_prefetch_status", "evict_host"} else "audit_prepare",
+        }
+        context_token = _ACTIVE_AGENT_CONTEXT.set(identity)
+        try:
+            result = _execute_prepare_prefix_command(public_command)
+        finally:
+            _ACTIVE_AGENT_CONTEXT.reset(context_token)
         _write_event({"event": "agentic_kv.prepare_prefix.result", **result, "command": public_command})
         if isinstance(result_holder, dict):
             result_holder["result"] = result
@@ -2440,6 +2538,10 @@ def _kv_context(event_name: str, method_name: str, self_obj: Any, args: tuple[An
         new_input_tokens = _arg_value(args, kwargs, 2, "new_input_tokens")
         context["new_input_token_count"] = len(new_input_tokens) if isinstance(new_input_tokens, list) else None
         context["last_hash"] = _safe_summary(_arg_value(args, kwargs, 3, "last_hash"))
+    elif method_name == "pop_prefetch_loaded_tokens":
+        context["direction"] = "storage_to_host"
+        context["request_id"] = _safe_summary(_arg_value(args, kwargs, 0, "req_id"))
+        context["storage_loaded_tokens"] = _safe_summary(result)
     elif method_name == "start_loading":
         context["direction"] = "host_to_device"
         context["queued_ops"] = _queue_context(self_obj, "load_queue")
@@ -3994,6 +4096,9 @@ def install_sglang_kv_trace() -> None:
     hook_statuses: dict[str, str] = {}
     for target in adapter.hook_targets:
         target_methods = dict(target.methods)
+        if target.class_name == "HiRadixCache" and not _truthy_env("AGENTIC_KV_STORAGE_AUDIT_ENABLE"):
+            target_methods.pop("pop_prefetch_loaded_tokens", None)
+            target_methods.pop("evict_host", None)
         use_control_only = False
         if ingress_only and target.scheduler_required:
             if target.class_name != "Scheduler":

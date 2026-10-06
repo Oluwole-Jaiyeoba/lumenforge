@@ -35,6 +35,16 @@ _SCHEDULER_SIGNALS = {
 }
 
 
+def storage_audit_event_kind(row: dict[str, Any]) -> str | None:
+    """Classify pinned-backend L3 proof rows for the storage replay audit."""
+    event = row.get("event")
+    if event == "hiradix.storage_hit_tokens.end":
+        return "storage_hit_tokens"
+    if event == "hiradix.match_prefix.end":
+        return "prefix_match"
+    return None
+
+
 @lru_cache(maxsize=None)
 def _adapter_events(adapter_name: str) -> tuple[set[str], dict[str, str]]:
     adapter = get_adapter(adapter_name)

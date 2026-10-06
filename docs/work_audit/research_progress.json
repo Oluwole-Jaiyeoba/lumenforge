@@ -2,6 +2,20 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ15",
+      "short_question": "Can storage KV be prepared during a tool wait?",
+      "evidence_date_utc": "2026-10-06",
+      "question": "When a session prefix is present in file-backed storage but absent from host and GPU cache, can native storage-to-host and host-to-GPU preparation during a known tool wait reduce replay delay, and what happens to peer requests?",
+      "answer": "Three paired A10G trials on pinned SGLang 0.5.10.post1 each used a fresh backend, the same 2048-token prefix, a 5-second synthetic tool wait, explicit device and host eviction, and 64-token file-cache pages. Native trace gates proved an L3 hit on on-demand replay, 2048 tokens staged during the wait in the early arms, a matched prefix on replay, and preparation complete before tool return. Time from tool-return deadline to first token was 359 to 170 to 62 ms in the quiet trial, 330 to 165 to 59 ms with two peers started after preparation, and 337 to 166 to 65 ms with two peers whose requests both overlapped preparation (on demand, host staging, full preparation). In the overlapping trial, peer median TTFT rose from 154 ms on demand to 196 ms with host staging and 203 ms with full preparation; peer median completion was 1934, 1939, and 2071 ms respectively. Early preparation hid much of the returning session's startup delay in these runs, but was not a demonstrated win-win for peer sessions.",
+      "hypothesis": "A known tool-return time can make storage-to-host and host-to-GPU movement useful before replay is submitted, but contention with other work may shift some delay onto peer requests. A capacity-aware policy would need to account for that tradeoff.",
+      "unknown": "The file-backed L3 hit does not prove physical SSD reads because the OS page cache may serve data. The workload used deliberate evictions, one returning session, at most two synthetic peers, one seed per concurrency setup, and a fixed five-second wait. Peer latency differences are measured associations, not a fully isolated transfer penalty. The experiment invokes explicit preparation controls rather than an autonomous controller; it does not establish production frequency, net system benefit at scale, or hardware-offload value. The remote run manifests have an empty git commit because the host used a synced source copy; the archived raw traces, settings, and local source provide reproducibility evidence instead.",
+      "evidence_run_ids": [
+        "storage_audit_20261006_212239",
+        "storage_audit_20261006_212924",
+        "storage_audit_20261006_213611"
+      ]
+    },
+    {
       "id": "RQ14",
       "short_question": "Do startup delays recur across many tool returns?",
       "evidence_date_utc": "2026-10-06",

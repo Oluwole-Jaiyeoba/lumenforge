@@ -148,6 +148,17 @@ def _time(summary: dict) -> tuple[int, str, str, str]:
 
 
 def _links(path: Path, summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
+        base = path.parent.as_posix()
+        links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>',
+                 f'<a href="{_esc(base)}/run_manifest.json">Run manifest</a>']
+        for row in summary["rows"]:
+            arm = f"seed{row['seed']}_{row['arm']}"
+            links.append(f'<a href="{_esc(base)}/arms/{_esc(arm)}/case_results.json">'
+                         f'{_esc(arm)} raw timings</a>')
+            links.append(f'<a href="{_esc(base)}/arms/{_esc(arm)}/backend_trace.jsonl.gz">'
+                         f'{_esc(arm)} backend trace</a>')
+        return " · ".join(links)
     if summary.get("schema") in ("agentic_work_audit.busy_comparison.v1",
                                  "agentic_work_audit.kv_load_attribution.v1"):
         base = path.parent.as_posix()
@@ -201,6 +212,21 @@ def _links(path: Path, summary: dict) -> str:
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
+    if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
+        peers = int(workload.get("peer_count") or 0)
+        brief = (f"1 returning + {peers} peer session(s) · {workload.get('prompt_tokens')} prompt tokens · "
+                 f"{workload.get('tool_wait_ms')} ms tool wait · file-backed L3")
+        detail = (f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
+                  f"{_esc(manifest.get('model'))}; pinned backend "
+                  f"{_esc(manifest.get('backend_version'))}. Fresh backend and storage path per arm; "
+                  f"write-through storage, {_esc(workload.get('page_size_tokens'))}-token pages, "
+                  "equal frontend priority, lean KV trace. "
+                  "Each arm populated a prefix, evicted it from GPU and host, then replayed it "
+                  "after the same synthetic tool wait. A positive native L3 hit was required. "
+                  "The early arms staged L3→L2 or L3→L2→L1 before tool return. "
+                  f"There were {peers} peer session(s), started "
+                  f"{_esc(workload.get('peer_start_ms', 1000))} ms into the tool wait.")
+        return brief, detail
     if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
         brief = (f"{_esc(summary.get('active_count'))} active + "
                  f"{_esc(summary.get('donor_count'))} donor sessions · "
@@ -377,6 +403,17 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
+    if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
+        command = (f"WORK_AUDIT_STORAGE_SEEDS='{ ' '.join(map(str, workload.get('seeds') or [])) }' "
+                   f"WORK_AUDIT_STORAGE_WAIT_MS={workload.get('tool_wait_ms')} "
+                   f"WORK_AUDIT_STORAGE_PROMPT_TOKENS={workload.get('prompt_tokens')} "
+                   f"WORK_AUDIT_STORAGE_PAGE_SIZE={workload.get('page_size_tokens')} "
+                   f"WORK_AUDIT_STORAGE_PEERS={workload.get('peer_count', 0)} "
+                   f"WORK_AUDIT_STORAGE_PEER_START_MS={workload.get('peer_start_ms', 1000)} "
+                   f"WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS={workload.get('peer_prompt_tokens', 1024)} "
+                   f"WORK_AUDIT_STORAGE_PEER_MAX_TOKENS={workload.get('peer_max_tokens', 96)} "
+                   "bash infra/container/run_work_audit_storage.sh")
+        return "<p><strong>How to reproduce.</strong></p><pre><code>" + _esc(command) + "</code></pre>"
     if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
@@ -1040,6 +1077,29 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 
 def _run_finding(summary: dict) -> str:
     status = summary.get("status")
+    if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
+        base, host, full = (
+            median(row["due_to_first_token_ms"] for row in summary["rows"] if row["arm"] == arm)
+            for arm in ("on_demand", "host_stage", "full_prepare")
+        )
+        peer_rows = [row for row in summary["rows"] if row.get("peer_count")]
+        if peer_rows:
+            peer_base, peer_full = (
+                median(row["peer_ttft_median_ms"] for row in peer_rows if row["arm"] == arm)
+                for arm in ("on_demand", "full_prepare")
+            )
+            if any(row.get("peers_overlapping_preparation") for row in peer_rows):
+                limit = (f"Peers overlapped preparation; their median TTFT changed "
+                         f"from {peer_base:.0f} to {peer_full:.0f} ms. This is not a proven win-win.")
+            else:
+                limit = ("Peers began after preparation finished, so this run does not measure "
+                         "contention during the transfer.")
+        else:
+            limit = "No peer-session or whole-system benefit is established by this single-session run."
+        return (f"With storage-only KV proven, first token after tool due was "
+                f"{base:.0f} ms on demand, {host:.0f} ms after host staging, "
+                f"and {full:.0f} ms after full preparation "
+                f"(median across {len(summary['paired'])} paired seed(s)). " + limit)
     if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
         if summary.get("status") == "trace_off_control":
             ttft_median, ttft_p95, _ = _tool_cycle_user_metrics(summary)
@@ -1226,6 +1286,7 @@ def _kind(summary: dict) -> str:
         "agentic_work_audit.multisession.v1": "Concurrent timeline",
         "agentic_work_audit.timing.v1": "Early vs late",
         "agentic_work_audit.validation.v1": "Lifecycle validation",
+        "agentic_work_audit.storage_replay.v1": "Storage-tier KV timing",
     }
     kind = names.get(schema, "Audit experiment")
     if schema == "agentic_work_audit.tool_cycles.v1" and summary.get("status") == "trace_off_control":
@@ -1242,6 +1303,25 @@ def _kind(summary: dict) -> str:
 
 def _result_parts(summary: dict) -> tuple[str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.storage_replay.v1":
+        rows = [(f"Seed {row['seed']} · {row['arm']}",
+                 _ms(row['due_to_first_token_ms']), _ms(row['replay_ttft_ms']),
+                 _ms(row.get('peer_ttft_median_ms')),
+                 row.get('peers_overlapping_preparation'),
+                 row['native_replay_storage_hit_tokens'], row['control_storage_hit_tokens'],
+                 row.get('replay_matched_prefix_tokens'),
+                 "yes" if row['stage_completed_before_due'] else "not applicable")
+                for row in summary['rows']]
+        detail = _mode_table(("Arm", "Due → first token", "Replay TTFT", "Peer TTFT median",
+                              "Peers overlapping preparation",
+                              "L3 tokens at replay", "L3 tokens during wait",
+                              "Matched replay prefix",
+                              "Staging met due time"), rows)
+        return (f"{len(summary['paired'])} paired seed(s) · native L3 hit verified · "
+                f"host-stage median change {summary['median_host_stage_delta_ms']:+.0f} ms · "
+                f"full-prepare median change {summary['median_full_prepare_delta_ms']:+.0f} ms",
+                detail + "<p>Negative change means faster than on-demand. This is a small "
+                         "controlled timing check, not a production result.</p>")
     if schema == "agentic_work_audit.tool_cycles.v1":
         if summary.get("status") == "trace_off_control":
             ttft_median, ttft_p95, _ = _tool_cycle_user_metrics(summary)
@@ -1581,6 +1661,21 @@ def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
 
 def _markdown_metrics(summary: dict) -> str:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.storage_replay.v1":
+        rows = [(row['seed'], row['arm'], row['due_to_first_token_ms'], row['replay_ttft_ms'],
+                 row.get('peer_ttft_median_ms'), row.get('peer_completion_median_ms'),
+                 row.get('peers_overlapping_preparation'),
+                 row.get('workflow_duration_ms'), row['native_replay_storage_hit_tokens'],
+                 row['control_storage_hit_tokens'], row.get('replay_matched_prefix_tokens'),
+                 "not applicable" if row['arm'] == 'on_demand' else
+                 row['stage_completed_before_due'])
+                for row in summary['rows']]
+        return _md_table(("Seed", "Arm", "Due → first token (ms)", "Replay TTFT (ms)",
+                          "Peer TTFT median (ms)", "Peer completion median (ms)",
+                          "Peers overlapping preparation",
+                          "Whole workflow (ms)", "L3 tokens at replay", "L3 tokens in wait",
+                          "Matched prefix tokens",
+                          "Stage ready by due"), rows)
     if schema == "agentic_work_audit.tool_cycles.v1":
         if summary.get("status") == "trace_off_control":
             rows = [(f"{row['session_id']} · {row['turn']}", row['prompt_tokens'],
@@ -1965,6 +2060,19 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.storage_replay.v1":
+        first_seed = summary['paired'][0]['seed']
+        arms = {row['arm']: row for row in summary['rows'] if row['seed'] == first_seed}
+        base = arms['on_demand']['due_to_first_token_ms']
+        full = arms['full_prepare']['due_to_first_token_ms']
+        peer_count = max((row.get('peer_count') or 0 for row in summary['rows']), default=0)
+        peer = (f"Peer TTFT: {arms['on_demand']['peer_ttft_median_ms']:.0f} → "
+                f"{arms['host_stage']['peer_ttft_median_ms']:.0f} → "
+                f"{arms['full_prepare']['peer_ttft_median_ms']:.0f} ms") if peer_count else "No peer session"
+        return ("On demand → host stage → full prepare",
+                f"First token: {base:.0f} → {arms['host_stage']['due_to_first_token_ms']:.0f} "
+                f"→ {full:.0f} ms", peer,
+                "Small synthetic workload", _run_finding(summary), "L3 hit verified")
     if schema == "agentic_work_audit.tool_cycles.v1":
         if summary.get("status") == "trace_off_control":
             ttft_median, _, _ = _tool_cycle_user_metrics(summary)
@@ -2118,6 +2226,11 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                                 ("backend_trace.jsonl", "Raw trace")):
             if filename in files:
                 evidence.append(f"[{label}]({base}/{filename})")
+        if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
+            for row in summary["rows"]:
+                arm = f"seed{row['seed']}_{row['arm']}"
+                evidence.append(f"[{arm} timings]({base}/arms/{arm}/case_results.json)")
+                evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
         if (path.parent / "runtime" / "backend_features.json").exists():
             evidence.append(f"[Backend features]({base}/runtime/backend_features.json)")
         if summary.get("_cuda_kernel_subset"):

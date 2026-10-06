@@ -1,0 +1,71 @@
+{
+  "schema": "agentic_work_audit.storage_replay.v1",
+  "run_id": "storage_audit_20261006_212239",
+  "status": "complete",
+  "rows": [
+    {
+      "seed": 1,
+      "arm": "full_prepare",
+      "due_to_first_token_ms": 61.914,
+      "tool_end_to_first_token_ms": 56.822,
+      "replay_ttft_ms": 56.751,
+      "replay_total_latency_ms": 322.589,
+      "workflow_duration_ms": 15780.282,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 1,
+      "arm": "host_stage",
+      "due_to_first_token_ms": 169.68,
+      "tool_end_to_first_token_ms": 163.218,
+      "replay_ttft_ms": 163.159,
+      "replay_total_latency_ms": 452.281,
+      "workflow_duration_ms": 16102.9,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 1,
+      "arm": "on_demand",
+      "due_to_first_token_ms": 358.527,
+      "tool_end_to_first_token_ms": 355.818,
+      "replay_ttft_ms": 355.762,
+      "replay_total_latency_ms": 646.558,
+      "workflow_duration_ms": 16159.657,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "native_replay_storage_hit_tokens": 2048,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 0,
+      "stage_completed_before_due": false,
+      "removed_host_match_tokens": 2048
+    }
+  ],
+  "paired": [
+    {
+      "seed": 1,
+      "host_stage_delta_ms": -188.84699999999998,
+      "full_prepare_delta_ms": -296.613
+    }
+  ],
+  "median_host_stage_delta_ms": -188.84699999999998,
+  "median_full_prepare_delta_ms": -296.613,
+  "interpretation_limit": "Single-session storage timing only. Peer-session cost and a busy-workload benefit are not measured. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads."
+}

@@ -1,0 +1,94 @@
+{
+  "run_id": "storage_audit_20261006_212924_seed2",
+  "arm": "host_stage",
+  "session_id": "storage_audit_20261006_212924_seed2-host_stage",
+  "frontend_priority": "equal",
+  "prompt_tokens_target": 2048,
+  "wait_ms": 5000,
+  "initial": {
+    "request_start_ns": 1791322356587293337,
+    "request_end_ns": 1791322366992856352,
+    "first_token_ns": 1791322365204023478,
+    "ttft_ms": 8616.729,
+    "total_latency_ms": 10405.561,
+    "stream_chunks": 18
+  },
+  "host_precursor": {
+    "gpu_tokens": 0,
+    "host_tokens": 2048,
+    "ok": true,
+    "prefix_tokens": 2104,
+    "status": "residency_observed",
+    "control_request_ns": 1791322367000592128,
+    "control_response_ns": 1791322367011359174
+  },
+  "storage_eviction": {
+    "gpu_tokens": 0,
+    "gpu_tokens_after": 0,
+    "host_tokens": 2048,
+    "host_tokens_after": 0,
+    "ok": true,
+    "prefix_tokens": 2104,
+    "removed_host_match_tokens": 2048,
+    "status": "storage_only_candidate",
+    "control_request_ns": 1791322367011363184,
+    "control_response_ns": 1791322367031472781
+  },
+  "tool_start_ns": 1791322367031474551,
+  "tool_due_ns": 1791322372031474551,
+  "tool_end_ns": 1791322372034238188,
+  "storage_stage": {
+    "accepted": {
+      "gpu_tokens": 0,
+      "host_tokens": 0,
+      "ok": true,
+      "prefix_tokens": 2104,
+      "status": "storage_prefetch_accepted",
+      "storage_request_id": "storage_audit_20261006_212924_seed2-host_stage-storage",
+      "control_request_ns": 1791322367031500772,
+      "control_response_ns": 1791322367044254762
+    },
+    "completed": {
+      "gpu_tokens_after": 0,
+      "host_tokens_after": 2048,
+      "ok": true,
+      "status": "storage_prefetch_complete",
+      "storage_loaded_tokens": 2048,
+      "storage_request_id": "storage_audit_20261006_212924_seed2-host_stage-storage"
+    },
+    "completed_observed_ns": 1791322367327343522
+  },
+  "device_load": null,
+  "replay": {
+    "request_start_ns": 1791322372034287309,
+    "request_end_ns": 1791322372484161032,
+    "first_token_ns": 1791322372196795895,
+    "ttft_ms": 162.508,
+    "total_latency_ms": 449.873,
+    "stream_chunks": 18
+  },
+  "peers": [
+    {
+      "peer_index": 0,
+      "request_start_ns": 1791322368052630061,
+      "request_end_ns": 1791322370034314371,
+      "first_token_ns": 1791322368173891559,
+      "ttft_ms": 121.259,
+      "total_latency_ms": 1981.682,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 1,
+      "request_start_ns": 1791322368071566511,
+      "request_end_ns": 1791322370034891655,
+      "first_token_ns": 1791322368267991221,
+      "ttft_ms": 196.423,
+      "total_latency_ms": 1963.324,
+      "stream_chunks": 98
+    }
+  ],
+  "due_to_first_token_ms": 165.321,
+  "tool_end_to_first_token_ms": 162.558,
+  "stage_completed_before_due": true,
+  "workflow_duration_ms": 15896.868
+}

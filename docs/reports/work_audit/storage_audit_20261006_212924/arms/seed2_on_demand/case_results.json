@@ -1,0 +1,74 @@
+{
+  "run_id": "storage_audit_20261006_212924_seed2",
+  "arm": "on_demand",
+  "session_id": "storage_audit_20261006_212924_seed2-on_demand",
+  "frontend_priority": "equal",
+  "prompt_tokens_target": 2048,
+  "wait_ms": 5000,
+  "initial": {
+    "request_start_ns": 1791322463203223728,
+    "request_end_ns": 1791322473702548648,
+    "first_token_ns": 1791322471949308276,
+    "ttft_ms": 8746.082,
+    "total_latency_ms": 10499.322,
+    "stream_chunks": 18
+  },
+  "host_precursor": {
+    "gpu_tokens": 0,
+    "host_tokens": 2048,
+    "ok": true,
+    "prefix_tokens": 2104,
+    "status": "residency_observed",
+    "control_request_ns": 1791322473720223529,
+    "control_response_ns": 1791322473730712568
+  },
+  "storage_eviction": {
+    "gpu_tokens": 0,
+    "gpu_tokens_after": 0,
+    "host_tokens": 2048,
+    "host_tokens_after": 0,
+    "ok": true,
+    "prefix_tokens": 2104,
+    "removed_host_match_tokens": 2048,
+    "status": "storage_only_candidate",
+    "control_request_ns": 1791322473730716968,
+    "control_response_ns": 1791322473745049453
+  },
+  "tool_start_ns": 1791322473745052173,
+  "tool_due_ns": 1791322478745052173,
+  "tool_end_ns": 1791322478746968876,
+  "storage_stage": null,
+  "device_load": null,
+  "replay": {
+    "request_start_ns": 1791322478747018337,
+    "request_end_ns": 1791322479357562109,
+    "first_token_ns": 1791322479075315575,
+    "ttft_ms": 328.296,
+    "total_latency_ms": 610.543,
+    "stream_chunks": 18
+  },
+  "peers": [
+    {
+      "peer_index": 0,
+      "request_start_ns": 1791322474777468366,
+      "request_end_ns": 1791322476690383629,
+      "first_token_ns": 1791322474906106217,
+      "ttft_ms": 128.636,
+      "total_latency_ms": 1912.913,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 1,
+      "request_start_ns": 1791322474805445891,
+      "request_end_ns": 1791322476690307707,
+      "first_token_ns": 1791322474996956539,
+      "ttft_ms": 191.509,
+      "total_latency_ms": 1884.86,
+      "stream_chunks": 98
+    }
+  ],
+  "due_to_first_token_ms": 330.263,
+  "tool_end_to_first_token_ms": 328.347,
+  "stage_completed_before_due": false,
+  "workflow_duration_ms": 16154.338
+}
