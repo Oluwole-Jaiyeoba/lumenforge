@@ -1,0 +1,14 @@
+{
+  "schema": "agentic_work_audit.overlap_dose.v1",
+  "run_id": "rq11_s6_d0_seed2_20261005",
+  "status": "excluded",
+  "research_question_id": "RQ11",
+  "seed": 2,
+  "session_count": 6,
+  "donor_count": 4,
+  "planned_overlap": 0,
+  "failure_reason": "The four post-decode native loads overshot the 20-second donor tool-return window. A paired 40-second control and four-load arm replaced this attempt.",
+  "limitations": [
+    "No target or workflow timing from this attempt is included in the dose comparison."
+  ]
+}

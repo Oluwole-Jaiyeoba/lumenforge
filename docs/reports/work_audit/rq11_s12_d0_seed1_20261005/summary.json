@@ -1,0 +1,14 @@
+{
+  "schema": "agentic_work_audit.overlap_dose.v1",
+  "run_id": "rq11_s12_d0_seed1_20261005",
+  "status": "excluded",
+  "research_question_id": "RQ11",
+  "seed": 1,
+  "session_count": 12,
+  "donor_count": 4,
+  "planned_overlap": 0,
+  "failure_reason": "At eight long active prompts, SGLang refused donor 2's native load because of load-back threshold, quota, or memory pressure. The same four-load control could not be completed.",
+  "limitations": [
+    "No target or workflow timing from this attempt is included in the dose comparison."
+  ]
+}

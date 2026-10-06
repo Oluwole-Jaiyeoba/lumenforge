@@ -1,0 +1,26 @@
+{
+  "run_id": "rq11_s12_d0_seed1_20261005",
+  "experiment": "agentic_work_audit_overlap_dose",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "hardware_profile": "nvidia-standard",
+  "backend_version": "0.5.10.post1",
+  "completion_status": "excluded",
+  "workload": {
+    "research_question_id": "RQ11",
+    "frontend_priority": "none",
+    "purpose": "overlap_dose",
+    "session_count": 12,
+    "donor_count": 4,
+    "planned_overlap": 0,
+    "seed": 1,
+    "decode_tokens": 96,
+    "active_prompt_words": 4090,
+    "donor_prompt_words": 4090,
+    "target_wait_ms": 900,
+    "donor_wait_ms": 40000,
+    "forward_trace_enabled": 0,
+    "nsys_enabled": 0,
+    "hicache_size_gb": 8,
+    "mem_fraction_static": 0.7
+  }
+}

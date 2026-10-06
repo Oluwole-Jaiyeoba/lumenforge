@@ -1,0 +1,15 @@
+{
+  "schema": "agentic_work_audit.profiler_status.v1",
+  "status": "capture_incomplete",
+  "reason": "Nsight exported NVTX and CUDA runtime records, but no CUPTI_ACTIVITY_KIND_KERNEL or CUPTI_ACTIVITY_KIND_MEMCPY tables. Physical host-to-device copy overlap is unverified.",
+  "available_tables": [
+    "NVTX_EVENTS",
+    "CUPTI_ACTIVITY_KIND_RUNTIME",
+    "CUPTI_ACTIVITY_KIND_SYNCHRONIZATION"
+  ],
+  "missing_tables": [
+    "CUPTI_ACTIVITY_KIND_KERNEL",
+    "CUPTI_ACTIVITY_KIND_MEMCPY"
+  ],
+  "use_for_latency_comparison": false
+}

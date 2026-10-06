@@ -21,11 +21,12 @@ if [[ -z "${CASE_ORDER}" ]]; then
     multisession_window) CASE_ORDER="late_nonblocking-early-post_short" ;;
     multisession_controller) CASE_ORDER="late_nonblocking-early-post_short-controller_window" ;;
     multisession_overlap) CASE_ORDER="early-post_short" ;;
+    overlap_dose) CASE_ORDER="dose" ;;
     multisession) CASE_ORDER="long-short-ends" ;;
     *) CASE_ORDER="warm-host" ;;
   esac
 fi
-TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( if [[ "${STUDY}" == "multisession_overlap" ]]; then echo kv_decode_overlap; elif [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then echo kv_lifecycle_lean; else echo kv_lifecycle; fi )}"
+TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( if [[ "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]]; then echo kv_decode_overlap; elif [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then echo kv_lifecycle_lean; else echo kv_lifecycle; fi )}"
 FORWARD_TRACE="${WORK_AUDIT_FORWARD_TRACE:-0}"
 NSYS_ENABLE="${WORK_AUDIT_NSYS_ENABLE:-0}"
 PAIRS="${WORK_AUDIT_PAIRS:-1}"
@@ -39,11 +40,19 @@ LOAD_MARGIN_MS="${WORK_AUDIT_LOAD_MARGIN_MS:-150}"
 EXACT_INDICES="${WORK_AUDIT_EXACT_INDICES:-256}"
 REQUIRE_SLOT_PROOF="${WORK_AUDIT_REQUIRE_SLOT_PROOF:-0}"
 PROMPT_WORDS="${WORK_AUDIT_PROMPT_WORDS:-4090}"
+ACTIVE_PROMPT_WORDS="${WORK_AUDIT_ACTIVE_PROMPT_WORDS:-${PROMPT_WORDS}}"
+DONOR_PROMPT_WORDS="${WORK_AUDIT_DONOR_PROMPT_WORDS:-${PROMPT_WORDS}}"
 MAX_OUTPUT_TOKENS="${WORK_AUDIT_MAX_OUTPUT_TOKENS:-16}"
 MINIMUM_HOST_TOKENS="${WORK_AUDIT_MINIMUM_HOST_TOKENS:-512}"
 EVICTION_ROUNDS="${WORK_AUDIT_EVICTION_ROUNDS:-4}"
 HICACHE_SIZE_GB="${HICACHE_SIZE_GB:-8}"
 MEM_FRACTION_STATIC="${MEM_FRACTION_STATIC:-0.70}"
+SESSION_COUNT="${WORK_AUDIT_SESSION_COUNT:-6}"
+DONOR_COUNT="${WORK_AUDIT_DONOR_COUNT:-4}"
+PLANNED_OVERLAP="${WORK_AUDIT_PLANNED_OVERLAP:-1}"
+SEED="${WORK_AUDIT_SEED:-1}"
+DECODE_TOKENS="${WORK_AUDIT_DECODE_TOKENS:-96}"
+DONOR_WAIT_MS="${WORK_AUDIT_DONOR_WAIT_MS:-10000}"
 RESULTS_BASE="${DIRECT_ROOT}/artifacts/results/work_audit"
 RUN_ROOT="${RESULTS_BASE}/${RUN_ID}"
 SERVER_PID=""
@@ -52,7 +61,7 @@ NSYS_CONTAINER_NAME=""
 [[ -f "${PROFILE_PATH}" ]] || { echo "Missing runtime profile: ${PROFILE_PATH}" >&2; exit 2; }
 [[ -n "${IMAGE}" ]] || { echo "Set SGLANG_DOCKER_IMAGE" >&2; exit 2; }
 [[ -d "${MODEL_CACHE}" ]] || { echo "Set AGENTIC_MODEL_CACHE to a directory" >&2; exit 2; }
-[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]] || {
+[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]] || {
   echo "Unsupported WORK_AUDIT_STUDY: ${STUDY}" >&2; exit 2;
 }
 [[ "${SECOND_REPLAY}" == "0" || "${SECOND_REPLAY}" == "1" ]] || {
@@ -62,7 +71,20 @@ NSYS_CONTAINER_NAME=""
 for value in "${PROMPT_WORDS}" "${MAX_OUTPUT_TOKENS}" "${MINIMUM_HOST_TOKENS}" "${EVICTION_ROUNDS}"; do
   [[ "${value}" =~ ^[1-9][0-9]*$ ]] || { echo "Work-audit request settings must be positive integers" >&2; exit 2; }
 done
-if [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
+if [[ "${STUDY}" == "overlap_dose" ]]; then
+  [[ "${CASE_ORDER}" == "dose" && "${TRACE_PROFILE}" == "kv_decode_overlap" &&
+     "${AGENTIC_KV_PREPARE_LOAD_WORKER:-0}" == "1" &&
+     "${ACTIVE_PROMPT_WORDS}" =~ ^[1-9][0-9]*$ &&
+     "${DONOR_PROMPT_WORDS}" =~ ^[1-9][0-9]*$ &&
+     "${SESSION_COUNT}" =~ ^[1-9][0-9]*$ && "${DONOR_COUNT}" =~ ^[1-9][0-9]*$ &&
+     "${PLANNED_OVERLAP}" =~ ^[0-9]+$ && "${SEED}" =~ ^[1-9][0-9]*$ &&
+     "${DECODE_TOKENS}" =~ ^[1-9][0-9]*$ && "${DONOR_WAIT_MS}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "Overlap dose requires worker KV loads, kv_decode_overlap, and valid workload counts" >&2; exit 2;
+  }
+  (( SESSION_COUNT > DONOR_COUNT && PLANNED_OVERLAP <= DONOR_COUNT )) || {
+    echo "Overlap dose needs active sessions and no more overlapping loads than donors" >&2; exit 2;
+  }
+elif [[ "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   [[ "${SHORT_WAIT_MS}" =~ ^[1-9][0-9]*$ &&
      "${LONG_WAIT_MS}" =~ ^[1-9][0-9]*$ && "${SHORT_WAIT_MS}" -lt "${LONG_WAIT_MS}" ]] || {
     echo "Multisession requires positive, ordered tool waits" >&2; exit 2;
@@ -145,11 +167,11 @@ fi
 [[ "${NSYS_ENABLE}" == "0" || "${NSYS_ENABLE}" == "1" ]] || {
   echo "WORK_AUDIT_NSYS_ENABLE must be 0 or 1" >&2; exit 2;
 }
-[[ "${NSYS_ENABLE}" == "0" || ( "${STUDY}" == "multisession_overlap" && "${FORWARD_TRACE}" == "1" ) ]] || {
-  echo "Nsight capture requires multisession_overlap with forward tracing" >&2; exit 2;
+[[ "${NSYS_ENABLE}" == "0" || ( ( "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ) && "${FORWARD_TRACE}" == "1" ) ]] || {
+  echo "Nsight capture requires an overlap study with forward tracing" >&2; exit 2;
 }
-[[ "${FORWARD_TRACE}" == "0" || "${STUDY}" == "multisession_overlap" ]] || {
-  echo "Forward-only tracing is supported only for multisession_overlap" >&2; exit 2;
+[[ "${FORWARD_TRACE}" == "0" || "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]] || {
+  echo "Forward-only tracing is supported only for overlap studies" >&2; exit 2;
 }
 if [[ "${STUDY}" == "validation" ]]; then
   DEFAULT_QUESTION_ID="RQ1"
@@ -161,6 +183,8 @@ elif [[ "${STUDY}" == "multisession_compare" ]]; then
   DEFAULT_QUESTION_ID="RQ5"
 elif [[ "${STUDY}" == "multisession_overlap" ]]; then
   DEFAULT_QUESTION_ID="RQ10"
+elif [[ "${STUDY}" == "overlap_dose" ]]; then
+  DEFAULT_QUESTION_ID="RQ11"
 elif [[ "${STUDY}" == "multisession" ]]; then
   DEFAULT_QUESTION_ID="RQ4"
 elif [[ "${CASE_ORDER}" == *late_nonblocking* ]]; then
@@ -244,7 +268,7 @@ echo "Starting pinned backend for ${RUN_ID}"
   if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" || "${TRACE_PROFILE}" == "kv_decode_overlap" ]]; then
     export AGENTIC_KV_TRACE_CONTROL_ONLY=1
   fi
-  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
+  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]]; then
     export AGENTIC_KV_TRACE_MAX_EXACT_INDICES="${EXACT_INDICES}"
   fi
   export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
@@ -313,6 +337,15 @@ if [[ "${STUDY}" == "timing" ]]; then
     --wait-ms "${WAIT_MS}" --prompt-tokens "${PROMPT_WORDS}" \
     --max-tokens "${MAX_OUTPUT_TOKENS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
     --eviction-rounds "${EVICTION_ROUNDS}"
+elif [[ "${STUDY}" == "overlap_dose" ]]; then
+  python3 -m agentic_experiments.runners.run_work_audit_overlap_sweep \
+    --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
+    --seed "${SEED}" --session-count "${SESSION_COUNT}" --donor-count "${DONOR_COUNT}" \
+    --planned-overlap "${PLANNED_OVERLAP}" --decode-tokens "${DECODE_TOKENS}" \
+    --donor-wait-ms "${DONOR_WAIT_MS}" --target-wait-ms "${SHORT_WAIT_MS}" \
+    --active-prompt-tokens "${ACTIVE_PROMPT_WORDS}" --donor-prompt-tokens "${DONOR_PROMPT_WORDS}" \
+    --eviction-prompt-tokens "${DONOR_PROMPT_WORDS}" \
+    --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" --eviction-rounds "${EVICTION_ROUNDS}"
 elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   python3 -m agentic_experiments.runners.run_work_audit_multisession \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
@@ -342,7 +375,9 @@ python3 -m agentic_backends.sglang.trace_contract \
   --adapter v0510 --profile "${TRACE_PROFILE}" \
   --trace "${RUN_ROOT}/backend_trace.jsonl" \
   --out "${RUN_ROOT}/instrumentation_audit.json"
-if [[ "${STUDY}" == "multisession_overlap" ]]; then
+if [[ "${STUDY}" == "overlap_dose" ]]; then
+  : # The dose runner writes its own summary after the shared trace gate.
+elif [[ "${STUDY}" == "multisession_overlap" ]]; then
   FORWARD_ARGS=()
   [[ "${FORWARD_TRACE}" == "1" ]] && FORWARD_ARGS+=(--require-model-forward)
   python3 -m agentic_experiments.runners.analyze_work_audit_decode_overlap \
@@ -410,10 +445,17 @@ else:
   }
   nsys export --type sqlite --force-overwrite=true \
     -o "${RUN_ROOT}/nsys/backend.sqlite" "${RUN_ROOT}/nsys/backend.nsys-rep" >/dev/null
-  python3 -m agentic_experiments.runners.analyze_work_audit_cuda_kernels \
-    --sqlite "${RUN_ROOT}/nsys/backend.sqlite" \
-    --summary "${RUN_ROOT}/summary.json" \
-    --out "${RUN_ROOT}/nsys/kernel_attribution.json"
+  if [[ "${STUDY}" == "overlap_dose" ]]; then
+    python3 -m agentic_experiments.runners.analyze_work_audit_physical_overlap \
+      --sqlite "${RUN_ROOT}/nsys/backend.sqlite" \
+      --summary "${RUN_ROOT}/summary.json" --trace "${RUN_ROOT}/backend_trace.jsonl" \
+      --out "${RUN_ROOT}/nsys/physical_overlap.json"
+  else
+    python3 -m agentic_experiments.runners.analyze_work_audit_cuda_kernels \
+      --sqlite "${RUN_ROOT}/nsys/backend.sqlite" \
+      --summary "${RUN_ROOT}/summary.json" \
+      --out "${RUN_ROOT}/nsys/kernel_attribution.json"
+  fi
 fi
 HARDWARE_PROFILE="$(python3 - "${PROFILE_PATH}" <<'PY'
 import json
@@ -422,7 +464,9 @@ print(json.load(open(sys.argv[1], encoding="utf-8"))["hardware_profile"])
 PY
 )"
 CASE_ORDER_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split("-")))' "${CASE_ORDER}")"
-if [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
+if [[ "${STUDY}" == "overlap_dose" ]]; then
+  WORKLOAD_JSON="{\"research_question_id\":\"RQ11\",\"frontend_priority\":\"none\",\"purpose\":\"overlap_dose\",\"load_execution\":\"worker\",\"session_count\":${SESSION_COUNT},\"donor_count\":${DONOR_COUNT},\"planned_overlap\":${PLANNED_OVERLAP},\"seed\":${SEED},\"decode_tokens\":${DECODE_TOKENS},\"active_prompt_words\":${ACTIVE_PROMPT_WORDS},\"donor_prompt_words\":${DONOR_PROMPT_WORDS},\"target_wait_ms\":${SHORT_WAIT_MS},\"donor_wait_ms\":${DONOR_WAIT_MS},\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
+elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"multisession\",\"load_execution\":\"${LOAD_EXECUTION}\",\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
@@ -432,7 +476,11 @@ fi
 MANIFEST_ARTIFACTS=(--artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json"
   --artifact "summary=${RUN_ROOT}/summary.json" --artifact "report=${RUN_ROOT}/report.html")
 if [[ "${NSYS_ENABLE}" == "1" ]]; then
-  MANIFEST_ARTIFACTS+=(--artifact "kernel_attribution=${RUN_ROOT}/nsys/kernel_attribution.json")
+  if [[ "${STUDY}" == "overlap_dose" ]]; then
+    MANIFEST_ARTIFACTS+=(--artifact "physical_overlap=${RUN_ROOT}/nsys/physical_overlap.json")
+  else
+    MANIFEST_ARTIFACTS+=(--artifact "kernel_attribution=${RUN_ROOT}/nsys/kernel_attribution.json")
+  fi
 fi
 if [[ "${STUDY}" == "validation" ]]; then
   MANIFEST_ARTIFACTS+=(--artifact "block_audit=${RUN_ROOT}/block_audit.json")

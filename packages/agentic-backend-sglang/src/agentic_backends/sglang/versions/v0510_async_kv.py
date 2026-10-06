@@ -135,29 +135,36 @@ class AsyncHiCacheLoader:
                     raise RuntimeError(f"Worker startup failed: {self.worker_error}")
                 with self.lock:
                     job.worker_started_ns = time.time_ns()
-                host_indices, device_indices = self.controller.move_indices(job.op)
-                with torch.cuda.stream(self.stream):
-                    job.start_event.record(self.stream)
-                    for layer_id in range(self.controller.layer_num):
-                        args = (
-                            self.controller.mem_pool_device,
-                            host_indices,
-                            device_indices,
-                            layer_id,
-                            self.controller.io_backend,
-                        )
-                        pool_transfers = getattr(job.op, "pool_transfers", None)
-                        if pool_transfers is None:
-                            self.controller.mem_pool_host.load_to_device_per_layer(*args)
-                        else:
-                            self.controller.mem_pool_host.load_to_device_per_layer(
-                                *args, pool_transfers=pool_transfers
+                nvtx = os.environ.get("AGENTIC_KV_NVTX_ENABLE") == "1"
+                if nvtx:
+                    torch.cuda.nvtx.range_push(f"agentic_kv:async_load load_id={job.load_id}")
+                try:
+                    host_indices, device_indices = self.controller.move_indices(job.op)
+                    with torch.cuda.stream(self.stream):
+                        job.start_event.record(self.stream)
+                        for layer_id in range(self.controller.layer_num):
+                            args = (
+                                self.controller.mem_pool_device,
+                                host_indices,
+                                device_indices,
+                                layer_id,
+                                self.controller.io_backend,
                             )
-                    job.finish_event.record(self.stream)
-                    if host_indices.is_cuda:
-                        host_indices.record_stream(self.stream)
-                    if device_indices.is_cuda:
-                        device_indices.record_stream(self.stream)
+                            pool_transfers = getattr(job.op, "pool_transfers", None)
+                            if pool_transfers is None:
+                                self.controller.mem_pool_host.load_to_device_per_layer(*args)
+                            else:
+                                self.controller.mem_pool_host.load_to_device_per_layer(
+                                    *args, pool_transfers=pool_transfers
+                                )
+                        job.finish_event.record(self.stream)
+                        if host_indices.is_cuda:
+                            host_indices.record_stream(self.stream)
+                        if device_indices.is_cuda:
+                            device_indices.record_stream(self.stream)
+                finally:
+                    if nvtx:
+                        torch.cuda.nvtx.range_pop()
                 with self.lock:
                     job.worker_enqueued_ns = time.time_ns()
             except Exception as exc:  # noqa: BLE001

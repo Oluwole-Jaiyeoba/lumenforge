@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from agentic_reports.builders.build_work_audit_report import _run_finding, main, render, render_markdown
+from agentic_reports.builders.build_work_audit_report import (
+    _pair_rq11_controls, _run_finding, main, render, render_markdown,
+)
 
 
 def test_busy_audit_report_keeps_pair_numbers_and_limits_visible():
@@ -160,6 +162,64 @@ def test_decode_overlap_report_keeps_stage_attribution_and_runner():
     assert "Before CPU launch (ms)" in markdown
     assert "Recorded stream-wait event activity" in markdown
     assert "CUDA launch gaps" in markdown
+
+
+def test_overlap_dose_report_distinguishes_physical_copy_from_worker_window():
+    manifest = _manifest()
+    manifest["workload"] = {"research_question_id": "RQ11", "session_count": 6,
+                            "donor_count": 4, "planned_overlap": 2, "seed": 1,
+                            "decode_tokens": 96, "prompt_words_target": 4090,
+                            "target_wait_ms": 900, "donor_wait_ms": 10000,
+                            "forward_trace_enabled": 1, "nsys_enabled": 1}
+    donor = {"load_id": "load1", "loaded_tokens": 4096, "cuda_elapsed_ms": 12,
+             "worker_window_overlap_ms": 120}
+    summary = {"schema": "agentic_work_audit.overlap_dose.v1", "run_id": "dose",
+               "status": "worker_window_only", "session_count": 6, "donor_count": 4,
+               "planned_overlap": 2, "seed": 1, "_manifest": manifest,
+               "realized_worker_window_overlap_count": 2,
+               "target": {"first_token_after_tool_ms": 100,
+                          "completion_after_tool_ms": 900},
+               "active_requests": [{"completion_after_tool_ms": 900},
+                                   {"completion_after_tool_ms": 810}],
+               "workflow_makespan_ms": 12000, "donors": [donor] * 4,
+               "_physical_overlap": {"status": "verified", "physical_overlap_load_count": 1,
+                                     "physical_overlap_ms": 8,
+                                     "donors": [{"load_id": "load1",
+                                                 "copy_during_target_decode_ms": 8,
+                                                 "copy_concurrent_with_target_kernels_ms": 1}]}}
+    page = render([(Path("runs/dose/summary.json"), summary)])
+    markdown = render_markdown([(Path("runs/dose/summary.json"), summary)])
+    assert "1/4 physical copies overlapped" in page
+    assert "Physical copy in decode" in page
+    assert "WORK_AUDIT_PLANNED_OVERLAP" in page
+    assert "WORK_AUDIT_PLANNED_OVERLAP='2'" in markdown
+    assert "Physical H-to-D overlaps" in markdown
+    assert "[Physical copy overlap](runs/dose/nsys/physical_overlap.json)" in markdown
+
+
+def test_overlap_dose_pairs_only_same_workload_and_seed():
+    workload = {"active_prompt_words": 512, "donor_prompt_words": 4090,
+                "target_wait_ms": 900, "donor_wait_ms": 40000,
+                "decode_tokens": 96, "nsys_enabled": 0}
+    base = {"schema": "agentic_work_audit.overlap_dose.v1", "run_id": "base",
+            "session_count": 12, "seed": 1, "planned_overlap": 0,
+            "_manifest": {"workload": workload},
+            "target": {"completion_after_tool_ms": 4000},
+            "active_requests": [{}, {"completion_after_tool_ms": 4100}],
+            "donors": [{"loaded_tokens": 4096}]}
+    high = {**base, "run_id": "high", "planned_overlap": 4,
+            "target": {"completion_after_tool_ms": 4800},
+            "active_requests": [{}, {"completion_after_tool_ms": 4900}]}
+    other_seed = {**high, "run_id": "other", "seed": 2}
+    other_bytes = {**high, "run_id": "other_bytes",
+                   "donors": [{"loaded_tokens": 2048}]}
+    rows = [(Path(f"runs/{item['run_id']}/summary.json"), item)
+            for item in (base, high, other_seed, other_bytes)]
+    _pair_rq11_controls(rows)
+    assert high["_dose_control"]["target_ms"] == 4000
+    assert "800 ms later" in _run_finding(high)
+    assert "_dose_control" not in other_seed
+    assert "_dose_control" not in other_bytes
 
 
 def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):

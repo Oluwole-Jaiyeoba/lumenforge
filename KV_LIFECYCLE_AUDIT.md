@@ -6,6 +6,14 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ11: Does more KV-load overlap delay other decoders?
+
+**Question.** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**What the evidence says.** On the pinned A10G setup, both six- and twelve-session pilots realized 0, 1, 2, and 4 worker-window overlaps as scheduled. Target tool-return-to-finish time rose with dose: 3.631 to 4.399 seconds in the six-session first seed (+21.2%) and 3.895 to 4.640 seconds in the twelve-session first seed (+19.1%). Zero-versus-four endpoints repeated in a second seed: 3.630 to 4.475 seconds (+23.3%) with six sessions and 3.896 to 4.683 seconds (+20.2%) with twelve. Peer decoders finished later in the high-dose arms too. First-token timing did not rise consistently, so the extra time was mainly after first token. All doses executed the same four native donor loads; only timing changed within each series.
+
+**Not yet proved.** Worker start-to-commit windows are proxies, not verified physical host-to-GPU copy overlap. A profiled repeat recorded all four NVTX load ranges but no CUDA kernel or memcpy activity, so the physical-overlap gate failed. The cause could be host launch cadence, scheduler/batch effects, GPU copies, or a mixture; this does not isolate HBM bandwidth or prove a hardware fix. The six-session series used 4090-word active prompts and 20- or 40-second donor waits, while the twelve-session series used 512-word active prompts and 40-second donor waits to fit capacity; compare doses within each series, not absolute times across series. These synthetic runs are small, and only zero/four endpoints have a second seed. Excluded capacity and timeout attempts appear in the experiment details.
+
 ### RQ10: Which stage slows another decoder?
 
 **Question.** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
@@ -92,6 +100,21 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;9:09:29&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d4_shortactive_seed2_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 worker-window proxies | 3896.5&nbsp;ms&nbsp;→&nbsp;4682.6&nbsp;ms | 3896.4&nbsp;ms&nbsp;→&nbsp;4683.0&nbsp;ms | 79.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;786&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;787&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;9:06:47&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d0_shortactive_seed2_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Planned 0 → observed 0 worker-window proxies; single dose | Target&nbsp;finish:&nbsp;3896.5&nbsp;ms | Other&nbsp;active&nbsp;decoders:&nbsp;median&nbsp;3896.4&nbsp;ms | 79.0&nbsp;s | Zero-overlap&nbsp;control:&nbsp;the&nbsp;same&nbsp;four&nbsp;donor&nbsp;loads&nbsp;ran&nbsp;only&nbsp;after&nbsp;target&nbsp;decode.&nbsp;This&nbsp;is&nbsp;the&nbsp;reference&nbsp;for&nbsp;other&nbsp;doses&nbsp;with&nbsp;the&nbsp;same&nbsp;seed&nbsp;and&nbsp;workload. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;9:03:55&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d4_seed2_longwait_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 worker-window proxies | 3630.4&nbsp;ms&nbsp;→&nbsp;4475.4&nbsp;ms | 3630.2&nbsp;ms&nbsp;→&nbsp;4475.4&nbsp;ms | 80.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;845&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;845&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;9:01:17&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d0_seed2_longwait_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Planned 0 → observed 0 worker-window proxies; single dose | Target&nbsp;finish:&nbsp;3630.4&nbsp;ms | Other&nbsp;active&nbsp;decoders:&nbsp;median&nbsp;3630.2&nbsp;ms | 78.1&nbsp;s | Zero-overlap&nbsp;control:&nbsp;the&nbsp;same&nbsp;four&nbsp;donor&nbsp;loads&nbsp;ran&nbsp;only&nbsp;after&nbsp;target&nbsp;decode.&nbsp;This&nbsp;is&nbsp;the&nbsp;reference&nbsp;for&nbsp;other&nbsp;doses&nbsp;with&nbsp;the&nbsp;same&nbsp;seed&nbsp;and&nbsp;workload. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:58:45&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d0_seed2_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Excluded diagnostic | No&nbsp;comparable&nbsp;replay | No&nbsp;comparable&nbsp;peer | Not&nbsp;measured | Excluded&nbsp;diagnostic:&nbsp;The&nbsp;four&nbsp;post-decode&nbsp;native&nbsp;loads&nbsp;overshot&nbsp;the&nbsp;20-second&nbsp;donor&nbsp;tool-return&nbsp;window.&nbsp;A&nbsp;paired&nbsp;40-second&nbsp;control&nbsp;and&nbsp;four-load&nbsp;arm&nbsp;replaced&nbsp;this&nbsp;attempt. | excluded |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:56:00&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d1_shortactive_seed1_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;1&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 1 worker-window proxies | 3895.4&nbsp;ms&nbsp;→&nbsp;4050.3&nbsp;ms | 3895.5&nbsp;ms&nbsp;→&nbsp;4051.0&nbsp;ms | 79.0&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;155&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;155&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:53:28&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d2_shortactive_seed1_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;2&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 2 worker-window proxies | 3895.4&nbsp;ms&nbsp;→&nbsp;4239.7&nbsp;ms | 3895.5&nbsp;ms&nbsp;→&nbsp;4239.8&nbsp;ms | 79.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;344&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;344&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:50:48&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d4_shortactive_seed1_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 worker-window proxies | 3895.4&nbsp;ms&nbsp;→&nbsp;4640.1&nbsp;ms | 3895.5&nbsp;ms&nbsp;→&nbsp;4640.1&nbsp;ms | 79.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;745&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;745&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:48:17&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d0_shortactive_seed1_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Planned 0 → observed 0 worker-window proxies; single dose | Target&nbsp;finish:&nbsp;3895.4&nbsp;ms | Other&nbsp;active&nbsp;decoders:&nbsp;median&nbsp;3895.5&nbsp;ms | 79.0&nbsp;s | Zero-overlap&nbsp;control:&nbsp;the&nbsp;same&nbsp;four&nbsp;donor&nbsp;loads&nbsp;ran&nbsp;only&nbsp;after&nbsp;target&nbsp;decode.&nbsp;This&nbsp;is&nbsp;the&nbsp;reference&nbsp;for&nbsp;other&nbsp;doses&nbsp;with&nbsp;the&nbsp;same&nbsp;seed&nbsp;and&nbsp;workload. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:45:36&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d0_seed1_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Excluded diagnostic | No&nbsp;comparable&nbsp;replay | No&nbsp;comparable&nbsp;peer | Not&nbsp;measured | Excluded&nbsp;diagnostic:&nbsp;At&nbsp;eight&nbsp;long&nbsp;active&nbsp;prompts,&nbsp;SGLang&nbsp;refused&nbsp;donor&nbsp;2's&nbsp;native&nbsp;load&nbsp;because&nbsp;of&nbsp;load-back&nbsp;threshold,&nbsp;quota,&nbsp;or&nbsp;memory&nbsp;pressure.&nbsp;The&nbsp;same&nbsp;four-load&nbsp;control&nbsp;could&nbsp;not&nbsp;be&nbsp;completed. | excluded |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:41:17&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d4_profile_seed1_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | Planned 4 → observed 4 worker-window proxies; single dose | Target&nbsp;finish:&nbsp;4462.8&nbsp;ms | Other&nbsp;active&nbsp;decoders:&nbsp;median&nbsp;4463.0&nbsp;ms | 82.0&nbsp;s | Nsight&nbsp;recorded&nbsp;the&nbsp;worker&nbsp;ranges&nbsp;but&nbsp;no&nbsp;CUDA&nbsp;kernels&nbsp;or&nbsp;copies.&nbsp;Physical&nbsp;overlap&nbsp;is&nbsp;unverified;&nbsp;this&nbsp;profiled&nbsp;run&nbsp;is&nbsp;excluded&nbsp;from&nbsp;the&nbsp;clean&nbsp;timing&nbsp;comparison. | profiler incomplete |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:38:20&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d4_seed1_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 worker-window proxies | 3630.5&nbsp;ms&nbsp;→&nbsp;4399.3&nbsp;ms | 3630.4&nbsp;ms&nbsp;→&nbsp;4399.2&nbsp;ms | 60.7&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;769&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;769&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:36:04&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d2_seed1_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;2&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 2 worker-window proxies | 3630.5&nbsp;ms&nbsp;→&nbsp;3989.7&nbsp;ms | 3630.4&nbsp;ms&nbsp;→&nbsp;3990.1&nbsp;ms | 60.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;359&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;360&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:33:33&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d1_seed1_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;1&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 1 worker-window proxies | 3630.5&nbsp;ms&nbsp;→&nbsp;3831.5&nbsp;ms | 3630.4&nbsp;ms&nbsp;→&nbsp;3831.4&nbsp;ms | 58.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;201&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;201&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
+| Oct&nbsp;5,&nbsp;2026,&nbsp;8:31:13&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d0_seed1_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Planned 0 → observed 0 worker-window proxies; single dose | Target&nbsp;finish:&nbsp;3630.5&nbsp;ms | Other&nbsp;active&nbsp;decoders:&nbsp;median&nbsp;3630.4&nbsp;ms | 59.5&nbsp;s | Zero-overlap&nbsp;control:&nbsp;the&nbsp;same&nbsp;four&nbsp;donor&nbsp;loads&nbsp;ran&nbsp;only&nbsp;after&nbsp;target&nbsp;decode.&nbsp;This&nbsp;is&nbsp;the&nbsp;reference&nbsp;for&nbsp;other&nbsp;doses&nbsp;with&nbsp;the&nbsp;same&nbsp;seed&nbsp;and&nbsp;workload. | worker-window proxy only |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;4:54:36&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_cuda_kernels_graceful_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;2&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | GPU mechanism check; profiled timing not used | See&nbsp;clean&nbsp;RQ10&nbsp;run | See&nbsp;captured&nbsp;kernel&nbsp;table | No&nbsp;profiled&nbsp;workflow&nbsp;claim | In&nbsp;the&nbsp;captured&nbsp;pair,&nbsp;GPU&nbsp;kernels&nbsp;ran&nbsp;for&nbsp;about&nbsp;the&nbsp;same&nbsp;time;&nbsp;pauses&nbsp;between&nbsp;them&nbsp;grew.&nbsp;No&nbsp;H-to-D&nbsp;copy&nbsp;overlapped&nbsp;those&nbsp;kernel&nbsp;spans.&nbsp;Later&nbsp;profiler&nbsp;data&nbsp;was&nbsp;incomplete,&nbsp;so&nbsp;hardware&nbsp;attribution&nbsp;remains&nbsp;provisional. | validated timing; partial CUDA capture |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;4:45:44&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_cuda_kernels_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;2&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | GPU mechanism check; profiled timing not used | See&nbsp;clean&nbsp;RQ10&nbsp;run | See&nbsp;captured&nbsp;kernel&nbsp;table | No&nbsp;profiled&nbsp;workflow&nbsp;claim | In&nbsp;the&nbsp;captured&nbsp;pair,&nbsp;GPU&nbsp;kernels&nbsp;ran&nbsp;for&nbsp;about&nbsp;the&nbsp;same&nbsp;time;&nbsp;pauses&nbsp;between&nbsp;them&nbsp;grew.&nbsp;No&nbsp;H-to-D&nbsp;copy&nbsp;overlapped&nbsp;those&nbsp;kernel&nbsp;spans.&nbsp;Later&nbsp;profiler&nbsp;data&nbsp;was&nbsp;incomplete,&nbsp;so&nbsp;hardware&nbsp;attribution&nbsp;remains&nbsp;provisional. | validated timing; partial CUDA capture |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;4:05:08&nbsp;p.m.&nbsp;CDT | [Decode overlap attribution](#run-work_audit_decode_forward_repeated_20261005) | RQ10 | 3&nbsp;equal-importance&nbsp;sessions&nbsp;·&nbsp;2&nbsp;measured&nbsp;pairs&nbsp;·&nbsp;early&nbsp;vs&nbsp;after-short&nbsp;worker&nbsp;load | After-short → early worker load, both before tool return | 121&nbsp;→&nbsp;281&nbsp;ms&nbsp;(160&nbsp;ms&nbsp;slower) | 819&nbsp;→&nbsp;972&nbsp;ms&nbsp;(153&nbsp;ms&nbsp;slower) | 15.4&nbsp;→&nbsp;15.6&nbsp;s&nbsp;(0.2&nbsp;s&nbsp;slower) | Early&nbsp;worker&nbsp;loading&nbsp;delayed&nbsp;the&nbsp;short&nbsp;response&nbsp;in&nbsp;every&nbsp;pair;&nbsp;the&nbsp;added&nbsp;batch&nbsp;time&nbsp;was&nbsp;in&nbsp;model&nbsp;forward,&nbsp;not&nbsp;queue&nbsp;gaps.&nbsp;HBM&nbsp;contention&nbsp;is&nbsp;not&nbsp;established. | validated |
@@ -122,6 +145,851 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | Oct&nbsp;1,&nbsp;2026,&nbsp;5:42:31&nbsp;p.m.&nbsp;CDT | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | Case&nbsp;order:&nbsp;warm&nbsp;→&nbsp;host&nbsp;·&nbsp;not&nbsp;recorded&nbsp;replays/case&nbsp;·&nbsp;wait&nbsp;not&nbsp;recorded | Observation only; no policy comparison | Host-backed&nbsp;replay&nbsp;TTFT:&nbsp;230.3&nbsp;ms | No&nbsp;other&nbsp;session | Not&nbsp;measured | Linked&nbsp;host-backed&nbsp;KV&nbsp;movement&nbsp;to&nbsp;replay;&nbsp;no&nbsp;speed&nbsp;win&nbsp;tested. | validated |
 
 ## Experiment details
+
+<a id="run-rq11_s12_d4_shortactive_seed2_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 9:09:29 p.m. CDT · KV-load overlap pressure</strong> · rq11_s12_d4_shortactive_seed2_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 786 ms later and peer decoders finished a median 787 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. One target and 7 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 512 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 12 |
+| Planned overlapping loads | 4 |
+| Worker-window overlaps (proxy) | 4 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 62.3 |
+| Target finish after tool return (ms) | 4682.6 |
+| Whole workload (ms) | 79841.3 |
+| Matched control target finish (ms) | 3896.5 |
+| Target finish change vs control (ms) | 786.1 |
+| Peer median finish change vs control (ms) | 786.7 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 62.3 | 4682.6 |
+| Peer 1 | 96 | 191.8 | 4683.1 |
+| Peer 2 | 96 | 191.4 | 4683.0 |
+| Peer 3 | 96 | 190.0 | 4683.0 |
+| Peer 4 | 96 | 190.5 | 4682.9 |
+| Peer 5 | 96 | 191.1 | 4683.2 |
+| Peer 6 | 96 | 190.8 | 4682.9 |
+| Peer 7 | 96 | 192.1 | 4683.1 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 244.5 | 280.9 | not captured | not captured | 253.4 |
+| 2 | 4096 | 256.5 | 465.4 | not captured | not captured | 1119.7 |
+| 3 | 4096 | 249.9 | 363.1 | not captured | not captured | 1119.0 |
+| 4 | 4096 | 223.2 | 228.0 | not captured | not captured | 1119.3 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s12_d4_shortactive_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s12_d0_shortactive_seed2_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 9:06:47 p.m. CDT · KV-load overlap pressure</strong> · rq11_s12_d0_shortactive_seed2_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Zero-overlap control: the same four donor loads ran only after target decode. This is the reference for other doses with the same seed and workload.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. One target and 7 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 512 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 12 |
+| Planned overlapping loads | 0 |
+| Worker-window overlaps (proxy) | 0 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 187.7 |
+| Target finish after tool return (ms) | 3896.5 |
+| Whole workload (ms) | 79006.4 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 187.7 | 3896.5 |
+| Peer 1 | 96 | 60.0 | 3896.0 |
+| Peer 2 | 96 | 188.1 | 3896.5 |
+| Peer 3 | 96 | 188.4 | 3896.6 |
+| Peer 4 | 96 | 187.1 | 3896.4 |
+| Peer 5 | 96 | 186.3 | 3896.3 |
+| Peer 6 | 96 | 186.8 | 3896.3 |
+| Peer 7 | 96 | 187.4 | 3896.4 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 264.8 | 0.0 | not captured | not captured | 121.4 |
+| 2 | 4096 | 8147.3 | 0.0 | not captured | not captured | 251.7 |
+| 3 | 4096 | 6129.0 | 0.0 | not captured | not captured | 251.0 |
+| 4 | 4096 | 6063.5 | 0.0 | not captured | not captured | 251.3 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s12_d0_shortactive_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s6_d4_seed2_longwait_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 9:03:55 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d4_seed2_longwait_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 845 ms later and peer decoders finished a median 845 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 4 |
+| Worker-window overlaps (proxy) | 4 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 189.8 |
+| Target finish after tool return (ms) | 4475.4 |
+| Whole workload (ms) | 80843.6 |
+| Matched control target finish (ms) | 3630.4 |
+| Target finish change vs control (ms) | 845.0 |
+| Peer median finish change vs control (ms) | 845.2 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 189.8 | 4475.4 |
+| Peer 1 | 96 | 190.0 | 4475.4 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 274.6 | 307.0 | not captured | not captured | 259.1 |
+| 2 | 4096 | 266.8 | 271.4 | not captured | not captured | 934.1 |
+| 3 | 4096 | 271.9 | 322.4 | not captured | not captured | 933.1 |
+| 4 | 4096 | 245.4 | 249.1 | not captured | not captured | 933.1 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d4_seed2_longwait_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s6_d0_seed2_longwait_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 9:01:17 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d0_seed2_longwait_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Zero-overlap control: the same four donor loads ran only after target decode. This is the reference for other doses with the same seed and workload.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 0 |
+| Worker-window overlaps (proxy) | 0 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 187.5 |
+| Target finish after tool return (ms) | 3630.4 |
+| Whole workload (ms) | 78122.6 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 187.5 | 3630.4 |
+| Peer 1 | 96 | 187.3 | 3630.2 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 4213.6 | 0.0 | not captured | not captured | 119.9 |
+| 2 | 4096 | 5820.1 | 0.0 | not captured | not captured | 249.2 |
+| 3 | 4096 | 4547.5 | 0.0 | not captured | not captured | 248.5 |
+| 4 | 4096 | 5140.7 | 0.0 | not captured | not captured | 248.9 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d0_seed2_longwait_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s6_d0_seed2_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:58:45 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d0_seed2_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Excluded diagnostic: The four post-decode native loads overshot the 20-second donor tool-return window. A paired 40-second control and four-load arm replaced this attempt.
+
+**Setup.** nvidia-standard; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 0 |
+| Failure | The four post-decode native loads overshot the 20-second donor tool-return window. A paired 40-second control and four-load arm replaced this attempt. |
+| Comparable timing | unavailable |
+
+**Evidence gate.** excluded. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- No target or workflow timing from this attempt is included in the dose comparison.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d0_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/run_manifest.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s12_d1_shortactive_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:56:00 p.m. CDT · KV-load overlap pressure</strong> · rq11_s12_d1_shortactive_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 155 ms later and peer decoders finished a median 155 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 7 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 512 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 12 |
+| Planned overlapping loads | 1 |
+| Worker-window overlaps (proxy) | 1 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 184.5 |
+| Target finish after tool return (ms) | 4050.3 |
+| Whole workload (ms) | 79049.9 |
+| Matched control target finish (ms) | 3895.4 |
+| Target finish change vs control (ms) | 154.9 |
+| Peer median finish change vs control (ms) | 155.5 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 184.5 | 4050.3 |
+| Peer 1 | 96 | 58.8 | 4050.9 |
+| Peer 2 | 96 | 186.7 | 4051.1 |
+| Peer 3 | 96 | 185.3 | 4050.9 |
+| Peer 4 | 96 | 185.0 | 4050.4 |
+| Peer 5 | 96 | 185.6 | 4051.0 |
+| Peer 6 | 96 | 186.4 | 4051.1 |
+| Peer 7 | 96 | 186.0 | 4051.0 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 205.0 | 214.8 | not captured | not captured | 471.3 |
+| 2 | 4096 | 283.6 | 0.0 | not captured | not captured | 599.6 |
+| 3 | 4096 | 3194.1 | 0.0 | not captured | not captured | 599.7 |
+| 4 | 4096 | 3337.2 | 0.0 | not captured | not captured | 599.6 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s12_d1_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='1' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s12_d2_shortactive_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:53:28 p.m. CDT · KV-load overlap pressure</strong> · rq11_s12_d2_shortactive_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 344 ms later and peer decoders finished a median 344 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 7 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 512 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 12 |
+| Planned overlapping loads | 2 |
+| Worker-window overlaps (proxy) | 2 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 185.9 |
+| Target finish after tool return (ms) | 4239.7 |
+| Whole workload (ms) | 79823.7 |
+| Matched control target finish (ms) | 3895.4 |
+| Target finish change vs control (ms) | 344.3 |
+| Peer median finish change vs control (ms) | 344.3 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 185.9 | 4239.7 |
+| Peer 1 | 96 | 59.3 | 4239.7 |
+| Peer 2 | 96 | 186.9 | 4239.9 |
+| Peer 3 | 96 | 186.3 | 4239.8 |
+| Peer 4 | 96 | 185.6 | 4239.4 |
+| Peer 5 | 96 | 186.6 | 4239.8 |
+| Peer 6 | 96 | 185.1 | 4239.4 |
+| Peer 7 | 96 | 187.3 | 4239.9 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 225.7 | 250.4 | not captured | not captured | 256.9 |
+| 2 | 4096 | 239.2 | 254.1 | not captured | not captured | 1139.6 |
+| 3 | 4096 | 3361.7 | 0.0 | not captured | not captured | 1138.6 |
+| 4 | 4096 | 3274.6 | 0.0 | not captured | not captured | 1138.7 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s12_d2_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='2' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s12_d4_shortactive_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:50:48 p.m. CDT · KV-load overlap pressure</strong> · rq11_s12_d4_shortactive_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 745 ms later and peer decoders finished a median 745 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 7 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 512 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 12 |
+| Planned overlapping loads | 4 |
+| Worker-window overlaps (proxy) | 4 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 186.4 |
+| Target finish after tool return (ms) | 4640.1 |
+| Whole workload (ms) | 79777.4 |
+| Matched control target finish (ms) | 3895.4 |
+| Target finish change vs control (ms) | 744.7 |
+| Peer median finish change vs control (ms) | 744.7 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 186.4 | 4640.1 |
+| Peer 1 | 96 | 59.6 | 4640.1 |
+| Peer 2 | 96 | 185.6 | 4639.7 |
+| Peer 3 | 96 | 186.7 | 4640.1 |
+| Peer 4 | 96 | 187.7 | 4640.3 |
+| Peer 5 | 96 | 187.4 | 4640.2 |
+| Peer 6 | 96 | 186.1 | 4640.0 |
+| Peer 7 | 96 | 187.0 | 4640.2 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 232.3 | 247.9 | not captured | not captured | 258.6 |
+| 2 | 4096 | 244.2 | 450.0 | not captured | not captured | 1134.5 |
+| 3 | 4096 | 249.9 | 317.6 | not captured | not captured | 1133.8 |
+| 4 | 4096 | 236.1 | 253.7 | not captured | not captured | 1134.1 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s12_d4_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s12_d0_shortactive_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:48:17 p.m. CDT · KV-load overlap pressure</strong> · rq11_s12_d0_shortactive_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Zero-overlap control: the same four donor loads ran only after target decode. This is the reference for other doses with the same seed and workload.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 7 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 512 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 12 |
+| Planned overlapping loads | 0 |
+| Worker-window overlaps (proxy) | 0 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 186.1 |
+| Target finish after tool return (ms) | 3895.4 |
+| Whole workload (ms) | 78998.4 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 186.1 | 3895.4 |
+| Peer 1 | 96 | 59.6 | 3895.6 |
+| Peer 2 | 96 | 185.8 | 3895.2 |
+| Peer 3 | 96 | 187.4 | 3895.6 |
+| Peer 4 | 96 | 187.1 | 3895.5 |
+| Peer 5 | 96 | 186.4 | 3895.4 |
+| Peer 6 | 96 | 185.3 | 3895.1 |
+| Peer 7 | 96 | 186.7 | 3895.5 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 403.9 | 0.0 | not captured | not captured | 121.4 |
+| 2 | 4096 | 4652.9 | 0.0 | not captured | not captured | 251.3 |
+| 3 | 4096 | 4168.1 | 0.0 | not captured | not captured | 251.3 |
+| 4 | 4096 | 3431.1 | 0.0 | not captured | not captured | 251.2 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s12_d0_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s12_d0_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:45:36 p.m. CDT · KV-load overlap pressure</strong> · rq11_s12_d0_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Excluded diagnostic: At eight long active prompts, SGLang refused donor 2's native load because of load-back threshold, quota, or memory pressure. The same four-load control could not be completed.
+
+**Setup.** nvidia-standard; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 7 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 40000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 12 |
+| Planned overlapping loads | 0 |
+| Failure | At eight long active prompts, SGLang refused donor 2's native load because of load-back threshold, quota, or memory pressure. The same four-load control could not be completed. |
+| Comparable timing | unavailable |
+
+**Evidence gate.** excluded. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- No target or workflow timing from this attempt is included in the dose comparison.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s12_d0_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/run_manifest.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s6_d4_profile_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:41:17 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d4_profile_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Nsight recorded the worker ranges but no CUDA kernels or copies. Physical overlap is unverified; this profiled run is excluded from the clean timing comparison.
+
+**Setup.** nvidia-standard; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 4 |
+| Worker-window overlaps (proxy) | 4 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | capture_incomplete |
+| Target first token after tool return (ms) | 190.6 |
+| Target finish after tool return (ms) | 4462.8 |
+| Whole workload (ms) | 81978.0 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 190.6 | 4462.8 |
+| Peer 1 | 96 | 190.8 | 4463.0 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 235.5 | 314.5 | not captured | not captured | 253.9 |
+| 2 | 4096 | 226.0 | 317.1 | not captured | not captured | 983.7 |
+| 3 | 4096 | 228.6 | 280.4 | not captured | not captured | 984.0 |
+| 4 | 4096 | 215.4 | 240.5 | not captured | not captured | 983.4 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d4_profile_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='1' WORK_AUDIT_NSYS_ENABLE='1' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/backend_trace.jsonl.gz) · [Profiler status](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/nsys/profile_status.json) · [Nsight SQLite trace](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/nsys/backend.sqlite.gz)
+
+</details>
+
+<a id="run-rq11_s6_d4_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:38:20 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d4_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 769 ms later and peer decoders finished a median 769 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 4 |
+| Worker-window overlaps (proxy) | 4 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 190.0 |
+| Target finish after tool return (ms) | 4399.3 |
+| Whole workload (ms) | 60693.3 |
+| Matched control target finish (ms) | 3630.5 |
+| Target finish change vs control (ms) | 768.8 |
+| Peer median finish change vs control (ms) | 768.8 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 190.0 | 4399.3 |
+| Peer 1 | 96 | 189.9 | 4399.2 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 251.9 | 282.9 | not captured | not captured | 258.3 |
+| 2 | 4096 | 238.8 | 241.9 | not captured | not captured | 929.1 |
+| 3 | 4096 | 252.8 | 291.3 | not captured | not captured | 928.8 |
+| 4 | 4096 | 227.8 | 242.5 | not captured | not captured | 927.6 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d4_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s6_d2_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:36:04 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d2_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 359 ms later and peer decoders finished a median 360 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 2 |
+| Worker-window overlaps (proxy) | 2 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 189.3 |
+| Target finish after tool return (ms) | 3989.7 |
+| Whole workload (ms) | 60844.8 |
+| Matched control target finish (ms) | 3630.5 |
+| Target finish change vs control (ms) | 359.2 |
+| Peer median finish change vs control (ms) | 359.7 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 189.3 | 3989.7 |
+| Peer 1 | 96 | 189.4 | 3990.1 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 252.4 | 275.7 | not captured | not captured | 297.6 |
+| 2 | 4096 | 215.6 | 227.0 | not captured | not captured | 927.4 |
+| 3 | 4096 | 2378.9 | 0.0 | not captured | not captured | 927.3 |
+| 4 | 4096 | 5259.7 | 0.0 | not captured | not captured | 926.4 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d2_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='2' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s6_d1_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:33:33 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d1_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Compared with its matched zero-overlap control, the target finished 201 ms later and peer decoders finished a median 201 ms later. Worker windows were observed; physical copy overlap and the precise cause remain unverified.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 1 |
+| Worker-window overlaps (proxy) | 1 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 187.8 |
+| Target finish after tool return (ms) | 3831.5 |
+| Whole workload (ms) | 58760.4 |
+| Matched control target finish (ms) | 3630.5 |
+| Target finish change vs control (ms) | 201.0 |
+| Peer median finish change vs control (ms) | 201.0 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 187.8 | 3831.5 |
+| Peer 1 | 96 | 187.6 | 3831.4 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 250.0 | 255.7 | not captured | not captured | 251.6 |
+| 2 | 4096 | 2171.2 | 0.0 | not captured | not captured | 910.9 |
+| 3 | 4096 | 6086.8 | 0.0 | not captured | not captured | 911.2 |
+| 4 | 4096 | 3437.1 | 0.0 | not captured | not captured | 910.7 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d1_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='1' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq11_s6_d0_seed1_20261005"></a>
+<details>
+<summary><strong>Oct 5, 2026, 8:31:13 p.m. CDT · KV-load overlap pressure</strong> · rq11_s6_d0_seed1_20261005</summary>
+
+**Question (RQ11).** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
+
+**Finding.** Zero-overlap control: the same four donor loads ran only after target decode. This is the reference for other doses with the same seed and workload.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 0 |
+| Worker-window overlaps (proxy) | 0 |
+| Physical H-to-D overlaps | not captured |
+| Physical copy overlap (ms) | not captured |
+| Profiler status | not requested |
+| Target first token after tool return (ms) | 187.9 |
+| Target finish after tool return (ms) | 3630.5 |
+| Whole workload (ms) | 59458.4 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 187.9 | 3630.5 |
+| Peer 1 | 96 | 187.7 | 3630.4 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 1405.0 | 0.0 | not captured | not captured | 119.1 |
+| 2 | 4096 | 2812.3 | 0.0 | not captured | not captured | 248.2 |
+| 3 | 4096 | 3075.2 | 0.0 | not captured | not captured | 247.5 |
+| 4 | 4096 | 2300.8 | 0.0 | not captured | not captured | 247.8 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** worker_window_only. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq11_s6_d0_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/backend_trace.jsonl.gz)
+
+</details>
 
 <a id="run-work_audit_cuda_kernels_graceful_20261005"></a>
 <details>
