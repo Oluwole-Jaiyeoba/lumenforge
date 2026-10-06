@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 
 from agentic_reports.builders.build_work_audit_report import (
-    _pair_rq11_controls, _run_finding, main, render, render_markdown,
+    _markdown_index_outcome, _pair_rq11_controls, _run_finding, main, render,
+    render_markdown,
 )
 
 
@@ -197,6 +198,21 @@ def test_overlap_dose_report_distinguishes_physical_copy_from_worker_window():
     assert "[Physical copy overlap](runs/dose/nsys/physical_overlap.json)" in markdown
 
 
+def test_profiled_overlap_reports_launch_gap_without_claiming_clean_latency():
+    summary = {"schema": "agentic_work_audit.overlap_dose.v1", "run_id": "profiled",
+               "status": "worker_window_only", "donor_count": 4, "planned_overlap": 4,
+               "_physical_overlap": {"status": "verified", "physical_overlap_load_count": 4},
+               "_decode_submission": {"cpu_before_launch_ms": 550,
+                                      "kernel_execution_ms": 3192},
+               "_dose_control": {"decode_submission": {"cpu_before_launch_ms": 68,
+                                                       "kernel_execution_ms": 3191}}}
+    finding = _run_finding(summary)
+    assert "482 ms" in finding
+    assert "+1.0 ms" in finding
+    assert "unprofiled speedup" in finding
+    assert _markdown_index_outcome(summary)[1] == "Profiled mechanism; no latency claim"
+
+
 def test_overlap_dose_pairs_only_same_workload_and_seed():
     workload = {"active_prompt_words": 512, "donor_prompt_words": 4090,
                 "target_wait_ms": 900, "donor_wait_ms": 40000,
@@ -213,13 +229,16 @@ def test_overlap_dose_pairs_only_same_workload_and_seed():
     other_seed = {**high, "run_id": "other", "seed": 2}
     other_bytes = {**high, "run_id": "other_bytes",
                    "donors": [{"loaded_tokens": 2048}]}
+    other_pair = {**high, "run_id": "other_pair",
+                  "_manifest": {"workload": {**workload, "pair_id": "different"}}}
     rows = [(Path(f"runs/{item['run_id']}/summary.json"), item)
-            for item in (base, high, other_seed, other_bytes)]
+            for item in (base, high, other_seed, other_bytes, other_pair)]
     _pair_rq11_controls(rows)
     assert high["_dose_control"]["target_ms"] == 4000
     assert "800 ms later" in _run_finding(high)
     assert "_dose_control" not in other_seed
     assert "_dose_control" not in other_bytes
+    assert "_dose_control" not in other_pair
 
 
 def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
@@ -268,9 +287,9 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     ))
     assert "not yet graded" in page
     assert "RQ8 tests busy cache pressure, and RQ9 tests off-scheduler loading" in page
-    assert "<th>Date</th><th>Time (UTC)</th>" in page
+    assert "<th>Date</th><th>Time (Central)</th>" in page
     assert page.index("second</small>") < page.index("first</small>")
-    assert "14:30:02" in page and "14:30:01" in page
+    assert "9:30:02 AM" in page and "9:30:01 AM" in page
     assert page.count("class='detail-toggle'") == 2
     assert "aria-controls='detail-first'" in page
     assert "id='detail-first' hidden><td colspan='9'>" in page
@@ -409,7 +428,7 @@ def test_missing_start_uses_labeled_completion_time():
         "run_id": "legacy", "status": "validated", "_manifest": manifest,
     })])
     assert "Manifest completion time (UTC); start unavailable" in page
-    assert "<th>Time (UTC)</th>" in page
+    assert "<th>Time (Central)</th>" in page
     assert "Original shell invocation was not saved" in page
 
 

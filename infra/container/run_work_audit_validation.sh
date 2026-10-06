@@ -51,6 +51,7 @@ SESSION_COUNT="${WORK_AUDIT_SESSION_COUNT:-6}"
 DONOR_COUNT="${WORK_AUDIT_DONOR_COUNT:-4}"
 PLANNED_OVERLAP="${WORK_AUDIT_PLANNED_OVERLAP:-1}"
 SEED="${WORK_AUDIT_SEED:-1}"
+PAIR_ID="${WORK_AUDIT_PAIR_ID:-}"
 DECODE_TOKENS="${WORK_AUDIT_DECODE_TOKENS:-96}"
 DONOR_WAIT_MS="${WORK_AUDIT_DONOR_WAIT_MS:-10000}"
 RESULTS_BASE="${DIRECT_ROOT}/artifacts/results/work_audit"
@@ -196,6 +197,9 @@ RESEARCH_QUESTION_ID="${WORK_AUDIT_RESEARCH_QUESTION_ID:-${DEFAULT_QUESTION_ID}}
 [[ "${RESEARCH_QUESTION_ID}" =~ ^RQ[1-9][0-9]*$ ]] || {
   echo "WORK_AUDIT_RESEARCH_QUESTION_ID must look like RQ1" >&2; exit 2;
 }
+[[ "${PAIR_ID}" =~ ^[A-Za-z0-9_-]*$ ]] || {
+  echo "WORK_AUDIT_PAIR_ID must contain only letters, numbers, underscores, or hyphens" >&2; exit 2;
+}
 [[ "${AGENTIC_KV_PREPARE_LOAD_WORKER:-0}" == "0" || "${AGENTIC_KV_PREPARE_LOAD_WORKER:-0}" == "1" ]] || {
   echo "AGENTIC_KV_PREPARE_LOAD_WORKER must be 0 or 1" >&2; exit 2;
 }
@@ -240,6 +244,7 @@ if [[ "${NSYS_ENABLE}" == "1" ]]; then
   mkdir -p "${RUN_ROOT}/nsys"
   export AGENTIC_NSYS_BIN="/opt/agentic_nsight/target-linux-x64/nsys"
   export AGENTIC_NSYS_OUTPUT="${RUN_ROOT}/nsys/backend"
+  export AGENTIC_NSYS_INTERACTIVE=1
   export AGENTIC_KV_NVTX_ENABLE=1
   export SGLANG_DOCKER_EXTRA_ARGS="${SGLANG_DOCKER_EXTRA_ARGS} --cap-add SYS_ADMIN -v ${NSYS_HOST_DIR}:/opt/agentic_nsight:ro --name ${NSYS_CONTAINER_NAME}"
 fi
@@ -325,6 +330,10 @@ PY
 SECOND_REPLAY_RUN_ARGS=()
 SECOND_REPLAY_ANALYSIS_ARGS=()
 STREAM_ARGS=()
+if [[ "${NSYS_ENABLE}" == "1" ]]; then
+  docker exec "${NSYS_CONTAINER_NAME}" "${AGENTIC_NSYS_BIN}" start \
+    --sample=none --cpuctxsw=none --output="${RUN_ROOT}/nsys/backend"
+fi
 [[ "${STUDY}" == "multisession_overlap" ]] && STREAM_ARGS+=(--capture-stream-chunks)
 if [[ "${SECOND_REPLAY}" == "1" ]]; then
   SECOND_REPLAY_RUN_ARGS+=(--second-replay)
@@ -370,6 +379,9 @@ else
     --max-tokens "${MAX_OUTPUT_TOKENS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
     --eviction-rounds "${EVICTION_ROUNDS}" \
     "${SECOND_REPLAY_RUN_ARGS[@]}"
+fi
+if [[ "${NSYS_ENABLE}" == "1" ]]; then
+  docker exec "${NSYS_CONTAINER_NAME}" "${AGENTIC_NSYS_BIN}" stop
 fi
 python3 -m agentic_backends.sglang.trace_contract \
   --adapter v0510 --profile "${TRACE_PROFILE}" \
@@ -450,6 +462,10 @@ else:
       --sqlite "${RUN_ROOT}/nsys/backend.sqlite" \
       --summary "${RUN_ROOT}/summary.json" --trace "${RUN_ROOT}/backend_trace.jsonl" \
       --out "${RUN_ROOT}/nsys/physical_overlap.json"
+    python3 -m agentic_experiments.runners.analyze_work_audit_decode_submission \
+      --sqlite "${RUN_ROOT}/nsys/backend.sqlite" \
+      --summary "${RUN_ROOT}/summary.json" --trace "${RUN_ROOT}/backend_trace.jsonl" \
+      --out "${RUN_ROOT}/nsys/decode_submission.json"
   else
     python3 -m agentic_experiments.runners.analyze_work_audit_cuda_kernels \
       --sqlite "${RUN_ROOT}/nsys/backend.sqlite" \
@@ -465,7 +481,7 @@ PY
 )"
 CASE_ORDER_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split("-")))' "${CASE_ORDER}")"
 if [[ "${STUDY}" == "overlap_dose" ]]; then
-  WORKLOAD_JSON="{\"research_question_id\":\"RQ11\",\"frontend_priority\":\"none\",\"purpose\":\"overlap_dose\",\"load_execution\":\"worker\",\"session_count\":${SESSION_COUNT},\"donor_count\":${DONOR_COUNT},\"planned_overlap\":${PLANNED_OVERLAP},\"seed\":${SEED},\"decode_tokens\":${DECODE_TOKENS},\"active_prompt_words\":${ACTIVE_PROMPT_WORDS},\"donor_prompt_words\":${DONOR_PROMPT_WORDS},\"target_wait_ms\":${SHORT_WAIT_MS},\"donor_wait_ms\":${DONOR_WAIT_MS},\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
+  WORKLOAD_JSON="{\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"pair_id\":\"${PAIR_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"overlap_dose\",\"load_execution\":\"worker\",\"session_count\":${SESSION_COUNT},\"donor_count\":${DONOR_COUNT},\"planned_overlap\":${PLANNED_OVERLAP},\"seed\":${SEED},\"decode_tokens\":${DECODE_TOKENS},\"active_prompt_words\":${ACTIVE_PROMPT_WORDS},\"donor_prompt_words\":${DONOR_PROMPT_WORDS},\"target_wait_ms\":${SHORT_WAIT_MS},\"donor_wait_ms\":${DONOR_WAIT_MS},\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession" ]]; then
@@ -478,6 +494,7 @@ MANIFEST_ARTIFACTS=(--artifact "instrumentation_audit=${RUN_ROOT}/instrumentatio
 if [[ "${NSYS_ENABLE}" == "1" ]]; then
   if [[ "${STUDY}" == "overlap_dose" ]]; then
     MANIFEST_ARTIFACTS+=(--artifact "physical_overlap=${RUN_ROOT}/nsys/physical_overlap.json")
+    MANIFEST_ARTIFACTS+=(--artifact "decode_submission=${RUN_ROOT}/nsys/decode_submission.json")
   else
     MANIFEST_ARTIFACTS+=(--artifact "kernel_attribution=${RUN_ROOT}/nsys/kernel_attribution.json")
   fi

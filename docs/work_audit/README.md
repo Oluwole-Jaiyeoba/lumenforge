@@ -57,6 +57,17 @@ PYTHONPATH="$(printf '%s:' packages/*/src)" python3 -m agentic_reports.builders.
   --out KV_LIFECYCLE_AUDIT.html \
   --markdown-out KV_LIFECYCLE_AUDIT.md
 ```
+- RQ12 uses the opt-in `WORK_AUDIT_NSYS_ENABLE=1` path. The backend launches
+  under Nsight, but collection starts only after it is ready and stops before
+  shutdown. The gate requires actual CUDA runtime, kernel, and H-to-D copy
+  records linked to the target decode and donor loads; NVTX worker windows
+  alone are insufficient. `analyze_work_audit_physical_overlap` verifies the
+  copies, and `analyze_work_audit_decode_submission` partitions decode time
+  into kernel execution, within-forward launch gaps, and between-forward gaps.
+  `WORK_AUDIT_PAIR_ID` identifies a matched zero/four-load pair. Archive the
+  Nsight capture and both JSON analyses. Use separately unprofiled runs for
+  slowdown percentages; a profiled run is mechanism evidence only. This trace
+  identifies time before CPU launches, not the reason the host waited.
 - The imported `hicache_audit.zip` is reference material, not an installed
   plugin. Its proposed UnifiedRadixCache hooks are not assumed to exist in
   SGLang 0.5.10.post1.

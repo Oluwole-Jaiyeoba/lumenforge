@@ -163,7 +163,7 @@ def _links(path: Path, summary: dict) -> str:
         ("instrumentation_audit.json", "Trace gate"), ("block_audit.json", "Block audit"),
         ("instrumentation_analysis.json", "Slot analysis"),
         ("normalized_events.jsonl", "Timeline"), ("harness_events.jsonl", "Harness events"),
-        ("backend_trace.jsonl.gz", "Raw trace"),
+        ("backend_trace.jsonl.gz", "Raw trace"), ("backend_trace.jsonl", "Raw trace"),
     )
     files = summary.get("_files") or {"summary.json"}
     links = [f'<a href="{_esc(path.with_name(name).as_posix())}">{label}</a>'
@@ -177,6 +177,11 @@ def _links(path: Path, summary: dict) -> str:
     if summary.get("_physical_overlap"):
         base = path.parent.as_posix()
         links.append(f'<a href="{_esc(base)}/nsys/physical_overlap.json">Physical copy overlap</a>')
+    if summary.get("_decode_submission"):
+        base = path.parent.as_posix()
+        links.append(f'<a href="{_esc(base)}/nsys/decode_submission.json">Decode launch timing</a>')
+    if (path.parent / "nsys" / "backend.nsys-rep").exists():
+        links.append(f'<a href="{_esc(path.parent.as_posix())}/nsys/backend.nsys-rep">Nsight capture</a>')
     if summary.get("_profile_status"):
         base = path.parent.as_posix()
         links.append(f'<a href="{_esc(base)}/nsys/profile_status.json">Profiler status</a>')
@@ -345,6 +350,8 @@ def _reproduction(summary: dict, timing: bool) -> str:
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
             "WORK_AUDIT_STUDY": "overlap_dose",
+            "WORK_AUDIT_RESEARCH_QUESTION_ID": workload.get("research_question_id"),
+            "WORK_AUDIT_PAIR_ID": workload.get("pair_id"),
             "WORK_AUDIT_SESSION_COUNT": workload.get("session_count"),
             "WORK_AUDIT_DONOR_COUNT": workload.get("donor_count"),
             "WORK_AUDIT_PLANNED_OVERLAP": workload.get("planned_overlap"),
@@ -979,6 +986,23 @@ def _run_finding(summary: dict) -> str:
             return f"Excluded diagnostic: {summary.get('failure_reason', 'run did not complete')}"
         physical = summary.get("_physical_overlap")
         profile = summary.get("_profile_status")
+        submission = summary.get("_decode_submission")
+        control = summary.get("_dose_control")
+        control_submission = (control or {}).get("decode_submission")
+        if physical and submission and control_submission:
+            cpu_change = (submission["cpu_before_launch_ms"] -
+                          control_submission["cpu_before_launch_ms"])
+            kernel_change = (submission["kernel_execution_ms"] -
+                             control_submission["kernel_execution_ms"])
+            return (f"{physical['physical_overlap_load_count']} physical KV loads overlapped decode. "
+                    f"Versus the paired profiled control, CPU-before-launch gaps grew "
+                    f"{cpu_change:.0f} ms while summed kernel execution changed "
+                    f"{kernel_change:+.1f} ms. This locates delay in launch cadence; "
+                    "it does not identify why the host waited or measure an unprofiled speedup.")
+        if physical and submission and summary.get("planned_overlap") == 0:
+            return ("Profiled zero-overlap control: no KV copies ran during target decode. "
+                    f"It captured {submission['forward_count']} forwards and "
+                    f"{submission['kernel_count']} linked kernels for the paired launch comparison.")
         if physical and physical.get("status") == "verified":
             return (f"{physical['physical_overlap_load_count']} of "
                     f"{summary['donor_count']} native loads physically overlapped the target "
@@ -1131,6 +1155,8 @@ def _kind(summary: dict) -> str:
     }
     kind = names.get(schema, "Audit experiment")
     workload = (summary.get("_manifest") or {}).get("workload") or {}
+    if workload.get("research_question_id") == "RQ12":
+        return "Decode slowdown attribution"
     if workload.get("research_question_id") == "RQ9":
         kind += f" · {workload.get('load_execution') or 'scheduler'} load"
     return kind
@@ -1144,12 +1170,18 @@ def _result_parts(summary: dict) -> tuple[str, str]:
             return f"Excluded: {reason}", f"<p>No timing comparison: {reason}</p>"
         target = summary["target"]
         physical = summary.get("_physical_overlap")
+        submission = summary.get("_decode_submission")
         count = (physical["physical_overlap_load_count"] if physical else
                  summary["realized_worker_window_overlap_count"])
         kind = "physical copies" if physical else "worker windows (proxy)"
-        headline = (f"{count}/{summary['donor_count']} {kind} overlapped · "
-                    f"target first token {_ms(target.get('first_token_after_tool_ms'))} · "
-                    f"target finish {_ms(target.get('completion_after_tool_ms'))}")
+        if submission:
+            headline = (f"{count}/{summary['donor_count']} {kind} overlapped · "
+                        f"CPU-before-launch {_ms(submission['cpu_before_launch_ms'])} · "
+                        f"kernel execution {_ms(submission['kernel_execution_ms'])}")
+        else:
+            headline = (f"{count}/{summary['donor_count']} {kind} overlapped · "
+                        f"target first token {_ms(target.get('first_token_after_tool_ms'))} · "
+                        f"target finish {_ms(target.get('completion_after_tool_ms'))}")
         rows = []
         for index, donor in enumerate(summary["donors"]):
             copy = next((row for row in (physical or {}).get("donors", [])
@@ -1170,6 +1202,20 @@ def _result_parts(summary: dict) -> tuple[str, str]:
                   f"{_ms(physical.get('physical_overlap_ms')) if physical else 'not captured'}. "
                   "Worker windows are upper bounds, not proof of device-copy overlap. "
                   "Nsight profiled timing should not be compared with unprofiled latency.</p>")
+        if submission:
+            control_submission = ((summary.get("_dose_control") or {}).get("decode_submission") or {})
+            detail += _mode_table(
+                ("Decode measurement", "This run", "Paired profiled control"),
+                (("Linked forwards", submission["forward_count"],
+                  control_submission.get("forward_count", "not paired")),
+                 ("Linked kernels", submission["kernel_count"],
+                  control_submission.get("kernel_count", "not paired")),
+                 ("Kernel execution", _ms(submission["kernel_execution_ms"]),
+                  _ms(control_submission.get("kernel_execution_ms"))),
+                 ("CPU before launch", _ms(submission["cpu_before_launch_ms"]),
+                  _ms(control_submission.get("cpu_before_launch_ms"))),
+                 ("Between forwards", _ms(submission["between_forward_gap_ms"]),
+                  _ms(control_submission.get("between_forward_gap_ms")))))
         return headline, detail
     if schema == "agentic_work_audit.decode_overlap.v1":
         return _decode_overlap_result(summary)
@@ -1196,7 +1242,11 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
     questions, run_questions = _question_index(milestones or [])
     rows: list[str] = []
     for path, summary in ordered:
-        _, date, time, source = _time(summary)
+        started_ns, date, time, source = _time(summary)
+        if started_ns >= 0:
+            local = datetime.fromtimestamp(started_ns / 1_000_000_000,
+                                           ZoneInfo("America/Chicago"))
+            date, time = local.strftime("%Y-%m-%d"), local.strftime("%I:%M:%S %p").lstrip("0")
         timing = summary.get("schema") == "agentic_work_audit.timing.v1"
         multisession = summary.get("schema") == "agentic_work_audit.multisession.v1"
         comparison = summary.get("schema") == "agentic_work_audit.multisession_comparison.v1"
@@ -1239,7 +1289,9 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         )
         setup, method = _setup(summary, timing)
         result, findings = _result_parts(summary)
-        status = ("partial CUDA capture" if summary.get("_cuda_kernel_subset") else
+        status = ("physical copy verified" if summary.get("_decode_submission") and
+                  (summary.get("_physical_overlap") or {}).get("status") == "verified" else
+                  "partial CUDA capture" if summary.get("_cuda_kernel_subset") else
                   str(summary.get("status") or "unknown"))
         finding = _run_finding(summary)
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
@@ -1342,7 +1394,7 @@ body{padding:16px 10px 40px}.scope li{grid-template-columns:1fr;gap:2px}
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
 </ul></section>""" + progress_html + """
 <p class="intro">One row per saved experiment, newest first. Main result shows the measurements; Finding states the run-specific deduction. The research-question link opens the broader answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Lifecycle timing is not a policy win.</p>
-<div class="table-scroll"><table class="results-table"><colgroup><col style="width:8%"><col style="width:7%"><col style="width:11%"><col style="width:14%"><col style="width:14%"><col style="width:17%"><col style="width:15%"><col style="width:8%"><col style="width:6%"></colgroup><thead><tr><th>Date</th><th>Time (UTC)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Finding</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
+<div class="table-scroll"><table class="results-table"><colgroup><col style="width:8%"><col style="width:7%"><col style="width:11%"><col style="width:14%"><col style="width:14%"><col style="width:17%"><col style="width:15%"><col style="width:8%"><col style="width:6%"></colgroup><thead><tr><th>Date</th><th>Time (Central)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Finding</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
 <script>
 document.querySelectorAll('.detail-toggle').forEach((button) => {
   button.addEventListener('click', () => {
@@ -1481,6 +1533,7 @@ def _markdown_metrics(summary: dict) -> str:
                               ("Comparable timing", "unavailable")))
         physical = summary.get("_physical_overlap")
         profile = summary.get("_profile_status")
+        submission = summary.get("_decode_submission")
         control = summary.get("_dose_control")
         target = summary["target"]
         rows = [("Sessions", summary["session_count"]),
@@ -1490,10 +1543,26 @@ def _markdown_metrics(summary: dict) -> str:
                  if physical else "not captured"),
                 ("Physical copy overlap (ms)", physical.get("physical_overlap_ms")
                  if physical else "not captured"),
-                ("Profiler status", profile.get("status") if profile else "not requested"),
+                ("Profiler status", "CUDA capture verified" if submission else
+                 profile.get("status") if profile else "not requested"),
                 ("Target first token after tool return (ms)", target.get("first_token_after_tool_ms")),
                 ("Target finish after tool return (ms)", target.get("completion_after_tool_ms")),
                 ("Whole workload (ms)", summary.get("workflow_makespan_ms"))]
+        if submission:
+            rows.extend((("Linked decode forwards", submission["forward_count"]),
+                         ("Linked decode kernels", submission["kernel_count"]),
+                         ("Summed kernel execution (ms)", submission["kernel_execution_ms"]),
+                         ("Inside-forward CPU-before-launch gaps (ms)",
+                          submission["cpu_before_launch_ms"]),
+                         ("Between-forward gaps (ms)", submission["between_forward_gap_ms"])))
+        control_submission = (control or {}).get("decode_submission")
+        if submission and control_submission:
+            rows.extend((("Kernel execution change vs profiled control (ms)",
+                          round(submission["kernel_execution_ms"] -
+                                control_submission["kernel_execution_ms"], 3)),
+                         ("CPU-before-launch change vs profiled control (ms)",
+                          round(submission["cpu_before_launch_ms"] -
+                                control_submission["cpu_before_launch_ms"], 3))))
         if control:
             rows.extend((("Matched control target finish (ms)", round(control["target_ms"], 3)),
                          ("Target finish change vs control (ms)",
@@ -1769,10 +1838,18 @@ def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str
                     "Not measured", _run_finding(summary), "excluded")
         physical = summary.get("_physical_overlap")
         profile = summary.get("_profile_status")
+        submission = summary.get("_decode_submission")
         control = summary.get("_dose_control")
         count = (physical["physical_overlap_load_count"] if physical else
                  summary["realized_worker_window_overlap_count"])
         label = "verified copies" if physical else "worker-window proxies"
+        if submission:
+            return (f"0 → {count} {label}" if control else
+                    f"Observed {count} {label}; profiled control",
+                    "Profiled mechanism; no latency claim",
+                    "See target launch timing in details",
+                    "Not used for speed comparison",
+                    _run_finding(summary), "physical copy verified")
         others = [row.get("completion_after_tool_ms") for row in summary["active_requests"][1:]]
         others = [value for value in others if isinstance(value, (int, float))]
         target_ms = summary["target"].get("completion_after_tool_ms")
@@ -1889,7 +1966,8 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
         for filename, label in (("run_manifest.json", "Run manifest"),
                                 ("instrumentation_audit.json", "Hook gate"),
                                 ("harness_events.jsonl", "Harness timeline"),
-                                ("backend_trace.jsonl.gz", "Raw trace")):
+                                ("backend_trace.jsonl.gz", "Raw trace"),
+                                ("backend_trace.jsonl", "Raw trace")):
             if filename in files:
                 evidence.append(f"[{label}]({base}/{filename})")
         if summary.get("_cuda_kernel_subset"):
@@ -1899,11 +1977,14 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
             evidence.append(f"[Nsight SQLite trace]({base}/nsys/backend.sqlite.gz)")
         if summary.get("_physical_overlap"):
             evidence.append(f"[Physical copy overlap]({base}/nsys/physical_overlap.json)")
+        if summary.get("_decode_submission"):
+            evidence.append(f"[Decode launch timing]({base}/nsys/decode_submission.json)")
+        if (path.parent / "nsys" / "backend.nsys-rep").exists():
+            evidence.append(f"[Nsight capture]({base}/nsys/backend.nsys-rep)")
+        if (path.parent / "nsys" / "backend.sqlite.gz").exists():
             evidence.append(f"[Nsight SQLite trace]({base}/nsys/backend.sqlite.gz)")
         if summary.get("_profile_status"):
             evidence.append(f"[Profiler status]({base}/nsys/profile_status.json)")
-            if (path.parent / "nsys" / "backend.sqlite.gz").exists():
-                evidence.append(f"[Nsight SQLite trace]({base}/nsys/backend.sqlite.gz)")
         command = _reproduction_command(summary)
         lines.extend((f'<a id="run-{html.escape(run, quote=True)}"></a>',
                       "<details>",
@@ -1913,7 +1994,7 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                       f"**Finding.** {_run_finding(summary)}", "",
                       f"**Setup.** {setup_text}", "",
                       "**Key measurements**", "", _markdown_metrics(summary), "",
-                      f"**Evidence gate.** {'validated timing; partial CUDA capture' if summary.get('_cuda_kernel_subset') else summary.get('status', 'unknown')}. Timestamp: {source}; displayed in Central Time.", ""))
+                      f"**Evidence gate.** {'physical copy and decode launches verified' if summary.get('_decode_submission') and (summary.get('_physical_overlap') or {}).get('status') == 'verified' else 'validated timing; partial CUDA capture' if summary.get('_cuda_kernel_subset') else summary.get('status', 'unknown')}. Timestamp: {source}; displayed in Central Time.", ""))
         if limits:
             lines.extend(("**Limits**", "", *(f"- {limit}" for limit in limits[:3]), ""))
         if command:
@@ -1933,7 +2014,8 @@ def _pair_rq11_controls(summaries: list[tuple[Path, dict]]) -> None:
                 workload.get("active_prompt_words", workload.get("prompt_words_target")),
                 workload.get("donor_prompt_words", workload.get("prompt_words_target")),
                 workload.get("target_wait_ms"), workload.get("donor_wait_ms"),
-                workload.get("decode_tokens"), workload.get("nsys_enabled"))
+                workload.get("decode_tokens"), workload.get("nsys_enabled"),
+                workload.get("research_question_id"), workload.get("pair_id"))
 
     controls = {key(summary): summary for _, summary in summaries
                 if key(summary) is not None and summary.get("planned_overlap") == 0}
@@ -1951,6 +2033,7 @@ def _pair_rq11_controls(summaries: list[tuple[Path, dict]]) -> None:
                 "run_id": control["run_id"],
                 "target_ms": control["target"]["completion_after_tool_ms"],
                 "peer_median_ms": median(peer_times),
+                "decode_submission": control.get("_decode_submission"),
             }
 
 
@@ -1982,6 +2065,9 @@ def main() -> None:
         physical = path.parent / "nsys" / "physical_overlap.json"
         if physical.exists():
             summary["_physical_overlap"] = json.loads(physical.read_text(encoding="utf-8"))
+        submission = path.parent / "nsys" / "decode_submission.json"
+        if submission.exists():
+            summary["_decode_submission"] = json.loads(submission.read_text(encoding="utf-8"))
         profile = path.parent / "nsys" / "profile_status.json"
         if profile.exists():
             summary["_profile_status"] = json.loads(profile.read_text(encoding="utf-8"))

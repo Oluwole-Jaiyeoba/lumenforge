@@ -151,8 +151,12 @@ if [[ -n "${SGLANG_DOCKER_IMAGE}" ]]; then
   docker_launch_args[0]="python3"
   if [[ -n "${AGENTIC_NSYS_BIN}" ]]; then
     [[ -n "${AGENTIC_NSYS_OUTPUT}" ]] || { echo "Set AGENTIC_NSYS_OUTPUT with AGENTIC_NSYS_BIN" >&2; exit 2; }
-    docker_launch_args=("${AGENTIC_NSYS_BIN}" profile --trace=cuda,nvtx --sample=none
-      --cpuctxsw=none --force-overwrite=true -o "${AGENTIC_NSYS_OUTPUT}" "${docker_launch_args[@]}")
+    if [[ "${AGENTIC_NSYS_INTERACTIVE:-0}" == "1" ]]; then
+      docker_launch_args=("${AGENTIC_NSYS_BIN}" launch --trace=cuda,nvtx "${docker_launch_args[@]}")
+    else
+      docker_launch_args=("${AGENTIC_NSYS_BIN}" profile --trace=cuda,nvtx --sample=none
+        --cpuctxsw=none --force-overwrite=true -o "${AGENTIC_NSYS_OUTPUT}" "${docker_launch_args[@]}")
+    fi
   fi
   echo "Launching SGLang in Docker image: ${SGLANG_DOCKER_IMAGE}"
   exec docker run --rm \

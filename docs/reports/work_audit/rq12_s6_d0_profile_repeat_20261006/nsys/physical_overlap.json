@@ -1,0 +1,50 @@
+{
+  "schema": "agentic_work_audit.physical_overlap.v1",
+  "status": "verified",
+  "run_id": "rq12_s6_d0_profile_repeat_20261006",
+  "target_forward_count": 94,
+  "target_kernel_count": 32712,
+  "planned_overlap": 0,
+  "physical_overlap_load_count": 0,
+  "physical_overlap_ms": 0.0,
+  "concurrent_kernel_copy_ms": 0.0,
+  "donors": [
+    {
+      "load_id": "rq11-seed1-donor0-donor-prime:async:1791263873796261333",
+      "copy_count": 280,
+      "copy_bytes": 232816640,
+      "copy_active_ms": 17.7,
+      "copy_during_target_decode_ms": 0.0,
+      "copy_concurrent_with_target_kernels_ms": 0.0
+    },
+    {
+      "load_id": "rq11-seed1-donor1-donor-prime:async:1791263873813390262",
+      "copy_count": 280,
+      "copy_bytes": 234881024,
+      "copy_active_ms": 17.842,
+      "copy_during_target_decode_ms": 0.0,
+      "copy_concurrent_with_target_kernels_ms": 0.0
+    },
+    {
+      "load_id": "rq11-seed1-donor2-donor-prime:async:1791263873848825484",
+      "copy_count": 6104,
+      "copy_bytes": 234881024,
+      "copy_active_ms": 20.456,
+      "copy_during_target_decode_ms": 0.0,
+      "copy_concurrent_with_target_kernels_ms": 0.0
+    },
+    {
+      "load_id": "rq11-seed1-donor3-donor-prime:async:1791263873981997217",
+      "copy_count": 5936,
+      "copy_bytes": 234881024,
+      "copy_active_ms": 20.565,
+      "copy_during_target_decode_ms": 0.0,
+      "copy_concurrent_with_target_kernels_ms": 0.0
+    }
+  ],
+  "limitations": [
+    "Decode envelope includes gaps between the target's CUDA kernels.",
+    "Summed overlap across loads can double-count simultaneous copies.",
+    "Nsight timing is mechanism evidence, not an unprofiled slowdown estimate."
+  ]
+}

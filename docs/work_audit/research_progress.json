@@ -2,12 +2,27 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ12",
+      "short_question": "Where does the overlap slowdown occur?",
+      "evidence_date_utc": "2026-10-06",
+      "question": "When native host-to-GPU KV copies physically overlap another session's decode, does added time appear inside decode kernels or in the host's cadence of submitting them?",
+      "answer": "Two order-balanced six-session A10G profile pairs each captured zero versus four physical KV-load overlaps while the target had the same 94 model forwards and 32,712 linked kernels. Four loads contributed about 73 ms of physical copy overlap in each overlap arm. Summed decode-kernel execution changed by only +1.1 and +1.4 ms, while time inside forwards before the CPU began the next CUDA launch grew by 481 and 546 ms; gaps between forwards grew by another 135 and 138 ms. Earlier unprofiled six-session runs found 21-23% longer target completion with four worker-window overlaps. The profile supports delayed host-side launch cadence, not slower decode kernels, as the main measured locus of the delay.",
+      "hypothesis": "KV-load orchestration or competition for host-side scheduler/launch resources delays submission of subsequent decode work. Physical copies do overlap kernels, but their direct bandwidth effect is not shown to explain the large completion penalty.",
+      "unknown": "The profiler locates time before CUDA launches but does not show why the host waited: Python/CPU contention, SGLang scheduling, batching, copy-launch overhead, or a mixture remain possible. Nsight perturbs timing, so profiled completion differences are not the clean slowdown estimate. This is synthetic traffic on one A10G and does not establish a hardware-offload speedup or a production-wide frequency. The first reverse-order pair had a post-run manifest recovery and a corrected research-question label; raw traces were unchanged.",
+      "evidence_run_ids": [
+        "rq12_s6_d4_profile_live_20261006",
+        "rq12_s6_d0_profile_seed1_20261006",
+        "rq12_s6_d0_profile_repeat_20261006",
+        "rq12_s6_d4_profile_repeat_20261006"
+      ]
+    },
+    {
       "id": "RQ11",
       "short_question": "Does more KV-load overlap delay other decoders?",
       "evidence_date_utc": "2026-10-06",
       "question": "With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?",
       "answer": "On the pinned A10G setup, both six- and twelve-session pilots realized 0, 1, 2, and 4 worker-window overlaps as scheduled. Target tool-return-to-finish time rose with dose: 3.631 to 4.399 seconds in the six-session first seed (+21.2%) and 3.895 to 4.640 seconds in the twelve-session first seed (+19.1%). Zero-versus-four endpoints repeated in a second seed: 3.630 to 4.475 seconds (+23.3%) with six sessions and 3.896 to 4.683 seconds (+20.2%) with twelve. Peer decoders finished later in the high-dose arms too. First-token timing did not rise consistently, so the extra time was mainly after first token. All doses executed the same four native donor loads; only timing changed within each series.",
-      "hypothesis": "The added decode time may come primarily from delayed host-side submission of GPU work while KV loads are active, rather than slower decode kernels or direct HBM-bandwidth contention. The partial RQ10 CUDA captures are consistent with this mechanism, but RQ11 has not captured enough physical CUDA activity to test it under the multi-session workload. CPU contention, scheduler/batch changes, GPU-copy interference, or a combination remain possible.",
+      "hypothesis": "The added decode time may come primarily from delayed host-side submission of GPU work while KV loads are active, rather than slower decode kernels or direct HBM-bandwidth contention. The partial RQ10 captures suggested this; the RQ11 sweep itself did not capture enough physical CUDA activity to test it. RQ12 later tests this hypothesis in a separate six-session profile.",
       "unknown": "Worker start-to-commit windows are proxies, not verified physical host-to-GPU copy overlap. A profiled repeat recorded all four NVTX load ranges but no CUDA kernel or memcpy activity, so the physical-overlap gate failed. The cause could be host launch cadence, scheduler/batch effects, GPU copies, or a mixture; this does not isolate HBM bandwidth or prove a hardware fix. The six-session series used 4090-word active prompts and 20- or 40-second donor waits, while the twelve-session series used 512-word active prompts and 40-second donor waits to fit capacity; compare doses within each series, not absolute times across series. These synthetic runs are small, and only zero/four endpoints have a second seed. Excluded capacity and timeout attempts appear in the experiment details.",
       "evidence_run_ids": [
         "rq11_s6_d0_seed1_20261005",

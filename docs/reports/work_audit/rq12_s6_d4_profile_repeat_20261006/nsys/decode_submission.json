@@ -1,0 +1,3597 @@
+{
+  "schema": "agentic_work_audit.decode_submission.v1",
+  "status": "verified",
+  "run_id": "rq12_s6_d4_profile_repeat_20261006",
+  "target_request_id": "rq11-seed1-active0-replay",
+  "forward_count": 94,
+  "kernel_count": 32712,
+  "between_forward_gap_ms": 1725.021,
+  "forward_wall_ms": 2435.41,
+  "kernel_execution_ms": 3192.362,
+  "gap_ms": 668.371,
+  "cpu_before_launch_ms": 613.889,
+  "launch_api_ms": 29.627,
+  "after_launch_api_ms": 24.847,
+  "stream_wait_event_gpu_ms": 0.0,
+  "blocking_sync_api_ms": 0.0,
+  "forward_calls": [
+    {
+      "call_id": "108-54159430734282",
+      "start_ns": 60785533175,
+      "end_ns": 60804441819,
+      "forward_wall_ms": 18.909,
+      "kernel_execution_ms": 33.944,
+      "kernel_count": 348,
+      "gap_ms": 1.111,
+      "cpu_before_launch_ms": 0.72,
+      "launch_api_ms": 0.114,
+      "after_launch_api_ms": 0.277,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.096,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.087,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54159466781789",
+      "start_ns": 60821580005,
+      "end_ns": 60840692398,
+      "forward_wall_ms": 19.112,
+      "kernel_execution_ms": 33.941,
+      "kernel_count": 348,
+      "gap_ms": 1.079,
+      "cpu_before_launch_ms": 0.7,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.087,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54159502857188",
+      "start_ns": 60857684217,
+      "end_ns": 60878703835,
+      "forward_wall_ms": 21.02,
+      "kernel_execution_ms": 33.97,
+      "kernel_count": 348,
+      "gap_ms": 2.141,
+      "cpu_before_launch_ms": 1.661,
+      "launch_api_ms": 0.206,
+      "after_launch_api_ms": 0.273,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.298,
+          "cpu_before_launch_ms": 0.282,
+          "launch_api_ms": 0.016,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.281,
+          "cpu_before_launch_ms": 0.269,
+          "launch_api_ms": 0.012,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernel"
+        },
+        {
+          "gap_ms": 0.182,
+          "cpu_before_launch_ms": 0.164,
+          "launch_api_ms": 0.018,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54159555000894",
+      "start_ns": 60910041784,
+      "end_ns": 61041939574,
+      "forward_wall_ms": 131.898,
+      "kernel_execution_ms": 34.151,
+      "kernel_count": 348,
+      "gap_ms": 98.192,
+      "cpu_before_launch_ms": 95.246,
+      "launch_api_ms": 2.763,
+      "after_launch_api_ms": 0.183,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 1.981,
+          "cpu_before_launch_ms": 1.962,
+          "launch_api_ms": 0.019,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.875,
+          "cpu_before_launch_ms": 1.863,
+          "launch_api_ms": 0.012,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 1.868,
+          "cpu_before_launch_ms": 1.853,
+          "launch_api_ms": 0.015,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54159722854877",
+      "start_ns": 61078400411,
+      "end_ns": 61224169070,
+      "forward_wall_ms": 145.769,
+      "kernel_execution_ms": 34.141,
+      "kernel_count": 348,
+      "gap_ms": 111.475,
+      "cpu_before_launch_ms": 108.271,
+      "launch_api_ms": 3.043,
+      "after_launch_api_ms": 0.16,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 2.795,
+          "cpu_before_launch_ms": 2.78,
+          "launch_api_ms": 0.015,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 2.699,
+          "cpu_before_launch_ms": 2.681,
+          "launch_api_ms": 0.018,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.923,
+          "cpu_before_launch_ms": 1.907,
+          "launch_api_ms": 0.016,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54159967069683",
+      "start_ns": 61322861997,
+      "end_ns": 61458835278,
+      "forward_wall_ms": 135.973,
+      "kernel_execution_ms": 34.109,
+      "kernel_count": 348,
+      "gap_ms": 101.663,
+      "cpu_before_launch_ms": 97.897,
+      "launch_api_ms": 3.642,
+      "after_launch_api_ms": 0.124,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 3.035,
+          "cpu_before_launch_ms": 3.017,
+          "launch_api_ms": 0.018,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.866,
+          "cpu_before_launch_ms": 1.852,
+          "launch_api_ms": 0.014,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.718,
+          "cpu_before_launch_ms": 1.701,
+          "launch_api_ms": 0.017,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160161527336",
+      "start_ns": 61516397638,
+      "end_ns": 61657449036,
+      "forward_wall_ms": 141.051,
+      "kernel_execution_ms": 34.117,
+      "kernel_count": 348,
+      "gap_ms": 106.971,
+      "cpu_before_launch_ms": 102.963,
+      "launch_api_ms": 3.899,
+      "after_launch_api_ms": 0.109,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 2.636,
+          "cpu_before_launch_ms": 2.617,
+          "launch_api_ms": 0.019,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.952,
+          "cpu_before_launch_ms": 1.935,
+          "launch_api_ms": 0.017,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.92,
+          "cpu_before_launch_ms": 1.903,
+          "launch_api_ms": 0.018,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160311145177",
+      "start_ns": 61666280950,
+      "end_ns": 61788195833,
+      "forward_wall_ms": 121.915,
+      "kernel_execution_ms": 34.138,
+      "kernel_count": 348,
+      "gap_ms": 87.502,
+      "cpu_before_launch_ms": 83.629,
+      "launch_api_ms": 3.741,
+      "after_launch_api_ms": 0.131,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 2.316,
+          "cpu_before_launch_ms": 2.296,
+          "launch_api_ms": 0.02,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.868,
+          "cpu_before_launch_ms": 1.851,
+          "launch_api_ms": 0.017,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 1.846,
+          "cpu_before_launch_ms": 1.829,
+          "launch_api_ms": 0.017,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160440155959",
+      "start_ns": 61796766536,
+      "end_ns": 61891314318,
+      "forward_wall_ms": 94.548,
+      "kernel_execution_ms": 34.065,
+      "kernel_count": 348,
+      "gap_ms": 65.034,
+      "cpu_before_launch_ms": 62.171,
+      "launch_api_ms": 2.643,
+      "after_launch_api_ms": 0.219,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 1.704,
+          "cpu_before_launch_ms": 1.689,
+          "launch_api_ms": 0.014,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.122,
+          "cpu_before_launch_ms": 1.106,
+          "launch_api_ms": 0.017,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 1.039,
+          "cpu_before_launch_ms": 1.026,
+          "launch_api_ms": 0.013,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160542603190",
+      "start_ns": 61897404200,
+      "end_ns": 61918880779,
+      "forward_wall_ms": 21.477,
+      "kernel_execution_ms": 33.922,
+      "kernel_count": 348,
+      "gap_ms": 1.24,
+      "cpu_before_launch_ms": 0.847,
+      "launch_api_ms": 0.129,
+      "after_launch_api_ms": 0.264,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.123,
+          "cpu_before_launch_ms": 0.112,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.112,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.112,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160578877547",
+      "start_ns": 61933678999,
+      "end_ns": 61952560422,
+      "forward_wall_ms": 18.881,
+      "kernel_execution_ms": 33.969,
+      "kernel_count": 348,
+      "gap_ms": 1.158,
+      "cpu_before_launch_ms": 0.758,
+      "launch_api_ms": 0.124,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.098,
+          "cpu_before_launch_ms": 0.087,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.087,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160615033880",
+      "start_ns": 61969834134,
+      "end_ns": 61988617322,
+      "forward_wall_ms": 18.783,
+      "kernel_execution_ms": 33.927,
+      "kernel_count": 348,
+      "gap_ms": 1.089,
+      "cpu_before_launch_ms": 0.71,
+      "launch_api_ms": 0.112,
+      "after_launch_api_ms": 0.267,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.101,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160651056397",
+      "start_ns": 62005856192,
+      "end_ns": 62024532346,
+      "forward_wall_ms": 18.676,
+      "kernel_execution_ms": 33.924,
+      "kernel_count": 348,
+      "gap_ms": 1.084,
+      "cpu_before_launch_ms": 0.698,
+      "launch_api_ms": 0.106,
+      "after_launch_api_ms": 0.279,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160687056623",
+      "start_ns": 62041857119,
+      "end_ns": 62060639618,
+      "forward_wall_ms": 18.782,
+      "kernel_execution_ms": 33.914,
+      "kernel_count": 348,
+      "gap_ms": 1.075,
+      "cpu_before_launch_ms": 0.699,
+      "launch_api_ms": 0.106,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.008,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160723055608",
+      "start_ns": 62077855657,
+      "end_ns": 62096610324,
+      "forward_wall_ms": 18.755,
+      "kernel_execution_ms": 33.946,
+      "kernel_count": 348,
+      "gap_ms": 1.082,
+      "cpu_before_launch_ms": 0.698,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.275,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.106,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.087,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160759075054",
+      "start_ns": 62113884195,
+      "end_ns": 62133095903,
+      "forward_wall_ms": 19.212,
+      "kernel_execution_ms": 33.95,
+      "kernel_count": 348,
+      "gap_ms": 1.109,
+      "cpu_before_launch_ms": 0.728,
+      "launch_api_ms": 0.11,
+      "after_launch_api_ms": 0.271,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.134,
+          "cpu_before_launch_ms": 0.124,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.09,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160795153443",
+      "start_ns": 62149952936,
+      "end_ns": 62168747455,
+      "forward_wall_ms": 18.795,
+      "kernel_execution_ms": 33.936,
+      "kernel_count": 348,
+      "gap_ms": 1.087,
+      "cpu_before_launch_ms": 0.702,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.106,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160831188269",
+      "start_ns": 62185987605,
+      "end_ns": 62204610556,
+      "forward_wall_ms": 18.623,
+      "kernel_execution_ms": 33.93,
+      "kernel_count": 348,
+      "gap_ms": 1.073,
+      "cpu_before_launch_ms": 0.7,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.267,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160867180535",
+      "start_ns": 62221980512,
+      "end_ns": 62240734039,
+      "forward_wall_ms": 18.754,
+      "kernel_execution_ms": 33.952,
+      "kernel_count": 348,
+      "gap_ms": 1.077,
+      "cpu_before_launch_ms": 0.696,
+      "launch_api_ms": 0.105,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160903209112",
+      "start_ns": 62258009990,
+      "end_ns": 62276780849,
+      "forward_wall_ms": 18.771,
+      "kernel_execution_ms": 33.95,
+      "kernel_count": 348,
+      "gap_ms": 1.101,
+      "cpu_before_launch_ms": 0.718,
+      "launch_api_ms": 0.112,
+      "after_launch_api_ms": 0.271,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.096,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.087,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160939251600",
+      "start_ns": 62294056520,
+      "end_ns": 62312752375,
+      "forward_wall_ms": 18.696,
+      "kernel_execution_ms": 33.934,
+      "kernel_count": 348,
+      "gap_ms": 1.118,
+      "cpu_before_launch_ms": 0.717,
+      "launch_api_ms": 0.121,
+      "after_launch_api_ms": 0.279,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54160975293857",
+      "start_ns": 62330093929,
+      "end_ns": 62348841556,
+      "forward_wall_ms": 18.748,
+      "kernel_execution_ms": 33.965,
+      "kernel_count": 348,
+      "gap_ms": 1.068,
+      "cpu_before_launch_ms": 0.693,
+      "launch_api_ms": 0.105,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161011324673",
+      "start_ns": 62366124438,
+      "end_ns": 62384943748,
+      "forward_wall_ms": 18.819,
+      "kernel_execution_ms": 33.946,
+      "kernel_count": 348,
+      "gap_ms": 1.093,
+      "cpu_before_launch_ms": 0.705,
+      "launch_api_ms": 0.11,
+      "after_launch_api_ms": 0.278,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.087,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161047380951",
+      "start_ns": 62402181558,
+      "end_ns": 62421039700,
+      "forward_wall_ms": 18.858,
+      "kernel_execution_ms": 33.957,
+      "kernel_count": 348,
+      "gap_ms": 1.098,
+      "cpu_before_launch_ms": 0.718,
+      "launch_api_ms": 0.11,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.084,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.089,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161083437439",
+      "start_ns": 62438237948,
+      "end_ns": 62457041717,
+      "forward_wall_ms": 18.804,
+      "kernel_execution_ms": 33.915,
+      "kernel_count": 348,
+      "gap_ms": 1.086,
+      "cpu_before_launch_ms": 0.704,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.275,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161119450605",
+      "start_ns": 62474250125,
+      "end_ns": 62492993662,
+      "forward_wall_ms": 18.744,
+      "kernel_execution_ms": 33.96,
+      "kernel_count": 348,
+      "gap_ms": 1.135,
+      "cpu_before_launch_ms": 0.754,
+      "launch_api_ms": 0.117,
+      "after_launch_api_ms": 0.264,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.118,
+          "cpu_before_launch_ms": 0.104,
+          "launch_api_ms": 0.014,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.084,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161155561636",
+      "start_ns": 62510361948,
+      "end_ns": 62529061073,
+      "forward_wall_ms": 18.699,
+      "kernel_execution_ms": 33.953,
+      "kernel_count": 348,
+      "gap_ms": 1.082,
+      "cpu_before_launch_ms": 0.694,
+      "launch_api_ms": 0.113,
+      "after_launch_api_ms": 0.274,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161191790552",
+      "start_ns": 62546592956,
+      "end_ns": 62565427557,
+      "forward_wall_ms": 18.835,
+      "kernel_execution_ms": 33.948,
+      "kernel_count": 348,
+      "gap_ms": 1.144,
+      "cpu_before_launch_ms": 0.758,
+      "launch_api_ms": 0.118,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.124,
+          "cpu_before_launch_ms": 0.114,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.102,
+          "cpu_before_launch_ms": 0.091,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161227888202",
+      "start_ns": 62582689007,
+      "end_ns": 62601391732,
+      "forward_wall_ms": 18.703,
+      "kernel_execution_ms": 33.932,
+      "kernel_count": 348,
+      "gap_ms": 1.098,
+      "cpu_before_launch_ms": 0.713,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.123,
+          "cpu_before_launch_ms": 0.113,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161263909838",
+      "start_ns": 62618711726,
+      "end_ns": 62637405370,
+      "forward_wall_ms": 18.694,
+      "kernel_execution_ms": 33.956,
+      "kernel_count": 348,
+      "gap_ms": 1.091,
+      "cpu_before_launch_ms": 0.702,
+      "launch_api_ms": 0.119,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.02,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 0.09,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161299956985",
+      "start_ns": 62654793107,
+      "end_ns": 62673474571,
+      "forward_wall_ms": 18.681,
+      "kernel_execution_ms": 33.937,
+      "kernel_count": 348,
+      "gap_ms": 1.105,
+      "cpu_before_launch_ms": 0.712,
+      "launch_api_ms": 0.117,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.084,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161336027084",
+      "start_ns": 62690826145,
+      "end_ns": 62709520770,
+      "forward_wall_ms": 18.695,
+      "kernel_execution_ms": 33.937,
+      "kernel_count": 348,
+      "gap_ms": 1.09,
+      "cpu_before_launch_ms": 0.705,
+      "launch_api_ms": 0.117,
+      "after_launch_api_ms": 0.267,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161372050110",
+      "start_ns": 62726850604,
+      "end_ns": 62745501857,
+      "forward_wall_ms": 18.651,
+      "kernel_execution_ms": 33.945,
+      "kernel_count": 348,
+      "gap_ms": 1.101,
+      "cpu_before_launch_ms": 0.707,
+      "launch_api_ms": 0.117,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161408093459",
+      "start_ns": 62762893313,
+      "end_ns": 62781560097,
+      "forward_wall_ms": 18.667,
+      "kernel_execution_ms": 33.938,
+      "kernel_count": 348,
+      "gap_ms": 1.075,
+      "cpu_before_launch_ms": 0.692,
+      "launch_api_ms": 0.117,
+      "after_launch_api_ms": 0.266,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.09,
+          "cpu_before_launch_ms": 0.072,
+          "launch_api_ms": 0.018,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.089,
+          "cpu_before_launch_ms": 0.079,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161444089424",
+      "start_ns": 62798888900,
+      "end_ns": 62817514042,
+      "forward_wall_ms": 18.625,
+      "kernel_execution_ms": 33.96,
+      "kernel_count": 348,
+      "gap_ms": 1.081,
+      "cpu_before_launch_ms": 0.692,
+      "launch_api_ms": 0.116,
+      "after_launch_api_ms": 0.273,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.106,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.082,
+          "cpu_before_launch_ms": 0.072,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161480152942",
+      "start_ns": 62834953221,
+      "end_ns": 62853607414,
+      "forward_wall_ms": 18.654,
+      "kernel_execution_ms": 33.949,
+      "kernel_count": 348,
+      "gap_ms": 1.091,
+      "cpu_before_launch_ms": 0.713,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.097,
+          "cpu_before_launch_ms": 0.087,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161516199939",
+      "start_ns": 62870999140,
+      "end_ns": 62889720656,
+      "forward_wall_ms": 18.722,
+      "kernel_execution_ms": 33.94,
+      "kernel_count": 348,
+      "gap_ms": 1.094,
+      "cpu_before_launch_ms": 0.707,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.28,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.089,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161552251457",
+      "start_ns": 62907118643,
+      "end_ns": 62925724414,
+      "forward_wall_ms": 18.606,
+      "kernel_execution_ms": 33.946,
+      "kernel_count": 348,
+      "gap_ms": 1.076,
+      "cpu_before_launch_ms": 0.701,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.104,
+          "cpu_before_launch_ms": 0.093,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.079,
+          "cpu_before_launch_ms": 0.07,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161588332476",
+      "start_ns": 62943133791,
+      "end_ns": 62961750812,
+      "forward_wall_ms": 18.617,
+      "kernel_execution_ms": 33.961,
+      "kernel_count": 348,
+      "gap_ms": 1.056,
+      "cpu_before_launch_ms": 0.677,
+      "launch_api_ms": 0.105,
+      "after_launch_api_ms": 0.274,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.105,
+          "cpu_before_launch_ms": 0.096,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.099,
+          "cpu_before_launch_ms": 0.088,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.077,
+          "cpu_before_launch_ms": 0.068,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161624361283",
+      "start_ns": 62979161380,
+      "end_ns": 62997817332,
+      "forward_wall_ms": 18.656,
+      "kernel_execution_ms": 33.953,
+      "kernel_count": 348,
+      "gap_ms": 1.068,
+      "cpu_before_launch_ms": 0.691,
+      "launch_api_ms": 0.106,
+      "after_launch_api_ms": 0.271,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.106,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.078,
+          "cpu_before_launch_ms": 0.069,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161660401151",
+      "start_ns": 63015201839,
+      "end_ns": 63033823460,
+      "forward_wall_ms": 18.622,
+      "kernel_execution_ms": 33.974,
+      "kernel_count": 348,
+      "gap_ms": 1.066,
+      "cpu_before_launch_ms": 0.689,
+      "launch_api_ms": 0.106,
+      "after_launch_api_ms": 0.272,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.089,
+          "cpu_before_launch_ms": 0.079,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.077,
+          "cpu_before_launch_ms": 0.068,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161696436678",
+      "start_ns": 63051236338,
+      "end_ns": 63069890481,
+      "forward_wall_ms": 18.654,
+      "kernel_execution_ms": 33.959,
+      "kernel_count": 348,
+      "gap_ms": 1.108,
+      "cpu_before_launch_ms": 0.725,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.274,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.097,
+          "cpu_before_launch_ms": 0.086,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161732494665",
+      "start_ns": 63087299778,
+      "end_ns": 63106221073,
+      "forward_wall_ms": 18.921,
+      "kernel_execution_ms": 33.957,
+      "kernel_count": 348,
+      "gap_ms": 1.084,
+      "cpu_before_launch_ms": 0.706,
+      "launch_api_ms": 0.111,
+      "after_launch_api_ms": 0.267,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161768542703",
+      "start_ns": 63123342527,
+      "end_ns": 63142054533,
+      "forward_wall_ms": 18.712,
+      "kernel_execution_ms": 33.945,
+      "kernel_count": 348,
+      "gap_ms": 1.077,
+      "cpu_before_launch_ms": 0.699,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.082,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161804556509",
+      "start_ns": 63159356565,
+      "end_ns": 63178222467,
+      "forward_wall_ms": 18.866,
+      "kernel_execution_ms": 33.942,
+      "kernel_count": 348,
+      "gap_ms": 1.09,
+      "cpu_before_launch_ms": 0.709,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.272,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161840609186",
+      "start_ns": 63195408995,
+      "end_ns": 63214031296,
+      "forward_wall_ms": 18.622,
+      "kernel_execution_ms": 33.944,
+      "kernel_count": 348,
+      "gap_ms": 1.07,
+      "cpu_before_launch_ms": 0.692,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161876623773",
+      "start_ns": 63231422863,
+      "end_ns": 63250078986,
+      "forward_wall_ms": 18.656,
+      "kernel_execution_ms": 33.96,
+      "kernel_count": 348,
+      "gap_ms": 1.076,
+      "cpu_before_launch_ms": 0.7,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161912665941",
+      "start_ns": 63267482793,
+      "end_ns": 63286163247,
+      "forward_wall_ms": 18.68,
+      "kernel_execution_ms": 33.98,
+      "kernel_count": 348,
+      "gap_ms": 1.086,
+      "cpu_before_launch_ms": 0.711,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.267,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.095,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161948726229",
+      "start_ns": 63303537563,
+      "end_ns": 63322148584,
+      "forward_wall_ms": 18.611,
+      "kernel_execution_ms": 33.947,
+      "kernel_count": 348,
+      "gap_ms": 1.071,
+      "cpu_before_launch_ms": 0.687,
+      "launch_api_ms": 0.106,
+      "after_launch_api_ms": 0.278,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.105,
+          "cpu_before_launch_ms": 0.095,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.09,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54161984743865",
+      "start_ns": 63339563601,
+      "end_ns": 63358251446,
+      "forward_wall_ms": 18.688,
+      "kernel_execution_ms": 33.934,
+      "kernel_count": 348,
+      "gap_ms": 1.072,
+      "cpu_before_launch_ms": 0.693,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162020787022",
+      "start_ns": 63375588310,
+      "end_ns": 63394324776,
+      "forward_wall_ms": 18.736,
+      "kernel_execution_ms": 33.975,
+      "kernel_count": 348,
+      "gap_ms": 1.081,
+      "cpu_before_launch_ms": 0.697,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.275,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162056876791",
+      "start_ns": 63411676871,
+      "end_ns": 63430363675,
+      "forward_wall_ms": 18.687,
+      "kernel_execution_ms": 33.944,
+      "kernel_count": 348,
+      "gap_ms": 1.087,
+      "cpu_before_launch_ms": 0.706,
+      "launch_api_ms": 0.112,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162092914008",
+      "start_ns": 63447714040,
+      "end_ns": 63466368643,
+      "forward_wall_ms": 18.655,
+      "kernel_execution_ms": 33.941,
+      "kernel_count": 348,
+      "gap_ms": 1.084,
+      "cpu_before_launch_ms": 0.695,
+      "launch_api_ms": 0.11,
+      "after_launch_api_ms": 0.28,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162128956866",
+      "start_ns": 63483757529,
+      "end_ns": 63502423833,
+      "forward_wall_ms": 18.666,
+      "kernel_execution_ms": 33.96,
+      "kernel_count": 348,
+      "gap_ms": 1.099,
+      "cpu_before_launch_ms": 0.723,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162165022114",
+      "start_ns": 63519822720,
+      "end_ns": 63538487563,
+      "forward_wall_ms": 18.665,
+      "kernel_execution_ms": 33.976,
+      "kernel_count": 348,
+      "gap_ms": 1.082,
+      "cpu_before_launch_ms": 0.699,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.275,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162201079823",
+      "start_ns": 63555879800,
+      "end_ns": 63574505791,
+      "forward_wall_ms": 18.626,
+      "kernel_execution_ms": 33.934,
+      "kernel_count": 348,
+      "gap_ms": 1.087,
+      "cpu_before_launch_ms": 0.709,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.271,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.101,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162237105820",
+      "start_ns": 63591905658,
+      "end_ns": 63611399059,
+      "forward_wall_ms": 19.493,
+      "kernel_execution_ms": 33.929,
+      "kernel_count": 348,
+      "gap_ms": 1.078,
+      "cpu_before_launch_ms": 0.693,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.09,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162273127256",
+      "start_ns": 63627927197,
+      "end_ns": 63647788513,
+      "forward_wall_ms": 19.861,
+      "kernel_execution_ms": 33.941,
+      "kernel_count": 348,
+      "gap_ms": 1.074,
+      "cpu_before_launch_ms": 0.701,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.266,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.082,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162309243066",
+      "start_ns": 63664046339,
+      "end_ns": 63683821632,
+      "forward_wall_ms": 19.775,
+      "kernel_execution_ms": 33.95,
+      "kernel_count": 348,
+      "gap_ms": 1.223,
+      "cpu_before_launch_ms": 0.82,
+      "launch_api_ms": 0.128,
+      "after_launch_api_ms": 0.274,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.119,
+          "cpu_before_launch_ms": 0.109,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.104,
+          "cpu_before_launch_ms": 0.093,
+          "launch_api_ms": 0.012,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.096,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162345451671",
+      "start_ns": 63700254026,
+      "end_ns": 63719062956,
+      "forward_wall_ms": 18.809,
+      "kernel_execution_ms": 33.936,
+      "kernel_count": 348,
+      "gap_ms": 1.09,
+      "cpu_before_launch_ms": 0.708,
+      "launch_api_ms": 0.113,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.101,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162381489278",
+      "start_ns": 63736289935,
+      "end_ns": 63755047112,
+      "forward_wall_ms": 18.757,
+      "kernel_execution_ms": 33.951,
+      "kernel_count": 348,
+      "gap_ms": 1.101,
+      "cpu_before_launch_ms": 0.712,
+      "launch_api_ms": 0.112,
+      "after_launch_api_ms": 0.277,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.095,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162417537607",
+      "start_ns": 63772337594,
+      "end_ns": 63791054370,
+      "forward_wall_ms": 18.717,
+      "kernel_execution_ms": 33.954,
+      "kernel_count": 348,
+      "gap_ms": 1.09,
+      "cpu_before_launch_ms": 0.711,
+      "launch_api_ms": 0.111,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.087,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162453599085",
+      "start_ns": 63808399515,
+      "end_ns": 63827751249,
+      "forward_wall_ms": 19.352,
+      "kernel_execution_ms": 33.979,
+      "kernel_count": 348,
+      "gap_ms": 1.084,
+      "cpu_before_launch_ms": 0.702,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.275,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162489704844",
+      "start_ns": 63844507407,
+      "end_ns": 63864238068,
+      "forward_wall_ms": 19.731,
+      "kernel_execution_ms": 33.962,
+      "kernel_count": 348,
+      "gap_ms": 1.175,
+      "cpu_before_launch_ms": 0.785,
+      "launch_api_ms": 0.122,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.126,
+          "cpu_before_launch_ms": 0.114,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.113,
+          "cpu_before_launch_ms": 0.103,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.1,
+          "cpu_before_launch_ms": 0.089,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162525869617",
+      "start_ns": 63880682042,
+      "end_ns": 63899417098,
+      "forward_wall_ms": 18.735,
+      "kernel_execution_ms": 33.95,
+      "kernel_count": 348,
+      "gap_ms": 1.081,
+      "cpu_before_launch_ms": 0.699,
+      "launch_api_ms": 0.106,
+      "after_launch_api_ms": 0.277,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.101,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162561963256",
+      "start_ns": 63916763923,
+      "end_ns": 63935541691,
+      "forward_wall_ms": 18.778,
+      "kernel_execution_ms": 33.953,
+      "kernel_count": 348,
+      "gap_ms": 1.083,
+      "cpu_before_launch_ms": 0.705,
+      "launch_api_ms": 0.111,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.084,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162598005244",
+      "start_ns": 63952805262,
+      "end_ns": 63971878224,
+      "forward_wall_ms": 19.073,
+      "kernel_execution_ms": 33.971,
+      "kernel_count": 348,
+      "gap_ms": 1.093,
+      "cpu_before_launch_ms": 0.704,
+      "launch_api_ms": 0.111,
+      "after_launch_api_ms": 0.278,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162634258011",
+      "start_ns": 63989063411,
+      "end_ns": 64008738410,
+      "forward_wall_ms": 19.675,
+      "kernel_execution_ms": 33.955,
+      "kernel_count": 348,
+      "gap_ms": 1.158,
+      "cpu_before_launch_ms": 0.766,
+      "launch_api_ms": 0.124,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.114,
+          "cpu_before_launch_ms": 0.105,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.102,
+          "cpu_before_launch_ms": 0.091,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162670466666",
+      "start_ns": 64025271728,
+      "end_ns": 64044934666,
+      "forward_wall_ms": 19.663,
+      "kernel_execution_ms": 33.95,
+      "kernel_count": 348,
+      "gap_ms": 1.143,
+      "cpu_before_launch_ms": 0.745,
+      "launch_api_ms": 0.121,
+      "after_launch_api_ms": 0.277,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.114,
+          "cpu_before_launch_ms": 0.104,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.096,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162706593577",
+      "start_ns": 64061401241,
+      "end_ns": 64080147328,
+      "forward_wall_ms": 18.746,
+      "kernel_execution_ms": 33.967,
+      "kernel_count": 348,
+      "gap_ms": 1.106,
+      "cpu_before_launch_ms": 0.728,
+      "launch_api_ms": 0.11,
+      "after_launch_api_ms": 0.267,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.097,
+          "cpu_before_launch_ms": 0.087,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.09,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162742680216",
+      "start_ns": 64097481812,
+      "end_ns": 64116170616,
+      "forward_wall_ms": 18.689,
+      "kernel_execution_ms": 33.918,
+      "kernel_count": 348,
+      "gap_ms": 1.085,
+      "cpu_before_launch_ms": 0.701,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.276,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162778714193",
+      "start_ns": 64133518321,
+      "end_ns": 64153100905,
+      "forward_wall_ms": 19.583,
+      "kernel_execution_ms": 33.955,
+      "kernel_count": 348,
+      "gap_ms": 1.119,
+      "cpu_before_launch_ms": 0.735,
+      "launch_api_ms": 0.114,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.102,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.097,
+          "cpu_before_launch_ms": 0.087,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.089,
+          "cpu_before_launch_ms": 0.079,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162814789251",
+      "start_ns": 64169589222,
+      "end_ns": 64188304557,
+      "forward_wall_ms": 18.715,
+      "kernel_execution_ms": 33.974,
+      "kernel_count": 348,
+      "gap_ms": 1.082,
+      "cpu_before_launch_ms": 0.696,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.278,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162850834439",
+      "start_ns": 64205638871,
+      "end_ns": 64224305665,
+      "forward_wall_ms": 18.667,
+      "kernel_execution_ms": 33.966,
+      "kernel_count": 348,
+      "gap_ms": 1.078,
+      "cpu_before_launch_ms": 0.697,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.273,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.082,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162886891137",
+      "start_ns": 64241699221,
+      "end_ns": 64261211202,
+      "forward_wall_ms": 19.512,
+      "kernel_execution_ms": 33.974,
+      "kernel_count": 348,
+      "gap_ms": 1.083,
+      "cpu_before_launch_ms": 0.705,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162922960036",
+      "start_ns": 64277760771,
+      "end_ns": 64296462976,
+      "forward_wall_ms": 18.702,
+      "kernel_execution_ms": 33.951,
+      "kernel_count": 348,
+      "gap_ms": 1.077,
+      "cpu_before_launch_ms": 0.699,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.111,
+          "cpu_before_launch_ms": 0.101,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162958984973",
+      "start_ns": 64313785330,
+      "end_ns": 64332597200,
+      "forward_wall_ms": 18.812,
+      "kernel_execution_ms": 33.956,
+      "kernel_count": 348,
+      "gap_ms": 1.1,
+      "cpu_before_launch_ms": 0.719,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.272,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.105,
+          "cpu_before_launch_ms": 0.096,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.09,
+          "cpu_before_launch_ms": 0.079,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54162995049041",
+      "start_ns": 64349849240,
+      "end_ns": 64368570106,
+      "forward_wall_ms": 18.721,
+      "kernel_execution_ms": 33.969,
+      "kernel_count": 348,
+      "gap_ms": 1.071,
+      "cpu_before_launch_ms": 0.695,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163031084278",
+      "start_ns": 64385884649,
+      "end_ns": 64404611265,
+      "forward_wall_ms": 18.727,
+      "kernel_execution_ms": 33.965,
+      "kernel_count": 348,
+      "gap_ms": 1.087,
+      "cpu_before_launch_ms": 0.706,
+      "launch_api_ms": 0.11,
+      "after_launch_api_ms": 0.271,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.077,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163067141455",
+      "start_ns": 64421942979,
+      "end_ns": 64441023361,
+      "forward_wall_ms": 19.08,
+      "kernel_execution_ms": 33.99,
+      "kernel_count": 348,
+      "gap_ms": 1.078,
+      "cpu_before_launch_ms": 0.701,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.106,
+          "cpu_before_launch_ms": 0.096,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.074,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163103232785",
+      "start_ns": 64458034620,
+      "end_ns": 64476787388,
+      "forward_wall_ms": 18.753,
+      "kernel_execution_ms": 33.91,
+      "kernel_count": 348,
+      "gap_ms": 1.107,
+      "cpu_before_launch_ms": 0.724,
+      "launch_api_ms": 0.111,
+      "after_launch_api_ms": 0.273,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.101,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.095,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.089,
+          "cpu_before_launch_ms": 0.079,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163139258631",
+      "start_ns": 64494059669,
+      "end_ns": 64512760994,
+      "forward_wall_ms": 18.701,
+      "kernel_execution_ms": 33.976,
+      "kernel_count": 348,
+      "gap_ms": 1.112,
+      "cpu_before_launch_ms": 0.724,
+      "launch_api_ms": 0.119,
+      "after_launch_api_ms": 0.269,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.095,
+          "cpu_before_launch_ms": 0.084,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163175341511",
+      "start_ns": 64530142390,
+      "end_ns": 64549572488,
+      "forward_wall_ms": 19.43,
+      "kernel_execution_ms": 33.967,
+      "kernel_count": 348,
+      "gap_ms": 1.084,
+      "cpu_before_launch_ms": 0.699,
+      "launch_api_ms": 0.11,
+      "after_launch_api_ms": 0.275,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.086,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163211385689",
+      "start_ns": 64566185939,
+      "end_ns": 64584929286,
+      "forward_wall_ms": 18.743,
+      "kernel_execution_ms": 33.967,
+      "kernel_count": 348,
+      "gap_ms": 1.079,
+      "cpu_before_launch_ms": 0.706,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.265,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.109,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.095,
+          "cpu_before_launch_ms": 0.085,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163247428506",
+      "start_ns": 64602230419,
+      "end_ns": 64620935334,
+      "forward_wall_ms": 18.705,
+      "kernel_execution_ms": 33.92,
+      "kernel_count": 348,
+      "gap_ms": 1.085,
+      "cpu_before_launch_ms": 0.703,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.274,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.099,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.012,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163283433872",
+      "start_ns": 64638233676,
+      "end_ns": 64657066777,
+      "forward_wall_ms": 18.833,
+      "kernel_execution_ms": 33.953,
+      "kernel_count": 348,
+      "gap_ms": 1.076,
+      "cpu_before_launch_ms": 0.699,
+      "launch_api_ms": 0.107,
+      "after_launch_api_ms": 0.27,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.107,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.084,
+          "cpu_before_launch_ms": 0.075,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163319481029",
+      "start_ns": 64674283126,
+      "end_ns": 64692997771,
+      "forward_wall_ms": 18.715,
+      "kernel_execution_ms": 33.931,
+      "kernel_count": 348,
+      "gap_ms": 1.147,
+      "cpu_before_launch_ms": 0.752,
+      "launch_api_ms": 0.118,
+      "after_launch_api_ms": 0.277,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.125,
+          "cpu_before_launch_ms": 0.11,
+          "launch_api_ms": 0.015,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.089,
+          "cpu_before_launch_ms": 0.079,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163355560888",
+      "start_ns": 64710360857,
+      "end_ns": 64729037211,
+      "forward_wall_ms": 18.676,
+      "kernel_execution_ms": 33.936,
+      "kernel_count": 348,
+      "gap_ms": 1.064,
+      "cpu_before_launch_ms": 0.693,
+      "launch_api_ms": 0.106,
+      "after_launch_api_ms": 0.266,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.108,
+          "cpu_before_launch_ms": 0.098,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.081,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163391557253",
+      "start_ns": 64746358604,
+      "end_ns": 64765041068,
+      "forward_wall_ms": 18.682,
+      "kernel_execution_ms": 33.956,
+      "kernel_count": 348,
+      "gap_ms": 1.1,
+      "cpu_before_launch_ms": 0.704,
+      "launch_api_ms": 0.121,
+      "after_launch_api_ms": 0.275,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.105,
+          "cpu_before_launch_ms": 0.096,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.085,
+          "cpu_before_launch_ms": 0.076,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163427605942",
+      "start_ns": 64782406383,
+      "end_ns": 64801030415,
+      "forward_wall_ms": 18.624,
+      "kernel_execution_ms": 33.954,
+      "kernel_count": 348,
+      "gap_ms": 1.081,
+      "cpu_before_launch_ms": 0.702,
+      "launch_api_ms": 0.108,
+      "after_launch_api_ms": 0.271,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.106,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.092,
+          "cpu_before_launch_ms": 0.082,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163463627118",
+      "start_ns": 64818428582,
+      "end_ns": 64837813387,
+      "forward_wall_ms": 19.385,
+      "kernel_execution_ms": 33.956,
+      "kernel_count": 348,
+      "gap_ms": 1.085,
+      "cpu_before_launch_ms": 0.703,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.274,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.106,
+          "cpu_before_launch_ms": 0.097,
+          "launch_api_ms": 0.008,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.091,
+          "cpu_before_launch_ms": 0.08,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.083,
+          "cpu_before_launch_ms": 0.073,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163499689306",
+      "start_ns": 64854496142,
+      "end_ns": 64873312552,
+      "forward_wall_ms": 18.816,
+      "kernel_execution_ms": 33.953,
+      "kernel_count": 348,
+      "gap_ms": 1.17,
+      "cpu_before_launch_ms": 0.778,
+      "launch_api_ms": 0.124,
+      "after_launch_api_ms": 0.267,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.125,
+          "cpu_before_launch_ms": 0.113,
+          "launch_api_ms": 0.012,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.101,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.097,
+          "cpu_before_launch_ms": 0.086,
+          "launch_api_ms": 0.011,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163535835728",
+      "start_ns": 64890637006,
+      "end_ns": 64909428495,
+      "forward_wall_ms": 18.791,
+      "kernel_execution_ms": 33.942,
+      "kernel_count": 348,
+      "gap_ms": 1.133,
+      "cpu_before_launch_ms": 0.743,
+      "launch_api_ms": 0.116,
+      "after_launch_api_ms": 0.273,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.129,
+          "cpu_before_launch_ms": 0.12,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.093,
+          "cpu_before_launch_ms": 0.083,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        },
+        {
+          "gap_ms": 0.088,
+          "cpu_before_launch_ms": 0.078,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    },
+    {
+      "call_id": "108-54163571924337",
+      "start_ns": 64926724787,
+      "end_ns": 64945962996,
+      "forward_wall_ms": 19.238,
+      "kernel_execution_ms": 33.975,
+      "kernel_count": 348,
+      "gap_ms": 1.096,
+      "cpu_before_launch_ms": 0.719,
+      "launch_api_ms": 0.109,
+      "after_launch_api_ms": 0.268,
+      "stream_wait_event_gpu_ms": 0.0,
+      "blocking_sync_api_ms": 0.0,
+      "sync_api": [],
+      "largest_gaps": [
+        {
+          "gap_ms": 0.11,
+          "cpu_before_launch_ms": 0.1,
+          "launch_api_ms": 0.009,
+          "after_launch_api_ms": 0.001,
+          "next_launch_api": "cuLaunchKernelEx"
+        },
+        {
+          "gap_ms": 0.095,
+          "cpu_before_launch_ms": 0.084,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernelExC_v11060"
+        },
+        {
+          "gap_ms": 0.094,
+          "cpu_before_launch_ms": 0.084,
+          "launch_api_ms": 0.01,
+          "after_launch_api_ms": 0.0,
+          "next_launch_api": "cudaLaunchKernel_v7000"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Nsight timing is mechanism evidence, not an unprofiled latency estimate.",
+    "CPU-before-launch is a timeline category, not proof of why the host delayed.",
+    "Between-forward gaps can include scheduler and other request work.",
+    "Summed kernel execution can exceed wall time when kernels run concurrently."
+  ]
+}

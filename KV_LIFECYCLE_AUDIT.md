@@ -6,13 +6,23 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ12: Where does the overlap slowdown occur?
+
+**Question.** When native host-to-GPU KV copies physically overlap another session's decode, does added time appear inside decode kernels or in the host's cadence of submitting them?
+
+**What the evidence says.** Two order-balanced six-session A10G profile pairs each captured zero versus four physical KV-load overlaps while the target had the same 94 model forwards and 32,712 linked kernels. Four loads contributed about 73 ms of physical copy overlap in each overlap arm. Summed decode-kernel execution changed by only +1.1 and +1.4 ms, while time inside forwards before the CPU began the next CUDA launch grew by 481 and 546 ms; gaps between forwards grew by another 135 and 138 ms. Earlier unprofiled six-session runs found 21-23% longer target completion with four worker-window overlaps. The profile supports delayed host-side launch cadence, not slower decode kernels, as the main measured locus of the delay.
+
+**Working hypothesis.** KV-load orchestration or competition for host-side scheduler/launch resources delays submission of subsequent decode work. Physical copies do overlap kernels, but their direct bandwidth effect is not shown to explain the large completion penalty.
+
+**Not yet proved.** The profiler locates time before CUDA launches but does not show why the host waited: Python/CPU contention, SGLang scheduling, batching, copy-launch overhead, or a mixture remain possible. Nsight perturbs timing, so profiled completion differences are not the clean slowdown estimate. This is synthetic traffic on one A10G and does not establish a hardware-offload speedup or a production-wide frequency. The first reverse-order pair had a post-run manifest recovery and a corrected research-question label; raw traces were unchanged.
+
 ### RQ11: Does more KV-load overlap delay other decoders?
 
 **Question.** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
 
 **What the evidence says.** On the pinned A10G setup, both six- and twelve-session pilots realized 0, 1, 2, and 4 worker-window overlaps as scheduled. Target tool-return-to-finish time rose with dose: 3.631 to 4.399 seconds in the six-session first seed (+21.2%) and 3.895 to 4.640 seconds in the twelve-session first seed (+19.1%). Zero-versus-four endpoints repeated in a second seed: 3.630 to 4.475 seconds (+23.3%) with six sessions and 3.896 to 4.683 seconds (+20.2%) with twelve. Peer decoders finished later in the high-dose arms too. First-token timing did not rise consistently, so the extra time was mainly after first token. All doses executed the same four native donor loads; only timing changed within each series.
 
-**Working hypothesis.** The added decode time may come primarily from delayed host-side submission of GPU work while KV loads are active, rather than slower decode kernels or direct HBM-bandwidth contention. The partial RQ10 CUDA captures are consistent with this mechanism, but RQ11 has not captured enough physical CUDA activity to test it under the multi-session workload. CPU contention, scheduler/batch changes, GPU-copy interference, or a combination remain possible.
+**Working hypothesis.** The added decode time may come primarily from delayed host-side submission of GPU work while KV loads are active, rather than slower decode kernels or direct HBM-bandwidth contention. The partial RQ10 captures suggested this; the RQ11 sweep itself did not capture enough physical CUDA activity to test it. RQ12 later tests this hypothesis in a separate six-session profile.
 
 **Not yet proved.** Worker start-to-commit windows are proxies, not verified physical host-to-GPU copy overlap. A profiled repeat recorded all four NVTX load ranges but no CUDA kernel or memcpy activity, so the physical-overlap gate failed. The cause could be host launch cadence, scheduler/batch effects, GPU copies, or a mixture; this does not isolate HBM bandwidth or prove a hardware fix. The six-session series used 4090-word active prompts and 20- or 40-second donor waits, while the twelve-session series used 512-word active prompts and 40-second donor waits to fit capacity; compare doses within each series, not absolute times across series. These synthetic runs are small, and only zero/four endpoints have a second seed. Excluded capacity and timeout attempts appear in the experiment details.
 
@@ -102,6 +112,10 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;12:21:23&nbsp;a.m.&nbsp;CDT | [Decode slowdown attribution](#run-rq12_s6_d4_profile_repeat_20261006) | RQ12 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 verified copies | Profiled&nbsp;mechanism;&nbsp;no&nbsp;latency&nbsp;claim | See&nbsp;target&nbsp;launch&nbsp;timing&nbsp;in&nbsp;details | Not&nbsp;used&nbsp;for&nbsp;speed&nbsp;comparison | 4&nbsp;physical&nbsp;KV&nbsp;loads&nbsp;overlapped&nbsp;decode.&nbsp;Versus&nbsp;the&nbsp;paired&nbsp;profiled&nbsp;control,&nbsp;CPU-before-launch&nbsp;gaps&nbsp;grew&nbsp;546&nbsp;ms&nbsp;while&nbsp;summed&nbsp;kernel&nbsp;execution&nbsp;changed&nbsp;+1.4&nbsp;ms.&nbsp;This&nbsp;locates&nbsp;delay&nbsp;in&nbsp;launch&nbsp;cadence;&nbsp;it&nbsp;does&nbsp;not&nbsp;identify&nbsp;why&nbsp;the&nbsp;host&nbsp;waited&nbsp;or&nbsp;measure&nbsp;an&nbsp;unprofiled&nbsp;speedup. | physical copy verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;12:17:50&nbsp;a.m.&nbsp;CDT | [Decode slowdown attribution](#run-rq12_s6_d0_profile_repeat_20261006) | RQ12 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Observed 0 verified copies; profiled control | Profiled&nbsp;mechanism;&nbsp;no&nbsp;latency&nbsp;claim | See&nbsp;target&nbsp;launch&nbsp;timing&nbsp;in&nbsp;details | Not&nbsp;used&nbsp;for&nbsp;speed&nbsp;comparison | Profiled&nbsp;zero-overlap&nbsp;control:&nbsp;no&nbsp;KV&nbsp;copies&nbsp;ran&nbsp;during&nbsp;target&nbsp;decode.&nbsp;It&nbsp;captured&nbsp;94&nbsp;forwards&nbsp;and&nbsp;32712&nbsp;linked&nbsp;kernels&nbsp;for&nbsp;the&nbsp;paired&nbsp;launch&nbsp;comparison. | physical copy verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;12:13:04&nbsp;a.m.&nbsp;CDT | [Decode slowdown attribution](#run-rq12_s6_d0_profile_seed1_20261006) | RQ12 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Observed 0 verified copies; profiled control | Profiled&nbsp;mechanism;&nbsp;no&nbsp;latency&nbsp;claim | See&nbsp;target&nbsp;launch&nbsp;timing&nbsp;in&nbsp;details | Not&nbsp;used&nbsp;for&nbsp;speed&nbsp;comparison | Profiled&nbsp;zero-overlap&nbsp;control:&nbsp;no&nbsp;KV&nbsp;copies&nbsp;ran&nbsp;during&nbsp;target&nbsp;decode.&nbsp;It&nbsp;captured&nbsp;94&nbsp;forwards&nbsp;and&nbsp;32712&nbsp;linked&nbsp;kernels&nbsp;for&nbsp;the&nbsp;paired&nbsp;launch&nbsp;comparison. | physical copy verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;12:04:41&nbsp;a.m.&nbsp;CDT | [Decode slowdown attribution](#run-rq12_s6_d4_profile_live_20261006) | RQ12 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 verified copies | Profiled&nbsp;mechanism;&nbsp;no&nbsp;latency&nbsp;claim | See&nbsp;target&nbsp;launch&nbsp;timing&nbsp;in&nbsp;details | Not&nbsp;used&nbsp;for&nbsp;speed&nbsp;comparison | 4&nbsp;physical&nbsp;KV&nbsp;loads&nbsp;overlapped&nbsp;decode.&nbsp;Versus&nbsp;the&nbsp;paired&nbsp;profiled&nbsp;control,&nbsp;CPU-before-launch&nbsp;gaps&nbsp;grew&nbsp;481&nbsp;ms&nbsp;while&nbsp;summed&nbsp;kernel&nbsp;execution&nbsp;changed&nbsp;+1.1&nbsp;ms.&nbsp;This&nbsp;locates&nbsp;delay&nbsp;in&nbsp;launch&nbsp;cadence;&nbsp;it&nbsp;does&nbsp;not&nbsp;identify&nbsp;why&nbsp;the&nbsp;host&nbsp;waited&nbsp;or&nbsp;measure&nbsp;an&nbsp;unprofiled&nbsp;speedup. | physical copy verified |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;9:09:29&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d4_shortactive_seed2_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 worker-window proxies | 3896.5&nbsp;ms&nbsp;→&nbsp;4682.6&nbsp;ms | 3896.4&nbsp;ms&nbsp;→&nbsp;4683.0&nbsp;ms | 79.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;786&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;787&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;9:06:47&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s12_d0_shortactive_seed2_20261005) | RQ11 | 12&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Planned 0 → observed 0 worker-window proxies; single dose | Target&nbsp;finish:&nbsp;3896.5&nbsp;ms | Other&nbsp;active&nbsp;decoders:&nbsp;median&nbsp;3896.4&nbsp;ms | 79.0&nbsp;s | Zero-overlap&nbsp;control:&nbsp;the&nbsp;same&nbsp;four&nbsp;donor&nbsp;loads&nbsp;ran&nbsp;only&nbsp;after&nbsp;target&nbsp;decode.&nbsp;This&nbsp;is&nbsp;the&nbsp;reference&nbsp;for&nbsp;other&nbsp;doses&nbsp;with&nbsp;the&nbsp;same&nbsp;seed&nbsp;and&nbsp;workload. | worker-window proxy only |
 | Oct&nbsp;5,&nbsp;2026,&nbsp;9:03:55&nbsp;p.m.&nbsp;CDT | [KV-load overlap pressure](#run-rq11_s6_d4_seed2_longwait_20261005) | RQ11 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 worker-window proxies | 3630.4&nbsp;ms&nbsp;→&nbsp;4475.4&nbsp;ms | 3630.2&nbsp;ms&nbsp;→&nbsp;4475.4&nbsp;ms | 80.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;845&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;845&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
@@ -147,6 +161,256 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | Oct&nbsp;1,&nbsp;2026,&nbsp;5:42:31&nbsp;p.m.&nbsp;CDT | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | Case&nbsp;order:&nbsp;warm&nbsp;→&nbsp;host&nbsp;·&nbsp;not&nbsp;recorded&nbsp;replays/case&nbsp;·&nbsp;wait&nbsp;not&nbsp;recorded | Observation only; no policy comparison | Host-backed&nbsp;replay&nbsp;TTFT:&nbsp;230.3&nbsp;ms | No&nbsp;other&nbsp;session | Not&nbsp;measured | Linked&nbsp;host-backed&nbsp;KV&nbsp;movement&nbsp;to&nbsp;replay;&nbsp;no&nbsp;speed&nbsp;win&nbsp;tested. | validated |
 
 ## Experiment details
+
+<a id="run-rq12_s6_d4_profile_repeat_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 12:21:23 a.m. CDT · Decode slowdown attribution</strong> · rq12_s6_d4_profile_repeat_20261006</summary>
+
+**Question (RQ12).** When native host-to-GPU KV copies physically overlap another session's decode, does added time appear inside decode kernels or in the host's cadence of submitting them?
+
+**Finding.** 4 physical KV loads overlapped decode. Versus the paired profiled control, CPU-before-launch gaps grew 546 ms while summed kernel execution changed +1.4 ms. This locates delay in launch cadence; it does not identify why the host waited or measure an unprofiled speedup.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 4 |
+| Worker-window overlaps (proxy) | 4 |
+| Physical H-to-D overlaps | 4 |
+| Physical copy overlap (ms) | 73.2 |
+| Profiler status | CUDA capture verified |
+| Target first token after tool return (ms) | 191.5 |
+| Target finish after tool return (ms) | 4510.4 |
+| Whole workload (ms) | 80781.0 |
+| Linked decode forwards | 94 |
+| Linked decode kernels | 32712 |
+| Summed kernel execution (ms) | 3192.4 |
+| Inside-forward CPU-before-launch gaps (ms) | 613.9 |
+| Between-forward gaps (ms) | 1725.0 |
+| Kernel execution change vs profiled control (ms) | 1.4 |
+| CPU-before-launch change vs profiled control (ms) | 545.9 |
+| Matched control target finish (ms) | 3726.0 |
+| Target finish change vs control (ms) | 784.4 |
+| Peer median finish change vs control (ms) | 784.2 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 191.5 | 4510.4 |
+| Peer 1 | 96 | 191.3 | 4510.3 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 234.1 | 324.1 | 18.0 | 9.1 | 255.0 |
+| 2 | 4096 | 239.9 | 320.8 | 18.0 | 6.7 | 956.6 |
+| 3 | 4096 | 265.5 | 281.4 | 18.4 | 9.4 | 956.9 |
+| 4 | 4096 | 238.7 | 249.1 | 18.8 | 10.2 | 956.3 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** physical copy and decode launches verified. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq12_s6_d4_profile_repeat_20261006' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ12' WORK_AUDIT_PAIR_ID='profile_forward_order' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='1' WORK_AUDIT_NSYS_ENABLE='1' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/backend_trace.jsonl.gz) · [Physical copy overlap](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/nsys/physical_overlap.json) · [Decode launch timing](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/nsys/decode_submission.json) · [Nsight capture](docs/reports/work_audit/rq12_s6_d4_profile_repeat_20261006/nsys/backend.nsys-rep)
+
+</details>
+
+<a id="run-rq12_s6_d0_profile_repeat_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 12:17:50 a.m. CDT · Decode slowdown attribution</strong> · rq12_s6_d0_profile_repeat_20261006</summary>
+
+**Question (RQ12).** When native host-to-GPU KV copies physically overlap another session's decode, does added time appear inside decode kernels or in the host's cadence of submitting them?
+
+**Finding.** Profiled zero-overlap control: no KV copies ran during target decode. It captured 94 forwards and 32712 linked kernels for the paired launch comparison.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 0 |
+| Worker-window overlaps (proxy) | 0 |
+| Physical H-to-D overlaps | 0 |
+| Physical copy overlap (ms) | 0.0 |
+| Profiler status | CUDA capture verified |
+| Target first token after tool return (ms) | 190.7 |
+| Target finish after tool return (ms) | 3726.0 |
+| Whole workload (ms) | 81097.8 |
+| Linked decode forwards | 94 |
+| Linked decode kernels | 32712 |
+| Summed kernel execution (ms) | 3191.0 |
+| Inside-forward CPU-before-launch gaps (ms) | 68.0 |
+| Between-forward gaps (ms) | 1587.4 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 190.7 | 3726.0 |
+| Peer 1 | 96 | 190.8 | 3726.1 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 1584.9 | 0.0 | 0.0 | 0.0 | 122.3 |
+| 2 | 4096 | 3554.2 | 0.0 | 0.0 | 0.0 | 253.1 |
+| 3 | 4096 | 2844.9 | 0.0 | 0.0 | 0.0 | 253.5 |
+| 4 | 4096 | 1813.1 | 0.0 | 0.0 | 0.0 | 252.9 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** physical copy and decode launches verified. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq12_s6_d0_profile_repeat_20261006' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ12' WORK_AUDIT_PAIR_ID='profile_forward_order' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='1' WORK_AUDIT_NSYS_ENABLE='1' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/backend_trace.jsonl.gz) · [Physical copy overlap](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/nsys/physical_overlap.json) · [Decode launch timing](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/nsys/decode_submission.json) · [Nsight capture](docs/reports/work_audit/rq12_s6_d0_profile_repeat_20261006/nsys/backend.nsys-rep)
+
+</details>
+
+<a id="run-rq12_s6_d0_profile_seed1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 12:13:04 a.m. CDT · Decode slowdown attribution</strong> · rq12_s6_d0_profile_seed1_20261006</summary>
+
+**Question (RQ12).** When native host-to-GPU KV copies physically overlap another session's decode, does added time appear inside decode kernels or in the host's cadence of submitting them?
+
+**Finding.** Profiled zero-overlap control: no KV copies ran during target decode. It captured 94 forwards and 32712 linked kernels for the paired launch comparison.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 0 |
+| Worker-window overlaps (proxy) | 0 |
+| Physical H-to-D overlaps | 0 |
+| Physical copy overlap (ms) | 0.0 |
+| Profiler status | CUDA capture verified |
+| Target first token after tool return (ms) | 190.1 |
+| Target finish after tool return (ms) | 3726.9 |
+| Whole workload (ms) | 79695.3 |
+| Linked decode forwards | 94 |
+| Linked decode kernels | 32712 |
+| Summed kernel execution (ms) | 3190.9 |
+| Inside-forward CPU-before-launch gaps (ms) | 68.4 |
+| Between-forward gaps (ms) | 1578.7 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 190.1 | 3726.9 |
+| Peer 1 | 96 | 190.3 | 3727.4 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 1132.2 | 0.0 | 0.0 | 0.0 | 123.3 |
+| 2 | 4096 | 2542.5 | 0.0 | 0.0 | 0.0 | 253.1 |
+| 3 | 4096 | 2165.4 | 0.0 | 0.0 | 0.0 | 253.0 |
+| 4 | 4096 | 1712.2 | 0.0 | 0.0 | 0.0 | 252.8 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** physical copy and decode launches verified. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq12_s6_d0_profile_seed1_20261006' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ12' WORK_AUDIT_PAIR_ID='profile_reverse_order' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='1' WORK_AUDIT_NSYS_ENABLE='1' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/backend_trace.jsonl.gz) · [Physical copy overlap](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/nsys/physical_overlap.json) · [Decode launch timing](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/nsys/decode_submission.json) · [Nsight capture](docs/reports/work_audit/rq12_s6_d0_profile_seed1_20261006/nsys/backend.nsys-rep)
+
+</details>
+
+<a id="run-rq12_s6_d4_profile_live_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 12:04:41 a.m. CDT · Decode slowdown attribution</strong> · rq12_s6_d4_profile_live_20261006</summary>
+
+**Question (RQ12).** When native host-to-GPU KV copies physically overlap another session's decode, does added time appear inside decode kernels or in the host's cadence of submitting them?
+
+**Finding.** 4 physical KV loads overlapped decode. Versus the paired profiled control, CPU-before-launch gaps grew 481 ms while summed kernel execution changed +1.1 ms. This locates delay in launch cadence; it does not identify why the host waited or measure an unprofiled speedup.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. One target and 1 other active decoders resumed after a tool wait. The donor prefixes were explicitly host-resident; the same number of native worker loads ran in every dose, with their timing shifted around target decode. Target output cap 96 tokens; tool waits 900 / 20000 ms; active/donor prompts 4090 / 4090 words. Fresh backend for each dose; no frontend importance ranks.
+
+**Key measurements**
+
+| Measurement | Value |
+| --- | --- |
+| Sessions | 6 |
+| Planned overlapping loads | 4 |
+| Worker-window overlaps (proxy) | 4 |
+| Physical H-to-D overlaps | 4 |
+| Physical copy overlap (ms) | 73.3 |
+| Profiler status | CUDA capture verified |
+| Target first token after tool return (ms) | 203.3 |
+| Target finish after tool return (ms) | 4452.5 |
+| Whole workload (ms) | 80811.5 |
+| Linked decode forwards | 94 |
+| Linked decode kernels | 32712 |
+| Summed kernel execution (ms) | 3192.0 |
+| Inside-forward CPU-before-launch gaps (ms) | 549.2 |
+| Between-forward gaps (ms) | 1713.6 |
+| Kernel execution change vs profiled control (ms) | 1.1 |
+| CPU-before-launch change vs profiled control (ms) | 480.8 |
+| Matched control target finish (ms) | 3726.9 |
+| Target finish change vs control (ms) | 725.7 |
+| Peer median finish change vs control (ms) | 725.0 |
+
+| Active replay | Output tokens | First token after tool ms | Finish after tool ms |
+| --- | --- | --- | --- |
+| Target | 96 | 203.3 | 4452.5 |
+| Peer 1 | 96 | 203.1 | 4452.4 |
+
+| Donor | KV tokens | CUDA event ms | Worker window ms | Physical copy in decode ms | Copy with target kernels ms | Donor replay TTFT ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4060 | 232.9 | 317.2 | 17.9 | 6.6 | 253.7 |
+| 2 | 4096 | 226.2 | 305.6 | 18.1 | 6.5 | 953.3 |
+| 3 | 4096 | 229.6 | 256.0 | 18.3 | 7.9 | 953.6 |
+| 4 | 4096 | 212.6 | 229.8 | 18.9 | 10.7 | 953.0 |
+
+Worker windows are timing proxies, not proof of physical copy overlap. Profiled timing must not be used as an unprofiled slowdown estimate.
+
+**Evidence gate.** physical copy and decode launches verified. Timestamp: Target replay or staging; displayed in Central Time.
+
+**Limits**
+
+- Worker-start to commit overlap is only an upper bound on physical CUDA-copy overlap.
+- Physical copy overlap requires the separate Nsight evidence gate.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq12_s6_d4_profile_live_20261006' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ12' WORK_AUDIT_PAIR_ID='profile_reverse_order' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='1' WORK_AUDIT_NSYS_ENABLE='1' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/backend_trace.jsonl.gz) · [Physical copy overlap](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/nsys/physical_overlap.json) · [Decode launch timing](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/nsys/decode_submission.json) · [Nsight capture](docs/reports/work_audit/rq12_s6_d4_profile_live_20261006/nsys/backend.nsys-rep)
+
+</details>
 
 <a id="run-rq11_s12_d4_shortactive_seed2_20261005"></a>
 <details>
@@ -205,7 +469,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s12_d4_shortactive_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s12_d4_shortactive_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d4_shortactive_seed2_20261005/backend_trace.jsonl.gz)
@@ -266,7 +530,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s12_d0_shortactive_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s12_d0_shortactive_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d0_shortactive_seed2_20261005/backend_trace.jsonl.gz)
@@ -324,7 +588,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d4_seed2_longwait_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d4_seed2_longwait_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d4_seed2_longwait_20261005/backend_trace.jsonl.gz)
@@ -379,7 +643,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d0_seed2_longwait_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d0_seed2_longwait_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d0_seed2_longwait_20261005/backend_trace.jsonl.gz)
@@ -414,7 +678,7 @@ WORK_AUDIT_RUN_ID='rq11_s6_d0_seed2_longwait_20261005' WORK_AUDIT_STUDY='overlap
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d0_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d0_seed2_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='2' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/run_manifest.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d0_seed2_20261005/backend_trace.jsonl.gz)
@@ -478,7 +742,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s12_d1_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='1' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s12_d1_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='1' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d1_shortactive_seed1_20261005/backend_trace.jsonl.gz)
@@ -542,7 +806,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s12_d2_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='2' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s12_d2_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='2' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d2_shortactive_seed1_20261005/backend_trace.jsonl.gz)
@@ -606,7 +870,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s12_d4_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s12_d4_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d4_shortactive_seed1_20261005/backend_trace.jsonl.gz)
@@ -667,7 +931,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s12_d0_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s12_d0_shortactive_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='512' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d0_shortactive_seed1_20261005/backend_trace.jsonl.gz)
@@ -702,7 +966,7 @@ WORK_AUDIT_RUN_ID='rq11_s12_d0_shortactive_seed1_20261005' WORK_AUDIT_STUDY='ove
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s12_d0_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s12_d0_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='12' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='40000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/run_manifest.json) · [Harness timeline](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s12_d0_seed1_20261005/backend_trace.jsonl.gz)
@@ -757,10 +1021,10 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d4_profile_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='1' WORK_AUDIT_NSYS_ENABLE='1' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d4_profile_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='1' WORK_AUDIT_NSYS_ENABLE='1' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/backend_trace.jsonl.gz) · [Profiler status](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/nsys/profile_status.json) · [Nsight SQLite trace](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/nsys/backend.sqlite.gz)
+**Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/backend_trace.jsonl.gz) · [Nsight capture](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/nsys/backend.nsys-rep) · [Nsight SQLite trace](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/nsys/backend.sqlite.gz) · [Profiler status](docs/reports/work_audit/rq11_s6_d4_profile_seed1_20261005/nsys/profile_status.json)
 
 </details>
 
@@ -815,7 +1079,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d4_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d4_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='4' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d4_seed1_20261005/backend_trace.jsonl.gz)
@@ -873,7 +1137,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d2_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='2' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d2_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='2' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d2_seed1_20261005/backend_trace.jsonl.gz)
@@ -931,7 +1195,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d1_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='1' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d1_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='1' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d1_seed1_20261005/backend_trace.jsonl.gz)
@@ -986,7 +1250,7 @@ Worker windows are timing proxies, not proof of physical copy overlap. Profiled 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_RUN_ID='rq11_s6_d0_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+WORK_AUDIT_RUN_ID='rq11_s6_d0_seed1_20261005' WORK_AUDIT_STUDY='overlap_dose' WORK_AUDIT_RESEARCH_QUESTION_ID='RQ11' WORK_AUDIT_SESSION_COUNT='6' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_PLANNED_OVERLAP='0' WORK_AUDIT_SEED='1' WORK_AUDIT_DECODE_TOKENS='96' WORK_AUDIT_ACTIVE_PROMPT_WORDS='4090' WORK_AUDIT_DONOR_PROMPT_WORDS='4090' WORK_AUDIT_SHORT_WAIT_MS='900' WORK_AUDIT_DONOR_WAIT_MS='20000' WORK_AUDIT_FORWARD_TRACE='0' WORK_AUDIT_NSYS_ENABLE='0' AGENTIC_KV_PREPARE_LOAD_WORKER='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/summary.json) · [Run manifest](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq11_s6_d0_seed1_20261005/backend_trace.jsonl.gz)
@@ -1042,7 +1306,7 @@ Recorded stream-wait event activity was 0.886 ms after-short and 1.028 ms early;
 WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_graceful_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=1 WORK_AUDIT_NSYS_ENABLE=1 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/kernel_attribution_pair01.json) · [CUDA launch gaps](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/launch_gap_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/backend.sqlite.gz)
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/kernel_attribution_pair01.json) · [CUDA launch gaps](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/launch_gap_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/backend.sqlite.gz) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/backend.sqlite.gz)
 
 </details>
 
@@ -1095,7 +1359,7 @@ Recorded stream-wait event activity was 0.892 ms after-short and 0.937 ms early;
 WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=1 WORK_AUDIT_NSYS_ENABLE=1 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/kernel_attribution_pair01.json) · [CUDA launch gaps](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/launch_gap_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/backend.sqlite.gz)
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/kernel_attribution_pair01.json) · [CUDA launch gaps](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/launch_gap_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/backend.sqlite.gz) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/backend.sqlite.gz)
 
 </details>
 
