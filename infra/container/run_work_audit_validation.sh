@@ -22,11 +22,13 @@ if [[ -z "${CASE_ORDER}" ]]; then
     multisession_controller) CASE_ORDER="late_nonblocking-early-post_short-controller_window" ;;
     multisession_overlap) CASE_ORDER="early-post_short" ;;
     overlap_dose) CASE_ORDER="dose" ;;
+    tool_cycles) CASE_ORDER="cycles" ;;
     multisession) CASE_ORDER="long-short-ends" ;;
     *) CASE_ORDER="warm-host" ;;
   esac
 fi
-TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( if [[ "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]]; then echo kv_decode_overlap; elif [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then echo kv_lifecycle_lean; else echo kv_lifecycle; fi )}"
+TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( if [[ "${STUDY}" == "tool_cycles" ]]; then echo tool_cycle_timing; elif [[ "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]]; then echo kv_decode_overlap; elif [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then echo kv_lifecycle_lean; else echo kv_lifecycle; fi )}"
+TRACE_ENABLE="${WORK_AUDIT_TRACE_ENABLE:-1}"
 FORWARD_TRACE="${WORK_AUDIT_FORWARD_TRACE:-0}"
 NSYS_ENABLE="${WORK_AUDIT_NSYS_ENABLE:-0}"
 CUDA_GRAPH="${WORK_AUDIT_CUDA_GRAPH:-0}"
@@ -56,7 +58,13 @@ SEED="${WORK_AUDIT_SEED:-1}"
 PAIR_ID="${WORK_AUDIT_PAIR_ID:-}"
 DECODE_TOKENS="${WORK_AUDIT_DECODE_TOKENS:-96}"
 DONOR_WAIT_MS="${WORK_AUDIT_DONOR_WAIT_MS:-10000}"
-RESULTS_BASE="${DIRECT_ROOT}/artifacts/results/work_audit"
+TOOL_CYCLE_TURNS="${WORK_AUDIT_TOOL_CYCLE_TURNS:-12}"
+TOOL_CYCLE_ACTIVE_COUNT="${WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT:-2}"
+TOOL_CYCLE_INITIAL_TOKENS="${WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS:-768}"
+TOOL_CYCLE_DONOR_INITIAL_TOKENS="${WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS:-512}"
+TOOL_CYCLE_RESULT_WORDS="${WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS:-96}"
+TOOL_CYCLE_WAIT_MS="${WORK_AUDIT_TOOL_CYCLE_WAIT_MS:-800}"
+RESULTS_BASE="${WORK_AUDIT_RESULTS_BASE:-${DIRECT_ROOT}/artifacts/results/work_audit}"
 RUN_ROOT="${RESULTS_BASE}/${RUN_ID}"
 SERVER_PID=""
 NSYS_CONTAINER_NAME=""
@@ -64,8 +72,11 @@ NSYS_CONTAINER_NAME=""
 [[ -f "${PROFILE_PATH}" ]] || { echo "Missing runtime profile: ${PROFILE_PATH}" >&2; exit 2; }
 [[ -n "${IMAGE}" ]] || { echo "Set SGLANG_DOCKER_IMAGE" >&2; exit 2; }
 [[ -d "${MODEL_CACHE}" ]] || { echo "Set AGENTIC_MODEL_CACHE to a directory" >&2; exit 2; }
-[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]] || {
+[[ "${STUDY}" == "validation" || "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" || "${STUDY}" == "tool_cycles" ]] || {
   echo "Unsupported WORK_AUDIT_STUDY: ${STUDY}" >&2; exit 2;
+}
+[[ "${TRACE_ENABLE}" == "1" || ( "${TRACE_ENABLE}" == "0" && "${STUDY}" == "tool_cycles" ) ]] || {
+  echo "Trace-off control is supported only for tool_cycles" >&2; exit 2;
 }
 [[ "${SECOND_REPLAY}" == "0" || "${SECOND_REPLAY}" == "1" ]] || {
   echo "WORK_AUDIT_SECOND_REPLAY must be 0 or 1" >&2; exit 2;
@@ -74,7 +85,18 @@ NSYS_CONTAINER_NAME=""
 for value in "${PROMPT_WORDS}" "${MAX_OUTPUT_TOKENS}" "${MINIMUM_HOST_TOKENS}" "${EVICTION_ROUNDS}"; do
   [[ "${value}" =~ ^[1-9][0-9]*$ ]] || { echo "Work-audit request settings must be positive integers" >&2; exit 2; }
 done
-if [[ "${STUDY}" == "overlap_dose" ]]; then
+if [[ "${STUDY}" == "tool_cycles" ]]; then
+  [[ "${CASE_ORDER}" == "cycles" && "${TRACE_PROFILE}" == "tool_cycle_timing" &&
+     "${TOOL_CYCLE_TURNS}" =~ ^[1-9][0-9]*$ &&
+     "${TOOL_CYCLE_ACTIVE_COUNT}" =~ ^[1-9][0-9]*$ &&
+     "${DONOR_COUNT}" =~ ^[0-9]+$ &&
+     "${TOOL_CYCLE_INITIAL_TOKENS}" =~ ^[1-9][0-9]*$ &&
+     "${TOOL_CYCLE_DONOR_INITIAL_TOKENS}" =~ ^[1-9][0-9]*$ &&
+     "${TOOL_CYCLE_RESULT_WORDS}" =~ ^[1-9][0-9]*$ &&
+     "${TOOL_CYCLE_WAIT_MS}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "Tool cycles need valid counts and tool_cycle_timing tracing" >&2; exit 2;
+  }
+elif [[ "${STUDY}" == "overlap_dose" ]]; then
   [[ "${CASE_ORDER}" == "dose" && "${TRACE_PROFILE}" == "kv_decode_overlap" &&
      "${AGENTIC_KV_PREPARE_LOAD_WORKER:-0}" == "1" &&
      "${ACTIVE_PROMPT_WORDS}" =~ ^[1-9][0-9]*$ &&
@@ -161,7 +183,7 @@ else
     echo "WORK_AUDIT_REQUIRE_SLOT_PROOF must be 0 or 1" >&2; exit 2;
   }
 fi
-[[ "${TRACE_PROFILE}" == "kv_lifecycle" || "${TRACE_PROFILE}" == "kv_lifecycle_lean" || "${TRACE_PROFILE}" == "kv_decode_overlap" ]] || {
+[[ "${TRACE_PROFILE}" == "kv_lifecycle" || "${TRACE_PROFILE}" == "kv_lifecycle_lean" || "${TRACE_PROFILE}" == "kv_decode_overlap" || "${TRACE_PROFILE}" == "tool_cycle_timing" ]] || {
   echo "Unsupported WORK_AUDIT_TRACE_PROFILE" >&2; exit 2;
 }
 [[ "${FORWARD_TRACE}" == "0" || "${FORWARD_TRACE}" == "1" ]] || {
@@ -192,6 +214,8 @@ elif [[ "${STUDY}" == "multisession_compare" ]]; then
   DEFAULT_QUESTION_ID="RQ5"
 elif [[ "${STUDY}" == "multisession_overlap" ]]; then
   DEFAULT_QUESTION_ID="RQ10"
+elif [[ "${STUDY}" == "tool_cycles" ]]; then
+  DEFAULT_QUESTION_ID="RQ14"
 elif [[ "${STUDY}" == "overlap_dose" ]]; then
   DEFAULT_QUESTION_ID="RQ11"
 elif [[ "${STUDY}" == "multisession" ]]; then
@@ -273,7 +297,7 @@ PY
 echo "Starting pinned backend for ${RUN_ID}"
 (
   cd "${DIRECT_ROOT}"
-  export AGENTIC_KV_TRACE_ENABLE=1
+  export AGENTIC_KV_TRACE_ENABLE="${TRACE_ENABLE}"
   export AGENTIC_KV_TRACE_PATH="${RUN_ROOT}/backend_trace.jsonl"
   profile_values="$(python3 -m agentic_backends.sglang.instrumentation_profiles "${TRACE_PROFILE}" --shell)"
   while IFS='=' read -r name value; do
@@ -282,10 +306,10 @@ echo "Starting pinned backend for ${RUN_ID}"
     export "${name}"
   done <<< "${profile_values}"
   export AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY="${FORWARD_TRACE}"
-  if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" || "${TRACE_PROFILE}" == "kv_decode_overlap" ]]; then
+  if [[ "${TRACE_PROFILE}" == "kv_lifecycle_lean" || "${TRACE_PROFILE}" == "kv_decode_overlap" || "${TRACE_PROFILE}" == "tool_cycle_timing" ]]; then
     export AGENTIC_KV_TRACE_CONTROL_ONLY=1
   fi
-  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]]; then
+  if [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" || "${STUDY}" == "tool_cycles" ]]; then
     export AGENTIC_KV_TRACE_MAX_EXACT_INDICES="${EXACT_INDICES}"
   fi
   export AGENTIC_KV_COPY_TELEMETRY_ENABLE=0
@@ -325,6 +349,7 @@ for field, enabled in (("disable_cuda_graph", sys.argv[2]),
 print("Work-audit backend scheduling flags verified")
 PY
 
+if [[ "${TRACE_ENABLE}" == "1" ]]; then
 python3 - "${RUN_ROOT}/backend_trace.jsonl" "${TRACE_PROFILE}" "${FORWARD_TRACE}" <<'PY'
 import json
 import sys
@@ -339,11 +364,11 @@ if not summaries:
 result = validate_installation(sys.argv[2], "v0510", summaries[-1])
 if not result["valid"]:
     raise SystemExit(f"Work-audit gate failed: {json.dumps(result['missing'])}")
-if sys.argv[2] in ("kv_lifecycle_lean", "kv_decode_overlap"):
+if sys.argv[2] in ("kv_lifecycle_lean", "kv_decode_overlap", "tool_cycle_timing"):
     pump = "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run"
     if pump not in summaries[-1].get("installed_hooks", []):
         raise SystemExit("Work-audit gate failed: control-only scheduler pump is missing")
-if sys.argv[2] == "kv_decode_overlap":
+if sys.argv[2] in ("kv_decode_overlap", "tool_cycle_timing"):
     installed = set(summaries[-1].get("installed_hooks", []))
     required = {f"sglang.srt.managers.scheduler.Scheduler.{name}" for name in
                 ("run_batch", "process_batch_result_decode")}
@@ -353,6 +378,7 @@ if sys.argv[2] == "kv_decode_overlap":
         raise SystemExit(f"Work-audit gate failed: missing decode hooks {sorted(required - installed)}")
 print("Work-audit lifecycle hooks installed")
 PY
+fi
 
 SECOND_REPLAY_RUN_ARGS=()
 SECOND_REPLAY_ANALYSIS_ARGS=()
@@ -373,6 +399,15 @@ if [[ "${STUDY}" == "timing" ]]; then
     --wait-ms "${WAIT_MS}" --prompt-tokens "${PROMPT_WORDS}" \
     --max-tokens "${MAX_OUTPUT_TOKENS}" --minimum-host-tokens "${MINIMUM_HOST_TOKENS}" \
     --eviction-rounds "${EVICTION_ROUNDS}"
+elif [[ "${STUDY}" == "tool_cycles" ]]; then
+  python3 -m agentic_experiments.runners.run_work_audit_tool_cycles \
+    --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
+    --research-question-id "${RESEARCH_QUESTION_ID}" --seed "${SEED}" \
+    --active-count "${TOOL_CYCLE_ACTIVE_COUNT}" --donor-count "${DONOR_COUNT}" \
+    --turns "${TOOL_CYCLE_TURNS}" --initial-tokens "${TOOL_CYCLE_INITIAL_TOKENS}" \
+    --donor-initial-tokens "${TOOL_CYCLE_DONOR_INITIAL_TOKENS}" \
+    --tool-result-words "${TOOL_CYCLE_RESULT_WORDS}" --decode-tokens "${DECODE_TOKENS}" \
+    --wait-ms "${TOOL_CYCLE_WAIT_MS}"
 elif [[ "${STUDY}" == "overlap_dose" ]]; then
   python3 -m agentic_experiments.runners.run_work_audit_overlap_sweep \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
@@ -436,11 +471,31 @@ PY
 if [[ "${NSYS_ENABLE}" == "1" ]]; then
   docker exec "${NSYS_CONTAINER_NAME}" "${AGENTIC_NSYS_BIN}" stop
 fi
-python3 -m agentic_backends.sglang.trace_contract \
-  --adapter v0510 --profile "${TRACE_PROFILE}" \
-  --trace "${RUN_ROOT}/backend_trace.jsonl" \
-  --out "${RUN_ROOT}/instrumentation_audit.json"
-if [[ "${STUDY}" == "overlap_dose" ]]; then
+if [[ "${TRACE_ENABLE}" == "1" ]]; then
+  python3 -m agentic_backends.sglang.trace_contract \
+    --adapter v0510 --profile "${TRACE_PROFILE}" \
+    --trace "${RUN_ROOT}/backend_trace.jsonl" \
+    --out "${RUN_ROOT}/instrumentation_audit.json"
+fi
+if [[ "${STUDY}" == "tool_cycles" && "${TRACE_ENABLE}" == "1" ]]; then
+  python3 -m agentic_experiments.runners.analyze_work_audit_tool_cycles \
+    --summary "${RUN_ROOT}/summary.json" --trace "${RUN_ROOT}/backend_trace.jsonl"
+elif [[ "${STUDY}" == "tool_cycles" ]]; then
+  python3 - "${RUN_ROOT}/summary.json" "${RUN_ROOT}/instrumentation_audit.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+summary_path = Path(sys.argv[1])
+audit_path = Path(sys.argv[2])
+summary = json.loads(summary_path.read_text(encoding="utf-8"))
+summary["status"] = "trace_off_control"
+summary["evidence_status"] = "trace_disabled"
+summary["limitations"] = ["Trace disabled: no backend stage or KV-load attribution is available."]
+summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+audit_path.write_text(json.dumps({"profile": "disabled", "valid": True,
+                                  "validation_level": "trace_off_control"}, indent=2) + "\n", encoding="utf-8")
+PY
+elif [[ "${STUDY}" == "overlap_dose" ]]; then
   : # The dose runner writes its own summary after the shared trace gate.
 elif [[ "${STUDY}" == "multisession_overlap" ]]; then
   FORWARD_ARGS=()
@@ -533,7 +588,9 @@ print(json.load(open(sys.argv[1], encoding="utf-8"))["hardware_profile"])
 PY
 )"
 CASE_ORDER_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split("-")))' "${CASE_ORDER}")"
-if [[ "${STUDY}" == "overlap_dose" ]]; then
+if [[ "${STUDY}" == "tool_cycles" ]]; then
+  WORKLOAD_JSON="{\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"tool_cycles\",\"seed\":${SEED},\"active_count\":${TOOL_CYCLE_ACTIVE_COUNT},\"donor_count\":${DONOR_COUNT},\"turn_count\":${TOOL_CYCLE_TURNS},\"initial_tokens\":${TOOL_CYCLE_INITIAL_TOKENS},\"donor_initial_tokens\":${TOOL_CYCLE_DONOR_INITIAL_TOKENS},\"tool_result_words\":${TOOL_CYCLE_RESULT_WORDS},\"wait_ms\":${TOOL_CYCLE_WAIT_MS},\"decode_tokens\":${DECODE_TOKENS},\"cuda_graph_requested\":${CUDA_GRAPH},\"overlap_schedule_requested\":${OVERLAP_SCHEDULE},\"trace_enabled\":${TRACE_ENABLE},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
+elif [[ "${STUDY}" == "overlap_dose" ]]; then
   WORKLOAD_JSON="{\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"pair_id\":\"${PAIR_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"overlap_dose\",\"load_execution\":\"worker\",\"session_count\":${SESSION_COUNT},\"donor_count\":${DONOR_COUNT},\"planned_overlap\":${PLANNED_OVERLAP},\"seed\":${SEED},\"decode_tokens\":${DECODE_TOKENS},\"active_prompt_words\":${ACTIVE_PROMPT_WORDS},\"donor_prompt_words\":${DONOR_PROMPT_WORDS},\"target_wait_ms\":${SHORT_WAIT_MS},\"donor_wait_ms\":${DONOR_WAIT_MS},\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"cuda_graph_requested\":${CUDA_GRAPH},\"overlap_schedule_requested\":${OVERLAP_SCHEDULE},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
@@ -543,8 +600,16 @@ else
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"replays_per_case\":$( [[ "${STUDY}" == "timing" ]] && echo 2 || echo $((SECOND_REPLAY + 1)) ),\"pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${PAIRS}" || echo 1 ),\"warmup_pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${WARMUP_PAIRS}" || echo 0 ),\"tool_wait_ms\":${WAIT_MS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC},\"exact_trace_indices\":$( [[ "${STUDY}" == "timing" ]] && echo "${EXACT_INDICES}" || echo 256 ),\"slot_proof_required\":$( [[ "${STUDY}" == "timing" ]] && [[ "${REQUIRE_SLOT_PROOF}" == "1" ]] && echo true || echo false )}"
 fi
 MANIFEST_ARTIFACTS=(--artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json"
-  --artifact "summary=${RUN_ROOT}/summary.json" --artifact "report=${RUN_ROOT}/report.html"
+  --artifact "summary=${RUN_ROOT}/summary.json"
   --artifact "backend_features=${RUN_ROOT}/runtime/backend_features.json")
+[[ "${TRACE_ENABLE}" == "1" ]] && MANIFEST_ARTIFACTS+=(--artifact "report=${RUN_ROOT}/report.html")
+MANIFEST_INSTRUMENTATION=(--instrumentation "v0510_backend_trace"
+  --instrumentation "work_audit_event_join"
+  --instrumentation "logical_block_lifecycle_reuse"
+  --instrumentation "${TRACE_PROFILE}")
+if [[ "${TRACE_ENABLE}" == "0" ]]; then
+  MANIFEST_INSTRUMENTATION=(--instrumentation "trace_disabled_control")
+fi
 if [[ "${NSYS_ENABLE}" == "1" ]]; then
   if [[ "${STUDY}" == "overlap_dose" ]]; then
     MANIFEST_ARTIFACTS+=(--artifact "physical_overlap=${RUN_ROOT}/nsys/physical_overlap.json")
@@ -562,10 +627,11 @@ python3 "${ROOT}/scripts/create_run_manifest.py" \
   --hardware-profile "${HARDWARE_PROFILE}" \
   --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
   --workload-json "${WORKLOAD_JSON}" \
-  --instrumentation "v0510_backend_trace" --instrumentation "work_audit_event_join" \
-  --instrumentation "logical_block_lifecycle_reuse" --instrumentation "${TRACE_PROFILE}" \
+  "${MANIFEST_INSTRUMENTATION[@]}" \
   "${MANIFEST_ARTIFACTS[@]}" \
   --completion-status complete
-python3 -m agentic_reports.builders.build_work_audit_report \
-  --results-dir "${RESULTS_BASE}" --out "${RUN_ROOT}/report.html"
+if [[ "${TRACE_ENABLE}" == "1" ]]; then
+  python3 -m agentic_reports.builders.build_work_audit_report \
+    --results-dir "${RESULTS_BASE}" --out "${RUN_ROOT}/report.html"
+fi
 echo "Validated: ${RUN_ROOT}/summary.json"

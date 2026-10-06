@@ -29,6 +29,7 @@ _VALUES = {
     "kv_lifecycle": (1, 0, 0, 0, 0, 0, 0),
     "kv_lifecycle_lean": (0, 0, 0, 0, 0, 0, 0),
     "kv_decode_overlap": (0, 0, 0, 0, 0, 0, 0),
+    "tool_cycle_timing": (0, 0, 0, 0, 0, 0, 0),
     "kv_attribution": (1, 0, 0, 0, 0, 0, 0),
     "copy_timing": (1, 1, 0, 0, 0, 0, 1),
 }
@@ -54,7 +55,7 @@ def profile_flags(name: str) -> dict[str, str]:
     flags = dict(zip(_FLAGS, map(str, _VALUES[name])))
     if name == "kv_attribution":
         flags["AGENTIC_KV_TRACE_SCHEDULER_INGRESS_ONLY"] = "1"
-    if name == "kv_decode_overlap":
+    if name in ("kv_decode_overlap", "tool_cycle_timing"):
         flags["AGENTIC_KV_TRACE_DECODE_BATCH_ONLY"] = "1"
         flags["AGENTIC_KV_TRACE_MODEL_FORWARD_ONLY"] = "0"
     return flags

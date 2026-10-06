@@ -66,6 +66,8 @@ PROFILES: dict[str, Profile] = {
                 "Cache movement and replay match without scheduler tracing"),
         Profile("kv_decode_overlap", ("kv.load_gpu", "kv.prefix_match", "batch.decode_step"),
                 "Cache movement plus narrow decode-batch timing"),
+        Profile("tool_cycle_timing", ("kv.prefix_match", "batch.decode_step"),
+                "Repeated replay startup timing; KV movement is observed when present"),
         Profile("kv_attribution", ("request.accepted", "kv.load_gpu", "kv.prefix_match"),
                 "Request ingress and KV-load timing without batch or per-layer logging"),
         Profile("copy_timing", ("kv.load_gpu", "kv.layer_copy"), "Host-to-device copy detail"),

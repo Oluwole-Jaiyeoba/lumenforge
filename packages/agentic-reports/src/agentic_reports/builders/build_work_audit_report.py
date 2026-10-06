@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import html
 from html.parser import HTMLParser
 import json
+import math
 import os
 from pathlib import Path
 from statistics import median
@@ -22,6 +23,11 @@ def _esc(value: object) -> str:
 
 def _ms(value: object) -> str:
     return f"{value:.1f} ms" if isinstance(value, (int, float)) else "not recorded"
+
+
+def _tool_cycle_user_metrics(summary: dict) -> tuple[float, float, float]:
+    values = sorted(row["ttft_ms"] for row in summary["turns"] if row["kind"] == "active")
+    return median(values), values[math.ceil(0.95 * len(values)) - 1], sum(values)
 
 
 def _seconds(value: object) -> str:
@@ -89,6 +95,8 @@ def _pair_gates(pairs: list[dict], *, nonblocking: bool = False) -> str:
 def _first_request_ns(path: Path) -> int | None:
     if path.exists():
         summary = json.loads(path.read_text(encoding="utf-8"))
+        if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
+            return summary.get("started_ns")
         if summary.get("schema") == "agentic_work_audit.overlap_dose.v1":
             target_start = (summary.get("target") or {}).get("request_start_ns")
             if isinstance(target_start, int):
@@ -193,6 +201,23 @@ def _links(path: Path, summary: dict) -> str:
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
+    if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
+        brief = (f"{_esc(summary.get('active_count'))} active + "
+                 f"{_esc(summary.get('donor_count'))} donor sessions · "
+                 f"{_esc(summary.get('turn_count'))} tool returns each")
+        detail = (f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
+                  f"{_esc(manifest.get('model'))}; backend {_esc(manifest.get('backend_version'))}; "
+                  f"seed {_esc(summary.get('seed'))}. Repeated, deterministic synthetic tool outputs "
+                  f"grew each session's history from {_esc(workload.get('initial_tokens'))} initial words "
+                  f"by {_esc(workload.get('tool_result_words'))} words per turn. "
+                  f"Tool wait {_esc(workload.get('wait_ms'))} ms plus seeded jitter; "
+                  f"output cap {_esc(workload.get('decode_tokens'))} tokens. "
+                  f"CUDA graphs {_esc('on' if workload.get('cuda_graph_requested') else 'off')}; "
+                  f"overlap scheduling {_esc('on' if workload.get('overlap_schedule_requested') else 'off')}. "
+                  "No frontend importance ranks. Donor traffic does not by itself prove KV movement."
+                  + (" Backend tracing was disabled; stage and load-back evidence is unavailable."
+                     if summary.get("status") == "trace_off_control" else ""))
+        return brief, detail
     if summary.get("schema") == "agentic_work_audit.overlap_dose.v1":
         brief = (f"{_esc(summary.get('session_count'))} equal-priority sessions · "
                  f"{_esc(summary.get('donor_count'))} host-resident donor prefixes · "
@@ -352,6 +377,30 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
+    if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
+        settings = {
+            "WORK_AUDIT_RUN_ID": summary.get("run_id"),
+            "WORK_AUDIT_STUDY": "tool_cycles",
+            "WORK_AUDIT_SEED": workload.get("seed"),
+            "WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT": workload.get("active_count"),
+            "WORK_AUDIT_DONOR_COUNT": workload.get("donor_count"),
+            "WORK_AUDIT_TOOL_CYCLE_TURNS": workload.get("turn_count"),
+            "WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS": workload.get("initial_tokens"),
+            "WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS": workload.get("donor_initial_tokens"),
+            "WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS": workload.get("tool_result_words"),
+            "WORK_AUDIT_TOOL_CYCLE_WAIT_MS": workload.get("wait_ms"),
+            "WORK_AUDIT_DECODE_TOKENS": workload.get("decode_tokens"),
+            "WORK_AUDIT_CUDA_GRAPH": int(bool(workload.get("cuda_graph_requested"))),
+            "WORK_AUDIT_OVERLAP_SCHEDULE": int(bool(workload.get("overlap_schedule_requested"))),
+            "WORK_AUDIT_TRACE_ENABLE": int(bool(workload.get("trace_enabled", True))),
+            CACHE_SIZE_FIELD.upper(): workload.get(CACHE_SIZE_FIELD),
+            "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
+        }
+        prefix = " ".join(f"{key}='{value}'" for key, value in settings.items() if value is not None)
+        return ("<p><strong>How to reproduce.</strong></p><pre><code>"
+                + _esc(prefix + " bash infra/container/run_work_audit_validation.sh "
+                       + str(manifest.get("model") or "Qwen/Qwen2.5-Coder-7B-Instruct"))
+                + "</code></pre>")
     if summary.get("schema") == "agentic_work_audit.overlap_dose.v1":
         settings = {
             "WORK_AUDIT_RUN_ID": summary.get("run_id"),
@@ -991,6 +1040,20 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 
 def _run_finding(summary: dict) -> str:
     status = summary.get("status")
+    if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
+        if summary.get("status") == "trace_off_control":
+            ttft_median, ttft_p95, _ = _tool_cycle_user_metrics(summary)
+            return (f"Trace-off control: first-token delay {_ms(ttft_median)} median, "
+                    f"{_ms(ttft_p95)} at p95 across "
+                    f"{summary['active_count'] * summary['turn_count']} active replays. "
+                    "Backend stage and KV-load evidence was deliberately not captured.")
+        measurements = summary.get("measurements") or {}
+        return (f"Across {measurements.get('active_replay_count')} active replays, "
+                f"first-token delay was {measurements.get('active_ttft_median_ms')} ms median "
+                f"and {measurements.get('active_ttft_p95_ms')} ms at p95. "
+                f"{measurements.get('active_replays_with_kv_load_back')} active replays "
+                "had a recorded KV load-back. Stage timing identifies where time was spent, "
+                "not why the backend waited.")
     if summary.get("schema") == "agentic_work_audit.overlap_dose.v1":
         if summary.get("status") == "excluded":
             return f"Excluded diagnostic: {summary.get('failure_reason', 'run did not complete')}"
@@ -1159,11 +1222,14 @@ def _kind(summary: dict) -> str:
         "agentic_work_audit.multisession_comparison.v1": "Concurrent early vs late",
         "agentic_work_audit.decode_overlap.v1": "Decode overlap attribution",
         "agentic_work_audit.overlap_dose.v1": "KV-load overlap pressure",
+        "agentic_work_audit.tool_cycles.v1": "Repeated tool-return startup",
         "agentic_work_audit.multisession.v1": "Concurrent timeline",
         "agentic_work_audit.timing.v1": "Early vs late",
         "agentic_work_audit.validation.v1": "Lifecycle validation",
     }
     kind = names.get(schema, "Audit experiment")
+    if schema == "agentic_work_audit.tool_cycles.v1" and summary.get("status") == "trace_off_control":
+        return "Repeated tool returns · trace-off control"
     workload = (summary.get("_manifest") or {}).get("workload") or {}
     if workload.get("research_question_id") == "RQ13":
         return "Backend scheduling and KV overlap"
@@ -1176,6 +1242,39 @@ def _kind(summary: dict) -> str:
 
 def _result_parts(summary: dict) -> tuple[str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.tool_cycles.v1":
+        if summary.get("status") == "trace_off_control":
+            ttft_median, ttft_p95, _ = _tool_cycle_user_metrics(summary)
+            rows = [(f"{row['session_id']} turn {row['turn']}", row['prompt_tokens'],
+                     _ms(row['first_token_after_tool_ms']),
+                     _ms(row['completion_after_tool_ms']))
+                    for row in summary['turns'] if row['kind'] == 'active']
+            return (f"Trace off · first token median {_ms(ttft_median)}, p95 {_ms(ttft_p95)} · "
+                    f"active workflow {_ms(summary['active_workflow_makespan_ms'])}",
+                    _mode_table(("Replay", "Prompt tokens", "Tool return to first token",
+                                 "Tool return to finish"), rows)
+                    + "<p>No backend trace was captured; cache residency and load-back "
+                      "cannot be inferred from this control.</p>")
+        measure = summary["measurements"]
+        headline = (f"{measure['active_replay_count']} replays · "
+                    f"first token median {_ms(measure['active_ttft_median_ms'])}, "
+                    f"p95 {_ms(measure['active_ttft_p95_ms'])} · "
+                    f"KV load-backs {measure['kv_load_back_operations']} · "
+                    f"active workflow {_ms(summary['active_workflow_makespan_ms'])}")
+        rows = [(f"{row['session_id']} turn {row['turn']}", row['prompt_tokens'],
+                 row['matched_prefix_tokens'], row.get('kv_load_back_count', 0),
+                 _ms(row['first_token_after_tool_ms']),
+                 _ms(row['lookup_to_batch_ms']), _ms(row.get('kv_load_back_call_ms')),
+                 _ms(row.get('load_end_to_batch_ms')),
+                 _ms(row['completion_after_tool_ms']))
+                for row in summary['turns'] if row['kind'] == 'active']
+        detail = (_mode_table(("Replay", "Prompt tokens", "Cached prefix", "KV load-backs",
+                               "Tool return to first token", "Lookup to first batch", "Load call",
+                               "Load end to batch",
+                               "Tool return to finish"), rows)
+                  + "<p>The first-batch marker is a scheduler-method boundary, not a GPU-completion "
+                    "timestamp. Donor traffic alone does not prove KV transfers.</p>")
+        return headline, detail
     if schema == "agentic_work_audit.overlap_dose.v1":
         if summary.get("status") == "excluded":
             reason = _esc(summary.get("failure_reason", "run did not complete"))
@@ -1482,6 +1581,26 @@ def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
 
 def _markdown_metrics(summary: dict) -> str:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.tool_cycles.v1":
+        if summary.get("status") == "trace_off_control":
+            rows = [(f"{row['session_id']} · {row['turn']}", row['prompt_tokens'],
+                     row['first_token_after_tool_ms'], row['completion_after_tool_ms'])
+                    for row in summary['turns'] if row['kind'] == 'active']
+            return (_md_table(("Session · turn", "Prompt tokens", "Tool return → first token (ms)",
+                               "Tool return → finish (ms)"), rows)
+                    + "\n\nTrace disabled: no backend stages or KV-load evidence was captured.")
+        rows = [(f"{row['session_id']} · {row['turn']}", row['prompt_tokens'],
+                 row['matched_prefix_tokens'], row.get('kv_load_back_count', 0),
+                 row['first_token_after_tool_ms'],
+                 row['lookup_to_batch_ms'], row.get('kv_load_back_call_ms'),
+                 row.get('load_end_to_batch_ms'), row['completion_after_tool_ms'])
+                for row in summary['turns'] if row['kind'] == 'active']
+        return (_md_table(("Session · turn", "Prompt tokens", "Cached prefix tokens", "KV load-backs",
+                           "Tool return → first token (ms)", "Lookup → batch (ms)",
+                           "Load call (ms)", "Load end → batch (ms)",
+                           "Tool return → finish (ms)"), rows)
+                + "\n\nThe batch boundary is a scheduler-method timestamp, not measured GPU completion. "
+                  "Donor traffic is not proof of KV movement.")
     if schema == "agentic_work_audit.decode_overlap.v1":
         rows = []
         for case in summary.get("cases") or []:
@@ -1846,6 +1965,21 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.tool_cycles.v1":
+        if summary.get("status") == "trace_off_control":
+            ttft_median, _, _ = _tool_cycle_user_metrics(summary)
+            return (f"Trace-off control; {summary['turn_count']} tool returns per session; "
+                    f"{summary['donor_count']} donor sessions",
+                    f"Median first token: {_ms(ttft_median)}", "Backend stages: not captured",
+                    f"Active workflow: {summary['active_workflow_makespan_ms'] / 1000:.1f} s",
+                    _run_finding(summary), "trace_disabled")
+        measure = summary['measurements']
+        return (f"{summary['turn_count']} tool returns per session; "
+                f"{summary['donor_count']} donor sessions",
+                f"Median first token: {_ms(measure['active_ttft_median_ms'])}",
+                f"Lookup → batch: {_ms(measure['active_lookup_to_batch_median_ms'])}",
+                f"Active workflow: {summary['active_workflow_makespan_ms'] / 1000:.1f} s",
+                _run_finding(summary), summary.get('evidence_status', 'unknown'))
     if schema == "agentic_work_audit.overlap_dose.v1":
         if summary.get("status") == "excluded":
             return ("Excluded diagnostic", "No comparable replay", "No comparable peer",

@@ -6,6 +6,16 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ14: Do startup delays recur across many tool returns?
+
+**Question.** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**What the evidence says.** On the pinned A10G backend, two equal-priority active sessions each made 12 tool returns with prompt history growing from 935 to 2291 tokens. Four backend-flag combinations ran at low pressure (no donors) and high pressure (eight competing sessions), each with two seeds and a fresh backend. At low pressure, active median first-token delay was 92-101 ms and no host-to-device KV load-backs were recorded. At high pressure, the median was 132-177 ms; 3-4 of 24 active replays per run had recorded KV load-back, and first-token p95 ranged from 471 to 958 ms. In one crowded baseline, those four loaded turns spent 15-21 ms inside the native load-back call but 196-563 ms from cache lookup completion to first batch start. Two trace-off controls per pressure level still had high-pressure first-token p95 of 465 and 504 ms, so the tail does not require tracing, although traced baseline high-pressure workflow time was 27.80 and 28.45 s versus 25.64 and 25.99 s trace-off. With both features enabled, high-pressure median first-token delay was higher than both-off in both seeds, while active workflow completed sooner. Thus the earlier 385 ms is not a fixed tax after every tool return; pressure creates occasional large startup tails, and feature settings trade first-token latency against whole-workload time.
+
+**Working hypothesis.** Under cache pressure, replay startup can wait for scheduler admission or competing backend work beyond the duration of the native KV load-back call. Repeated tool returns make these tail events relevant to a full agent workflow.
+
+**Not yet proved.** The trace places time before the replay's first backend batch but does not identify the exact scheduler, admission, CPU, or GPU mechanism. The observed load-back call duration is not physical device-copy time. Trace-on and trace-off runs alter timing and may change scheduling, so their difference is a perturbation check, not a calibrated instrumentation-overhead subtraction. These deterministic synthetic runs use only two seeds, two active sessions, at most 2291 prompt tokens, and changing natural eviction counts across modes; they do not establish production prevalence, an optimal flag setting, or a hardware-offload benefit. The remote run manifests record the host's older Git HEAD: the new experiment code was synced from a working tree before it was committed. A later move of raw-event translation into the backend adapter reproduced the saved metrics on a representative trace, but that does not make the recorded HEAD an exact source snapshot.
+
 ### RQ13: Can existing backend features absorb KV-load overlap?
 
 **Question.** On the pinned A10G backend, do CUDA graphs and overlap scheduling reduce the extra target-decode time from four native host-KV loads, without moving KV management into hardware?
@@ -122,6 +132,30 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;2:11:20&nbsp;p.m.&nbsp;CDT | [Repeated tool returns · trace-off control](#run-rq14_traceoff_d0_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | Trace-off control; 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;79.7&nbsp;ms | Backend&nbsp;stages:&nbsp;not&nbsp;captured | Active&nbsp;workflow:&nbsp;22.0&nbsp;s | Trace-off&nbsp;control:&nbsp;first-token&nbsp;delay&nbsp;79.7&nbsp;ms&nbsp;median,&nbsp;136.6&nbsp;ms&nbsp;at&nbsp;p95&nbsp;across&nbsp;24&nbsp;active&nbsp;replays.&nbsp;Backend&nbsp;stage&nbsp;and&nbsp;KV-load&nbsp;evidence&nbsp;was&nbsp;deliberately&nbsp;not&nbsp;captured. | trace_disabled |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;2:09:27&nbsp;p.m.&nbsp;CDT | [Repeated tool returns · trace-off control](#run-rq14_traceoff_d8_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | Trace-off control; 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;111.9&nbsp;ms | Backend&nbsp;stages:&nbsp;not&nbsp;captured | Active&nbsp;workflow:&nbsp;25.6&nbsp;s | Trace-off&nbsp;control:&nbsp;first-token&nbsp;delay&nbsp;111.9&nbsp;ms&nbsp;median,&nbsp;464.7&nbsp;ms&nbsp;at&nbsp;p95&nbsp;across&nbsp;24&nbsp;active&nbsp;replays.&nbsp;Backend&nbsp;stage&nbsp;and&nbsp;KV-load&nbsp;evidence&nbsp;was&nbsp;deliberately&nbsp;not&nbsp;captured. | trace_disabled |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;2:07:27&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g0_o0_s1_recheck_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;92.8&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.7&nbsp;ms | Active&nbsp;workflow:&nbsp;22.6&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;92.833&nbsp;ms&nbsp;median&nbsp;and&nbsp;146.335&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;2:04:59&nbsp;p.m.&nbsp;CDT | [Repeated tool returns · trace-off control](#run-rq14_traceoff_d8_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | Trace-off control; 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;103.7&nbsp;ms | Backend&nbsp;stages:&nbsp;not&nbsp;captured | Active&nbsp;workflow:&nbsp;26.0&nbsp;s | Trace-off&nbsp;control:&nbsp;first-token&nbsp;delay&nbsp;103.7&nbsp;ms&nbsp;median,&nbsp;503.7&nbsp;ms&nbsp;at&nbsp;p95&nbsp;across&nbsp;24&nbsp;active&nbsp;replays.&nbsp;Backend&nbsp;stage&nbsp;and&nbsp;KV-load&nbsp;evidence&nbsp;was&nbsp;deliberately&nbsp;not&nbsp;captured. | trace_disabled |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;2:03:08&nbsp;p.m.&nbsp;CDT | [Repeated tool returns · trace-off control](#run-rq14_traceoff_d0_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | Trace-off control; 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;80.9&nbsp;ms | Backend&nbsp;stages:&nbsp;not&nbsp;captured | Active&nbsp;workflow:&nbsp;22.2&nbsp;s | Trace-off&nbsp;control:&nbsp;first-token&nbsp;delay&nbsp;80.9&nbsp;ms&nbsp;median,&nbsp;119.3&nbsp;ms&nbsp;at&nbsp;p95&nbsp;across&nbsp;24&nbsp;active&nbsp;replays.&nbsp;Backend&nbsp;stage&nbsp;and&nbsp;KV-load&nbsp;evidence&nbsp;was&nbsp;deliberately&nbsp;not&nbsp;captured. | trace_disabled |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:54:42&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g1_o1_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;163.3&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;2.8&nbsp;ms | Active&nbsp;workflow:&nbsp;26.7&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;163.299&nbsp;ms&nbsp;median&nbsp;and&nbsp;717.435&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;4&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:52:25&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g1_o0_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;132.0&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;28.6&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;131.976&nbsp;ms&nbsp;median&nbsp;and&nbsp;788.576&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;3&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:50:14&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g0_o1_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;150.0&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;2.0&nbsp;ms | Active&nbsp;workflow:&nbsp;26.5&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;150.021&nbsp;ms&nbsp;median&nbsp;and&nbsp;470.966&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;4&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:47:55&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g0_o0_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;134.5&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;28.4&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;134.517&nbsp;ms&nbsp;median&nbsp;and&nbsp;638.199&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;4&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:45:36&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g1_o1_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;100.5&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.7&nbsp;ms | Active&nbsp;workflow:&nbsp;22.0&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;100.516&nbsp;ms&nbsp;median&nbsp;and&nbsp;141.645&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:43:29&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g1_o0_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;94.3&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.7&nbsp;ms | Active&nbsp;workflow:&nbsp;22.9&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;94.265&nbsp;ms&nbsp;median&nbsp;and&nbsp;401.106&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:41:28&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g0_o1_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;101.0&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;22.2&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;100.951&nbsp;ms&nbsp;median&nbsp;and&nbsp;147.002&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:39:20&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g0_o0_s2_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;92.2&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.7&nbsp;ms | Active&nbsp;workflow:&nbsp;22.7&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;92.218&nbsp;ms&nbsp;median&nbsp;and&nbsp;142.942&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:36:27&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g1_o0_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;150.4&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;2.8&nbsp;ms | Active&nbsp;workflow:&nbsp;28.3&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;150.379&nbsp;ms&nbsp;median&nbsp;and&nbsp;608.649&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;4&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:34:14&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g0_o1_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;166.0&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;2.8&nbsp;ms | Active&nbsp;workflow:&nbsp;26.5&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;165.976&nbsp;ms&nbsp;median&nbsp;and&nbsp;957.5&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;4&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:31:44&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g1_o1_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;176.6&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;2.7&nbsp;ms | Active&nbsp;workflow:&nbsp;26.2&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;176.596&nbsp;ms&nbsp;median&nbsp;and&nbsp;770.334&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;4&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:28:04&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_capacity_d8_g0_o0_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;8&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 8 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;139.3&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;27.8&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;139.292&nbsp;ms&nbsp;median&nbsp;and&nbsp;825.248&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;4&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:25:33&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_busy_g1_o1_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;4&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 4 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;126.6&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;23.6&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;126.646&nbsp;ms&nbsp;median&nbsp;and&nbsp;367.543&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:23:10&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_busy_g1_o0_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;4&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 4 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;118.0&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.7&nbsp;ms | Active&nbsp;workflow:&nbsp;24.6&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;117.993&nbsp;ms&nbsp;median&nbsp;and&nbsp;341.125&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:20:52&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_busy_g0_o1_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;4&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 4 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;124.8&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.7&nbsp;ms | Active&nbsp;workflow:&nbsp;23.8&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;124.843&nbsp;ms&nbsp;median&nbsp;and&nbsp;421.335&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:18:02&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_busy_g0_o0_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;4&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 4 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;109.9&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;24.9&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;109.874&nbsp;ms&nbsp;median&nbsp;and&nbsp;479.657&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:15:27&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g1_o1_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;98.7&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;22.0&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;98.698&nbsp;ms&nbsp;median&nbsp;and&nbsp;146.319&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:13:11&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g1_o0_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;92.4&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.7&nbsp;ms | Active&nbsp;workflow:&nbsp;22.6&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;92.39&nbsp;ms&nbsp;median&nbsp;and&nbsp;402.143&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;1:11:00&nbsp;p.m.&nbsp;CDT | [Repeated tool-return startup](#run-rq14_pilot_g0_o1_s1_20261006) | RQ14 | 2&nbsp;active&nbsp;+&nbsp;0&nbsp;donor&nbsp;sessions&nbsp;·&nbsp;12&nbsp;tool&nbsp;returns&nbsp;each | 12 tool returns per session; 0 donor sessions | Median&nbsp;first&nbsp;token:&nbsp;98.1&nbsp;ms | Lookup&nbsp;→&nbsp;batch:&nbsp;1.8&nbsp;ms | Active&nbsp;workflow:&nbsp;21.8&nbsp;s | Across&nbsp;24&nbsp;active&nbsp;replays,&nbsp;first-token&nbsp;delay&nbsp;was&nbsp;98.126&nbsp;ms&nbsp;median&nbsp;and&nbsp;141.573&nbsp;ms&nbsp;at&nbsp;p95.&nbsp;0&nbsp;active&nbsp;replays&nbsp;had&nbsp;a&nbsp;recorded&nbsp;KV&nbsp;load-back.&nbsp;Stage&nbsp;timing&nbsp;identifies&nbsp;where&nbsp;time&nbsp;was&nbsp;spent,&nbsp;not&nbsp;why&nbsp;the&nbsp;backend&nbsp;waited. | complete_stage_join |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;2:12:14&nbsp;a.m.&nbsp;CDT | [Backend scheduling and KV overlap](#run-rq13_both_d4_profile_p2048_20261006) | RQ13 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | Observed 4 verified copies; no profiled control | Profiled&nbsp;mechanism;&nbsp;no&nbsp;latency&nbsp;claim | See&nbsp;target&nbsp;launch&nbsp;timing&nbsp;in&nbsp;details | Not&nbsp;used&nbsp;for&nbsp;speed&nbsp;comparison | 4&nbsp;of&nbsp;4&nbsp;native&nbsp;loads&nbsp;physically&nbsp;overlapped&nbsp;the&nbsp;target&nbsp;decode&nbsp;window.&nbsp;This&nbsp;profiled&nbsp;run&nbsp;establishes&nbsp;overlap,&nbsp;not&nbsp;an&nbsp;unprofiled&nbsp;performance&nbsp;effect&nbsp;or&nbsp;hardware&nbsp;cause. | physical copy verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;2:07:50&nbsp;a.m.&nbsp;CDT | [Backend scheduling and KV overlap](#run-rq13_baseline_d4_p2048_w40_seed2_20261006) | RQ13 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;4&nbsp;planned&nbsp;load&nbsp;overlaps | 0 → 4 worker-window proxies | 3537.5&nbsp;ms&nbsp;→&nbsp;3983.3&nbsp;ms | 3538.0&nbsp;ms&nbsp;→&nbsp;3983.5&nbsp;ms | 72.8&nbsp;s | Compared&nbsp;with&nbsp;its&nbsp;matched&nbsp;zero-overlap&nbsp;control,&nbsp;the&nbsp;target&nbsp;finished&nbsp;446&nbsp;ms&nbsp;later&nbsp;and&nbsp;peer&nbsp;decoders&nbsp;finished&nbsp;a&nbsp;median&nbsp;445&nbsp;ms&nbsp;later.&nbsp;Worker&nbsp;windows&nbsp;were&nbsp;observed;&nbsp;physical&nbsp;copy&nbsp;overlap&nbsp;and&nbsp;the&nbsp;precise&nbsp;cause&nbsp;remain&nbsp;unverified. | worker-window proxy only |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;2:05:16&nbsp;a.m.&nbsp;CDT | [Backend scheduling and KV overlap](#run-rq13_baseline_d0_p2048_w40_seed2_20261006) | RQ13 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;4&nbsp;host-resident&nbsp;donor&nbsp;prefixes&nbsp;·&nbsp;0&nbsp;planned&nbsp;load&nbsp;overlaps | Planned 0 → observed 0 worker-window proxies; single dose | Target&nbsp;finish:&nbsp;3537.5&nbsp;ms | Other&nbsp;active&nbsp;decoders:&nbsp;median&nbsp;3538.0&nbsp;ms | 74.5&nbsp;s | Zero-overlap&nbsp;control:&nbsp;the&nbsp;same&nbsp;four&nbsp;donor&nbsp;loads&nbsp;ran&nbsp;only&nbsp;after&nbsp;target&nbsp;decode.&nbsp;This&nbsp;is&nbsp;the&nbsp;reference&nbsp;for&nbsp;other&nbsp;doses&nbsp;with&nbsp;the&nbsp;same&nbsp;seed&nbsp;and&nbsp;workload. | worker-window proxy only |
@@ -184,6 +218,1414 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | Oct&nbsp;1,&nbsp;2026,&nbsp;5:42:31&nbsp;p.m.&nbsp;CDT | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | Case&nbsp;order:&nbsp;warm&nbsp;→&nbsp;host&nbsp;·&nbsp;not&nbsp;recorded&nbsp;replays/case&nbsp;·&nbsp;wait&nbsp;not&nbsp;recorded | Observation only; no policy comparison | Host-backed&nbsp;replay&nbsp;TTFT:&nbsp;230.3&nbsp;ms | No&nbsp;other&nbsp;session | Not&nbsp;measured | Linked&nbsp;host-backed&nbsp;KV&nbsp;movement&nbsp;to&nbsp;replay;&nbsp;no&nbsp;speed&nbsp;win&nbsp;tested. | validated |
 
 ## Experiment details
+
+<a id="run-rq14_traceoff_d0_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 2:11:20 p.m. CDT · Repeated tool returns · trace-off control</strong> · rq14_traceoff_d0_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Trace-off control: first-token delay 79.7 ms median, 136.6 ms at p95 across 24 active replays. Backend stage and KV-load evidence was deliberately not captured.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement. Backend tracing was disabled; stage and load-back evidence is unavailable.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Tool return → first token (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 70.0 | 939.2 |
+| toolcycles-seed1-active0 · 2 | 1058 | 70.4 | 941.6 |
+| toolcycles-seed1-active0 · 3 | 1181 | 70.9 | 932.2 |
+| toolcycles-seed1-active0 · 4 | 1304 | 71.7 | 935.5 |
+| toolcycles-seed1-active0 · 5 | 1427 | 73.0 | 947.6 |
+| toolcycles-seed1-active0 · 6 | 1550 | 73.8 | 953.3 |
+| toolcycles-seed1-active0 · 7 | 1673 | 97.3 | 909.3 |
+| toolcycles-seed1-active0 · 8 | 1796 | 75.5 | 955.7 |
+| toolcycles-seed1-active0 · 9 | 1919 | 75.8 | 946.1 |
+| toolcycles-seed1-active0 · 10 | 2043 | 78.0 | 960.3 |
+| toolcycles-seed1-active0 · 11 | 2167 | 92.8 | 906.7 |
+| toolcycles-seed1-active0 · 12 | 2291 | 79.2 | 963.7 |
+| toolcycles-seed1-active1 · 1 | 935 | 103.4 | 910.0 |
+| toolcycles-seed1-active1 · 2 | 1058 | 125.6 | 933.5 |
+| toolcycles-seed1-active1 · 3 | 1181 | 81.6 | 888.5 |
+| toolcycles-seed1-active1 · 4 | 1304 | 105.3 | 913.6 |
+| toolcycles-seed1-active1 · 5 | 1427 | 114.6 | 923.9 |
+| toolcycles-seed1-active1 · 6 | 1550 | 119.0 | 932.6 |
+| toolcycles-seed1-active1 · 7 | 1673 | 74.6 | 943.7 |
+| toolcycles-seed1-active1 · 8 | 1796 | 104.1 | 917.5 |
+| toolcycles-seed1-active1 · 9 | 1919 | 80.5 | 892.8 |
+| toolcycles-seed1-active1 · 10 | 2043 | 139.3 | 953.6 |
+| toolcycles-seed1-active1 · 11 | 2167 | 78.1 | 951.2 |
+| toolcycles-seed1-active1 · 12 | 2291 | 136.8 | 952.5 |
+
+Trace disabled: no backend stages or KV-load evidence was captured.
+
+**Evidence gate.** trace_off_control. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Trace disabled: no backend stage or KV-load attribution is available.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_traceoff_d0_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='0' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_traceoff_d0_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_traceoff_d0_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_traceoff_d0_s1_20261006/instrumentation_audit.json)
+
+</details>
+
+<a id="run-rq14_traceoff_d8_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 2:09:27 p.m. CDT · Repeated tool returns · trace-off control</strong> · rq14_traceoff_d8_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Trace-off control: first-token delay 111.9 ms median, 464.7 ms at p95 across 24 active replays. Backend stage and KV-load evidence was deliberately not captured.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement. Backend tracing was disabled; stage and load-back evidence is unavailable.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Tool return → first token (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 344.3 | 1181.5 |
+| toolcycles-seed1-active0 · 2 | 1058 | 70.4 | 1354.7 |
+| toolcycles-seed1-active0 · 3 | 1181 | 71.2 | 1316.4 |
+| toolcycles-seed1-active0 · 4 | 1304 | 76.1 | 1328.4 |
+| toolcycles-seed1-active0 · 5 | 1427 | 130.2 | 1381.3 |
+| toolcycles-seed1-active0 · 6 | 1550 | 169.3 | 1011.6 |
+| toolcycles-seed1-active0 · 7 | 1673 | 133.0 | 1483.2 |
+| toolcycles-seed1-active0 · 8 | 1796 | 78.6 | 1659.9 |
+| toolcycles-seed1-active0 · 9 | 1919 | 564.2 | 1377.6 |
+| toolcycles-seed1-active0 · 10 | 2043 | 111.1 | 926.0 |
+| toolcycles-seed1-active0 · 11 | 2167 | 95.3 | 909.6 |
+| toolcycles-seed1-active0 · 12 | 2291 | 79.9 | 965.8 |
+| toolcycles-seed1-active1 · 1 | 935 | 316.8 | 1153.4 |
+| toolcycles-seed1-active1 · 2 | 1058 | 124.2 | 1345.6 |
+| toolcycles-seed1-active1 · 3 | 1181 | 81.9 | 1272.4 |
+| toolcycles-seed1-active1 · 4 | 1304 | 76.3 | 1274.9 |
+| toolcycles-seed1-active1 · 5 | 1427 | 72.7 | 1388.9 |
+| toolcycles-seed1-active1 · 6 | 1550 | 147.7 | 989.8 |
+| toolcycles-seed1-active1 · 7 | 1673 | 113.2 | 1561.2 |
+| toolcycles-seed1-active1 · 8 | 1796 | 342.0 | 1578.4 |
+| toolcycles-seed1-active1 · 9 | 1919 | 464.9 | 1278.2 |
+| toolcycles-seed1-active1 · 10 | 2043 | 78.0 | 961.8 |
+| toolcycles-seed1-active1 · 11 | 2167 | 79.2 | 953.2 |
+| toolcycles-seed1-active1 · 12 | 2291 | 137.9 | 954.5 |
+
+Trace disabled: no backend stages or KV-load evidence was captured.
+
+**Evidence gate.** trace_off_control. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Trace disabled: no backend stage or KV-load attribution is available.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_traceoff_d8_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='0' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_traceoff_d8_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_traceoff_d8_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_traceoff_d8_s1_20261006/instrumentation_audit.json)
+
+</details>
+
+<a id="run-rq14_pilot_g0_o0_s1_recheck_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 2:07:27 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g0_o0_s1_recheck_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 92.833 ms median and 146.335 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 81.6 | 1.7 | 0 | not recorded | 981.9 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 81.5 | 1.8 | 0 | not recorded | 983.8 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 82.3 | 1.7 | 0 | not recorded | 969.0 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 83.1 | 1.7 | 0 | not recorded | 973.3 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 161.2 | 1.7 | 0 | not recorded | 994.3 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 85.7 | 1.8 | 0 | not recorded | 999.1 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 89.2 | 1.8 | 0 | not recorded | 926.2 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 88.7 | 1.7 | 0 | not recorded | 989.1 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 89.2 | 1.7 | 0 | not recorded | 990.4 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 93.8 | 1.7 | 0 | not recorded | 995.1 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 140.0 | 1.7 | 0 | not recorded | 981.3 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 93.6 | 1.7 | 0 | not recorded | 1019.7 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 127.8 | 1.7 | 0 | not recorded | 954.5 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 146.6 | 1.7 | 0 | not recorded | 974.9 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 103.6 | 1.7 | 0 | not recorded | 933.0 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 87.2 | 1.7 | 0 | not recorded | 918.6 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 85.4 | 1.7 | 0 | not recorded | 995.3 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 143.6 | 1.8 | 0 | not recorded | 978.5 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.4 | 1.7 | 0 | not recorded | 1003.6 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 122.6 | 1.7 | 0 | not recorded | 961.6 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 123.1 | 1.7 | 0 | not recorded | 960.8 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 122.6 | 1.7 | 0 | not recorded | 963.7 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 92.4 | 1.7 | 0 | not recorded | 1015.4 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 122.8 | 1.8 | 0 | not recorded | 965.5 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g0_o0_s1_recheck_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g0_o0_s1_recheck_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g0_o0_s1_recheck_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g0_o0_s1_recheck_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g0_o0_s1_recheck_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g0_o0_s1_recheck_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g0_o0_s1_recheck_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_traceoff_d8_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 2:04:59 p.m. CDT · Repeated tool returns · trace-off control</strong> · rq14_traceoff_d8_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Trace-off control: first-token delay 103.7 ms median, 503.7 ms at p95 across 24 active replays. Backend stage and KV-load evidence was deliberately not captured.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement. Backend tracing was disabled; stage and load-back evidence is unavailable.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Tool return → first token (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 329.2 | 1167.5 |
+| toolcycles-seed2-active0 · 2 | 1058 | 73.6 | 1293.5 |
+| toolcycles-seed2-active0 · 3 | 1181 | 70.9 | 1388.6 |
+| toolcycles-seed2-active0 · 4 | 1304 | 131.9 | 1361.0 |
+| toolcycles-seed2-active0 · 5 | 1427 | 119.0 | 1368.6 |
+| toolcycles-seed2-active0 · 6 | 1550 | 84.4 | 993.4 |
+| toolcycles-seed2-active0 · 7 | 1673 | 171.0 | 1561.0 |
+| toolcycles-seed2-active0 · 8 | 1796 | 78.8 | 1654.8 |
+| toolcycles-seed2-active0 · 9 | 1919 | 653.8 | 1466.9 |
+| toolcycles-seed2-active0 · 10 | 2043 | 78.4 | 960.8 |
+| toolcycles-seed2-active0 · 11 | 2167 | 79.2 | 951.6 |
+| toolcycles-seed2-active0 · 12 | 2291 | 79.6 | 956.0 |
+| toolcycles-seed2-active1 · 1 | 935 | 326.4 | 1164.0 |
+| toolcycles-seed2-active1 · 2 | 1058 | 71.1 | 1228.1 |
+| toolcycles-seed2-active1 · 3 | 1181 | 112.5 | 1366.6 |
+| toolcycles-seed2-active1 · 4 | 1304 | 90.9 | 1384.1 |
+| toolcycles-seed2-active1 · 5 | 1427 | 72.6 | 1387.2 |
+| toolcycles-seed2-active1 · 6 | 1550 | 102.2 | 945.0 |
+| toolcycles-seed2-active1 · 7 | 1673 | 113.2 | 1600.0 |
+| toolcycles-seed2-active1 · 8 | 1796 | 183.3 | 1621.4 |
+| toolcycles-seed2-active1 · 9 | 1919 | 503.9 | 1317.1 |
+| toolcycles-seed2-active1 · 10 | 2043 | 126.9 | 940.9 |
+| toolcycles-seed2-active1 · 11 | 2167 | 104.1 | 916.2 |
+| toolcycles-seed2-active1 · 12 | 2291 | 103.7 | 915.5 |
+
+Trace disabled: no backend stages or KV-load evidence was captured.
+
+**Evidence gate.** trace_off_control. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Trace disabled: no backend stage or KV-load attribution is available.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_traceoff_d8_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='0' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_traceoff_d8_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_traceoff_d8_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_traceoff_d8_s2_20261006/instrumentation_audit.json)
+
+</details>
+
+<a id="run-rq14_traceoff_d0_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 2:03:08 p.m. CDT · Repeated tool returns · trace-off control</strong> · rq14_traceoff_d0_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Trace-off control: first-token delay 80.9 ms median, 119.3 ms at p95 across 24 active replays. Backend stage and KV-load evidence was deliberately not captured.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement. Backend tracing was disabled; stage and load-back evidence is unavailable.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Tool return → first token (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 71.6 | 939.3 |
+| toolcycles-seed2-active0 · 2 | 1058 | 71.3 | 933.5 |
+| toolcycles-seed2-active0 · 3 | 1181 | 72.4 | 930.9 |
+| toolcycles-seed2-active0 · 4 | 1304 | 71.5 | 944.3 |
+| toolcycles-seed2-active0 · 5 | 1427 | 119.5 | 929.1 |
+| toolcycles-seed2-active0 · 6 | 1550 | 73.6 | 950.1 |
+| toolcycles-seed2-active0 · 7 | 1673 | 101.7 | 912.0 |
+| toolcycles-seed2-active0 · 8 | 1796 | 75.3 | 942.9 |
+| toolcycles-seed2-active0 · 9 | 1919 | 76.0 | 943.8 |
+| toolcycles-seed2-active0 · 10 | 2043 | 77.4 | 950.0 |
+| toolcycles-seed2-active0 · 11 | 2167 | 78.0 | 948.0 |
+| toolcycles-seed2-active0 · 12 | 2291 | 78.8 | 949.6 |
+| toolcycles-seed2-active1 · 1 | 935 | 132.3 | 937.6 |
+| toolcycles-seed2-active1 · 2 | 1058 | 102.7 | 912.1 |
+| toolcycles-seed2-active1 · 3 | 1181 | 103.0 | 908.7 |
+| toolcycles-seed2-active1 · 4 | 1304 | 115.8 | 924.2 |
+| toolcycles-seed2-active1 · 5 | 1427 | 73.2 | 947.8 |
+| toolcycles-seed2-active1 · 6 | 1550 | 92.9 | 903.5 |
+| toolcycles-seed2-active1 · 7 | 1673 | 74.6 | 951.7 |
+| toolcycles-seed2-active1 · 8 | 1796 | 98.9 | 908.1 |
+| toolcycles-seed2-active1 · 9 | 1919 | 95.4 | 905.0 |
+| toolcycles-seed2-active1 · 10 | 2043 | 83.2 | 896.5 |
+| toolcycles-seed2-active1 · 11 | 2167 | 93.9 | 902.8 |
+| toolcycles-seed2-active1 · 12 | 2291 | 101.4 | 910.4 |
+
+Trace disabled: no backend stages or KV-load evidence was captured.
+
+**Evidence gate.** trace_off_control. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Trace disabled: no backend stage or KV-load attribution is available.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_traceoff_d0_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='0' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_traceoff_d0_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_traceoff_d0_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_traceoff_d0_s2_20261006/instrumentation_audit.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g1_o1_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:54:42 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g1_o1_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 163.299 ms median and 717.435 ms at p95. 4 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 493.5 | 5.3 | 0 | not recorded | 1312.1 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 140.4 | 1.8 | 0 | not recorded | 964.6 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.7 | 1.7 | 0 | not recorded | 1398.4 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 358.7 | 10.0 | 0 | not recorded | 1300.7 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 160.9 | 1.8 | 0 | not recorded | 1006.9 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 213.1 | 5.5 | 0 | not recorded | 988.4 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 143.3 | 2.4 | 0 | not recorded | 1658.8 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 402.8 | 57.7 | 0 | not recorded | 1602.4 |
+| toolcycles-seed2-active0 · 9 | 1919 | 34 | 1 | 378.4 | 156.7 | 15.3 | 139.6 | 1414.2 |
+| toolcycles-seed2-active0 · 10 | 2043 | 34 | 1 | 717.6 | 405.8 | 19.0 | 146.5 | 1826.5 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 93.4 | 1.7 | 0 | not recorded | 915.9 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 95.9 | 3.2 | 0 | not recorded | 919.3 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 490.9 | 1.8 | 0 | not recorded | 1308.9 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 118.9 | 1.7 | 0 | not recorded | 898.8 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 152.8 | 1.8 | 0 | not recorded | 1392.9 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 365.4 | 13.4 | 0 | not recorded | 1307.2 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 117.9 | 2.0 | 0 | not recorded | 1025.6 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 166.0 | 1.7 | 0 | not recorded | 941.2 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 87.8 | 1.8 | 0 | not recorded | 1566.6 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1667 | 0 | 387.4 | 53.6 | 0 | not recorded | 1587.1 |
+| toolcycles-seed2-active1 · 9 | 1919 | 34 | 1 | 743.1 | 538.0 | 25.2 | 133.1 | 2533.2 |
+| toolcycles-seed2-active1 · 10 | 2043 | 34 | 1 | 376.9 | 258.2 | 19.9 | 236.4 | 1137.1 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 145.5 | 4.4 | 0 | not recorded | 903.6 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 119.3 | 1.9 | 0 | not recorded | 878.1 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g1_o1_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g1_o0_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:52:25 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g1_o0_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 131.976 ms median and 788.576 ms at p95. 3 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 531.2 | 5.4 | 0 | not recorded | 1423.6 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 88.6 | 1.7 | 0 | not recorded | 1051.2 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.7 | 1.7 | 0 | not recorded | 1450.3 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 237.5 | 8.2 | 0 | not recorded | 1434.3 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 143.1 | 1.7 | 0 | not recorded | 1047.2 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 227.2 | 5.6 | 0 | not recorded | 1576.5 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 129.3 | 1.8 | 0 | not recorded | 1725.3 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 354.7 | 13.7 | 0 | not recorded | 1464.2 |
+| toolcycles-seed2-active0 · 9 | 1919 | 34 | 1 | 828.1 | 565.3 | 19.6 | 171.1 | 2642.3 |
+| toolcycles-seed2-active0 · 10 | 2043 | 1913 | 0 | 140.4 | 1.7 | 0 | not recorded | 927.1 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 101.3 | 3.8 | 0 | not recorded | 904.4 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 99.6 | 1.8 | 0 | not recorded | 910.1 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 528.0 | 1.8 | 0 | not recorded | 1420.3 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 96.6 | 1.7 | 0 | not recorded | 985.4 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 135.1 | 1.8 | 0 | not recorded | 1427.5 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 83.9 | 1.7 | 0 | not recorded | 1456.4 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 86.8 | 1.7 | 0 | not recorded | 1067.8 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 180.1 | 1.8 | 0 | not recorded | 1528.7 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 88.7 | 1.7 | 0 | not recorded | 1764.6 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1298 | 1 | 788.8 | 609.4 | 8.2 | 112.2 | 2571.3 |
+| toolcycles-seed2-active1 · 9 | 1919 | 34 | 1 | 266.0 | 146.4 | 18.0 | 126.5 | 2376.4 |
+| toolcycles-seed2-active1 · 10 | 2043 | 1913 | 0 | 91.5 | 1.7 | 0 | not recorded | 968.0 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 95.3 | 4.1 | 0 | not recorded | 972.9 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 93.9 | 1.7 | 0 | not recorded | 881.7 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g1_o0_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g0_o1_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:50:14 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g0_o1_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 150.021 ms median and 470.966 ms at p95. 4 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 373.1 | 5.4 | 0 | not recorded | 1199.0 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 136.5 | 1.7 | 0 | not recorded | 967.2 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.9 | 1.7 | 0 | not recorded | 1424.0 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 345.9 | 9.1 | 0 | not recorded | 1304.1 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 246.4 | 1.7 | 0 | not recorded | 1099.5 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 138.1 | 2.0 | 0 | not recorded | 1059.0 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 143.4 | 2.0 | 0 | not recorded | 1487.4 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 134.7 | 1.8 | 0 | not recorded | 1676.3 |
+| toolcycles-seed2-active0 · 9 | 1919 | 34 | 1 | 471.1 | 266.9 | 15.1 | 250.0 | 1709.1 |
+| toolcycles-seed2-active0 · 10 | 2043 | 34 | 1 | 290.9 | 187.8 | 19.3 | 166.7 | 1384.7 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 93.7 | 1.7 | 0 | not recorded | 924.3 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 96.1 | 3.2 | 0 | not recorded | 927.7 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 369.6 | 1.9 | 0 | not recorded | 1196.0 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 112.4 | 1.8 | 0 | not recorded | 900.2 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 121.3 | 2.3 | 0 | not recorded | 1402.5 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 234.8 | 1.8 | 0 | not recorded | 1326.1 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 264.7 | 6.1 | 0 | not recorded | 1117.9 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 153.0 | 1.7 | 0 | not recorded | 1011.4 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 88.6 | 1.8 | 0 | not recorded | 1488.8 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1667 | 0 | 153.8 | 13.8 | 0 | not recorded | 1604.8 |
+| toolcycles-seed2-active1 · 9 | 1919 | 34 | 1 | 775.1 | 426.0 | 26.9 | 150.4 | 2335.2 |
+| toolcycles-seed2-active1 · 10 | 2043 | 34 | 1 | 354.7 | 232.3 | 20.1 | 210.1 | 1122.7 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 147.4 | 4.5 | 0 | not recorded | 913.2 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 119.7 | 2.0 | 0 | not recorded | 886.4 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g0_o1_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g0_o0_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:47:55 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g0_o0_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 134.517 ms median and 638.199 ms at p95. 4 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 419.8 | 5.3 | 0 | not recorded | 1328.6 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 257.2 | 4.8 | 0 | not recorded | 1509.0 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.4 | 1.7 | 0 | not recorded | 1547.4 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 160.0 | 1.7 | 0 | not recorded | 1078.6 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 155.3 | 1.7 | 0 | not recorded | 1085.7 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 95.5 | 1.8 | 0 | not recorded | 1101.7 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 130.2 | 1.8 | 0 | not recorded | 1666.1 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 121.5 | 1.7 | 0 | not recorded | 2022.6 |
+| toolcycles-seed2-active0 · 9 | 1919 | 34 | 1 | 563.4 | 252.1 | 15.1 | 235.2 | 1987.6 |
+| toolcycles-seed2-active0 · 10 | 2043 | 34 | 1 | 638.4 | 349.9 | 18.0 | 159.2 | 1686.3 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 92.7 | 1.7 | 0 | not recorded | 986.5 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 95.5 | 3.2 | 0 | not recorded | 988.1 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 417.4 | 1.8 | 0 | not recorded | 1326.2 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 191.9 | 1.7 | 0 | not recorded | 1443.6 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 134.1 | 1.7 | 0 | not recorded | 1524.1 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 105.2 | 1.8 | 0 | not recorded | 1101.9 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 176.2 | 5.5 | 0 | not recorded | 1106.5 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 127.7 | 1.8 | 0 | not recorded | 1055.4 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 91.3 | 1.8 | 0 | not recorded | 1706.3 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1667 | 0 | 135.4 | 15.8 | 0 | not recorded | 1928.9 |
+| toolcycles-seed2-active1 · 9 | 1919 | 34 | 1 | 943.8 | 770.1 | 21.0 | 138.2 | 3134.4 |
+| toolcycles-seed2-active1 · 10 | 2043 | 929 | 1 | 237.6 | 141.0 | 12.8 | 126.3 | 1060.6 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 124.3 | 3.9 | 0 | not recorded | 942.6 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 94.8 | 1.8 | 0 | not recorded | 914.2 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g0_o0_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_pilot_g1_o1_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:45:36 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g1_o1_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 100.516 ms median and 141.645 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 82.3 | 1.8 | 0 | not recorded | 919.6 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 81.7 | 1.7 | 0 | not recorded | 903.5 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.8 | 1.7 | 0 | not recorded | 905.4 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 83.6 | 1.8 | 0 | not recorded | 927.3 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 127.6 | 1.6 | 0 | not recorded | 911.4 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 86.5 | 1.7 | 0 | not recorded | 914.6 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 142.8 | 1.9 | 0 | not recorded | 928.8 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 89.0 | 1.7 | 0 | not recorded | 918.6 |
+| toolcycles-seed2-active0 · 9 | 1919 | 1790 | 0 | 90.0 | 1.7 | 0 | not recorded | 919.9 |
+| toolcycles-seed2-active0 · 10 | 2043 | 1913 | 0 | 91.1 | 1.7 | 0 | not recorded | 923.2 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 92.2 | 1.7 | 0 | not recorded | 922.8 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 93.7 | 1.7 | 0 | not recorded | 925.2 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 139.7 | 1.6 | 0 | not recorded | 918.9 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 107.7 | 1.8 | 0 | not recorded | 869.7 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 120.6 | 2.1 | 0 | not recorded | 883.0 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 135.9 | 1.8 | 0 | not recorded | 919.2 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 84.7 | 1.7 | 0 | not recorded | 929.5 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 134.5 | 2.3 | 0 | not recorded | 900.4 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 87.9 | 1.8 | 0 | not recorded | 936.6 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1667 | 0 | 137.5 | 1.7 | 0 | not recorded | 903.8 |
+| toolcycles-seed2-active1 · 9 | 1919 | 1790 | 0 | 116.6 | 2.2 | 0 | not recorded | 882.9 |
+| toolcycles-seed2-active1 · 10 | 2043 | 1913 | 0 | 135.0 | 2.4 | 0 | not recorded | 903.4 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 141.8 | 2.3 | 0 | not recorded | 907.8 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 117.7 | 2.0 | 0 | not recorded | 884.3 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g1_o1_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g1_o1_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g1_o1_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g1_o1_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g1_o1_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g1_o1_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g1_o1_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_pilot_g1_o0_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:43:29 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g1_o0_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 94.265 ms median and 401.106 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 401.4 | 320.7 | 0 | not recorded | 1284.3 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 81.5 | 1.7 | 0 | not recorded | 967.8 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.8 | 1.7 | 0 | not recorded | 970.1 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 137.7 | 1.8 | 0 | not recorded | 952.0 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 143.1 | 1.7 | 0 | not recorded | 957.6 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 86.6 | 1.7 | 0 | not recorded | 981.0 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 127.4 | 1.7 | 0 | not recorded | 946.8 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 91.6 | 1.7 | 0 | not recorded | 976.4 |
+| toolcycles-seed2-active0 · 9 | 1919 | 1790 | 0 | 93.2 | 1.8 | 0 | not recorded | 979.3 |
+| toolcycles-seed2-active0 · 10 | 2043 | 1913 | 0 | 94.4 | 1.7 | 0 | not recorded | 983.4 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 92.3 | 1.7 | 0 | not recorded | 976.3 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 93.5 | 1.7 | 0 | not recorded | 979.5 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 474.2 | 1.7 | 0 | not recorded | 1283.5 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 90.0 | 1.8 | 0 | not recorded | 902.4 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 135.1 | 1.8 | 0 | not recorded | 947.1 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 84.1 | 1.7 | 0 | not recorded | 974.8 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 84.9 | 1.7 | 0 | not recorded | 975.8 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 118.0 | 1.9 | 0 | not recorded | 934.7 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 87.6 | 1.7 | 0 | not recorded | 986.5 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1667 | 0 | 94.4 | 1.7 | 0 | not recorded | 916.8 |
+| toolcycles-seed2-active1 · 9 | 1919 | 1790 | 0 | 118.0 | 1.7 | 0 | not recorded | 941.3 |
+| toolcycles-seed2-active1 · 10 | 2043 | 1913 | 0 | 103.9 | 1.8 | 0 | not recorded | 929.4 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 111.6 | 1.8 | 0 | not recorded | 930.8 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 118.5 | 1.8 | 0 | not recorded | 938.6 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g1_o0_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g1_o0_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g1_o0_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g1_o0_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g1_o0_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g1_o0_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g1_o0_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_pilot_g0_o1_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:41:28 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g0_o1_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 100.951 ms median and 147.002 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 82.4 | 1.7 | 0 | not recorded | 928.5 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 82.0 | 1.7 | 0 | not recorded | 911.6 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.8 | 1.7 | 0 | not recorded | 913.7 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 83.7 | 1.7 | 0 | not recorded | 935.9 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 128.4 | 2.2 | 0 | not recorded | 921.2 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 86.6 | 1.8 | 0 | not recorded | 923.8 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 147.1 | 1.9 | 0 | not recorded | 941.6 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 88.7 | 1.7 | 0 | not recorded | 926.7 |
+| toolcycles-seed2-active0 · 9 | 1919 | 1790 | 0 | 89.7 | 1.7 | 0 | not recorded | 928.0 |
+| toolcycles-seed2-active0 · 10 | 2043 | 1913 | 0 | 91.4 | 1.7 | 0 | not recorded | 931.4 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 92.6 | 1.7 | 0 | not recorded | 931.2 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 94.0 | 1.7 | 0 | not recorded | 932.5 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 139.9 | 2.1 | 0 | not recorded | 927.2 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 108.3 | 2.3 | 0 | not recorded | 880.7 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 119.4 | 1.7 | 0 | not recorded | 892.9 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 133.2 | 2.2 | 0 | not recorded | 924.3 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 85.2 | 1.8 | 0 | not recorded | 940.0 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 135.4 | 1.8 | 0 | not recorded | 913.3 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 88.1 | 1.8 | 0 | not recorded | 944.9 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1667 | 0 | 138.6 | 1.8 | 0 | not recorded | 913.0 |
+| toolcycles-seed2-active1 · 9 | 1919 | 1790 | 0 | 116.7 | 2.4 | 0 | not recorded | 891.4 |
+| toolcycles-seed2-active1 · 10 | 2043 | 1913 | 0 | 134.6 | 2.3 | 0 | not recorded | 910.8 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 144.0 | 2.2 | 0 | not recorded | 917.4 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 151.2 | 2.3 | 0 | not recorded | 924.9 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g0_o1_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g0_o1_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g0_o1_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g0_o1_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g0_o1_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g0_o1_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g0_o1_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_pilot_g0_o0_s2_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:39:20 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g0_o0_s2_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 92.218 ms median and 142.942 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 2. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed2-active0 · 1 | 935 | 806 | 0 | 81.9 | 1.8 | 0 | not recorded | 982.4 |
+| toolcycles-seed2-active0 · 2 | 1058 | 929 | 0 | 81.3 | 1.7 | 0 | not recorded | 983.4 |
+| toolcycles-seed2-active0 · 3 | 1181 | 1052 | 0 | 82.2 | 1.7 | 0 | not recorded | 986.3 |
+| toolcycles-seed2-active0 · 4 | 1304 | 1175 | 0 | 136.5 | 1.7 | 0 | not recorded | 968.3 |
+| toolcycles-seed2-active0 · 5 | 1427 | 1298 | 0 | 143.1 | 1.7 | 0 | not recorded | 975.2 |
+| toolcycles-seed2-active0 · 6 | 1550 | 1421 | 0 | 86.1 | 1.8 | 0 | not recorded | 998.4 |
+| toolcycles-seed2-active0 · 7 | 1673 | 1544 | 0 | 126.9 | 1.7 | 0 | not recorded | 962.3 |
+| toolcycles-seed2-active0 · 8 | 1796 | 1667 | 0 | 88.3 | 1.7 | 0 | not recorded | 986.5 |
+| toolcycles-seed2-active0 · 9 | 1919 | 1790 | 0 | 89.8 | 1.7 | 0 | not recorded | 989.1 |
+| toolcycles-seed2-active0 · 10 | 2043 | 1913 | 0 | 90.7 | 1.7 | 0 | not recorded | 993.0 |
+| toolcycles-seed2-active0 · 11 | 2167 | 2037 | 0 | 92.2 | 1.7 | 0 | not recorded | 993.1 |
+| toolcycles-seed2-active0 · 12 | 2291 | 2161 | 0 | 93.0 | 1.7 | 0 | not recorded | 996.7 |
+| toolcycles-seed2-active1 · 1 | 935 | 806 | 0 | 154.0 | 1.8 | 0 | not recorded | 980.9 |
+| toolcycles-seed2-active1 · 2 | 1058 | 929 | 0 | 89.6 | 1.7 | 0 | not recorded | 918.2 |
+| toolcycles-seed2-active1 · 3 | 1181 | 1052 | 0 | 134.2 | 1.7 | 0 | not recorded | 963.9 |
+| toolcycles-seed2-active1 · 4 | 1304 | 1175 | 0 | 83.7 | 1.7 | 0 | not recorded | 991.0 |
+| toolcycles-seed2-active1 · 5 | 1427 | 1298 | 0 | 84.9 | 1.7 | 0 | not recorded | 994.0 |
+| toolcycles-seed2-active1 · 6 | 1550 | 1421 | 0 | 118.0 | 1.7 | 0 | not recorded | 952.2 |
+| toolcycles-seed2-active1 · 7 | 1673 | 1544 | 0 | 87.4 | 1.7 | 0 | not recorded | 1001.3 |
+| toolcycles-seed2-active1 · 8 | 1796 | 1667 | 0 | 92.5 | 1.7 | 0 | not recorded | 928.2 |
+| toolcycles-seed2-active1 · 9 | 1919 | 1790 | 0 | 114.1 | 1.7 | 0 | not recorded | 950.6 |
+| toolcycles-seed2-active1 · 10 | 2043 | 1913 | 0 | 98.9 | 1.8 | 0 | not recorded | 938.2 |
+| toolcycles-seed2-active1 · 11 | 2167 | 2037 | 0 | 112.5 | 1.7 | 0 | not recorded | 948.9 |
+| toolcycles-seed2-active1 · 12 | 2291 | 2161 | 0 | 120.4 | 1.7 | 0 | not recorded | 958.1 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g0_o0_s2_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='2' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g0_o0_s2_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g0_o0_s2_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g0_o0_s2_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g0_o0_s2_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g0_o0_s2_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g0_o0_s2_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g1_o0_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:36:27 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g1_o0_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 150.379 ms median and 608.649 ms at p95. 4 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 608.8 | 14.2 | 0 | not recorded | 1500.2 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 206.4 | 4.8 | 0 | not recorded | 1440.6 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 81.8 | 1.7 | 0 | not recorded | 1467.1 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 103.6 | 1.7 | 0 | not recorded | 1063.6 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 157.7 | 1.7 | 0 | not recorded | 1429.2 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 85.8 | 1.7 | 0 | not recorded | 1564.1 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 270.5 | 29.5 | 0 | not recorded | 1193.7 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 354.2 | 13.6 | 0 | not recorded | 1437.9 |
+| toolcycles-seed1-active0 · 9 | 1919 | 34 | 1 | 558.0 | 406.6 | 20.2 | 146.2 | 2307.8 |
+| toolcycles-seed1-active0 · 10 | 2043 | 34 | 1 | 248.1 | 150.1 | 18.0 | 130.2 | 1057.5 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 126.3 | 3.8 | 0 | not recorded | 930.2 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 108.1 | 1.8 | 0 | not recorded | 916.1 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 580.4 | 10.6 | 0 | not recorded | 1471.5 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 198.3 | 1.7 | 0 | not recorded | 1431.8 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 103.1 | 1.7 | 0 | not recorded | 1430.4 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 109.7 | 1.7 | 0 | not recorded | 1008.4 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 84.4 | 1.8 | 0 | not recorded | 1432.6 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 143.3 | 1.8 | 0 | not recorded | 1544.1 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 347.7 | 33.3 | 0 | not recorded | 1271.0 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1298 | 1 | 827.9 | 582.5 | 8.2 | 86.1 | 2465.8 |
+| toolcycles-seed1-active1 · 9 | 1919 | 34 | 1 | 280.2 | 177.9 | 17.9 | 158.1 | 2492.5 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 91.3 | 1.7 | 0 | not recorded | 967.8 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 95.4 | 4.0 | 0 | not recorded | 972.4 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 93.6 | 1.8 | 0 | not recorded | 881.5 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g1_o0_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g0_o1_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:34:14 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g0_o1_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 165.976 ms median and 957.5 ms at p95. 4 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 359.2 | 12.0 | 0 | not recorded | 1235.7 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 161.9 | 4.9 | 0 | not recorded | 942.0 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 82.6 | 1.7 | 0 | not recorded | 1308.7 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 83.9 | 1.7 | 0 | not recorded | 1297.8 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 263.9 | 5.9 | 0 | not recorded | 1119.4 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 211.2 | 6.0 | 0 | not recorded | 1053.6 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 150.1 | 2.2 | 0 | not recorded | 1508.2 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 170.6 | 39.8 | 0 | not recorded | 1676.1 |
+| toolcycles-seed1-active0 · 9 | 1919 | 34 | 1 | 1029.6 | 663.0 | 24.5 | 184.2 | 2670.9 |
+| toolcycles-seed1-active0 · 10 | 2043 | 34 | 1 | 346.5 | 253.0 | 20.6 | 230.5 | 1118.3 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 139.1 | 4.5 | 0 | not recorded | 910.2 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 118.8 | 2.0 | 0 | not recorded | 894.1 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 332.1 | 7.9 | 0 | not recorded | 1208.5 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 153.7 | 1.8 | 0 | not recorded | 933.8 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 120.3 | 2.3 | 0 | not recorded | 1375.2 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 354.2 | 1.8 | 0 | not recorded | 1153.8 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 251.9 | 2.2 | 0 | not recorded | 1107.5 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 188.8 | 2.2 | 0 | not recorded | 1031.3 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 132.6 | 1.9 | 0 | not recorded | 1085.6 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 133.2 | 1.7 | 0 | not recorded | 1727.7 |
+| toolcycles-seed1-active1 · 9 | 1919 | 34 | 1 | 660.4 | 284.1 | 18.7 | 263.1 | 1772.3 |
+| toolcycles-seed1-active1 · 10 | 2043 | 34 | 1 | 957.7 | 585.4 | 19.2 | 201.7 | 2023.1 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 93.7 | 1.8 | 0 | not recorded | 929.8 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 96.5 | 3.2 | 0 | not recorded | 936.6 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g0_o1_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g0_o1_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g1_o1_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:31:44 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g1_o1_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 176.596 ms median and 770.334 ms at p95. 4 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 552.3 | 14.1 | 0 | not recorded | 1360.8 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 205.6 | 4.8 | 0 | not recorded | 977.8 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 83.0 | 1.7 | 0 | not recorded | 1343.0 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 305.1 | 5.6 | 0 | not recorded | 1348.4 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 167.5 | 1.7 | 0 | not recorded | 990.5 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 186.1 | 2.0 | 0 | not recorded | 972.0 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 105.4 | 2.3 | 0 | not recorded | 1460.5 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 148.2 | 15.6 | 0 | not recorded | 1626.6 |
+| toolcycles-seed1-active0 · 9 | 1919 | 34 | 1 | 356.9 | 155.6 | 16.5 | 137.2 | 1408.8 |
+| toolcycles-seed1-active0 · 10 | 2043 | 34 | 1 | 967.2 | 602.4 | 18.0 | 166.8 | 1922.1 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 93.6 | 1.8 | 0 | not recorded | 925.5 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 96.6 | 3.2 | 0 | not recorded | 929.5 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 526.5 | 10.6 | 0 | not recorded | 1334.0 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 197.5 | 1.7 | 0 | not recorded | 969.7 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 119.6 | 2.3 | 0 | not recorded | 1374.2 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 350.9 | 1.7 | 0 | not recorded | 1173.0 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 123.9 | 2.1 | 0 | not recorded | 1010.3 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 150.4 | 2.2 | 0 | not recorded | 983.7 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.9 | 1.8 | 0 | not recorded | 1503.5 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 419.7 | 42.0 | 0 | not recorded | 1580.1 |
+| toolcycles-seed1-active1 · 9 | 1919 | 34 | 1 | 770.5 | 644.8 | 21.9 | 134.6 | 2506.1 |
+| toolcycles-seed1-active1 · 10 | 2043 | 34 | 1 | 257.3 | 150.9 | 20.3 | 128.7 | 1021.7 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 147.8 | 4.4 | 0 | not recorded | 915.1 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 139.9 | 1.8 | 0 | not recorded | 910.0 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g1_o1_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g1_o1_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_capacity_d8_g0_o0_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:28:04 p.m. CDT · Repeated tool-return startup</strong> · rq14_capacity_d8_g0_o0_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 139.292 ms median and 825.248 ms at p95. 4 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 435.2 | 13.7 | 0 | not recorded | 1342.8 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 199.3 | 4.9 | 0 | not recorded | 1494.9 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 81.6 | 1.7 | 0 | not recorded | 1484.9 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 96.9 | 1.7 | 0 | not recorded | 1076.8 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 167.8 | 1.7 | 0 | not recorded | 1094.9 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 99.3 | 1.8 | 0 | not recorded | 1106.8 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 89.1 | 1.8 | 0 | not recorded | 1628.4 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 121.2 | 1.7 | 0 | not recorded | 1996.2 |
+| toolcycles-seed1-active0 · 9 | 1919 | 34 | 1 | 520.3 | 250.2 | 15.0 | 233.4 | 1701.4 |
+| toolcycles-seed1-active0 · 10 | 2043 | 34 | 1 | 825.5 | 323.8 | 16.2 | 305.7 | 1936.4 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 93.3 | 1.8 | 0 | not recorded | 997.6 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 95.7 | 3.2 | 0 | not recorded | 999.9 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 407.2 | 7.4 | 0 | not recorded | 1314.7 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 190.2 | 1.8 | 0 | not recorded | 1485.1 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 102.4 | 1.7 | 0 | not recorded | 1448.4 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 104.8 | 1.7 | 0 | not recorded | 1021.6 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 168.3 | 5.4 | 0 | not recorded | 1095.5 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 157.7 | 1.7 | 0 | not recorded | 1086.3 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.5 | 1.7 | 0 | not recorded | 1707.0 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 163.5 | 15.5 | 0 | not recorded | 1913.6 |
+| toolcycles-seed1-active1 · 9 | 1919 | 34 | 1 | 1062.0 | 562.7 | 20.9 | 146.4 | 2749.5 |
+| toolcycles-seed1-active1 · 10 | 2043 | 34 | 1 | 318.6 | 196.4 | 17.9 | 176.7 | 1152.4 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 113.4 | 3.8 | 0 | not recorded | 950.3 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 105.4 | 1.7 | 0 | not recorded | 943.7 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_capacity_d8_g0_o0_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='8' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_capacity_d8_g0_o0_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_busy_g1_o1_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:25:33 p.m. CDT · Repeated tool-return startup</strong> · rq14_busy_g1_o1_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 126.646 ms median and 367.543 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 367.8 | 2.0 | 0 | not recorded | 1248.0 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 81.8 | 1.8 | 0 | not recorded | 1158.1 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 83.0 | 1.8 | 0 | not recorded | 1118.2 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 83.9 | 1.7 | 0 | not recorded | 1153.2 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 85.3 | 1.7 | 0 | not recorded | 1141.2 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 114.6 | 1.7 | 0 | not recorded | 968.6 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 105.2 | 2.2 | 0 | not recorded | 1171.2 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 91.9 | 1.8 | 0 | not recorded | 1120.5 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 139.9 | 2.2 | 0 | not recorded | 972.7 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 91.6 | 1.9 | 0 | not recorded | 926.0 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 134.2 | 1.8 | 0 | not recorded | 905.0 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 93.6 | 1.7 | 0 | not recorded | 950.8 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 437.3 | 4.9 | 0 | not recorded | 1220.6 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 132.0 | 2.0 | 0 | not recorded | 1149.1 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 223.6 | 2.5 | 0 | not recorded | 1063.0 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 121.6 | 2.2 | 0 | not recorded | 1132.6 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 132.6 | 1.7 | 0 | not recorded | 1127.7 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 155.3 | 1.7 | 0 | not recorded | 947.4 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.4 | 1.7 | 0 | not recorded | 1229.8 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 264.4 | 2.1 | 0 | not recorded | 1091.5 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 137.7 | 2.0 | 0 | not recorded | 905.8 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 159.8 | 2.3 | 0 | not recorded | 929.9 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 92.9 | 1.7 | 0 | not recorded | 928.2 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 136.6 | 1.7 | 0 | not recorded | 928.7 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_busy_g1_o1_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_busy_g1_o1_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_busy_g1_o1_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_busy_g1_o1_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_busy_g1_o1_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_busy_g1_o1_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_busy_g1_o1_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_busy_g1_o0_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:23:10 p.m. CDT · Repeated tool-return startup</strong> · rq14_busy_g1_o0_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 117.993 ms median and 341.125 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 341.3 | 1.9 | 0 | not recorded | 1331.7 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 81.6 | 1.8 | 0 | not recorded | 1298.2 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 230.3 | 4.8 | 0 | not recorded | 1229.4 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 83.7 | 1.7 | 0 | not recorded | 1268.5 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 109.4 | 1.8 | 0 | not recorded | 1231.9 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 185.4 | 5.5 | 0 | not recorded | 1116.6 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 88.7 | 1.7 | 0 | not recorded | 1275.7 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 209.7 | 1.8 | 0 | not recorded | 1166.2 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 114.9 | 1.7 | 0 | not recorded | 1067.3 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 137.4 | 1.7 | 0 | not recorded | 959.0 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 121.5 | 1.7 | 0 | not recorded | 943.7 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 93.6 | 1.8 | 0 | not recorded | 1001.8 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 451.0 | 4.9 | 0 | not recorded | 1302.5 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 146.9 | 1.7 | 0 | not recorded | 1290.2 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 284.3 | 1.8 | 0 | not recorded | 1141.5 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 104.2 | 1.8 | 0 | not recorded | 1213.5 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 84.7 | 1.7 | 0 | not recorded | 1284.0 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 164.4 | 1.7 | 0 | not recorded | 1095.8 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.3 | 1.7 | 0 | not recorded | 1353.2 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 207.6 | 1.7 | 0 | not recorded | 1084.6 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 96.9 | 1.7 | 0 | not recorded | 968.1 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 91.1 | 1.7 | 0 | not recorded | 994.6 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 97.0 | 1.7 | 0 | not recorded | 978.7 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 176.4 | 1.7 | 0 | not recorded | 1000.8 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_busy_g1_o0_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_busy_g1_o0_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_busy_g1_o0_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_busy_g1_o0_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_busy_g1_o0_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_busy_g1_o0_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_busy_g1_o0_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_busy_g0_o1_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:20:52 p.m. CDT · Repeated tool-return startup</strong> · rq14_busy_g0_o1_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 124.843 ms median and 421.335 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 188.8 | 1.8 | 0 | not recorded | 1092.8 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 82.4 | 2.3 | 0 | not recorded | 1167.4 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 83.2 | 1.7 | 0 | not recorded | 1162.2 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 83.7 | 1.7 | 0 | not recorded | 1157.2 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 84.8 | 1.7 | 0 | not recorded | 1148.6 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 212.1 | 5.5 | 0 | not recorded | 1003.0 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 104.5 | 1.7 | 0 | not recorded | 1173.2 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 433.4 | 1.7 | 0 | not recorded | 1348.4 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 117.5 | 2.2 | 0 | not recorded | 958.2 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 92.4 | 1.8 | 0 | not recorded | 955.7 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 136.6 | 2.1 | 0 | not recorded | 914.3 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 153.0 | 1.7 | 0 | not recorded | 954.1 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 273.2 | 5.3 | 0 | not recorded | 1064.9 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 133.4 | 1.6 | 0 | not recorded | 1158.2 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 269.2 | 1.7 | 0 | not recorded | 1109.9 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 119.4 | 1.7 | 0 | not recorded | 1134.3 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 130.7 | 1.6 | 0 | not recorded | 1132.8 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 189.5 | 1.7 | 0 | not recorded | 980.6 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.3 | 1.7 | 0 | not recorded | 1214.9 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 421.5 | 2.3 | 0 | not recorded | 1303.4 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 115.5 | 2.3 | 0 | not recorded | 897.5 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 155.9 | 1.7 | 0 | not recorded | 954.5 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 96.7 | 1.8 | 0 | not recorded | 936.0 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 94.7 | 1.8 | 0 | not recorded | 961.3 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_busy_g0_o1_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_busy_g0_o1_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_busy_g0_o1_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_busy_g0_o1_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_busy_g0_o1_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_busy_g0_o1_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_busy_g0_o1_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_busy_g0_o0_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:18:02 p.m. CDT · Repeated tool-return startup</strong> · rq14_busy_g0_o0_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 109.874 ms median and 479.657 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 176.3 | 1.8 | 0 | not recorded | 1183.1 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 81.0 | 1.7 | 0 | not recorded | 1321.5 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 303.5 | 8.3 | 0 | not recorded | 1179.0 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 83.1 | 1.8 | 0 | not recorded | 1284.5 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 109.2 | 1.7 | 0 | not recorded | 1248.3 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 105.9 | 1.8 | 0 | not recorded | 1133.9 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 88.8 | 1.9 | 0 | not recorded | 1251.3 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 482.0 | 1.7 | 0 | not recorded | 1458.8 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 111.0 | 1.7 | 0 | not recorded | 1087.2 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 138.9 | 1.9 | 0 | not recorded | 982.2 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 123.9 | 1.8 | 0 | not recorded | 966.5 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 102.4 | 1.8 | 0 | not recorded | 1032.5 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 285.8 | 5.0 | 0 | not recorded | 1154.8 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 147.2 | 1.8 | 0 | not recorded | 1314.2 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 215.3 | 1.7 | 0 | not recorded | 1090.4 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 103.4 | 1.7 | 0 | not recorded | 1229.0 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 84.8 | 1.8 | 0 | not recorded | 1300.6 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 162.9 | 1.7 | 0 | not recorded | 1113.5 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.4 | 1.7 | 0 | not recorded | 1329.4 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 479.9 | 1.7 | 0 | not recorded | 1376.3 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 92.6 | 1.8 | 0 | not recorded | 987.1 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 92.2 | 1.8 | 0 | not recorded | 1017.4 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 96.6 | 1.7 | 0 | not recorded | 999.7 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 186.5 | 1.8 | 0 | not recorded | 1031.6 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_busy_g0_o0_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='4' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_busy_g0_o0_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_busy_g0_o0_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_busy_g0_o0_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_busy_g0_o0_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_busy_g0_o0_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_busy_g0_o0_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_pilot_g1_o1_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:15:27 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g1_o1_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 98.698 ms median and 146.319 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 82.8 | 1.8 | 0 | not recorded | 901.8 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 82.0 | 1.7 | 0 | not recorded | 903.6 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 83.2 | 1.7 | 0 | not recorded | 904.6 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 84.7 | 1.7 | 0 | not recorded | 1202.0 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 85.8 | 1.7 | 0 | not recorded | 911.9 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 87.4 | 1.7 | 0 | not recorded | 915.4 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 137.7 | 2.2 | 0 | not recorded | 904.4 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 89.8 | 1.8 | 0 | not recorded | 920.8 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 90.1 | 1.7 | 0 | not recorded | 920.8 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 91.9 | 1.7 | 0 | not recorded | 925.8 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 135.1 | 1.9 | 0 | not recorded | 905.6 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 93.6 | 1.7 | 0 | not recorded | 951.1 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 146.5 | 2.3 | 0 | not recorded | 906.8 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 133.2 | 2.1 | 0 | not recorded | 895.0 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 120.7 | 2.3 | 0 | not recorded | 881.1 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 418.3 | 320.8 | 0 | not recorded | 1180.2 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 104.1 | 2.3 | 0 | not recorded | 868.4 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 129.0 | 2.0 | 0 | not recorded | 894.9 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 88.7 | 1.7 | 0 | not recorded | 917.4 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 136.7 | 2.2 | 0 | not recorded | 904.8 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 120.7 | 2.2 | 0 | not recorded | 887.8 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 125.4 | 2.0 | 0 | not recorded | 895.9 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 92.9 | 1.7 | 0 | not recorded | 927.7 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 136.7 | 1.8 | 0 | not recorded | 928.8 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g1_o1_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g1_o1_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g1_o1_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g1_o1_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g1_o1_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g1_o1_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g1_o1_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_pilot_g1_o0_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:13:11 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g1_o0_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 92.39 ms median and 402.143 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs on; overlap scheduling off. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 402.5 | 321.9 | 0 | not recorded | 1284.4 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 81.6 | 1.7 | 0 | not recorded | 965.0 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 82.2 | 1.7 | 0 | not recorded | 950.0 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 83.6 | 1.7 | 0 | not recorded | 955.0 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 161.2 | 1.7 | 0 | not recorded | 975.3 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 86.0 | 1.7 | 0 | not recorded | 981.4 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 89.3 | 1.7 | 0 | not recorded | 905.6 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 88.4 | 1.7 | 0 | not recorded | 968.7 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 89.4 | 1.7 | 0 | not recorded | 969.8 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 90.9 | 1.7 | 0 | not recorded | 994.1 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 121.4 | 1.8 | 0 | not recorded | 942.8 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 93.5 | 1.8 | 0 | not recorded | 1001.0 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 449.4 | 1.8 | 0 | not recorded | 1257.6 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 146.8 | 1.7 | 0 | not recorded | 955.8 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 103.4 | 1.7 | 0 | not recorded | 913.0 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 87.6 | 1.7 | 0 | not recorded | 899.9 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 85.6 | 1.7 | 0 | not recorded | 976.2 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 143.4 | 1.7 | 0 | not recorded | 960.7 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 87.2 | 1.7 | 0 | not recorded | 983.3 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 122.2 | 1.7 | 0 | not recorded | 940.4 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 121.4 | 1.7 | 0 | not recorded | 938.1 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 91.6 | 1.7 | 0 | not recorded | 912.3 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 96.8 | 1.7 | 0 | not recorded | 977.5 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 175.9 | 1.7 | 0 | not recorded | 1000.0 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g1_o0_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='1' WORK_AUDIT_OVERLAP_SCHEDULE='0' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g1_o0_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g1_o0_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g1_o0_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g1_o0_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g1_o0_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g1_o0_s1_20261006/runtime/backend_features.json)
+
+</details>
+
+<a id="run-rq14_pilot_g0_o1_s1_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 1:11:00 p.m. CDT · Repeated tool-return startup</strong> · rq14_pilot_g0_o1_s1_20261006</summary>
+
+**Question (RQ14).** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
+
+**Finding.** Across 24 active replays, first-token delay was 98.126 ms median and 141.573 ms at p95. 0 active replays had a recorded KV load-back. Stage timing identifies where time was spent, not why the backend waited.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-Coder-7B-Instruct; backend 0.5.10.post1; seed 1. Repeated, deterministic synthetic tool outputs grew each session's history from 768 initial words by 96 words per turn. Tool wait 800 ms plus seeded jitter; output cap 24 tokens. CUDA graphs off; overlap scheduling on. No frontend importance ranks. Donor traffic does not by itself prove KV movement.
+
+**Key measurements**
+
+| Session · turn | Prompt tokens | Cached prefix tokens | KV load-backs | Tool return → first token (ms) | Lookup → batch (ms) | Load call (ms) | Load end → batch (ms) | Tool return → finish (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| toolcycles-seed1-active0 · 1 | 935 | 806 | 0 | 82.0 | 1.8 | 0 | not recorded | 909.5 |
+| toolcycles-seed1-active0 · 2 | 1058 | 929 | 0 | 81.7 | 1.7 | 0 | not recorded | 911.5 |
+| toolcycles-seed1-active0 · 3 | 1181 | 1052 | 0 | 83.1 | 1.7 | 0 | not recorded | 911.9 |
+| toolcycles-seed1-active0 · 4 | 1304 | 1175 | 0 | 84.2 | 1.7 | 0 | not recorded | 915.2 |
+| toolcycles-seed1-active0 · 5 | 1427 | 1298 | 0 | 85.1 | 1.7 | 0 | not recorded | 919.6 |
+| toolcycles-seed1-active0 · 6 | 1550 | 1421 | 0 | 86.5 | 1.7 | 0 | not recorded | 922.8 |
+| toolcycles-seed1-active0 · 7 | 1673 | 1544 | 0 | 141.8 | 2.1 | 0 | not recorded | 919.9 |
+| toolcycles-seed1-active0 · 8 | 1796 | 1667 | 0 | 89.1 | 1.7 | 0 | not recorded | 928.8 |
+| toolcycles-seed1-active0 · 9 | 1919 | 1790 | 0 | 89.9 | 1.7 | 0 | not recorded | 928.9 |
+| toolcycles-seed1-active0 · 10 | 2043 | 1913 | 0 | 91.7 | 1.7 | 0 | not recorded | 933.9 |
+| toolcycles-seed1-active0 · 11 | 2167 | 2037 | 0 | 139.6 | 2.2 | 0 | not recorded | 922.4 |
+| toolcycles-seed1-active0 · 12 | 2291 | 2161 | 0 | 93.9 | 1.8 | 0 | not recorded | 960.0 |
+| toolcycles-seed1-active1 · 1 | 935 | 806 | 0 | 145.9 | 2.4 | 0 | not recorded | 916.0 |
+| toolcycles-seed1-active1 · 2 | 1058 | 929 | 0 | 132.4 | 1.8 | 0 | not recorded | 903.6 |
+| toolcycles-seed1-active1 · 3 | 1181 | 1052 | 0 | 121.1 | 2.2 | 0 | not recorded | 889.8 |
+| toolcycles-seed1-active1 · 4 | 1304 | 1175 | 0 | 122.1 | 2.4 | 0 | not recorded | 892.2 |
+| toolcycles-seed1-active1 · 5 | 1427 | 1298 | 0 | 102.8 | 1.9 | 0 | not recorded | 878.7 |
+| toolcycles-seed1-active1 · 6 | 1550 | 1421 | 0 | 125.9 | 1.7 | 0 | not recorded | 903.3 |
+| toolcycles-seed1-active1 · 7 | 1673 | 1544 | 0 | 88.3 | 1.7 | 0 | not recorded | 925.7 |
+| toolcycles-seed1-active1 · 8 | 1796 | 1667 | 0 | 140.6 | 2.0 | 0 | not recorded | 920.2 |
+| toolcycles-seed1-active1 · 9 | 1919 | 1790 | 0 | 117.7 | 2.2 | 0 | not recorded | 893.0 |
+| toolcycles-seed1-active1 · 10 | 2043 | 1913 | 0 | 125.8 | 2.4 | 0 | not recorded | 908.2 |
+| toolcycles-seed1-active1 · 11 | 2167 | 2037 | 0 | 92.6 | 1.7 | 0 | not recorded | 936.2 |
+| toolcycles-seed1-active1 · 12 | 2291 | 2161 | 0 | 141.4 | 1.8 | 0 | not recorded | 942.3 |
+
+The batch boundary is a scheduler-method timestamp, not measured GPU completion. Donor traffic is not proof of KV movement.
+
+**Evidence gate.** observed. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- The first-batch end timestamp is a scheduler-method boundary, not proof that GPU work completed.
+- These are deterministic synthetic tool results, not autonomous tool or model decisions.
+- Donor traffic is not proof of KV movement; host-to-device copy counts are reported separately.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_RUN_ID='rq14_pilot_g0_o1_s1_20261006' WORK_AUDIT_STUDY='tool_cycles' WORK_AUDIT_SEED='1' WORK_AUDIT_TOOL_CYCLE_ACTIVE_COUNT='2' WORK_AUDIT_DONOR_COUNT='0' WORK_AUDIT_TOOL_CYCLE_TURNS='12' WORK_AUDIT_TOOL_CYCLE_INITIAL_TOKENS='768' WORK_AUDIT_TOOL_CYCLE_DONOR_INITIAL_TOKENS='512' WORK_AUDIT_TOOL_CYCLE_RESULT_WORDS='96' WORK_AUDIT_TOOL_CYCLE_WAIT_MS='800' WORK_AUDIT_DECODE_TOKENS='24' WORK_AUDIT_CUDA_GRAPH='0' WORK_AUDIT_OVERLAP_SCHEDULE='1' WORK_AUDIT_TRACE_ENABLE='1' HICACHE_SIZE_GB='8' MEM_FRACTION_STATIC='0.7' bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq14_pilot_g0_o1_s1_20261006/summary.json) · [Run manifest](docs/reports/work_audit/rq14_pilot_g0_o1_s1_20261006/run_manifest.json) · [Hook gate](docs/reports/work_audit/rq14_pilot_g0_o1_s1_20261006/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/rq14_pilot_g0_o1_s1_20261006/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/rq14_pilot_g0_o1_s1_20261006/backend_trace.jsonl.gz) · [Backend features](docs/reports/work_audit/rq14_pilot_g0_o1_s1_20261006/runtime/backend_features.json)
+
+</details>
 
 <a id="run-rq13_both_d4_profile_p2048_20261006"></a>
 <details>

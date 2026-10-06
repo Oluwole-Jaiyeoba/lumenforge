@@ -6,9 +6,30 @@ from pathlib import Path
 import pytest
 
 from agentic_reports.builders.build_work_audit_report import (
-    _markdown_index_outcome, _pair_rq11_controls, _run_finding, main, render,
+    _markdown_index_outcome, _pair_rq11_controls, _result_parts, _run_finding, main, render,
     render_markdown,
 )
+
+
+def test_tool_cycles_report_keeps_latency_and_load_evidence_separate():
+    summary = {
+        "schema": "agentic_work_audit.tool_cycles.v1",
+        "active_workflow_makespan_ms": 22000,
+        "measurements": {"active_replay_count": 1, "active_ttft_median_ms": 90,
+                         "active_ttft_p95_ms": 90, "kv_load_back_operations": 0,
+                         "active_replays_with_kv_load_back": 0},
+        "turns": [{"kind": "active", "session_id": "s1", "turn": 1,
+                   "prompt_tokens": 120, "matched_prefix_tokens": 80,
+                   "first_token_after_tool_ms": 90, "lookup_to_batch_ms": 2,
+                   "completion_after_tool_ms": 400}],
+    }
+    headline, detail = _result_parts(summary)
+    finding = _run_finding(summary)
+    assert "first token median 90" in headline
+    assert "KV load-backs 0" in headline
+    assert "stage" not in headline.lower()
+    assert "Stage timing identifies where time was spent" in finding
+    assert "scheduler-method boundary" in detail
 
 
 def test_busy_audit_report_keeps_pair_numbers_and_limits_visible():

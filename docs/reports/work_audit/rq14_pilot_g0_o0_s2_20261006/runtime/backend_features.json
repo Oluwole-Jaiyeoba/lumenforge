@@ -1,0 +1,9 @@
+{
+  "schema": "agentic_work_audit.backend_features.v1",
+  "cuda_graph_requested": false,
+  "overlap_schedule_requested": false,
+  "cuda_graph_disabled": true,
+  "overlap_schedule_disabled": true,
+  "decode_graph_true_log_count": 0,
+  "decode_graph_false_log_count": 7
+}

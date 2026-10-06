@@ -2,6 +2,37 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ14",
+      "short_question": "Do startup delays recur across many tool returns?",
+      "evidence_date_utc": "2026-10-06",
+      "question": "Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?",
+      "answer": "On the pinned A10G backend, two equal-priority active sessions each made 12 tool returns with prompt history growing from 935 to 2291 tokens. Four backend-flag combinations ran at low pressure (no donors) and high pressure (eight competing sessions), each with two seeds and a fresh backend. At low pressure, active median first-token delay was 92-101 ms and no host-to-device KV load-backs were recorded. At high pressure, the median was 132-177 ms; 3-4 of 24 active replays per run had recorded KV load-back, and first-token p95 ranged from 471 to 958 ms. In one crowded baseline, those four loaded turns spent 15-21 ms inside the native load-back call but 196-563 ms from cache lookup completion to first batch start. Two trace-off controls per pressure level still had high-pressure first-token p95 of 465 and 504 ms, so the tail does not require tracing, although traced baseline high-pressure workflow time was 27.80 and 28.45 s versus 25.64 and 25.99 s trace-off. With both features enabled, high-pressure median first-token delay was higher than both-off in both seeds, while active workflow completed sooner. Thus the earlier 385 ms is not a fixed tax after every tool return; pressure creates occasional large startup tails, and feature settings trade first-token latency against whole-workload time.",
+      "hypothesis": "Under cache pressure, replay startup can wait for scheduler admission or competing backend work beyond the duration of the native KV load-back call. Repeated tool returns make these tail events relevant to a full agent workflow.",
+      "unknown": "The trace places time before the replay's first backend batch but does not identify the exact scheduler, admission, CPU, or GPU mechanism. The observed load-back call duration is not physical device-copy time. Trace-on and trace-off runs alter timing and may change scheduling, so their difference is a perturbation check, not a calibrated instrumentation-overhead subtraction. These deterministic synthetic runs use only two seeds, two active sessions, at most 2291 prompt tokens, and changing natural eviction counts across modes; they do not establish production prevalence, an optimal flag setting, or a hardware-offload benefit. The remote run manifests record the host's older Git HEAD: the new experiment code was synced from a working tree before it was committed. A later move of raw-event translation into the backend adapter reproduced the saved metrics on a representative trace, but that does not make the recorded HEAD an exact source snapshot.",
+      "evidence_run_ids": [
+        "rq14_pilot_g0_o0_s1_recheck_20261006",
+        "rq14_pilot_g0_o0_s2_20261006",
+        "rq14_pilot_g0_o1_s1_20261006",
+        "rq14_pilot_g0_o1_s2_20261006",
+        "rq14_pilot_g1_o0_s1_20261006",
+        "rq14_pilot_g1_o0_s2_20261006",
+        "rq14_pilot_g1_o1_s1_20261006",
+        "rq14_pilot_g1_o1_s2_20261006",
+        "rq14_capacity_d8_g0_o0_s1_20261006",
+        "rq14_capacity_d8_g0_o0_s2_20261006",
+        "rq14_capacity_d8_g0_o1_s1_20261006",
+        "rq14_capacity_d8_g0_o1_s2_20261006",
+        "rq14_capacity_d8_g1_o0_s1_20261006",
+        "rq14_capacity_d8_g1_o0_s2_20261006",
+        "rq14_capacity_d8_g1_o1_s1_20261006",
+        "rq14_capacity_d8_g1_o1_s2_20261006",
+        "rq14_traceoff_d0_s1_20261006",
+        "rq14_traceoff_d0_s2_20261006",
+        "rq14_traceoff_d8_s1_20261006",
+        "rq14_traceoff_d8_s2_20261006"
+      ]
+    },
+    {
       "id": "RQ13",
       "short_question": "Can existing backend features absorb KV-load overlap?",
       "evidence_date_utc": "2026-10-06",

@@ -1,0 +1,280 @@
+{
+  "artifact_locations": {
+    "backend_features": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/runtime/backend_features.json",
+    "instrumentation_audit": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/instrumentation_audit.json",
+    "report": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/report.html",
+    "summary": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/rq14_capacity_d8_g1_o0_s1_20261006/summary.json"
+  },
+  "backend_name": "sglang",
+  "backend_runtime_contract": {
+    "adapter": "v0510",
+    "backend_name": "sglang",
+    "backend_version": "0.5.10.post1",
+    "capabilities": {
+      "backend_name": "sglang",
+      "backend_version": "0.5.10.post1",
+      "background_prefill_budget": false,
+      "kv_demote": true,
+      "kv_prefetch": true,
+      "kv_release": true,
+      "live_metrics": true,
+      "observe_only": false,
+      "priority_queue": true,
+      "safe_preemption": false
+    },
+    "container_image": "agentic-sglang-standard:0.5.10.post1",
+    "container_image_digest": "",
+    "container_image_identity": "local-image-id:sha256:86f549307446eb720a91f6d188813be8a6bd9c79ac8c474ee9dc5dc49246355c",
+    "endpoint": "",
+    "gpu_architecture": "configured-at-run-time",
+    "gpu_vendor": "nvidia",
+    "health_status": "not_checked",
+    "healthy": false,
+    "host_architecture": "x86_64",
+    "metadata": {
+      "health_checked": false,
+      "health_url": ""
+    },
+    "missing_required_capabilities": [],
+    "probe_ok": true,
+    "raw_capabilities": {
+      "cache_signal_path_audit": {
+        "checks": [
+          {
+            "expected_native_path": "OpenAI-compatible request field mapped to cache_salt or extra_key",
+            "generate_req_input_seen": false,
+            "parser_seen": false,
+            "radix_namespace_seen": true,
+            "req_field_seen": false,
+            "signal": "prompt_cache_key",
+            "source_evidence": "prompt_cache_key not found in installed SGLang source",
+            "verdict": "native prompt_cache_key path not proven by source audit"
+          },
+          {
+            "expected_native_path": "request cache_salt becomes request extra_key / RadixKey extra_key",
+            "generate_req_input_seen": true,
+            "parser_seen": true,
+            "radix_namespace_seen": true,
+            "req_field_seen": true,
+            "signal": "cache_salt",
+            "source_evidence": "cache_salt found in installed SGLang source",
+            "verdict": "native cache_salt namespace path appears present"
+          },
+          {
+            "expected_native_path": "custom cache-control metadata directly changes SGLang cache policy",
+            "generate_req_input_seen": false,
+            "parser_seen": true,
+            "radix_namespace_seen": false,
+            "req_field_seen": false,
+            "signal": "custom_params.nvext.cache_control",
+            "source_evidence": "cache_control found in installed SGLang source",
+            "verdict": "native cache_control action path not proven by source audit"
+          },
+          {
+            "expected_native_path": "testbed bridge metadata directly changes SGLang cache policy",
+            "generate_req_input_seen": false,
+            "parser_seen": false,
+            "radix_namespace_seen": false,
+            "req_field_seen": false,
+            "signal": "native_cache_bridge",
+            "source_evidence": "native_cache_bridge not found in installed SGLang source",
+            "verdict": "native bridge action path not proven by source audit"
+          },
+          {
+            "expected_native_path": "request priority reaches scheduler and cache insertion/eviction priority",
+            "generate_req_input_seen": true,
+            "parser_seen": true,
+            "radix_namespace_seen": true,
+            "req_field_seen": true,
+            "signal": "priority",
+            "source_evidence": "priority found in scheduler/cache source",
+            "verdict": "native priority path appears present"
+          }
+        ],
+        "module_presence": {
+          "hiradix_cache": true,
+          "io_struct": true,
+          "openai_adapter": false,
+          "openai_protocol": true,
+          "radix_cache": true,
+          "schedule_batch": true,
+          "schedule_policy": true
+        },
+        "relevant_objects": {
+          "HiRadixCache.match_prefix": true,
+          "RadixCache.cache_finished_req": true,
+          "RadixCache.match_prefix": true
+        },
+        "sglang_package_root": "/usr/local/lib/python3.10/dist-packages/sglang",
+        "summary": {
+          "cache_control_native_path": "native cache_control action path not proven by source audit",
+          "cache_salt_native_path": "native cache_salt namespace path appears present",
+          "native_cache_bridge_path": "native bridge action path not proven by source audit",
+          "priority_native_path": "native priority path appears present",
+          "prompt_cache_key_native_path": "native prompt_cache_key path not proven by source audit"
+        }
+      },
+      "hook_probe": [
+        {
+          "class": "HiCacheController",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.managers.cache_controller",
+          "module_found": true
+        },
+        {
+          "class": "HiRadixCache",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.mem_cache.hiradix_cache",
+          "module_found": true
+        },
+        {
+          "class": "RadixCache",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.mem_cache.radix_cache",
+          "module_found": true
+        },
+        {
+          "class": "HostPoolGroup",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.mem_cache.memory_pool_host",
+          "module_found": true
+        },
+        {
+          "class": "MHATokenToKVPoolHost",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.mem_cache.memory_pool_host",
+          "module_found": true
+        },
+        {
+          "class": "MLATokenToKVPoolHost",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.mem_cache.memory_pool_host",
+          "module_found": true
+        },
+        {
+          "class": "NSATokenToKVPoolHost",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.mem_cache.memory_pool_host",
+          "module_found": true
+        },
+        {
+          "class": "MambaPoolHost",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.mem_cache.memory_pool_host",
+          "module_found": true
+        },
+        {
+          "class": "Scheduler",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.managers.scheduler",
+          "module_found": true
+        },
+        {
+          "class": "TpModelWorker",
+          "class_found": true,
+          "missing_methods": [],
+          "module": "sglang.srt.managers.tp_worker",
+          "module_found": true
+        }
+      ],
+      "hook_probe_summary": {
+        "classes_found": 10,
+        "targets": 10,
+        "targets_with_missing_methods": 0
+      },
+      "launch_capabilities": {
+        "enable_priority_scheduling_flag_supported": true,
+        "entrypoints": {
+          "dynamo.sglang": {
+            "available": false,
+            "enable_priority_scheduling_flag_supported": false,
+            "error": null,
+            "error_type": null,
+            "exit_code": 1,
+            "module": "dynamo.sglang",
+            "priority_schedule_policy_supported": false,
+            "radix_eviction_policy_flag_supported": false,
+            "radix_priority_eviction_supported": false
+          },
+          "sglang.launch_server": {
+            "available": true,
+            "enable_priority_scheduling_flag_supported": true,
+            "error": null,
+            "error_type": null,
+            "exit_code": 0,
+            "module": "sglang.launch_server",
+            "priority_schedule_policy_supported": true,
+            "radix_eviction_policy_flag_supported": true,
+            "radix_priority_eviction_supported": false
+          }
+        },
+        "priority_schedule_policy_supported": true,
+        "radix_eviction_policy_choices": [
+          "lru",
+          "lfu",
+          "slru"
+        ],
+        "radix_eviction_policy_flag_supported": true,
+        "radix_priority_eviction_supported": false,
+        "schedule_policy_choices": []
+      },
+      "packages": {
+        "sgl-kernel": "",
+        "sglang": "0.5.10.post1",
+        "torch": "2.9.1",
+        "transformers": "5.3.0"
+      },
+      "selected_adapter": "v0510",
+      "sglang_version": "0.5.10.post1"
+    },
+    "required_capabilities": [],
+    "runtime_profile": "nvidia-standard",
+    "schema_version": "agentic_backend_runtime.v1"
+  },
+  "backend_version": "0.5.10.post1",
+  "completion_status": "complete",
+  "created_at_ms": 1791311817134,
+  "enabled_instrumentation": [
+    "v0510_backend_trace",
+    "work_audit_event_join",
+    "logical_block_lifecycle_reuse",
+    "tool_cycle_timing"
+  ],
+  "experiment": "agentic_work_audit_tool_cycles",
+  "git_commit": "",
+  "hardware_profile": "nvidia_a10g_24gb",
+  "harness_versions": {},
+  "metadata": {},
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "package_versions": {},
+  "run_id": "rq14_capacity_d8_g1_o0_s1_20261006",
+  "schema_version": "agentic_run_manifest.v2",
+  "seed": null,
+  "workload": {
+    "active_count": 2,
+    "cuda_graph_requested": 1,
+    "decode_tokens": 24,
+    "donor_count": 8,
+    "donor_initial_tokens": 512,
+    "frontend_priority": "none",
+    "hicache_size_gb": 8,
+    "initial_tokens": 768,
+    "mem_fraction_static": 0.7,
+    "overlap_schedule_requested": 0,
+    "purpose": "tool_cycles",
+    "research_question_id": "RQ14",
+    "seed": 1,
+    "tool_result_words": 96,
+    "turn_count": 12,
+    "wait_ms": 800
+  }
+}

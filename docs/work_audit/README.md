@@ -72,6 +72,32 @@ PYTHONPATH="$(printf '%s:' packages/*/src)" python3 -m agentic_reports.builders.
   plugin. Its proposed UnifiedRadixCache hooks are not assumed to exist in
   SGLang 0.5.10.post1.
 
+## Repeated Tool Returns (RQ14)
+
+`WORK_AUDIT_STUDY=tool_cycles` runs two equal-priority active sessions through
+12 synthetic tool waits and replays each. Eight additional donor sessions make
+the high-pressure arm. All sessions grow their prompt histories on each turn;
+the runner does not explicitly evict or load KV. Set `WORK_AUDIT_SEED` to 1 or
+2, `WORK_AUDIT_DONOR_COUNT` to 0 or 8, and independently set
+`WORK_AUDIT_CUDA_GRAPH` and `WORK_AUDIT_OVERLAP_SCHEDULE` to 0 or 1. The
+individual archived run manifests and commands are in the top-level audit's
+experiment details. A representative high-pressure invocation is:
+
+```bash
+WORK_AUDIT_RUN_ID=rq14_example WORK_AUDIT_STUDY=tool_cycles \
+WORK_AUDIT_SEED=1 WORK_AUDIT_DONOR_COUNT=8 \
+WORK_AUDIT_CUDA_GRAPH=0 WORK_AUDIT_OVERLAP_SCHEDULE=0 \
+bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
+```
+
+The `tool_cycle_timing` profile captures cache lookup, native load-back, and
+first-batch boundaries, but not full debug or Nsight. `WORK_AUDIT_TRACE_ENABLE=0`
+produces a separately labeled control with only client-visible timing; it cannot
+prove KV residency or backend-stage timing. Compare trace-on and trace-off as a
+perturbation check, not as a precise overhead subtraction. The archived RQ14
+matrix, including per-turn metrics and compressed traces, is under
+`docs/reports/work_audit/rq14_*` and is indexed by the top-level audit.
+
 ## First Live Validation
 
 Use the accessible A10G host with the existing pinned SGLang 0.5.10.post1
