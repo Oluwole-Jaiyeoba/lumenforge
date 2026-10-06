@@ -10,9 +10,9 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Question.** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
 
-**What the evidence says.** In three warmed, order-balanced A10G pairs, early loading made the short session finish 128-182 ms later than loading after that session finished; first-token timing was nearly unchanged. Backend batch time increased 173-225 ms while gaps between batches decreased. A follow-up two-pair run placed 185-190 ms of added time inside model forward. In two later Nsight captures, the first pair in each had complete CUDA linkage: both modes launched 4872 short-replay kernels, total kernel execution changed by only 0.3-0.6 ms, but between-kernel gaps grew by 126 and 174 ms. No host-to-device copy was recorded during those kernel spans. This points away from slower decode kernels or direct concurrent copy-bandwidth contention in those captured pairs; the observed delay is between kernels.
+**What the evidence says.** In three warmed, order-balanced A10G pairs, early loading made the short session finish 128-182 ms later than loading after that session finished; first-token timing was nearly unchanged. Backend batch time increased 173-225 ms while gaps between batches decreased. A follow-up two-pair run placed 185-190 ms of added time inside model forward. In two later Nsight captures, the first pair in each had complete CUDA linkage: both modes launched 4872 short-replay kernels, total kernel execution changed by only 0.3-0.6 ms, but between-kernel gaps grew by 126 and 174 ms. Of those added gaps, 122 and 167 ms occurred before the CPU began the next CUDA launch; launch-call and after-launch time changed much less. Recorded stream-wait activity was about 1 ms per arm, and no blocking CUDA synchronization API was observed in those forward calls. No host-to-device copy was recorded during the short-forward kernel spans. The captured evidence points to delayed host-side launch cadence, not slower kernels or direct concurrent copy-bandwidth contention.
 
-**Not yet proved.** Nsight lost CUDA activity for later cases in both two-pair profiling runs; the kernel result is a validated subset, not a complete order-balanced profiler experiment. A reverse-order run had no CUDA kernel capture and is excluded. Between-kernel gaps do not by themselves distinguish CPU launch delay from GPU synchronization or other dependencies. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait; hardware offload benefits and production frequency remain unproven.
+**Not yet proved.** Nsight lost CUDA activity for later cases in both two-pair profiling runs; the launch-gap result is a validated subset, not a complete order-balanced profiler experiment. A reverse-order run had no CUDA kernel capture and is excluded. The trace does not show why the host delayed its next launch: CPU scheduling, Python work, other software waits, or competition from the worker remain candidates. Gaps between this request's kernels are not global GPU-idle measurements. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait; hardware offload benefits and production frequency remain unproven.
 
 ### RQ9: Does off-scheduler KV loading help?
 
@@ -149,6 +149,15 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | Pair 1 · post_short | 4872 | 469.7 | 17.6 | 0.0 |
 | Pair 1 · early | 4872 | 469.9 | 191.8 | 0.0 |
 
+**CUDA launch check (same captured pair).** Most added gap time passed before the CPU started the next launch. This does not identify why the host waited or measure global GPU idle time.
+
+| Captured case | Total gaps (ms) | Before CPU launch (ms) | During launch API (ms) | After launch API (ms) |
+| --- | --- | --- | --- | --- |
+| post_short | 17.6 | 10.9 | 1.6 | 5.1 |
+| early | 191.8 | 178.3 | 8.7 | 4.7 |
+
+Recorded stream-wait event activity was 0.886 ms after-short and 1.028 ms early; blocking CUDA synchronization API time was 0.000 ms and 0.000 ms. These are not additive to the gap categories.
+
 **Evidence gate.** validated timing; partial CUDA capture. Timestamp: First request; displayed in Central Time.
 
 **Limits**
@@ -163,7 +172,7 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_graceful_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=1 WORK_AUDIT_NSYS_ENABLE=1 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/kernel_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/backend.sqlite.gz)
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/kernel_attribution_pair01.json) · [CUDA launch gaps](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/launch_gap_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_graceful_20261005/nsys/backend.sqlite.gz)
 
 </details>
 
@@ -193,6 +202,15 @@ WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_graceful_20261005 WORK_AUDIT_RESEARCH_
 | Pair 1 · post_short | 4872 | 469.5 | 17.1 | 0.0 |
 | Pair 1 · early | 4872 | 470.1 | 143.3 | 0.0 |
 
+**CUDA launch check (same captured pair).** Most added gap time passed before the CPU started the next launch. This does not identify why the host waited or measure global GPU idle time.
+
+| Captured case | Total gaps (ms) | Before CPU launch (ms) | During launch API (ms) | After launch API (ms) |
+| --- | --- | --- | --- | --- |
+| post_short | 17.1 | 10.5 | 1.5 | 5.0 |
+| early | 143.3 | 132.6 | 5.6 | 5.2 |
+
+Recorded stream-wait event activity was 0.892 ms after-short and 0.937 ms early; blocking CUDA synchronization API time was 0.000 ms and 0.000 ms. These are not additive to the gap categories.
+
 **Evidence gate.** validated timing; partial CUDA capture. Timestamp: First request; displayed in Central Time.
 
 **Limits**
@@ -207,7 +225,7 @@ WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_graceful_20261005 WORK_AUDIT_RESEARCH_
 WORK_AUDIT_RUN_ID=work_audit_cuda_kernels_20261005 WORK_AUDIT_RESEARCH_QUESTION_ID=RQ10 WORK_AUDIT_STUDY=multisession_overlap WORK_AUDIT_TRACE_PROFILE=kv_decode_overlap WORK_AUDIT_FORWARD_TRACE=1 WORK_AUDIT_NSYS_ENABLE=1 WORK_AUDIT_CASE_ORDER=early-post_short WORK_AUDIT_PAIRS=2 WORK_AUDIT_WARMUP_PAIRS=1 WORK_AUDIT_SHORT_WAIT_MS=900 WORK_AUDIT_LONG_WAIT_MS=10000 WORK_AUDIT_EARLY_AT_MS=1200 WORK_AUDIT_ESTIMATED_LOAD_MS=250 WORK_AUDIT_LOAD_MARGIN_MS=150 WORK_AUDIT_PROMPT_WORDS=4090 WORK_AUDIT_MAX_OUTPUT_TOKENS=16 WORK_AUDIT_MINIMUM_HOST_TOKENS=512 WORK_AUDIT_EVICTION_ROUNDS=4 AGENTIC_KV_PREPARE_LOAD_WORKER=1 HICACHE_SIZE_GB=8 MEM_FRACTION_STATIC=0.7 bash infra/container/run_work_audit_validation.sh Qwen/Qwen2.5-Coder-7B-Instruct
 ```
 
-**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/kernel_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/backend.sqlite.gz)
+**Evidence:** [Summary](docs/reports/work_audit/work_audit_cuda_kernels_20261005/summary.json) · [Run manifest](docs/reports/work_audit/work_audit_cuda_kernels_20261005/run_manifest.json) · [Hook gate](docs/reports/work_audit/work_audit_cuda_kernels_20261005/instrumentation_audit.json) · [Harness timeline](docs/reports/work_audit/work_audit_cuda_kernels_20261005/harness_events.jsonl) · [Raw trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/backend_trace.jsonl.gz) · [Captured GPU kernels](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/kernel_attribution_pair01.json) · [CUDA launch gaps](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/launch_gap_attribution_pair01.json) · [Nsight SQLite trace](docs/reports/work_audit/work_audit_cuda_kernels_20261005/nsys/backend.sqlite.gz)
 
 </details>
 

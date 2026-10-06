@@ -77,6 +77,12 @@ analyzer fails the full run; `--pair 1` can extract an explicitly labeled
 A10G host, two longer captures lost later CUDA events and a shorter reverse
 capture produced no kernel events; this path is not yet a reliable full-run
 profiler recipe.
+The offline `analyze_work_audit_cuda_launch_gaps` runner can further divide
+the captured short-forward kernel gaps into time before the next CPU CUDA
+launch, time inside its launch API, and time after that API until its kernel
+starts. Give it `--sqlite`, `--summary`, `--kernel-attribution`, and `--out`;
+the kernel report cross-check rejects partial linkage. This does not identify
+why the CPU waited or measure whether the whole GPU was idle.
 `kv_attribution` combines request-ingress timestamps with KV load and
 prefix-match events, but keeps per-batch scheduler logging, per-layer copy
 detail, GPU sampling, and full debug off. The three-arm busy audit

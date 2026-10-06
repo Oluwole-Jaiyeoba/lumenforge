@@ -1,0 +1,1167 @@
+{
+  "schema": "agentic_work_audit.cuda_launch_gaps.v1",
+  "status": "validated_subset",
+  "run_id": "work_audit_cuda_kernels_20261005",
+  "pair": 1,
+  "early": {
+    "case_id": "work_audit_cuda_kernels_20261005-pair01-early",
+    "forward_calls": [
+      {
+        "call_id": "116-26922944666807",
+        "kernel_count": 348,
+        "gap_ms": 42.796,
+        "cpu_before_launch_ms": 41.058,
+        "launch_api_ms": 1.38,
+        "after_launch_api_ms": 0.358,
+        "stream_wait_event_gpu_ms": 0.076,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.127
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 1.792,
+            "cpu_before_launch_ms": 1.781,
+            "launch_api_ms": 0.011,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 1.373,
+            "cpu_before_launch_ms": 1.359,
+            "launch_api_ms": 0.013,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          },
+          {
+            "gap_ms": 1.12,
+            "cpu_before_launch_ms": 1.107,
+            "launch_api_ms": 0.013,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923027768267",
+        "kernel_count": 348,
+        "gap_ms": 42.125,
+        "cpu_before_launch_ms": 40.429,
+        "launch_api_ms": 1.296,
+        "after_launch_api_ms": 0.4,
+        "stream_wait_event_gpu_ms": 0.077,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.126
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 1.726,
+            "cpu_before_launch_ms": 1.712,
+            "launch_api_ms": 0.014,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          },
+          {
+            "gap_ms": 1.114,
+            "cpu_before_launch_ms": 1.101,
+            "launch_api_ms": 0.013,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          },
+          {
+            "gap_ms": 1.032,
+            "cpu_before_launch_ms": 1.021,
+            "launch_api_ms": 0.011,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923109244890",
+        "kernel_count": 348,
+        "gap_ms": 41.368,
+        "cpu_before_launch_ms": 39.471,
+        "launch_api_ms": 1.544,
+        "after_launch_api_ms": 0.352,
+        "stream_wait_event_gpu_ms": 0.078,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.128
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 1.681,
+            "cpu_before_launch_ms": 1.669,
+            "launch_api_ms": 0.012,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 1.658,
+            "cpu_before_launch_ms": 1.645,
+            "launch_api_ms": 0.013,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 1.492,
+            "cpu_before_launch_ms": 1.479,
+            "launch_api_ms": 0.013,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923189230623",
+        "kernel_count": 348,
+        "gap_ms": 4.267,
+        "cpu_before_launch_ms": 3.671,
+        "launch_api_ms": 0.216,
+        "after_launch_api_ms": 0.38,
+        "stream_wait_event_gpu_ms": 0.067,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.11
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 1.138,
+            "cpu_before_launch_ms": 1.126,
+            "launch_api_ms": 0.011,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.471,
+            "cpu_before_launch_ms": 0.459,
+            "launch_api_ms": 0.012,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          },
+          {
+            "gap_ms": 0.37,
+            "cpu_before_launch_ms": 0.355,
+            "launch_api_ms": 0.014,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923229038371",
+        "kernel_count": 348,
+        "gap_ms": 1.497,
+        "cpu_before_launch_ms": 1.008,
+        "launch_api_ms": 0.134,
+        "after_launch_api_ms": 0.355,
+        "stream_wait_event_gpu_ms": 0.07,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.114
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.189,
+            "cpu_before_launch_ms": 0.178,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.14,
+            "cpu_before_launch_ms": 0.127,
+            "launch_api_ms": 0.013,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          },
+          {
+            "gap_ms": 0.114,
+            "cpu_before_launch_ms": 0.103,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923265208307",
+        "kernel_count": 348,
+        "gap_ms": 1.261,
+        "cpu_before_launch_ms": 0.769,
+        "launch_api_ms": 0.114,
+        "after_launch_api_ms": 0.378,
+        "stream_wait_event_gpu_ms": 0.064,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.106
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.158,
+            "cpu_before_launch_ms": 0.148,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.099,
+            "cpu_before_launch_ms": 0.087,
+            "launch_api_ms": 0.011,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.087,
+            "cpu_before_launch_ms": 0.076,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923301027967",
+        "kernel_count": 348,
+        "gap_ms": 1.221,
+        "cpu_before_launch_ms": 0.756,
+        "launch_api_ms": 0.111,
+        "after_launch_api_ms": 0.354,
+        "stream_wait_event_gpu_ms": 0.064,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.106
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.159,
+            "cpu_before_launch_ms": 0.149,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.09,
+            "cpu_before_launch_ms": 0.081,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.087,
+            "cpu_before_launch_ms": 0.077,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923336810035",
+        "kernel_count": 348,
+        "gap_ms": 1.23,
+        "cpu_before_launch_ms": 0.745,
+        "launch_api_ms": 0.11,
+        "after_launch_api_ms": 0.375,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.104
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.162,
+            "cpu_before_launch_ms": 0.151,
+            "launch_api_ms": 0.011,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.092,
+            "cpu_before_launch_ms": 0.082,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.083,
+            "cpu_before_launch_ms": 0.074,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.001,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923372577303",
+        "kernel_count": 348,
+        "gap_ms": 1.315,
+        "cpu_before_launch_ms": 0.835,
+        "launch_api_ms": 0.126,
+        "after_launch_api_ms": 0.355,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.106
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.164,
+            "cpu_before_launch_ms": 0.153,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.108,
+            "cpu_before_launch_ms": 0.097,
+            "launch_api_ms": 0.011,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.091,
+            "cpu_before_launch_ms": 0.079,
+            "launch_api_ms": 0.012,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923408418144",
+        "kernel_count": 348,
+        "gap_ms": 1.26,
+        "cpu_before_launch_ms": 0.769,
+        "launch_api_ms": 0.111,
+        "after_launch_api_ms": 0.381,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.104
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.157,
+            "cpu_before_launch_ms": 0.147,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.093,
+            "cpu_before_launch_ms": 0.084,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.084,
+            "cpu_before_launch_ms": 0.075,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923444204271",
+        "kernel_count": 348,
+        "gap_ms": 1.228,
+        "cpu_before_launch_ms": 0.761,
+        "launch_api_ms": 0.111,
+        "after_launch_api_ms": 0.355,
+        "stream_wait_event_gpu_ms": 0.062,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.104
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.158,
+            "cpu_before_launch_ms": 0.148,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.094,
+            "cpu_before_launch_ms": 0.083,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.001,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.091,
+            "cpu_before_launch_ms": 0.081,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923479985949",
+        "kernel_count": 348,
+        "gap_ms": 1.294,
+        "cpu_before_launch_ms": 0.803,
+        "launch_api_ms": 0.12,
+        "after_launch_api_ms": 0.371,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.105
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.164,
+            "cpu_before_launch_ms": 0.155,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.097,
+            "cpu_before_launch_ms": 0.088,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.091,
+            "cpu_before_launch_ms": 0.082,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923515855532",
+        "kernel_count": 348,
+        "gap_ms": 1.211,
+        "cpu_before_launch_ms": 0.747,
+        "launch_api_ms": 0.108,
+        "after_launch_api_ms": 0.356,
+        "stream_wait_event_gpu_ms": 0.064,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.106
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.17,
+            "cpu_before_launch_ms": 0.16,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.089,
+            "cpu_before_launch_ms": 0.08,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.083,
+            "cpu_before_launch_ms": 0.073,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26923551608398",
+        "kernel_count": 348,
+        "gap_ms": 1.252,
+        "cpu_before_launch_ms": 0.76,
+        "launch_api_ms": 0.111,
+        "after_launch_api_ms": 0.381,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.104
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.157,
+            "cpu_before_launch_ms": 0.147,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.091,
+            "cpu_before_launch_ms": 0.081,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.085,
+            "cpu_before_launch_ms": 0.075,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      }
+    ],
+    "forward_call_count": 14,
+    "kernel_count": 4872,
+    "gap_ms": 143.325,
+    "cpu_before_launch_ms": 132.582,
+    "launch_api_ms": 5.592,
+    "after_launch_api_ms": 5.151,
+    "stream_wait_event_gpu_ms": 0.937,
+    "blocking_sync_api_ms": 0.0
+  },
+  "post_short": {
+    "case_id": "work_audit_cuda_kernels_20261005-pair01-post_short",
+    "forward_calls": [
+      {
+        "call_id": "116-26906531147991",
+        "kernel_count": 348,
+        "gap_ms": 1.233,
+        "cpu_before_launch_ms": 0.753,
+        "launch_api_ms": 0.109,
+        "after_launch_api_ms": 0.37,
+        "stream_wait_event_gpu_ms": 0.064,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.106
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.157,
+            "cpu_before_launch_ms": 0.147,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.094,
+            "cpu_before_launch_ms": 0.084,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.084,
+            "cpu_before_launch_ms": 0.074,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906566897377",
+        "kernel_count": 348,
+        "gap_ms": 1.204,
+        "cpu_before_launch_ms": 0.747,
+        "launch_api_ms": 0.109,
+        "after_launch_api_ms": 0.348,
+        "stream_wait_event_gpu_ms": 0.062,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.103
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.158,
+            "cpu_before_launch_ms": 0.148,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.094,
+            "cpu_before_launch_ms": 0.085,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.084,
+            "cpu_before_launch_ms": 0.074,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906602635554",
+        "kernel_count": 348,
+        "gap_ms": 1.218,
+        "cpu_before_launch_ms": 0.743,
+        "launch_api_ms": 0.11,
+        "after_launch_api_ms": 0.365,
+        "stream_wait_event_gpu_ms": 0.062,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.104
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.156,
+            "cpu_before_launch_ms": 0.146,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.088,
+            "cpu_before_launch_ms": 0.079,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.084,
+            "cpu_before_launch_ms": 0.075,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906638361749",
+        "kernel_count": 348,
+        "gap_ms": 1.192,
+        "cpu_before_launch_ms": 0.738,
+        "launch_api_ms": 0.106,
+        "after_launch_api_ms": 0.349,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.105
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.156,
+            "cpu_before_launch_ms": 0.147,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.09,
+            "cpu_before_launch_ms": 0.08,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.001,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.082,
+            "cpu_before_launch_ms": 0.072,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906674109135",
+        "kernel_count": 348,
+        "gap_ms": 1.215,
+        "cpu_before_launch_ms": 0.734,
+        "launch_api_ms": 0.11,
+        "after_launch_api_ms": 0.371,
+        "stream_wait_event_gpu_ms": 0.062,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.103
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.158,
+            "cpu_before_launch_ms": 0.147,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.001,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.09,
+            "cpu_before_launch_ms": 0.081,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.081,
+            "cpu_before_launch_ms": 0.072,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906709835711",
+        "kernel_count": 348,
+        "gap_ms": 1.219,
+        "cpu_before_launch_ms": 0.763,
+        "launch_api_ms": 0.11,
+        "after_launch_api_ms": 0.345,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.104
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.157,
+            "cpu_before_launch_ms": 0.148,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.103,
+            "cpu_before_launch_ms": 0.092,
+            "launch_api_ms": 0.012,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.089,
+            "cpu_before_launch_ms": 0.079,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906745619269",
+        "kernel_count": 348,
+        "gap_ms": 1.25,
+        "cpu_before_launch_ms": 0.768,
+        "launch_api_ms": 0.115,
+        "after_launch_api_ms": 0.368,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.105
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.16,
+            "cpu_before_launch_ms": 0.15,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.094,
+            "cpu_before_launch_ms": 0.084,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.087,
+            "cpu_before_launch_ms": 0.078,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906781390997",
+        "kernel_count": 348,
+        "gap_ms": 1.184,
+        "cpu_before_launch_ms": 0.732,
+        "launch_api_ms": 0.105,
+        "after_launch_api_ms": 0.348,
+        "stream_wait_event_gpu_ms": 0.062,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.103
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.156,
+            "cpu_before_launch_ms": 0.147,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.089,
+            "cpu_before_launch_ms": 0.079,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.081,
+            "cpu_before_launch_ms": 0.072,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906817118692",
+        "kernel_count": 348,
+        "gap_ms": 1.222,
+        "cpu_before_launch_ms": 0.746,
+        "launch_api_ms": 0.107,
+        "after_launch_api_ms": 0.369,
+        "stream_wait_event_gpu_ms": 0.072,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.114
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.155,
+            "cpu_before_launch_ms": 0.145,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.088,
+            "cpu_before_launch_ms": 0.078,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.083,
+            "cpu_before_launch_ms": 0.074,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906852888520",
+        "kernel_count": 348,
+        "gap_ms": 1.201,
+        "cpu_before_launch_ms": 0.746,
+        "launch_api_ms": 0.108,
+        "after_launch_api_ms": 0.346,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.105
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.161,
+            "cpu_before_launch_ms": 0.152,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.091,
+            "cpu_before_launch_ms": 0.082,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.085,
+            "cpu_before_launch_ms": 0.075,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906888634147",
+        "kernel_count": 348,
+        "gap_ms": 1.232,
+        "cpu_before_launch_ms": 0.756,
+        "launch_api_ms": 0.111,
+        "after_launch_api_ms": 0.365,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.103
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.156,
+            "cpu_before_launch_ms": 0.146,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.091,
+            "cpu_before_launch_ms": 0.081,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.084,
+            "cpu_before_launch_ms": 0.073,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906924405294",
+        "kernel_count": 348,
+        "gap_ms": 1.191,
+        "cpu_before_launch_ms": 0.735,
+        "launch_api_ms": 0.109,
+        "after_launch_api_ms": 0.346,
+        "stream_wait_event_gpu_ms": 0.063,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.104
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.159,
+            "cpu_before_launch_ms": 0.149,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.098,
+            "cpu_before_launch_ms": 0.088,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.001,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.079,
+            "cpu_before_launch_ms": 0.069,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906960223754",
+        "kernel_count": 348,
+        "gap_ms": 1.279,
+        "cpu_before_launch_ms": 0.792,
+        "launch_api_ms": 0.122,
+        "after_launch_api_ms": 0.365,
+        "stream_wait_event_gpu_ms": 0.068,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.112
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.163,
+            "cpu_before_launch_ms": 0.152,
+            "launch_api_ms": 0.011,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.095,
+            "cpu_before_launch_ms": 0.085,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.001,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.09,
+            "cpu_before_launch_ms": 0.077,
+            "launch_api_ms": 0.012,
+            "after_launch_api_ms": 0.001,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          }
+        ]
+      },
+      {
+        "call_id": "116-26906996016362",
+        "kernel_count": 348,
+        "gap_ms": 1.214,
+        "cpu_before_launch_ms": 0.757,
+        "launch_api_ms": 0.109,
+        "after_launch_api_ms": 0.347,
+        "stream_wait_event_gpu_ms": 0.062,
+        "blocking_sync_api_ms": 0.0,
+        "sync_api": [
+          {
+            "name": "cudaStreamWaitEvent_v3020",
+            "count": 56,
+            "duration_ms": 0.102
+          }
+        ],
+        "largest_gaps": [
+          {
+            "gap_ms": 0.158,
+            "cpu_before_launch_ms": 0.149,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cuLaunchKernelEx"
+          },
+          {
+            "gap_ms": 0.091,
+            "cpu_before_launch_ms": 0.081,
+            "launch_api_ms": 0.009,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernel_v7000"
+          },
+          {
+            "gap_ms": 0.089,
+            "cpu_before_launch_ms": 0.078,
+            "launch_api_ms": 0.01,
+            "after_launch_api_ms": 0.0,
+            "next_launch_api": "cudaLaunchKernelExC_v11060"
+          }
+        ]
+      }
+    ],
+    "forward_call_count": 14,
+    "kernel_count": 4872,
+    "gap_ms": 17.054,
+    "cpu_before_launch_ms": 10.51,
+    "launch_api_ms": 1.54,
+    "after_launch_api_ms": 5.002,
+    "stream_wait_event_gpu_ms": 0.892,
+    "blocking_sync_api_ms": 0.0
+  },
+  "early_minus_post_short_ms": {
+    "gap_ms": 126.271,
+    "cpu_before_launch_ms": 122.072,
+    "launch_api_ms": 4.052,
+    "after_launch_api_ms": 0.149,
+    "stream_wait_event_gpu_ms": 0.045,
+    "blocking_sync_api_ms": 0.0
+  },
+  "limitations": [
+    "Only the captured first pair is analyzed; later CUDA activity was missing.",
+    "CPU-before-launch is a timeline classification, not proof of why the host delayed.",
+    "After-launch gaps can include dependencies or stream waits; this trace does not prove their cause.",
+    "Nsight profiling perturbs timing; use unprofiled runs for latency estimates.",
+    "These gaps are inside model-forward calls only, not between forwards or request submission."
+  ]
+}

@@ -144,6 +144,22 @@ def test_decode_overlap_report_keeps_stage_attribution_and_runner():
     assert "Between-kernel gaps" in markdown
     assert "WORK_AUDIT_NSYS_ENABLE=1" in markdown
     assert "partial CUDA capture" in markdown
+    summary["_cuda_launch_gaps"] = {
+        "early_minus_post_short_ms": {"cpu_before_launch_ms": 167.4},
+        "early": {"gap_ms": 190.0, "cpu_before_launch_ms": 178.3,
+                  "launch_api_ms": 7.5, "after_launch_api_ms": 4.2,
+                  "stream_wait_event_gpu_ms": 1.0, "blocking_sync_api_ms": 0.0},
+        "post_short": {"gap_ms": 17.6, "cpu_before_launch_ms": 10.9,
+                       "launch_api_ms": 1.5, "after_launch_api_ms": 5.2,
+                       "stream_wait_event_gpu_ms": 0.9, "blocking_sync_api_ms": 0.0},
+    }
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "Before CPU launch" in page
+    assert "167.4 ms occurred before the CPU began the next CUDA launch" in page
+    assert "Before CPU launch (ms)" in markdown
+    assert "Recorded stream-wait event activity" in markdown
+    assert "CUDA launch gaps" in markdown
 
 
 def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):

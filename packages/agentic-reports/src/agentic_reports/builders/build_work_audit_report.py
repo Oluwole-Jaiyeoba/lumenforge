@@ -158,6 +158,8 @@ def _links(path: Path, summary: dict) -> str:
     if summary.get("_cuda_kernel_subset"):
         base = path.parent.as_posix()
         links.append(f'<a href="{_esc(base)}/nsys/kernel_attribution_pair01.json">Captured GPU kernels</a>')
+        if summary.get("_cuda_launch_gaps"):
+            links.append(f'<a href="{_esc(base)}/nsys/launch_gap_attribution_pair01.json">CUDA launch gaps</a>')
         links.append(f'<a href="{_esc(base)}/nsys/backend.sqlite.gz">Nsight SQLite trace</a>')
     return " · ".join(links)
 
@@ -658,10 +660,40 @@ def _decode_overlap_result(summary: dict) -> tuple[str, str]:
             "latency comparison.</p>" +
             _mode_table(("Captured case", "Kernels", "Kernel execution", "Between-kernel gaps",
                          "H-to-D during kernel spans"), kernel_rows) +
-            "<p><strong>Limit.</strong> Unchanged kernel execution and longer gaps do not identify "
+            "<p><strong>Limit.</strong> Kernel duration and gaps alone do not identify "
             "CPU launch delay versus GPU synchronization. No H-to-D copy overlapped these kernel "
             "spans, which argues against direct copy-bandwidth contention in the captured pair.</p>"
         )
+        launch = summary.get("_cuda_launch_gaps")
+        if launch:
+            split = launch["early_minus_post_short_ms"]
+            headline += (f" Of the added gaps, {split['cpu_before_launch_ms']:.1f} ms occurred "
+                         "before the CPU began the next CUDA launch.")
+            launch_rows = []
+            for mode, label in (("post_short", "After short response"),
+                                ("early", "Early worker load")):
+                arm = launch[mode]
+                launch_rows.append((label, _ms(arm["gap_ms"]),
+                                    _ms(arm["cpu_before_launch_ms"]),
+                                    _ms(arm["launch_api_ms"]),
+                                    _ms(arm["after_launch_api_ms"])))
+            detail += (
+                "<p><strong>CUDA launch check (same captured pair).</strong> Each short-forward "
+                "kernel gap is split at the CPU launch call for the next kernel. The extra "
+                "delay is mainly before that call, especially in the first three forwards.</p>" +
+                _mode_table(("Captured case", "Total gaps", "Before CPU launch",
+                             "During launch API", "After launch API"), launch_rows) +
+                "<p>Recorded stream-wait event activity: "
+                f"{launch['post_short']['stream_wait_event_gpu_ms']:.3f} ms after-short, "
+                f"{launch['early']['stream_wait_event_gpu_ms']:.3f} ms early; "
+                f"blocking CUDA synchronization API time: "
+                f"{launch['post_short']['blocking_sync_api_ms']:.3f} ms after-short, "
+                f"{launch['early']['blocking_sync_api_ms']:.3f} ms early. "
+                "These sync times can overlap the gap categories and are not additive.</p>" +
+                "<p><strong>Limit.</strong> Before-launch time can include host scheduling, "
+                "model-forward CPU work, or other software waits; it does not prove which one. "
+                "These are gaps between this request's kernels, not a measure of global GPU idle time.</p>"
+            )
     return headline, detail
 
 
@@ -1291,6 +1323,26 @@ def _markdown_metrics(summary: dict) -> str:
                       "mechanism evidence, not the clean performance estimate.\n\n" +
                       _md_table(("Captured case", "Kernels", "Kernel execution (ms)",
                                  "Between-kernel gaps (ms)", "H-to-D overlap (ms)"), kernel_rows))
+            launch = summary.get("_cuda_launch_gaps")
+            if launch:
+                launch_rows = []
+                for mode in ("post_short", "early"):
+                    arm = launch[mode]
+                    launch_rows.append((mode, arm["gap_ms"], arm["cpu_before_launch_ms"],
+                                        arm["launch_api_ms"], arm["after_launch_api_ms"]))
+                table += ("\n\n**CUDA launch check (same captured pair).** Most added gap "
+                          "time passed before the CPU started the next launch. This does not "
+                          "identify why the host waited or measure global GPU idle time.\n\n" +
+                          _md_table(("Captured case", "Total gaps (ms)", "Before CPU launch (ms)",
+                                     "During launch API (ms)", "After launch API (ms)"),
+                                    launch_rows))
+                table += ("\n\nRecorded stream-wait event activity was "
+                          f"{launch['post_short']['stream_wait_event_gpu_ms']:.3f} ms after-short "
+                          f"and {launch['early']['stream_wait_event_gpu_ms']:.3f} ms early; "
+                          "blocking CUDA synchronization API time was "
+                          f"{launch['post_short']['blocking_sync_api_ms']:.3f} ms and "
+                          f"{launch['early']['blocking_sync_api_ms']:.3f} ms. "
+                          "These are not additive to the gap categories.")
         return table
     if schema == "agentic_work_audit.kv_load_attribution.v1":
         rows = []
@@ -1638,6 +1690,8 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                 evidence.append(f"[{label}]({base}/{filename})")
         if summary.get("_cuda_kernel_subset"):
             evidence.append(f"[Captured GPU kernels]({base}/nsys/kernel_attribution_pair01.json)")
+            if summary.get("_cuda_launch_gaps"):
+                evidence.append(f"[CUDA launch gaps]({base}/nsys/launch_gap_attribution_pair01.json)")
             evidence.append(f"[Nsight SQLite trace]({base}/nsys/backend.sqlite.gz)")
         command = _reproduction_command(summary)
         lines.extend((f'<a id="run-{html.escape(run, quote=True)}"></a>',
@@ -1680,6 +1734,9 @@ def main() -> None:
         cuda = path.parent / "nsys" / "kernel_attribution_pair01.json"
         if cuda.exists():
             summary["_cuda_kernel_subset"] = json.loads(cuda.read_text(encoding="utf-8"))
+        launch = path.parent / "nsys" / "launch_gap_attribution_pair01.json"
+        if launch.exists():
+            summary["_cuda_launch_gaps"] = json.loads(launch.read_text(encoding="utf-8"))
         summary["_started_ns"] = _first_request_ns(path)
         summary["_files"] = {evidence.name for evidence in path.parent.iterdir() if evidence.is_file()}
         summaries.append((Path(os.path.relpath(path, args.out.parent)), summary))
