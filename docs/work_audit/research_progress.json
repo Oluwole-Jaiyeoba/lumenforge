@@ -2,6 +2,30 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ13",
+      "short_question": "Can existing backend features absorb KV-load overlap?",
+      "evidence_date_utc": "2026-10-06",
+      "question": "On the pinned A10G backend, do CUDA graphs and overlap scheduling reduce the extra target-decode time from four native host-KV loads, without moving KV management into hardware?",
+      "answer": "In matched six-session, 2048-word, 96-output-token A10G runs, four worker KV loads added 475 and 446 ms to target tool-return-to-completion time with both features off (13.5% and 12.6%). With CUDA graphs and overlap scheduling both enabled, the added time was 6.6 and 1.2 ms (0.18% and 0.03%) across the same two seeds. Single-seed checks found +142 ms (4.1%) with graphs alone and +458 ms (11.4%) with overlap scheduling alone. First-token timing was essentially unchanged within each mode. One separate profiler run with both features on verified four physical host-to-GPU loads during target decode: 37.145 ms of copy activity in the decode interval, but only 0.044 ms concurrent with recorded decode kernels. Thus existing software features largely removed the measured incremental overlap penalty in this small workload, without proving a hardware bandwidth effect or hardware-offload benefit.",
+      "hypothesis": "The original slowdown depends strongly on backend work-submission behavior; CUDA graphs together with overlap scheduling may keep decode work moving despite concurrent KV-load orchestration.",
+      "unknown": "Two seeds cover only the both-off and both-on comparison; single-feature arms have one seed. The combined mode raised no-load target first-token time from about 65-66 ms to 385-387 ms and no-load completion from about 3.53 to 3.65 seconds, so minimal added overlap cost is not an unconditional win. Worker-window overlap is a proxy in the unprofiled comparisons; the separate Nsight run verifies physical copy overlap but barely any copy/kernel concurrency and must not be used for latency estimates. The 2048-word prompts were chosen because a 4090-word graph-enabled four-load attempt hit KV-capacity admission limits. The exact reason the combined features remove the incremental penalty, production prevalence, and any hardware benefit remain unproven. The first-seed summaries retain their reused RQ11 driver label; their run manifests and this milestone identify them as RQ13, and later summaries emit RQ13 directly.",
+      "evidence_run_ids": [
+        "rq13_baseline_d0_p2048_w40_20261006",
+        "rq13_baseline_d4_p2048_w40_20261006",
+        "rq13_baseline_d0_p2048_w40_seed2_20261006",
+        "rq13_baseline_d4_p2048_w40_seed2_20261006",
+        "rq13_graph_d0_p2048_w40_20261006",
+        "rq13_graph_d4_p2048_w40_20261006",
+        "rq13_overlap_d0_p2048_w40_20261006",
+        "rq13_overlap_d4_p2048_w40_20261006",
+        "rq13_both_d0_p2048_w40_20261006",
+        "rq13_both_d4_p2048_w40_20261006",
+        "rq13_both_d0_p2048_w40_seed2_20261006",
+        "rq13_both_d4_p2048_w40_seed2_20261006",
+        "rq13_both_d4_profile_p2048_20261006"
+      ]
+    },
+    {
       "id": "RQ12",
       "short_question": "Where does the overlap slowdown occur?",
       "evidence_date_utc": "2026-10-06",

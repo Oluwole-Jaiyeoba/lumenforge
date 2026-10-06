@@ -168,6 +168,8 @@ def _links(path: Path, summary: dict) -> str:
     files = summary.get("_files") or {"summary.json"}
     links = [f'<a href="{_esc(path.with_name(name).as_posix())}">{label}</a>'
              for name, label in labels if name in files]
+    if (path.parent / "runtime" / "backend_features.json").exists():
+        links.append(f'<a href="{_esc(path.parent.as_posix())}/runtime/backend_features.json">Backend features</a>')
     if summary.get("_cuda_kernel_subset"):
         base = path.parent.as_posix()
         links.append(f'<a href="{_esc(base)}/nsys/kernel_attribution_pair01.json">Captured GPU kernels</a>')
@@ -207,6 +209,10 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                   f"{_esc(workload.get('donor_wait_ms'))} ms; active/donor prompts "
                   f"{_esc(workload.get('active_prompt_words', workload.get('prompt_words_target')))} / "
                   f"{_esc(workload.get('donor_prompt_words', workload.get('prompt_words_target')))} words. "
+                  + (f"CUDA graphs {_esc('on' if workload['cuda_graph_requested'] else 'off')}; "
+                     f"overlap scheduling {_esc('on' if workload['overlap_schedule_requested'] else 'off')}. "
+                     if 'cuda_graph_requested' in workload and 'overlap_schedule_requested' in workload
+                     else "") +
                   "Fresh backend for each dose; no frontend importance ranks.")
         return brief, detail
     if summary.get("schema") in ("agentic_work_audit.busy_comparison.v1",
@@ -363,6 +369,10 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_DONOR_WAIT_MS": workload.get("donor_wait_ms"),
             "WORK_AUDIT_FORWARD_TRACE": workload.get("forward_trace_enabled"),
             "WORK_AUDIT_NSYS_ENABLE": workload.get("nsys_enabled"),
+            "WORK_AUDIT_CUDA_GRAPH": (int(workload["cuda_graph_requested"])
+                                      if "cuda_graph_requested" in workload else None),
+            "WORK_AUDIT_OVERLAP_SCHEDULE": (int(workload["overlap_schedule_requested"])
+                                            if "overlap_schedule_requested" in workload else None),
             "AGENTIC_KV_PREPARE_LOAD_WORKER": "1",
             CACHE_SIZE_FIELD.upper(): workload.get(CACHE_SIZE_FIELD),
             "MEM_FRACTION_STATIC": workload.get("mem_fraction_static"),
@@ -1155,6 +1165,8 @@ def _kind(summary: dict) -> str:
     }
     kind = names.get(schema, "Audit experiment")
     workload = (summary.get("_manifest") or {}).get("workload") or {}
+    if workload.get("research_question_id") == "RQ13":
+        return "Backend scheduling and KV overlap"
     if workload.get("research_question_id") == "RQ12":
         return "Decode slowdown attribution"
     if workload.get("research_question_id") == "RQ9":
@@ -1205,7 +1217,7 @@ def _result_parts(summary: dict) -> tuple[str, str]:
         if submission:
             control_submission = ((summary.get("_dose_control") or {}).get("decode_submission") or {})
             detail += _mode_table(
-                ("Decode measurement", "This run", "Paired profiled control"),
+                ("Decode measurement", "This run", "Profiled control, if paired"),
                 (("Linked forwards", submission["forward_count"],
                   control_submission.get("forward_count", "not paired")),
                  ("Linked kernels", submission["kernel_count"],
@@ -1543,6 +1555,8 @@ def _markdown_metrics(summary: dict) -> str:
                  if physical else "not captured"),
                 ("Physical copy overlap (ms)", physical.get("physical_overlap_ms")
                  if physical else "not captured"),
+                ("Copy concurrent with decode kernels (ms)",
+                 physical.get("concurrent_kernel_copy_ms") if physical else "not captured"),
                 ("Profiler status", "CUDA capture verified" if submission else
                  profile.get("status") if profile else "not requested"),
                 ("Target first token after tool return (ms)", target.get("first_token_after_tool_ms")),
@@ -1845,7 +1859,7 @@ def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str
         label = "verified copies" if physical else "worker-window proxies"
         if submission:
             return (f"0 → {count} {label}" if control else
-                    f"Observed {count} {label}; profiled control",
+                    f"Observed {count} {label}; no profiled control",
                     "Profiled mechanism; no latency claim",
                     "See target launch timing in details",
                     "Not used for speed comparison",
@@ -1970,6 +1984,8 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                                 ("backend_trace.jsonl", "Raw trace")):
             if filename in files:
                 evidence.append(f"[{label}]({base}/{filename})")
+        if (path.parent / "runtime" / "backend_features.json").exists():
+            evidence.append(f"[Backend features]({base}/runtime/backend_features.json)")
         if summary.get("_cuda_kernel_subset"):
             evidence.append(f"[Captured GPU kernels]({base}/nsys/kernel_attribution_pair01.json)")
             if summary.get("_cuda_launch_gaps"):

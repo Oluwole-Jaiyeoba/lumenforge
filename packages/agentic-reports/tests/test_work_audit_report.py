@@ -185,6 +185,7 @@ def test_overlap_dose_report_distinguishes_physical_copy_from_worker_window():
                "workflow_makespan_ms": 12000, "donors": [donor] * 4,
                "_physical_overlap": {"status": "verified", "physical_overlap_load_count": 1,
                                      "physical_overlap_ms": 8,
+                                     "concurrent_kernel_copy_ms": 0.25,
                                      "donors": [{"load_id": "load1",
                                                  "copy_during_target_decode_ms": 8,
                                                  "copy_concurrent_with_target_kernels_ms": 1}]}}
@@ -195,7 +196,14 @@ def test_overlap_dose_report_distinguishes_physical_copy_from_worker_window():
     assert "WORK_AUDIT_PLANNED_OVERLAP" in page
     assert "WORK_AUDIT_PLANNED_OVERLAP='2'" in markdown
     assert "Physical H-to-D overlaps" in markdown
+    assert "Copy concurrent with decode kernels (ms)" in markdown
     assert "[Physical copy overlap](runs/dose/nsys/physical_overlap.json)" in markdown
+    manifest["workload"].update({"cuda_graph_requested": True,
+                                 "overlap_schedule_requested": False})
+    page = render([(Path("runs/dose/summary.json"), summary)])
+    assert "CUDA graphs on; overlap scheduling off" in page
+    assert "WORK_AUDIT_CUDA_GRAPH=&#x27;1&#x27;" in page
+    assert "WORK_AUDIT_OVERLAP_SCHEDULE=&#x27;0&#x27;" in page
 
 
 def test_profiled_overlap_reports_launch_gap_without_claiming_clean_latency():

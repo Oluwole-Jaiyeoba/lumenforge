@@ -154,7 +154,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         finished_ns = time.time_ns()
     result = {
         "schema": "agentic_work_audit.overlap_dose.v1", "run_id": args.run_id,
-        "status": "worker_window_only", "research_question_id": "RQ11",
+        "status": "worker_window_only", "research_question_id": args.research_question_id,
         "seed": args.seed, "session_count": args.session_count,
         "donor_count": args.donor_count, "planned_overlap": args.planned_overlap,
         "realized_worker_window_overlap_count": realized,
@@ -184,6 +184,7 @@ def main() -> None:
     parser.add_argument("--base-url", default="http://127.0.0.1:30000/v1")
     parser.add_argument("--prepare-control-url", default="http://127.0.0.1:31991/prepare_prefix_kv")
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--research-question-id", default="RQ11")
     parser.add_argument("--session-count", type=int, default=6)
     parser.add_argument("--donor-count", type=int, default=4)
     parser.add_argument("--planned-overlap", type=int, required=True)

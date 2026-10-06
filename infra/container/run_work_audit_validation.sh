@@ -29,6 +29,8 @@ fi
 TRACE_PROFILE="${WORK_AUDIT_TRACE_PROFILE:-$( if [[ "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ]]; then echo kv_decode_overlap; elif [[ "${STUDY}" == "timing" || "${STUDY}" == "multisession" || "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" ]]; then echo kv_lifecycle_lean; else echo kv_lifecycle; fi )}"
 FORWARD_TRACE="${WORK_AUDIT_FORWARD_TRACE:-0}"
 NSYS_ENABLE="${WORK_AUDIT_NSYS_ENABLE:-0}"
+CUDA_GRAPH="${WORK_AUDIT_CUDA_GRAPH:-0}"
+OVERLAP_SCHEDULE="${WORK_AUDIT_OVERLAP_SCHEDULE:-0}"
 PAIRS="${WORK_AUDIT_PAIRS:-1}"
 WARMUP_PAIRS="${WORK_AUDIT_WARMUP_PAIRS:-1}"
 WAIT_MS="${WORK_AUDIT_WAIT_MS:-$( [[ "${STUDY}" == "timing" ]] && echo 2000 || echo 500 )}"
@@ -168,6 +170,12 @@ fi
 [[ "${NSYS_ENABLE}" == "0" || "${NSYS_ENABLE}" == "1" ]] || {
   echo "WORK_AUDIT_NSYS_ENABLE must be 0 or 1" >&2; exit 2;
 }
+[[ "${CUDA_GRAPH}" == "0" || "${CUDA_GRAPH}" == "1" ]] || {
+  echo "WORK_AUDIT_CUDA_GRAPH must be 0 or 1" >&2; exit 2;
+}
+[[ "${OVERLAP_SCHEDULE}" == "0" || "${OVERLAP_SCHEDULE}" == "1" ]] || {
+  echo "WORK_AUDIT_OVERLAP_SCHEDULE must be 0 or 1" >&2; exit 2;
+}
 [[ "${NSYS_ENABLE}" == "0" || ( ( "${STUDY}" == "multisession_overlap" || "${STUDY}" == "overlap_dose" ) && "${FORWARD_TRACE}" == "1" ) ]] || {
   echo "Nsight capture requires an overlap study with forward tracing" >&2; exit 2;
 }
@@ -230,6 +238,10 @@ export PYTHONPATH="${PACKAGE_PYTHONPATH}:${PYTHONPATH:-}"
 export SGLANG_DOCKER_IMAGE="${IMAGE}"
 export BACKEND_RUNTIME_PROFILE="${PROFILE}"
 export BACKEND_RUNTIME_CONTRACT_OUT="${RUN_ROOT}/runtime/backend_runtime.json"
+export CUDA_GRAPH_FLAG="--disable-cuda-graph"
+export OVERLAP_FLAG="--disable-overlap-schedule"
+[[ "${CUDA_GRAPH}" == "1" ]] && CUDA_GRAPH_FLAG=""
+[[ "${OVERLAP_SCHEDULE}" == "1" ]] && OVERLAP_FLAG=""
 MODEL_CACHE_MOUNT="$(python3 - "${PROFILE_PATH}" <<'PY'
 import json
 import sys
@@ -298,6 +310,21 @@ until curl -fsS http://127.0.0.1:30000/v1/models >/dev/null 2>&1; do
   sleep 2
 done
 
+python3 - "${RUN_ROOT}/server.log" "${CUDA_GRAPH}" "${OVERLAP_SCHEDULE}" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+log = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+args = next((line for line in log.splitlines() if "server_args=ServerArgs(" in line), "")
+for field, enabled in (("disable_cuda_graph", sys.argv[2]),
+                       ("disable_overlap_schedule", sys.argv[3])):
+    match = re.search(rf"\b{field}=(True|False)\b", args)
+    if match is None or (match.group(1) == "False") != (enabled == "1"):
+        raise SystemExit(f"Backend flag gate failed: expected {field} disabled={enabled == '0'}")
+print("Work-audit backend scheduling flags verified")
+PY
+
 python3 - "${RUN_ROOT}/backend_trace.jsonl" "${TRACE_PROFILE}" "${FORWARD_TRACE}" <<'PY'
 import json
 import sys
@@ -349,6 +376,7 @@ if [[ "${STUDY}" == "timing" ]]; then
 elif [[ "${STUDY}" == "overlap_dose" ]]; then
   python3 -m agentic_experiments.runners.run_work_audit_overlap_sweep \
     --run-id "${RUN_ID}" --out-dir "${RUN_ROOT}" --model "${MODEL}" \
+    --research-question-id "${RESEARCH_QUESTION_ID}" \
     --seed "${SEED}" --session-count "${SESSION_COUNT}" --donor-count "${DONOR_COUNT}" \
     --planned-overlap "${PLANNED_OVERLAP}" --decode-tokens "${DECODE_TOKENS}" \
     --donor-wait-ms "${DONOR_WAIT_MS}" --target-wait-ms "${SHORT_WAIT_MS}" \
@@ -380,6 +408,31 @@ else
     --eviction-rounds "${EVICTION_ROUNDS}" \
     "${SECOND_REPLAY_RUN_ARGS[@]}"
 fi
+python3 - "${RUN_ROOT}/server.log" "${RUN_ROOT}/runtime/backend_features.json" "${CUDA_GRAPH}" "${OVERLAP_SCHEDULE}" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+log = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+args = next((line for line in log.splitlines() if "server_args=ServerArgs(" in line), "")
+decode_lines = [line for line in log.splitlines() if "Decode batch," in line]
+graph_true = sum("cuda graph: True" in line for line in decode_lines)
+graph_false = sum("cuda graph: False" in line for line in decode_lines)
+features = {
+    "schema": "agentic_work_audit.backend_features.v1",
+    "cuda_graph_requested": sys.argv[3] == "1",
+    "overlap_schedule_requested": sys.argv[4] == "1",
+    "cuda_graph_disabled": re.search(r"\bdisable_cuda_graph=(True|False)\b", args).group(1) == "True",
+    "overlap_schedule_disabled": re.search(r"\bdisable_overlap_schedule=(True|False)\b", args).group(1) == "True",
+    "decode_graph_true_log_count": graph_true,
+    "decode_graph_false_log_count": graph_false,
+}
+Path(sys.argv[2]).write_text(json.dumps(features, indent=2) + "\n", encoding="utf-8")
+if features["cuda_graph_requested"] and not graph_true:
+    raise SystemExit("CUDA graphs were requested but no logged decode batch used one")
+print(json.dumps(features, sort_keys=True))
+PY
 if [[ "${NSYS_ENABLE}" == "1" ]]; then
   docker exec "${NSYS_CONTAINER_NAME}" "${AGENTIC_NSYS_BIN}" stop
 fi
@@ -481,7 +534,7 @@ PY
 )"
 CASE_ORDER_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split("-")))' "${CASE_ORDER}")"
 if [[ "${STUDY}" == "overlap_dose" ]]; then
-  WORKLOAD_JSON="{\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"pair_id\":\"${PAIR_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"overlap_dose\",\"load_execution\":\"worker\",\"session_count\":${SESSION_COUNT},\"donor_count\":${DONOR_COUNT},\"planned_overlap\":${PLANNED_OVERLAP},\"seed\":${SEED},\"decode_tokens\":${DECODE_TOKENS},\"active_prompt_words\":${ACTIVE_PROMPT_WORDS},\"donor_prompt_words\":${DONOR_PROMPT_WORDS},\"target_wait_ms\":${SHORT_WAIT_MS},\"donor_wait_ms\":${DONOR_WAIT_MS},\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
+  WORKLOAD_JSON="{\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"pair_id\":\"${PAIR_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"overlap_dose\",\"load_execution\":\"worker\",\"session_count\":${SESSION_COUNT},\"donor_count\":${DONOR_COUNT},\"planned_overlap\":${PLANNED_OVERLAP},\"seed\":${SEED},\"decode_tokens\":${DECODE_TOKENS},\"active_prompt_words\":${ACTIVE_PROMPT_WORDS},\"donor_prompt_words\":${DONOR_PROMPT_WORDS},\"target_wait_ms\":${SHORT_WAIT_MS},\"donor_wait_ms\":${DONOR_WAIT_MS},\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"cuda_graph_requested\":${CUDA_GRAPH},\"overlap_schedule_requested\":${OVERLAP_SCHEDULE},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession_compare" || "${STUDY}" == "multisession_window" || "${STUDY}" == "multisession_controller" || "${STUDY}" == "multisession_overlap" ]]; then
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"forward_trace_enabled\":${FORWARD_TRACE},\"nsys_enabled\":${NSYS_ENABLE},\"session_count\":3,\"capacity_policy\":\"explicit_two_prefix_budget\",\"short_wait_ms\":${SHORT_WAIT_MS},\"long_wait_ms\":${LONG_WAIT_MS},\"early_at_ms\":${EARLY_AT_MS},\"estimated_load_ms\":${ESTIMATED_LOAD_MS},\"load_margin_ms\":${LOAD_MARGIN_MS},\"pairs\":${PAIRS},\"warmup_pairs\":${WARMUP_PAIRS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC}}"
 elif [[ "${STUDY}" == "multisession" ]]; then
@@ -490,7 +543,8 @@ else
   WORKLOAD_JSON="{\"cases\":${CASE_ORDER_JSON},\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"none\",\"purpose\":\"${STUDY}\",\"load_execution\":\"${LOAD_EXECUTION}\",\"replays_per_case\":$( [[ "${STUDY}" == "timing" ]] && echo 2 || echo $((SECOND_REPLAY + 1)) ),\"pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${PAIRS}" || echo 1 ),\"warmup_pairs\":$( [[ "${STUDY}" == "timing" ]] && echo "${WARMUP_PAIRS}" || echo 0 ),\"tool_wait_ms\":${WAIT_MS},\"prompt_words_target\":${PROMPT_WORDS},\"max_output_tokens\":${MAX_OUTPUT_TOKENS},\"minimum_host_tokens\":${MINIMUM_HOST_TOKENS},\"eviction_rounds\":${EVICTION_ROUNDS},\"hicache_size_gb\":${HICACHE_SIZE_GB},\"mem_fraction_static\":${MEM_FRACTION_STATIC},\"exact_trace_indices\":$( [[ "${STUDY}" == "timing" ]] && echo "${EXACT_INDICES}" || echo 256 ),\"slot_proof_required\":$( [[ "${STUDY}" == "timing" ]] && [[ "${REQUIRE_SLOT_PROOF}" == "1" ]] && echo true || echo false )}"
 fi
 MANIFEST_ARTIFACTS=(--artifact "instrumentation_audit=${RUN_ROOT}/instrumentation_audit.json"
-  --artifact "summary=${RUN_ROOT}/summary.json" --artifact "report=${RUN_ROOT}/report.html")
+  --artifact "summary=${RUN_ROOT}/summary.json" --artifact "report=${RUN_ROOT}/report.html"
+  --artifact "backend_features=${RUN_ROOT}/runtime/backend_features.json")
 if [[ "${NSYS_ENABLE}" == "1" ]]; then
   if [[ "${STUDY}" == "overlap_dose" ]]; then
     MANIFEST_ARTIFACTS+=(--artifact "physical_overlap=${RUN_ROOT}/nsys/physical_overlap.json")
