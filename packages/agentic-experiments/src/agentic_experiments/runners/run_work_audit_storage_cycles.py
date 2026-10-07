@@ -31,6 +31,7 @@ async def prepare_during_wait(
 async def inspect_during_wait(
     client: httpx.AsyncClient, args: argparse.Namespace, identity: dict[str, str],
     storage_id: str, due_ns: int, inspect_delay_ms: int,
+    stage_semaphore: asyncio.Semaphore,
 ) -> dict[str, Any]:
     await asyncio.sleep(inspect_delay_ms / 1000)
     residency = await control(client, args.control_url, "storage_status", identity)
@@ -41,8 +42,22 @@ async def inspect_during_wait(
                               "inspection_before_due": time.time_ns() < due_ns,
                               "preparation": None}
     if safe_stage_eligible and args.arm != "on_demand" and result["inspection_before_due"]:
+        if args.arm == "selective_stage":
+            slack_ms = (due_ns - time.time_ns()) / 1e6
+            if slack_ms < args.min_stage_slack_ms:
+                result["preparation"] = {"skip_reason": "insufficient_slack",
+                                         "slack_ms": round(slack_ms, 3)}
+                return result
+            if stage_semaphore.locked():
+                result["preparation"] = {"skip_reason": "stage_already_in_flight",
+                                         "slack_ms": round(slack_ms, 3)}
+                return result
         try:
-            result["preparation"] = await prepare_during_wait(client, args, identity, storage_id, due_ns)
+            async with stage_semaphore:
+                if args.arm == "selective_stage" and (due_ns - time.time_ns()) / 1e6 < args.min_stage_slack_ms:
+                    result["preparation"] = {"skip_reason": "insufficient_slack_after_admission"}
+                else:
+                    result["preparation"] = await prepare_during_wait(client, args, identity, storage_id, due_ns)
         except StorageControlRejected as exc:
             if exc.result.get("status") in {"host_capacity_insufficient", "storage_suffix_too_short",
                                             "storage_prefetch_no_hit", "storage_prefetch_rate_limited"}:
@@ -66,6 +81,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             sessions.append({"session_id": session_id, "prefix_id": f"{session_id}-prefix",
                              "prompt": prompt, "turns": [], "previous_request_id": ""})
         gate = asyncio.Event()
+        stage_semaphore = asyncio.Semaphore(1 if args.arm == "selective_stage" else args.sessions)
 
         async def one_session(row: dict[str, Any], index: int) -> None:
             await gate.wait()
@@ -89,6 +105,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                         client, args, prior_identity,
                         f"{session_id}-turn{turn:02d}-storage", due_ns,
                         int(delay_ms * args.inspect_fraction),
+                        stage_semaphore,
                     ))
                     await asyncio.sleep(max(0, (due_ns - time.time_ns()) / 1e9))
                     tool_return_ns = time.time_ns()
@@ -152,7 +169,8 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         "workload": {"initial_tokens": args.initial_tokens, "tool_result_words": args.tool_result_words,
                      "decode_tokens": args.decode_tokens, "wait_ms": args.wait_ms,
                      "wait_spread_ms": args.wait_spread_ms,
-                     "stagger_ms": args.stagger_ms, "inspect_fraction": args.inspect_fraction},
+                     "stagger_ms": args.stagger_ms, "inspect_fraction": args.inspect_fraction,
+                     "min_stage_slack_ms": args.min_stage_slack_ms},
         "started_ns": run_started_ns, "ended_ns": run_ended_ns,
         "workflow_duration_ms": round((max(item["request_end_ns"] for item in turns) - run_started_ns) / 1e6, 3),
         "collection_wall_ms": round((run_ended_ns - run_started_ns) / 1e6, 3),
@@ -172,7 +190,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--arm", choices=("on_demand", "host_stage"), required=True)
+    parser.add_argument("--arm", choices=("on_demand", "host_stage", "selective_stage"), required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct")
     parser.add_argument("--base-url", default="http://127.0.0.1:30000/v1")
@@ -186,10 +204,11 @@ def main() -> None:
     parser.add_argument("--wait-spread-ms", type=int, default=3000)
     parser.add_argument("--stagger-ms", type=int, default=250)
     parser.add_argument("--inspect-fraction", type=float, default=0.4)
+    parser.add_argument("--min-stage-slack-ms", type=int, default=1200)
     parser.add_argument("--page-size", type=int, default=64)
     args = parser.parse_args()
     if min(args.sessions, args.turns, args.initial_tokens, args.tool_result_words,
-           args.decode_tokens, args.wait_ms, args.page_size) <= 0 or min(args.stagger_ms, args.wait_spread_ms) < 0 or not 0 <= args.inspect_fraction < 1:
+           args.decode_tokens, args.wait_ms, args.page_size) <= 0 or min(args.stagger_ms, args.wait_spread_ms, args.min_stage_slack_ms) < 0 or not 0 <= args.inspect_fraction < 1:
         parser.error("workload sizes and wait must be positive")
     try:
         result = asyncio.run(run(args))

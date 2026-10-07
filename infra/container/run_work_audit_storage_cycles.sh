@@ -53,11 +53,11 @@ export SGLANG_DOCKER_IMAGE="${IMAGE}"
 read -r -a seed_values <<< "${SEEDS}"
 for seed in "${seed_values[@]}"; do
   read -r -a arm_values <<< "${ARMS}"
-  if (( seed % 2 == 0 )) && [[ "${ARMS}" == "on_demand host_stage" ]]; then
-    arm_values=(host_stage on_demand)
+  if (( seed % 2 == 0 )) && [[ "${ARMS}" == "on_demand host_stage" || "${ARMS}" == "on_demand selective_stage" ]]; then
+    arm_values=("${arm_values[1]}" on_demand)
   fi
   for arm in "${arm_values[@]}"; do
-    [[ "${arm}" == "on_demand" || "${arm}" == "host_stage" ]] || {
+    [[ "${arm}" == "on_demand" || "${arm}" == "host_stage" || "${arm}" == "selective_stage" ]] || {
       echo "Unsupported arm: ${arm}; full_prepare is blocked after a live scheduler assertion" >&2; exit 2;
     }
     ARM_ROOT="${RUN_ROOT}/arms/seed${seed}_${arm}"
@@ -125,6 +125,8 @@ PY
       --wait-ms "${WORK_AUDIT_CYCLES_WAIT_MS:-1000}" \
       --wait-spread-ms "${WORK_AUDIT_CYCLES_WAIT_SPREAD_MS:-3000}" \
       --stagger-ms "${WORK_AUDIT_CYCLES_STAGGER_MS:-250}" \
+      --inspect-fraction "${WORK_AUDIT_CYCLES_INSPECT_FRACTION:-0.4}" \
+      --min-stage-slack-ms "${WORK_AUDIT_CYCLES_MIN_STAGE_SLACK_MS:-1200}" \
       --out "${ARM_ROOT}/case_results.json"
     python3 -m agentic_backends.sglang.trace_contract --adapter v0510 \
       --profile kv_lifecycle_lean --trace "${ARM_ROOT}/backend_trace.jsonl" \
@@ -150,17 +152,20 @@ WORKLOAD_JSON="$(python3 - "${SEEDS}" "${ARMS}" "${MODEL}" \
   "${WORK_AUDIT_CYCLES_DECODE_TOKENS:-16}" "${WORK_AUDIT_CYCLES_WAIT_MS:-1000}" \
   "${WORK_AUDIT_CYCLES_WAIT_SPREAD_MS:-3000}" "${WORK_AUDIT_CYCLES_STAGGER_MS:-250}" \
   "${WORK_AUDIT_CYCLES_GPU_TOKENS:-16384}" "${WORK_AUDIT_CYCLES_HOST_GB:-1}" \
-  "${WORK_AUDIT_CYCLES_CUDA_GRAPH:-0}" "${WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE:-0}" <<'PY'
+  "${WORK_AUDIT_CYCLES_CUDA_GRAPH:-0}" "${WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE:-0}" \
+  "${WORK_AUDIT_CYCLES_INSPECT_FRACTION:-0.4}" "${WORK_AUDIT_CYCLES_MIN_STAGE_SLACK_MS:-1200}" \
+  "${WORK_AUDIT_CYCLES_RESEARCH_QUESTION_ID:-RQ17}" <<'PY'
 import json, sys
 (seeds, arms, model, sessions, turns, initial, words, decode, wait, spread,
- stagger, gpu, host, graph, overlap) = sys.argv[1:]
-print(json.dumps({"research_question_id": "RQ17", "seeds": list(map(int, seeds.split())),
+ stagger, gpu, host, graph, overlap, inspect_fraction, min_stage_slack, research_question_id) = sys.argv[1:]
+print(json.dumps({"research_question_id": research_question_id, "seeds": list(map(int, seeds.split())),
                   "arms": arms.split(), "model": model, "session_count": int(sessions),
                   "turns_per_session": int(turns), "initial_tokens": int(initial),
                   "tool_result_words": int(words), "decode_tokens": int(decode),
                   "tool_wait_base_ms": int(wait), "tool_wait_spread_ms": int(spread),
                   "session_stagger_ms": int(stagger), "gpu_kv_token_cap": int(gpu),
                   "host_cache_gb": int(host), "page_size_tokens": 64,
+                  "inspect_fraction": float(inspect_fraction), "min_stage_slack_ms": int(min_stage_slack),
                   "storage_backend": "file", "write_policy": "write_through",
                   "cuda_graph": graph == "1", "overlap_schedule": overlap == "1",
                   "frontend_priority": "equal", "fresh_backend_per_arm": True,

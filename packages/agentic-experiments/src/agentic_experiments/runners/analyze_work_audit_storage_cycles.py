@@ -43,6 +43,8 @@ def summarize_arm(case: dict[str, Any], hit_tokens: dict[str, int]) -> dict[str,
         "session_count": case["session_count"], "replay_count": len(turns),
         "workflow_duration_ms": case["workflow_duration_ms"],
         "session_completion_ms": [row["completion_ms"] for row in case["sessions"]],
+        "session_completion_by_id_ms": {row["session_id"]: row["completion_ms"] for row in case["sessions"]
+                                        if "session_id" in row},
         "due_to_first_token_ms": delays,
         "due_to_first_token_median_ms": round(statistics.median(delays), 3),
         "due_to_first_token_p95_ms": round(sorted(delays)[min(len(delays)-1, int(len(delays)*0.95))], 3),
@@ -59,6 +61,10 @@ def summarize_arm(case: dict[str, Any], hit_tokens: dict[str, int]) -> dict[str,
             "storage_loaded_tokens") or 0) for row in turns
             if row["preparation"] and "stage" in row["preparation"]),
         "stage_attempt_count": sum(bool(row["preparation"]) for row in turns),
+        "stage_admit_count": sum(bool((row["preparation"] or {}).get("stage")) for row in turns),
+        "stage_after_due_count": sum(bool((row["preparation"] or {}).get("stage")) and
+                                     not bool((row["preparation"] or {}).get("stage_before_due"))
+                                     for row in turns),
         "preparation_errors": [row["preparation"]["error"] for row in turns
                                if row["preparation"] and "error" in row["preparation"]],
         "preparation_skips": [row["preparation"]["skip_reason"] for row in turns
@@ -78,7 +84,8 @@ def analyze(arms_dir: Path, *, expected_seeds: list[int] | None = None,
         arms.append(summarize_arm(case, hits))
     if not arms:
         raise ValueError(f"No completed arm results under {arms_dir}")
-    arms.sort(key=lambda arm: (arm["seed"], {"on_demand": 0, "host_stage": 1}.get(arm["arm"], 9)))
+    arms.sort(key=lambda arm: (arm["seed"], {"on_demand": 0, "host_stage": 1,
+                                                  "selective_stage": 2}.get(arm["arm"], 9)))
     failed_arms = []
     for failure_path in sorted(arms_dir.glob("seed*/case_failure.json")):
         failure = json.loads(failure_path.read_text(encoding="utf-8"))
@@ -93,35 +100,84 @@ def analyze(arms_dir: Path, *, expected_seeds: list[int] | None = None,
     for arm in arms:
         by_seed.setdefault(arm["seed"], {})[arm["arm"]] = arm
     comparisons = []
+    staged_replay_outcomes = []
     for seed, modes in sorted(by_seed.items()):
         baseline = modes.get("on_demand")
         if baseline is None:
             continue
-        for mode_name in ("host_stage",):
+        for mode_name in ("host_stage", "selective_stage"):
             mode = modes.get(mode_name)
             if mode is None:
                 continue
-            comparisons.append({
+            comparison = {
                 "seed": seed, "mode": mode_name,
                 "workflow_delta_ms": round(mode["workflow_duration_ms"] - baseline["workflow_duration_ms"], 3),
                 "median_due_to_first_token_delta_ms": round(
                     mode["due_to_first_token_median_ms"] - baseline["due_to_first_token_median_ms"], 3),
                 "median_replay_ttft_delta_ms": round(
                     mode["replay_ttft_median_ms"] - baseline["replay_ttft_median_ms"], 3),
-            })
+            }
+            if mode_name == "selective_stage":
+                baseline_sessions = baseline["session_completion_by_id_ms"]
+                comparison["session_completion_delta_by_id_ms"] = {
+                    session_id: round(completion_ms - baseline_sessions[session_id], 3)
+                    for session_id, completion_ms in mode["session_completion_by_id_ms"].items()
+                    if session_id in baseline_sessions
+                }
+                comparison["p95_due_to_first_token_delta_ms"] = round(
+                    mode["due_to_first_token_p95_ms"] - baseline["due_to_first_token_p95_ms"], 3)
+                baseline_case = json.loads((arms_dir / f"seed{seed}_on_demand" /
+                                            "case_results.json").read_text(encoding="utf-8"))
+                staged_case = json.loads((arms_dir / f"seed{seed}_selective_stage" /
+                                          "case_results.json").read_text(encoding="utf-8"))
+                baseline_turns = {turn["request_id"]: turn for turn in baseline_case["turns"]}
+                for turn in staged_case["turns"]:
+                    preparation = turn.get("preparation") or {}
+                    if not preparation.get("stage_before_due"):
+                        continue
+                    original = baseline_turns.get(turn["request_id"])
+                    if original is None:
+                        continue
+                    staged_replay_outcomes.append({
+                        "seed": seed, "request_id": turn["request_id"],
+                        "baseline_due_to_first_token_ms": original["due_to_first_token_ms"],
+                        "staged_due_to_first_token_ms": turn["due_to_first_token_ms"],
+                        "delta_ms": round(turn["due_to_first_token_ms"] -
+                                          original["due_to_first_token_ms"], 3),
+                        "staged_storage_tokens": int((preparation["stage"]["completed"] or {}).get(
+                            "storage_loaded_tokens") or 0),
+                        "baseline_native_replay_storage_hit_tokens": baseline[
+                            "native_replay_storage_hits"].get(turn["request_id"], 0),
+                        "staged_native_replay_storage_hit_tokens": mode[
+                            "native_replay_storage_hits"].get(turn["request_id"], 0),
+                    })
+            comparisons.append(comparison)
     observed_arm_ids = {f"seed{arm['seed']}_{arm['arm']}" for arm in arms}
     missing_arm_ids = [f"seed{seed}_{arm}" for seed in (expected_seeds or [])
                        for arm in (expected_arms or [])
                        if f"seed{seed}_{arm}" not in observed_arm_ids]
-    staged_arms = [arm for arm in arms if arm["arm"] == "host_stage"]
+    staged_arms = [arm for arm in arms if arm["arm"] in {"host_stage", "selective_stage"}]
     has_effective_stage = any(arm["stage_before_due_count"] > 0 for arm in staged_arms)
     has_preparation_error = any(arm["preparation_errors"] for arm in staged_arms)
+    selective_seed_exposure = {
+        seed: {
+            "baseline_native_storage_hits": modes["on_demand"]["native_replay_storage_hit_count"],
+            "early_stages": modes["selective_stage"]["stage_before_due_count"],
+            "valid": modes["on_demand"]["native_replay_storage_hit_count"] > 0
+                     and modes["selective_stage"]["stage_before_due_count"] > 0,
+        }
+        for seed, modes in by_seed.items()
+        if "on_demand" in modes and "selective_stage" in modes
+    }
+    selective_exposure_complete = all(row["valid"] for row in selective_seed_exposure.values())
     status = ("blocked" if failed_arms or missing_arm_ids or has_preparation_error else
-              "complete" if comparisons and has_effective_stage else
+              "complete" if comparisons and has_effective_stage and selective_exposure_complete else
               "insufficient_exposure" if comparisons else "calibration")
     return {"schema": "agentic_work_audit.storage_cycles.summary.v1", "status": status,
             "started_ns": min(arm["started_ns"] for arm in arms), "arms": arms,
             "paired_comparisons": comparisons, "failed_arms": failed_arms,
+            "staged_replay_outcomes": staged_replay_outcomes,
+            "selective_seed_exposure": selective_seed_exposure,
             "related_run_ids": related_run_ids or [],
             "missing_arm_ids": missing_arm_ids,
             "blocked_reason": ("A paired arm failed or a non-capacity storage preparation error occurred; "

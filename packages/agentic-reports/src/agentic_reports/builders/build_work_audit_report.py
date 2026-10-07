@@ -160,6 +160,9 @@ def _links(path: Path, summary: dict) -> str:
                          f'{_esc(arm)} per-turn timings</a>')
             links.append(f'<a href="{_esc(base)}/arms/{_esc(arm)}/backend_trace.jsonl.gz">'
                          f'{_esc(arm)} raw trace</a>')
+            if (path.parent / "arms" / arm / "instrumentation_audit.json").exists():
+                links.append(f'<a href="{_esc(base)}/arms/{_esc(arm)}/instrumentation_audit.json">'
+                             f'{_esc(arm)} hook gate</a>')
         for failure in summary.get("failed_arms") or []:
             arm = failure["arm_id"]
             links.append(f'<a href="{_esc(base)}/arms/{_esc(arm)}/server.log">'
@@ -236,6 +239,7 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     workload = manifest.get("workload") or {}
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
         historical_unguarded = str(manifest.get("run_id") or "").startswith("storage_cycles_rq17_")
+        selective = "selective_stage" in (workload.get("arms") or [])
         earlier_rate_limit_gap = any(
             "native_prefetch_not_admitted" in error
             for arm in summary["arms"] for error in arm.get("preparation_errors") or []
@@ -252,9 +256,12 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                   f"GPU KV cap {_esc(workload.get('gpu_kv_token_cap'))} tokens, host cache "
                   f"{_esc(workload.get('host_cache_gb'))} GiB, "
                   f"{_esc(workload.get('page_size_tokens'))}-token pages. "
-                  "No explicit eviction or frontend priority. The host-stage arm observes natural "
+                  "No explicit eviction or frontend priority. The staging arm observes natural "
                   "residency during each wait; replay is submitted at its due time even if "
                   "staging misses it. "
+                  + (f"Selective staging starts inspection at {_esc(workload.get('inspect_fraction'))} "
+                     f"of the tool wait, requires at least {_esc(workload.get('min_stage_slack_ms'))} ms "
+                     "until return, and permits one stage at a time. " if selective else "")
                   + ("The historical blocked run used an unguarded partial-suffix prefetch; "
                      "the current adapter refuses prefetch when it would require host eviction. "
                      if historical_unguarded else
@@ -470,7 +477,11 @@ def _reproduction(summary: dict, timing: bool) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
+        host_cache_gb = workload.get("host_cache_gb")
+        if isinstance(host_cache_gb, (int, float)) and host_cache_gb == int(host_cache_gb):
+            host_cache_gb = int(host_cache_gb)
         settings = {
+            "WORK_AUDIT_CYCLES_RESEARCH_QUESTION_ID": workload.get("research_question_id"),
             "WORK_AUDIT_CYCLES_SEEDS": " ".join(map(str, workload.get("seeds") or [])),
             "WORK_AUDIT_CYCLES_ARMS": " ".join(workload.get("arms") or []),
             "WORK_AUDIT_CYCLES_SESSIONS": workload.get("session_count"),
@@ -482,7 +493,9 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_CYCLES_WAIT_SPREAD_MS": workload.get("tool_wait_spread_ms"),
             "WORK_AUDIT_CYCLES_STAGGER_MS": workload.get("session_stagger_ms"),
             "WORK_AUDIT_CYCLES_GPU_TOKENS": workload.get("gpu_kv_token_cap"),
-            "WORK_AUDIT_CYCLES_HOST_GB": workload.get("host_cache_gb"),
+            "WORK_AUDIT_CYCLES_HOST_GB": host_cache_gb,
+            "WORK_AUDIT_CYCLES_INSPECT_FRACTION": workload.get("inspect_fraction"),
+            "WORK_AUDIT_CYCLES_MIN_STAGE_SLACK_MS": workload.get("min_stage_slack_ms"),
             "WORK_AUDIT_CYCLES_CUDA_GRAPH": int(workload["cuda_graph"]) if "cuda_graph" in workload else None,
             "WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE": int(workload["overlap_schedule"]) if "overlap_schedule" in workload else None,
         }
@@ -1187,7 +1200,8 @@ def _run_finding(summary: dict) -> str:
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
         pairs = summary.get("paired_comparisons") or []
         baseline = [arm for arm in summary["arms"] if arm["arm"] == "on_demand"]
-        staged = [arm for arm in summary["arms"] if arm["arm"] == "host_stage"]
+        staged = [arm for arm in summary["arms"] if arm["arm"] in {"host_stage", "selective_stage"}]
+        policy = "Selective staging" if any(arm["arm"] == "selective_stage" for arm in staged) else "Host staging"
         if summary.get("status") == "blocked":
             rate_limit_gap = any("native_prefetch_not_admitted" in error
                                  for arm in summary["arms"]
@@ -1199,19 +1213,34 @@ def _run_finding(summary: dict) -> str:
                        "The staged arm recorded a preparation error or a required arm failed. ")
             if pairs:
                 pair = pairs[0]
-                return ("Blocked after one completed pair: host staging changed median replay "
+                return (f"Blocked after one completed pair: {policy.lower()} changed median replay "
                         f"delay by {pair['median_due_to_first_token_delta_ms']:+.1f} ms and "
                         f"whole-workload time by {pair['workflow_delta_ms']:+.1f} ms. "
                         + failure +
                         "This one-pair observation is not a validated performance conclusion.")
             return "Blocked: " + failure.strip() + " No validated paired comparison completed."
         if summary.get("status") == "insufficient_exposure":
+            if any(arm["arm"] == "selective_stage" for arm in staged):
+                return ("Paired modes finished, but at least one seed lacked either a native "
+                        "storage replay hit in baseline or an early completed selective stage. "
+                        "The timing differences are recorded, but a cross-seed staging effect is not established.")
             return "Paired modes finished, but no storage stage completed before a tool deadline; no staging effect is established."
         if not pairs:
             return "Calibration run only; no paired mode comparison."
         workflow = median(pair["workflow_delta_ms"] for pair in pairs)
         first_token = median(pair["median_due_to_first_token_delta_ms"] for pair in pairs)
-        return (f"Across {len(pairs)} paired seeds, host staging changed median replay delay "
+        if policy == "Selective staging" and any(pair["workflow_delta_ms"] < 0 for pair in pairs) and any(
+            pair["workflow_delta_ms"] > 0 for pair in pairs
+        ):
+            changes = "; ".join(
+                f"seed {pair['seed']} whole workload {pair['workflow_delta_ms']:+.0f} ms, "
+                f"median replay delay {pair['median_due_to_first_token_delta_ms']:+.0f} ms"
+                for pair in pairs)
+            return (f"Mixed result across {len(pairs)} paired seeds: {changes}. "
+                    f"{sum(arm['stage_before_due_count'] for arm in staged)} stages finished before due time; "
+                    "there is no consistent whole-workload gain. Synthetic file-backed storage "
+                    "does not establish a physical-SSD or hardware benefit.")
+        return (f"Across {len(pairs)} paired seeds, {policy.lower()} changed median replay delay "
                 f"by {first_token:+.0f} ms and whole-workload duration by {workflow:+.0f} ms "
                 "(negative is faster). "
                 f"On-demand replay had {sum(arm['native_replay_storage_hit_count'] for arm in baseline)} "
@@ -1472,6 +1501,8 @@ def _kind(summary: dict) -> str:
         return "Safe storage-stage session ladder"
     if workload.get("research_question_id") == "RQ19":
         return "Storage staging and peer-delay control"
+    if workload.get("research_question_id") == "RQ20":
+        return "Selective storage staging across repeated sessions"
     if workload.get("research_question_id") == "RQ12":
         return "Decode slowdown attribution"
     if workload.get("research_question_id") == "RQ9":
@@ -1487,14 +1518,16 @@ def _result_parts(summary: dict) -> tuple[str, str]:
                  _ms(arm["due_to_first_token_median_ms"]),
                  _ms(arm["due_to_first_token_p95_ms"]),
                  _ms(arm["replay_ttft_median_ms"]),
-                 arm["natural_storage_candidate_waits"], arm["stage_before_due_count"],
+                 arm["natural_storage_candidate_waits"], arm.get("stage_admit_count", 0),
+                 arm["stage_before_due_count"], arm.get("stage_after_due_count", 0),
                  len(arm.get("preparation_skips") or []), arm["stage_loaded_tokens"],
                  arm["native_replay_storage_hit_count"],
                  arm["native_replay_storage_hit_tokens"],
                  len(arm["preparation_errors"])) for arm in summary["arms"]]
         detail = _mode_table(("Seed / mode", "Whole workload", "Due → first token median",
                               "Due → first token p95", "Replay TTFT median",
-                              "Storage candidates", "Stage ready by due", "Stage skips", "Tokens staged from L3",
+                              "Storage candidates", "Stages admitted", "Stage ready by due",
+                              "Stage after due", "Stage skips", "Tokens staged from L3",
                               "Native L3 replay hits", "L3 replay tokens", "Stage errors"), rows)
         pairs = summary.get("paired_comparisons") or []
         pair_rows = [(pair["seed"], _ms(pair["workflow_delta_ms"]),
@@ -1502,7 +1535,22 @@ def _result_parts(summary: dict) -> tuple[str, str]:
                       _ms(pair["median_replay_ttft_delta_ms"])) for pair in pairs]
         detail += _mode_table(("Seed", "Whole-workload change", "Replay-delay change",
                                "Replay-TTFT change"), pair_rows)
-        detail += ("<p>Negative changes favor host staging. Per-session completion and all "
+        if any(pair["mode"] == "selective_stage" for pair in pairs):
+            session_rows = [(pair["seed"], session_id, _ms(delta))
+                            for pair in pairs
+                            for session_id, delta in pair.get("session_completion_delta_by_id_ms", {}).items()]
+            detail += _mode_table(("Seed", "Session", "Finish-time change"), session_rows)
+            staged_rows = [(row["seed"], row["request_id"],
+                            _ms(row["baseline_due_to_first_token_ms"]),
+                            _ms(row["staged_due_to_first_token_ms"]),
+                            _ms(row["delta_ms"]), row["staged_storage_tokens"],
+                            row["baseline_native_replay_storage_hit_tokens"],
+                            row["staged_native_replay_storage_hit_tokens"])
+                           for row in summary.get("staged_replay_outcomes") or []]
+            detail += _mode_table(("Seed", "Early-staged replay", "Baseline delay",
+                                   "Staged delay", "Delay change", "Tokens staged",
+                                   "Baseline replay L3 tokens", "Staged replay L3 tokens"), staged_rows)
+        detail += ("<p>Negative changes favor staging. Per-session completion and all "
                    "per-turn timings are retained in each arm's raw case results. ")
         skip_reasons = [reason for arm in summary["arms"]
                         for reason in arm.get("preparation_skips") or []]
@@ -1932,16 +1980,36 @@ def _markdown_metrics(summary: dict) -> str:
         rows = [(arm["seed"], arm["arm"], arm["session_count"], arm["replay_count"],
                  arm["workflow_duration_ms"], arm["due_to_first_token_median_ms"],
                  arm["due_to_first_token_p95_ms"], arm["replay_ttft_median_ms"],
-                 arm["natural_storage_candidate_waits"], arm["stage_before_due_count"],
+                 arm["natural_storage_candidate_waits"], arm.get("stage_admit_count", 0),
+                 arm["stage_before_due_count"], arm.get("stage_after_due_count", 0),
                  len(arm.get("preparation_skips") or []), arm["stage_loaded_tokens"],
                  arm["native_replay_storage_hit_count"],
                  arm["native_replay_storage_hit_tokens"], len(arm["preparation_errors"]))
                 for arm in summary["arms"]]
-        return _md_table(("Seed", "Mode", "Sessions", "Replays", "Whole workload (ms)",
+        table = _md_table(("Seed", "Mode", "Sessions", "Replays", "Whole workload (ms)",
                           "Due → first token median (ms)", "Due → first token p95 (ms)",
-                          "Replay TTFT median (ms)", "Storage candidates", "Stage ready by due",
+                          "Replay TTFT median (ms)", "Storage candidates", "Stages admitted",
+                          "Stage ready by due", "Stage after due",
                           "Stage skips", "Tokens staged from L3", "Native L3 replay hits", "L3 replay tokens",
                           "Stage errors"), rows)
+        table += (
+            "\n\n" + _md_table(("Seed", "Session", "Finish-time change (ms)"),
+                                  [(pair["seed"], session_id, delta)
+                                   for pair in summary.get("paired_comparisons") or []
+                                   for session_id, delta in pair.get("session_completion_delta_by_id_ms", {}).items()])
+            if any(pair["mode"] == "selective_stage" for pair in summary.get("paired_comparisons") or [])
+            else "")
+        if summary.get("staged_replay_outcomes"):
+            table += "\n\n" + _md_table(
+                ("Seed", "Early-staged replay", "Baseline delay (ms)", "Staged delay (ms)",
+                 "Delay change (ms)", "Tokens staged", "Baseline replay L3 tokens",
+                 "Staged replay L3 tokens"),
+                [(row["seed"], row["request_id"], row["baseline_due_to_first_token_ms"],
+                  row["staged_due_to_first_token_ms"], row["delta_ms"],
+                  row["staged_storage_tokens"], row["baseline_native_replay_storage_hit_tokens"],
+                  row["staged_native_replay_storage_hit_tokens"])
+                 for row in summary["staged_replay_outcomes"]])
+        return table
     if schema == "agentic_work_audit.storage_replay.v1":
         rows = [(row['seed'], row['arm'], row['due_to_first_token_ms'], row['replay_ttft_ms'],
                  row.get('peer_ttft_median_ms'), row.get('peer_completion_median_ms'),
@@ -2367,22 +2435,45 @@ def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str
             return ("Calibration only", "No paired comparison", "No peer comparison",
                     "Not established", _run_finding(summary), "pilot")
         baseline = [arm for arm in summary["arms"] if arm["arm"] == "on_demand"]
-        staged = [arm for arm in summary["arms"] if arm["arm"] == "host_stage"]
+        staged = [arm for arm in summary["arms"] if arm["arm"] in {"host_stage", "selective_stage"}]
+        mode_name = "selective staging" if any(arm["arm"] == "selective_stage" for arm in staged) else "host staging"
         base_delay = median(arm["due_to_first_token_median_ms"] for arm in baseline)
         stage_delay = median(arm["due_to_first_token_median_ms"] for arm in staged)
         base_work = median(arm["workflow_duration_ms"] for arm in baseline)
         stage_work = median(arm["workflow_duration_ms"] for arm in staged)
-        return (("Blocked: on demand → host staging" if summary.get("status") == "blocked"
-                 else "No effective staging: on demand → host staging"
+        selective = mode_name == "selective staging"
+        if selective:
+            by_seed = {(arm["seed"], arm["arm"]): arm for arm in summary["arms"]}
+            replay_change = "Replay delay: " + "; ".join(
+                f"seed {pair['seed']} "
+                f"{by_seed[(pair['seed'], 'on_demand')]['due_to_first_token_median_ms']:.0f} → "
+                f"{by_seed[(pair['seed'], 'selective_stage')]['due_to_first_token_median_ms']:.0f} ms"
+                for pair in pairs)
+            workflow_change = "Whole workload: " + "; ".join(
+                f"seed {pair['seed']} "
+                f"{by_seed[(pair['seed'], 'on_demand')]['workflow_duration_ms'] / 1000:.2f} → "
+                f"{by_seed[(pair['seed'], 'selective_stage')]['workflow_duration_ms'] / 1000:.2f} s"
+                for pair in pairs)
+            session_deltas = [delta for pair in pairs
+                              for delta in pair.get("session_completion_delta_by_id_ms", {}).values()]
+            peer_note = (f"Session finish changes range from {min(session_deltas):+.0f} "
+                         f"to {max(session_deltas):+.0f} ms" if session_deltas else
+                         "Per-session finish changes unavailable")
+        else:
+            replay_change = f"Replay delay: {base_delay:.0f} → {stage_delay:.0f} ms"
+            workflow_change = f"Whole workload: {base_work / 1000:.2f} → {stage_work / 1000:.2f} s"
+            peer_note = "Synthetic file-backed storage; full-GPU preparation not tested"
+        return ((f"Blocked: on demand → {mode_name}" if summary.get("status") == "blocked"
+                 else f"No effective staging: on demand → {mode_name}"
                  if summary.get("status") == "insufficient_exposure"
-                 else "On demand → host staging"),
-                f"Replay delay: {base_delay:.0f} → {stage_delay:.0f} ms",
-                f"Whole workload: {base_work / 1000:.2f} → {stage_work / 1000:.2f} s",
+                else f"On demand → {mode_name}"),
+                replay_change,
+                peer_note,
                 ("Blocked by backend assertion; incomplete paired study"
                  if any(row.get("backend_assertion") for row in summary.get("failed_arms") or []) else
                  "Blocked by preparation error or incomplete arm")
                 if summary.get("status") == "blocked" else
-                "Synthetic file-backed storage; full-GPU preparation not tested",
+                workflow_change,
                 _run_finding(summary), "blocked" if summary.get("status") == "blocked"
                 else "native L3 hits verified")
     if schema == "agentic_work_audit.storage_replay.v1":
@@ -2603,6 +2694,8 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                 arm = f"seed{row['seed']}_{row['arm']}"
                 evidence.append(f"[{arm} per-turn timings]({base}/arms/{arm}/case_results.json)")
                 evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
+                if (path.parent / "arms" / arm / "instrumentation_audit.json").exists():
+                    evidence.append(f"[{arm} hook gate]({base}/arms/{arm}/instrumentation_audit.json)")
             for failure in summary.get("failed_arms") or []:
                 arm = failure["arm_id"]
                 evidence.append(f"[{arm} server failure]({base}/arms/{arm}/server.log)")

@@ -1,7 +1,11 @@
+import asyncio
 import gzip
 import json
+import time
+from argparse import Namespace
 
 from agentic_experiments.runners.analyze_work_audit_storage_cycles import analyze, native_hits
+from agentic_experiments.runners import run_work_audit_storage_cycles as runner
 
 
 def _case(root, seed, arm, *, due_ms, workflow_ms, hit_tokens):
@@ -99,3 +103,76 @@ def test_unexpected_preparation_error_blocks_claim(tmp_path):
     path.write_text(json.dumps(case), encoding="utf-8")
     result = analyze(tmp_path, expected_seeds=[1], expected_arms=["on_demand", "host_stage"])
     assert result["status"] == "blocked"
+
+
+def test_selective_stage_keeps_session_and_stage_outcomes(tmp_path):
+    _case(tmp_path, 1, "on_demand", due_ms=400, workflow_ms=9000, hit_tokens=2048)
+    staged = _case(tmp_path, 1, "selective_stage", due_ms=200, workflow_ms=8800,
+                   hit_tokens=0)
+    path = staged / "case_results.json"
+    case = json.loads(path.read_text(encoding="utf-8"))
+    case["sessions"][0]["session_id"] = "session-1"
+    case["stage_before_due_count"] = 1
+    case["turns"][0]["preparation"] = {
+        "stage": {"completed": {"storage_loaded_tokens": 512}},
+        "stage_before_due": True,
+    }
+    case["turns"].append({"turn": 2, "request_id": "s1-turn02",
+                          "due_to_first_token_ms": 300, "ttft_ms": 300,
+                          "prompt_tokens": 3500,
+                          "preparation": {"skip_reason": "stage_already_in_flight"}})
+    path.write_text(json.dumps(case), encoding="utf-8")
+    baseline_path = tmp_path / "seed1_on_demand" / "case_results.json"
+    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    baseline["sessions"][0]["session_id"] = "session-1"
+    baseline_path.write_text(json.dumps(baseline), encoding="utf-8")
+    summary = analyze(tmp_path, expected_seeds=[1], expected_arms=["on_demand", "selective_stage"])
+    assert summary["status"] == "complete"
+    assert summary["paired_comparisons"][0]["session_completion_delta_by_id_ms"] == {"session-1": -200}
+    assert summary["arms"][1]["stage_admit_count"] == 1
+    assert summary["arms"][1]["preparation_skips"] == ["stage_already_in_flight"]
+    assert summary["staged_replay_outcomes"][0]["delta_ms"] == -200
+    assert summary["staged_replay_outcomes"][0]["staged_storage_tokens"] == 512
+
+
+def test_selective_stage_skips_short_window_and_inflight_stage(monkeypatch):
+    async def residency(*_args, **_kwargs):
+        return {"storage_candidate_tokens": 512}
+
+    async def unexpected_stage(*_args, **_kwargs):
+        raise AssertionError("stage should have been skipped")
+
+    monkeypatch.setattr(runner, "control", residency)
+    monkeypatch.setattr(runner, "prepare_during_wait", unexpected_stage)
+    args = Namespace(control_url="http://unused", page_size=64,
+                     arm="selective_stage", min_stage_slack_ms=1200)
+
+    async def check():
+        semaphore = asyncio.Semaphore(1)
+        short = await runner.inspect_during_wait(None, args, {}, "id",
+                                                 time.time_ns() + 500_000_000, 0, semaphore)
+        assert short["preparation"]["skip_reason"] == "insufficient_slack"
+        async with semaphore:
+            busy = await runner.inspect_during_wait(None, args, {}, "id",
+                                                    time.time_ns() + 2_000_000_000, 0, semaphore)
+        assert busy["preparation"]["skip_reason"] == "stage_already_in_flight"
+
+    asyncio.run(check())
+
+
+def test_selective_stage_requires_exposure_in_each_paired_seed(tmp_path):
+    for seed in (1, 2):
+        _case(tmp_path, seed, "on_demand", due_ms=400, workflow_ms=9000,
+              hit_tokens=2048)
+        staged = _case(tmp_path, seed, "selective_stage", due_ms=200,
+                       workflow_ms=8800, hit_tokens=0)
+        if seed == 1:
+            path = staged / "case_results.json"
+            case = json.loads(path.read_text(encoding="utf-8"))
+            case["stage_before_due_count"] = 1
+            path.write_text(json.dumps(case), encoding="utf-8")
+    summary = analyze(tmp_path, expected_seeds=[1, 2],
+                      expected_arms=["on_demand", "selective_stage"])
+    assert summary["status"] == "insufficient_exposure"
+    assert summary["selective_seed_exposure"][1]["valid"] is True
+    assert summary["selective_seed_exposure"][2]["valid"] is False

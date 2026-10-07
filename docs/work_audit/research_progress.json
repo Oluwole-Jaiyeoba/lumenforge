@@ -2,6 +2,16 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ20",
+      "short_question": "Does selective early storage staging improve a full busy workload?",
+      "evidence_date_utc": "2026-10-07",
+      "question": "With repeated tool returns and natural file-backed KV displacement, can one-at-a-time storage-to-host staging during sufficiently long waits improve whole-workload completion and replay delay without shifting too much delay to other sessions?",
+      "answer": "A six-session baseline calibration produced only one storage candidate, so the paired test used eight equal-priority sessions, six tool returns each, 1 GiB host cache, 10240 GPU KV tokens, and two reversed-order seeds. Baselines had 19 and 24 native storage-tier replay hits. Selective staging completed two early loads in seed 1 and one in seed 2; none finished after the tool-return deadline. Whole-workload duration changed from 28.546 to 27.842 seconds in seed 1, but from 29.978 to 30.575 seconds in seed 2. Median due-to-first-token delay worsened from 1096 to 1158 ms and from 847 to 936 ms. Individual session finish times moved in both directions, with some delayed by over one second. Of the three matched early-staged replays, one improved by 211 ms and two worsened by 582 and 505 ms. This policy reliably exercised the storage path but did not show a consistent workload or replay-latency benefit.",
+      "hypothesis": "Under busy multi-session pressure, a small number of feasible storage stages and interference with shared scheduling can outweigh the benefit of moving data before a tool returns. An early completion flag alone is not evidence that a replay will be faster or that the whole workload will finish sooner.",
+      "unknown": "Only two paired seeds and three successful stages were observed. Storage-candidate and native-hit counts varied across arms despite matched logical sessions. Requests used synthetic prompts and file-backed storage that may be served by the OS page cache. Generated text was not compared byte-for-byte. The host ran synced working-tree files, so its manifest has an empty Git commit; the archived source change and trace identify the implementation. The experiment does not isolate the precise source of delay to peer sessions, establish production prevalence, or prove a hardware-offload benefit.",
+      "evidence_run_ids": ["rq20_exposure_h1_g10240_w900_s6_20261007", "rq20_selective_storage_pair_20261007"]
+    },
+    {
       "id": "RQ19",
       "short_question": "Where do storage-stage delays come from?",
       "evidence_date_utc": "2026-10-07",

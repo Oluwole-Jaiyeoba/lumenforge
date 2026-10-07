@@ -140,6 +140,61 @@ def test_storage_cycles_report_shows_paired_workflow_and_replay_cost():
     assert "run_work_audit_storage_cycles.sh" in markdown
 
 
+def test_selective_storage_report_shows_policy_and_each_session():
+    arms = [{"seed": 1, "arm": mode, "session_count": 2, "replay_count": 12,
+             "workflow_duration_ms": duration, "due_to_first_token_median_ms": delay,
+             "due_to_first_token_p95_ms": delay + 100, "replay_ttft_median_ms": delay,
+             "natural_storage_candidate_waits": 4, "stage_before_due_count": staged,
+             "stage_loaded_tokens": staged * 512, "native_replay_storage_hit_count": 2,
+             "native_replay_storage_hit_tokens": 1024, "preparation_errors": []}
+            for mode, duration, delay, staged in (
+                ("on_demand", 20000, 500, 0), ("selective_stage", 19000, 300, 2))]
+    summary = {"schema": "agentic_work_audit.storage_cycles.summary.v1", "status": "complete",
+               "arms": arms, "paired_comparisons": [{"seed": 1, "mode": "selective_stage",
+                   "workflow_delta_ms": -1000, "median_due_to_first_token_delta_ms": -200,
+                   "median_replay_ttft_delta_ms": -200,
+                   "session_completion_delta_by_id_ms": {"session-0": -1000, "session-1": 100}}],
+               "_manifest": {"run_id": "rq20_selective_pair", "model": "model",
+                   "workload": {"research_question_id": "RQ20", "seeds": [1],
+                       "arms": ["on_demand", "selective_stage"], "session_count": 2,
+                       "turns_per_session": 6, "inspect_fraction": 0.2,
+                       "min_stage_slack_ms": 1200}}}
+    path = Path("docs/reports/work_audit/rq20_selective_pair/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "Selective storage staging across repeated sessions" in page
+    assert "Finish-time change" in page
+    assert "WORK_AUDIT_CYCLES_INSPECT_FRACTION" in markdown
+    assert "session-1" in markdown
+
+
+def test_selective_storage_mixed_seeds_are_not_averaged_into_a_win():
+    arms = [{"seed": seed, "arm": arm, "session_count": 8, "replay_count": 48,
+             "workflow_duration_ms": duration, "due_to_first_token_median_ms": delay,
+             "due_to_first_token_p95_ms": delay + 100,
+             "replay_ttft_median_ms": delay, "natural_storage_candidate_waits": 4,
+             "stage_before_due_count": int(arm == "selective_stage"),
+             "stage_loaded_tokens": 512, "native_replay_storage_hit_count": 2,
+             "native_replay_storage_hit_tokens": 1024, "preparation_errors": []}
+            for seed, arm, duration, delay in (
+                (1, "on_demand", 28000, 1000), (1, "selective_stage", 27000, 1100),
+                (2, "on_demand", 29000, 900), (2, "selective_stage", 30000, 1000))]
+    summary = {"schema": "agentic_work_audit.storage_cycles.summary.v1", "status": "complete",
+               "arms": arms, "paired_comparisons": [
+                   {"seed": 1, "mode": "selective_stage", "workflow_delta_ms": -1000,
+                    "median_due_to_first_token_delta_ms": 100, "median_replay_ttft_delta_ms": 100},
+                   {"seed": 2, "mode": "selective_stage", "workflow_delta_ms": 1000,
+                    "median_due_to_first_token_delta_ms": 100, "median_replay_ttft_delta_ms": 100}],
+               "_manifest": {"run_id": "rq20_selective_pair", "workload": {
+                   "research_question_id": "RQ20", "seeds": [1, 2],
+                   "arms": ["on_demand", "selective_stage"], "session_count": 8,
+                   "turns_per_session": 6, "host_cache_gb": 1.0}}}
+    markdown = render_markdown([(Path("docs/reports/work_audit/rq20/summary.json"), summary)])
+    assert "Mixed result across 2 paired seeds" in markdown
+    assert "Whole workload: seed 1 28.00 → 27.00 s; seed 2 29.00 → 30.00 s" in markdown.replace("&nbsp;", " ")
+    assert "WORK_AUDIT_CYCLES_HOST_GB='1'" in markdown
+
+
 def test_storage_cycles_blocked_run_does_not_claim_validated_win():
     arms = [{"seed": 1, "arm": mode, "session_count": 8, "replay_count": 48,
              "workflow_duration_ms": workflow, "due_to_first_token_median_ms": delay,
