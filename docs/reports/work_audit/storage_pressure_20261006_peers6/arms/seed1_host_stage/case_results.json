@@ -1,0 +1,134 @@
+{
+  "run_id": "storage_pressure_20261006_peers6_seed1",
+  "arm": "host_stage",
+  "session_id": "storage_pressure_20261006_peers6_seed1-host_stage",
+  "frontend_priority": "equal",
+  "prompt_tokens_target": 2048,
+  "wait_ms": 5000,
+  "initial": {
+    "request_start_ns": 1791333150216910503,
+    "request_end_ns": 1791333160852113085,
+    "first_token_ns": 1791333159124833849,
+    "ttft_ms": 8907.921,
+    "total_latency_ms": 10635.2,
+    "stream_chunks": 18
+  },
+  "host_precursor": {
+    "gpu_tokens": 0,
+    "host_tokens": 2048,
+    "ok": true,
+    "prefix_tokens": 2098,
+    "status": "residency_observed",
+    "control_request_ns": 1791333160868970050,
+    "control_response_ns": 1791333160877902813
+  },
+  "storage_eviction": {
+    "gpu_tokens": 0,
+    "gpu_tokens_after": 0,
+    "host_tokens": 2048,
+    "host_tokens_after": 0,
+    "ok": true,
+    "prefix_tokens": 2098,
+    "removed_host_match_tokens": 2048,
+    "status": "storage_only_candidate",
+    "control_request_ns": 1791333160877907543,
+    "control_response_ns": 1791333160892393936
+  },
+  "tool_start_ns": 1791333160892396616,
+  "tool_due_ns": 1791333165892396616,
+  "tool_end_ns": 1791333165894821394,
+  "storage_stage": {
+    "accepted": {
+      "gpu_tokens": 0,
+      "host_tokens": 0,
+      "ok": true,
+      "prefix_tokens": 2098,
+      "status": "storage_prefetch_accepted",
+      "storage_request_id": "storage_pressure_20261006_peers6_seed1-host_stage-storage",
+      "storage_requested_ns": 1791333161033644244,
+      "control_request_ns": 1791333160892451838,
+      "control_response_ns": 1791333161039589533
+    },
+    "completed": {
+      "gpu_tokens_after": 0,
+      "host_tokens_after": 2048,
+      "ok": true,
+      "status": "storage_prefetch_complete",
+      "storage_data_ready_ns": 1791333161115672940,
+      "storage_host_committed_ns": 1791333161700885717,
+      "storage_loaded_tokens": 2048,
+      "storage_request_id": "storage_pressure_20261006_peers6_seed1-host_stage-storage",
+      "storage_requested_ns": 1791333161033644244
+    },
+    "completed_observed_ns": 1791333161702040532
+  },
+  "device_load": null,
+  "replay": {
+    "request_start_ns": 1791333165894886205,
+    "request_end_ns": 1791333166336075454,
+    "first_token_ns": 1791333166059042387,
+    "ttft_ms": 164.155,
+    "total_latency_ms": 441.188,
+    "stream_chunks": 18
+  },
+  "peers": [
+    {
+      "peer_index": 0,
+      "request_start_ns": 1791333160924383859,
+      "request_end_ns": 1791333163990819182,
+      "first_token_ns": 1791333161172858067,
+      "ttft_ms": 248.473,
+      "total_latency_ms": 3066.434,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 1,
+      "request_start_ns": 1791333160948125953,
+      "request_end_ns": 1791333163990481494,
+      "first_token_ns": 1791333161715070554,
+      "ttft_ms": 766.944,
+      "total_latency_ms": 3042.355,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 2,
+      "request_start_ns": 1791333160967488072,
+      "request_end_ns": 1791333163990754770,
+      "first_token_ns": 1791333162052257412,
+      "ttft_ms": 1084.769,
+      "total_latency_ms": 3023.266,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 3,
+      "request_start_ns": 1791333160987084666,
+      "request_end_ns": 1791333163990940944,
+      "first_token_ns": 1791333162052617250,
+      "ttft_ms": 1065.532,
+      "total_latency_ms": 3003.855,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 4,
+      "request_start_ns": 1791333161006519138,
+      "request_end_ns": 1791333163990882093,
+      "first_token_ns": 1791333162175140031,
+      "ttft_ms": 1168.62,
+      "total_latency_ms": 2984.362,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 5,
+      "request_start_ns": 1791333161026549951,
+      "request_end_ns": 1791333163990400592,
+      "first_token_ns": 1791333162174789324,
+      "ttft_ms": 1148.238,
+      "total_latency_ms": 2963.849,
+      "stream_chunks": 98
+    }
+  ],
+  "due_to_first_token_ms": 166.646,
+  "tool_end_to_first_token_ms": 164.221,
+  "stage_completed_before_due": true,
+  "workflow_duration_ms": 16119.165
+}

@@ -60,6 +60,28 @@ def test_storage_report_calls_out_peer_cost_when_preparation_overlaps():
     )
 
 
+def test_storage_report_shows_native_read_and_commit_separately():
+    rows = [
+        {"seed": 1, "arm": arm, "due_to_first_token_ms": delay,
+         "replay_ttft_ms": delay, "peer_count": 2, "peer_ttft_median_ms": 100,
+         "storage_data_ready_ms": 42 if arm != "on_demand" else None,
+         "storage_commit_after_ready_ms": 61 if arm != "on_demand" else None,
+         "native_replay_storage_hit_tokens": 2048 if arm == "on_demand" else 0,
+         "control_storage_hit_tokens": 0 if arm == "on_demand" else 2048,
+         "stage_completed_before_due": arm != "on_demand"}
+        for arm, delay in (("on_demand", 330), ("host_stage", 165), ("full_prepare", 65))
+    ]
+    summary = {"schema": "agentic_work_audit.storage_replay.v1", "run_id": "storage-native",
+               "status": "complete", "rows": rows, "paired": [{"seed": 1}],
+               "_manifest": {"workload": {"seeds": [1], "peer_count": 2}}}
+    markdown = render_markdown([(Path("runs/storage-native/summary.json"), summary)])
+    assert "Native L3 → host ready (ms)" in markdown
+    assert "Ready → commit/poll (ms)" in markdown
+    assert "Native data readiness took a median 42 ms" in markdown
+    assert "status-poll/host-commit interval took 61 ms" in markdown
+    assert "42" in markdown and "61" in markdown
+
+
 def test_tool_cycles_report_keeps_latency_and_load_evidence_separate():
     summary = {
         "schema": "agentic_work_audit.tool_cycles.v1",

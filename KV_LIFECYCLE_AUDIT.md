@@ -6,6 +6,16 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ16: Does storage preparation still help under peer pressure?
+
+**Question.** With a storage-resident target prefix and equal-priority peer requests, does preparing KV during a five-second tool wait still improve target replay as concurrent peer pressure rises, and what do peers pay?
+
+**What the evidence says.** On the A10G with pinned SGLang 0.5.10.post1, a two-seed, three-arm synthetic sweep used the same 2048-token target prefix, 1024-token peer prompts, 64-token file-cache pages, fresh backend per arm, and 0, 2, or 6 peers starting at tool-wait onset. Median target deadline-to-first-token time (on demand / host stage / full prepare) was 370 / 171 / 60 ms at 0 peers, 364 / 170 / 61 ms at 2 peers, and 468 / 168 / 60 ms at 6 peers. All staged loads completed before tool return; both peers at level 2 and all six at level 6 overlapped preparation. Peer median TTFT was 157 / 393 / 456 ms at 2 peers and 1026 / 1075 / 1184 ms at 6 peers. Peer median completion was 1923 / 2158 / 2306 ms at 2 peers and 2963 / 3049 / 3150 ms at 6 peers. Whole-workflow duration was 16195 / 16141 / 15982 ms at 2 peers and 16445 / 16108 / 16045 ms at 6 peers. Native prefetch-completion evidence separated data readiness from later host-cache commit/status polling: the latter interval grew to roughly 581-586 ms for staged arms at six peers. Target replay benefited at every tested pressure, but peers sometimes waited longer; this is not an unconditional system-wide win.
+
+**Working hypothesis.** Known tool-return timing can hide a returning session's storage preparation even amid concurrent work, but the backend's status-poll/commit and other requests' startup can compete for software scheduling time. Pressure-aware admission or pacing may be needed to avoid shifting delay onto peers.
+
+**Not yet proved.** These were two seeds per pressure level, with synthetic prompts, deliberate device/host eviction, one returning target, and at most six peer requests. At two peers, peer TTFT varied substantially between seeds. File-backed L3 hits do not establish physical SSD reads; OS page-cache warming may explain why native data-readiness times were shorter in later pressure runs. The ready-to-commit interval includes status-poll delay and must not be read as pure commit cost. The whole-workflow metric is the last completion among these requests, not a production throughput measure. The remote manifests have an empty Git commit because the host used a synced source copy; this change archives the evidence with the experiment code. This study does not isolate the exact cause of peer delay, prove net benefit across independent workflows, or establish hardware-offload value.
+
 ### RQ15: Can storage KV be prepared during a tool wait?
 
 **Question.** When a session prefix is present in file-backed storage but absent from host and GPU cache, can native storage-to-host and host-to-GPU preparation during a known tool wait reduce replay delay, and what happens to peer requests?
@@ -142,6 +152,10 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;7:40:44&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_pressure_20261006_peers6) | RQ16 | 1&nbsp;returning&nbsp;+&nbsp;6&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;468&nbsp;→&nbsp;168&nbsp;→&nbsp;59&nbsp;ms | Peer&nbsp;TTFT:&nbsp;1026&nbsp;→&nbsp;1075&nbsp;→&nbsp;1184&nbsp;ms | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;468&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;168&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;59&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;2&nbsp;paired&nbsp;seed(s)).&nbsp;Peers&nbsp;overlapped&nbsp;preparation;&nbsp;their&nbsp;median&nbsp;TTFT&nbsp;changed&nbsp;from&nbsp;1026&nbsp;to&nbsp;1184&nbsp;ms.&nbsp;This&nbsp;is&nbsp;not&nbsp;a&nbsp;proven&nbsp;win-win.&nbsp;Native&nbsp;data&nbsp;readiness&nbsp;took&nbsp;a&nbsp;median&nbsp;80&nbsp;ms;&nbsp;the&nbsp;later&nbsp;status-poll/host-commit&nbsp;interval&nbsp;took&nbsp;585&nbsp;ms. | L3 hit verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;7:29:17&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_pressure_20261006_peers2) | RQ16 | 1&nbsp;returning&nbsp;+&nbsp;2&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;364&nbsp;→&nbsp;169&nbsp;→&nbsp;61&nbsp;ms | Peer&nbsp;TTFT:&nbsp;157&nbsp;→&nbsp;393&nbsp;→&nbsp;456&nbsp;ms | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;364&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;169&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;61&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;2&nbsp;paired&nbsp;seed(s)).&nbsp;Peers&nbsp;overlapped&nbsp;preparation;&nbsp;their&nbsp;median&nbsp;TTFT&nbsp;changed&nbsp;from&nbsp;157&nbsp;to&nbsp;456&nbsp;ms.&nbsp;This&nbsp;is&nbsp;not&nbsp;a&nbsp;proven&nbsp;win-win.&nbsp;Native&nbsp;data&nbsp;readiness&nbsp;took&nbsp;a&nbsp;median&nbsp;85&nbsp;ms;&nbsp;the&nbsp;later&nbsp;status-poll/host-commit&nbsp;interval&nbsp;took&nbsp;326&nbsp;ms. | L3 hit verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;7:17:50&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_pressure_20261006_peers0) | RQ16 | 1&nbsp;returning&nbsp;+&nbsp;0&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;370&nbsp;→&nbsp;171&nbsp;→&nbsp;60&nbsp;ms | No&nbsp;peer&nbsp;session | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;370&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;171&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;60&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;2&nbsp;paired&nbsp;seed(s)).&nbsp;No&nbsp;peer-session&nbsp;or&nbsp;whole-system&nbsp;benefit&nbsp;is&nbsp;established&nbsp;by&nbsp;this&nbsp;single-session&nbsp;run.&nbsp;Native&nbsp;data&nbsp;readiness&nbsp;took&nbsp;a&nbsp;median&nbsp;187&nbsp;ms;&nbsp;the&nbsp;later&nbsp;status-poll/host-commit&nbsp;interval&nbsp;took&nbsp;105&nbsp;ms. | L3 hit verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;7:06:07&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_native_gate_20261006) | RQ16 | 1&nbsp;returning&nbsp;+&nbsp;0&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;369&nbsp;→&nbsp;170&nbsp;→&nbsp;64&nbsp;ms | No&nbsp;peer&nbsp;session | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;369&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;170&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;64&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s)).&nbsp;No&nbsp;peer-session&nbsp;or&nbsp;whole-system&nbsp;benefit&nbsp;is&nbsp;established&nbsp;by&nbsp;this&nbsp;single-session&nbsp;run.&nbsp;Native&nbsp;data&nbsp;readiness&nbsp;took&nbsp;a&nbsp;median&nbsp;262&nbsp;ms;&nbsp;the&nbsp;later&nbsp;status-poll/host-commit&nbsp;interval&nbsp;took&nbsp;62&nbsp;ms. | L3 hit verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;4:42:18&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_audit_20261006_213611) | RQ15 | 1&nbsp;returning&nbsp;+&nbsp;2&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;337&nbsp;→&nbsp;166&nbsp;→&nbsp;65&nbsp;ms | Peer&nbsp;TTFT:&nbsp;154&nbsp;→&nbsp;196&nbsp;→&nbsp;203&nbsp;ms | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;337&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;166&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;65&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s)).&nbsp;Peers&nbsp;overlapped&nbsp;preparation;&nbsp;their&nbsp;median&nbsp;TTFT&nbsp;changed&nbsp;from&nbsp;154&nbsp;to&nbsp;203&nbsp;ms.&nbsp;This&nbsp;is&nbsp;not&nbsp;a&nbsp;proven&nbsp;win-win. | L3 hit verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;4:35:31&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_audit_20261006_212924) | RQ15 | 1&nbsp;returning&nbsp;+&nbsp;2&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;330&nbsp;→&nbsp;165&nbsp;→&nbsp;59&nbsp;ms | Peer&nbsp;TTFT:&nbsp;160&nbsp;→&nbsp;159&nbsp;→&nbsp;155&nbsp;ms | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;330&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;165&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;59&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s)).&nbsp;Peers&nbsp;began&nbsp;after&nbsp;preparation&nbsp;finished,&nbsp;so&nbsp;this&nbsp;run&nbsp;does&nbsp;not&nbsp;measure&nbsp;contention&nbsp;during&nbsp;the&nbsp;transfer. | L3 hit verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;4:28:44&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_audit_20261006_212239) | RQ15 | 1&nbsp;returning&nbsp;+&nbsp;0&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;359&nbsp;→&nbsp;170&nbsp;→&nbsp;62&nbsp;ms | No&nbsp;peer&nbsp;session | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;359&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;170&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;62&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s)).&nbsp;No&nbsp;peer-session&nbsp;or&nbsp;whole-system&nbsp;benefit&nbsp;is&nbsp;established&nbsp;by&nbsp;this&nbsp;single-session&nbsp;run. | L3 hit verified |
@@ -232,6 +246,151 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 ## Experiment details
 
+<a id="run-storage_pressure_20261006_peers6"></a>
+<details>
+<summary><strong>Oct 6, 2026, 7:40:44 p.m. CDT · Storage-tier KV timing</strong> · storage_pressure_20261006_peers6</summary>
+
+**Question (RQ16).** With a storage-resident target prefix and equal-priority peer requests, does preparing KV during a five-second tool wait still improve target replay as concurrent peer pressure rises, and what do peers pay?
+
+**Finding.** With storage-only KV proven, first token after tool due was 468 ms on demand, 168 ms after host staging, and 59 ms after full preparation (median across 2 paired seed(s)). Peers overlapped preparation; their median TTFT changed from 1026 to 1184 ms. This is not a proven win-win. Native data readiness took a median 80 ms; the later status-poll/host-commit interval took 585 ms.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 6 peer session(s), started 0 ms into the tool wait.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | full_prepare | 59.0 | 57.5 | 1185.5 | 3148.7 | 6 | 78.9 | 584.6 | 15950.2 | 0 | 2048 | 2112 | yes |
+| 1 | host_stage | 166.6 | 164.2 | 1075.2 | 3013.6 | 6 | 82.0 | 585.2 | 16119.2 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 432.9 | 430.6 | 1023.4 | 2978.1 | 0 | not recorded | not recorded | 16405.4 | 2048 | 0 | 2112 | not applicable |
+| 2 | full_prepare | 59.9 | 56.8 | 1182.0 | 3151.6 | 6 | 88.4 | 576.8 | 16138.9 | 0 | 2048 | 2112 | yes |
+| 2 | host_stage | 169.9 | 168.8 | 1075.0 | 3083.9 | 6 | 76.1 | 586.0 | 16097.2 | 0 | 2048 | 2112 | yes |
+| 2 | on_demand | 502.7 | 499.9 | 1028.7 | 2947.8 | 0 | not recorded | not recorded | 16484.3 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1 2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK_AUDIT_STORAGE_PROMPT_ID=storage_pressure_20261006_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=6 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/storage_pressure_20261006_peers6/summary.json) · [Run manifest](docs/reports/work_audit/storage_pressure_20261006_peers6/run_manifest.json) · [seed1_full_prepare timings](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed1_full_prepare/case_results.json) · [seed1_full_prepare trace](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed1_full_prepare/backend_trace.jsonl.gz) · [seed1_host_stage timings](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed1_on_demand/backend_trace.jsonl.gz) · [seed2_full_prepare timings](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed2_full_prepare/case_results.json) · [seed2_full_prepare trace](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed2_full_prepare/backend_trace.jsonl.gz) · [seed2_host_stage timings](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed2_host_stage/case_results.json) · [seed2_host_stage trace](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed2_host_stage/backend_trace.jsonl.gz) · [seed2_on_demand timings](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed2_on_demand/case_results.json) · [seed2_on_demand trace](docs/reports/work_audit/storage_pressure_20261006_peers6/arms/seed2_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-storage_pressure_20261006_peers2"></a>
+<details>
+<summary><strong>Oct 6, 2026, 7:29:17 p.m. CDT · Storage-tier KV timing</strong> · storage_pressure_20261006_peers2</summary>
+
+**Question (RQ16).** With a storage-resident target prefix and equal-priority peer requests, does preparing KV during a five-second tool wait still improve target replay as concurrent peer pressure rises, and what do peers pay?
+
+**Finding.** With storage-only KV proven, first token after tool due was 364 ms on demand, 169 ms after host staging, and 61 ms after full preparation (median across 2 paired seed(s)). Peers overlapped preparation; their median TTFT changed from 157 to 456 ms. This is not a proven win-win. Native data readiness took a median 85 ms; the later status-poll/host-commit interval took 326 ms.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 2 peer session(s), started 0 ms into the tool wait.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | full_prepare | 61.0 | 57.3 | 711.6 | 2451.5 | 2 | 96.0 | 448.3 | 15927.8 | 0 | 2048 | 2112 | yes |
+| 1 | host_stage | 172.3 | 168.1 | 199.9 | 1979.0 | 2 | 82.9 | 191.2 | 16170.0 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 316.0 | 312.2 | 155.3 | 1943.4 | 0 | not recorded | not recorded | 16097.3 | 2048 | 0 | 2112 | not applicable |
+| 2 | full_prepare | 60.3 | 56.3 | 200.5 | 2160.0 | 2 | 78.1 | 208.5 | 16036.0 | 0 | 2048 | 2112 | yes |
+| 2 | host_stage | 166.7 | 163.3 | 585.6 | 2337.3 | 2 | 86.5 | 444.1 | 16111.0 | 0 | 2048 | 2112 | yes |
+| 2 | on_demand | 411.1 | 407.8 | 157.9 | 1903.4 | 0 | not recorded | not recorded | 16292.9 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1 2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK_AUDIT_STORAGE_PROMPT_ID=storage_pressure_20261006_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=2 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/storage_pressure_20261006_peers2/summary.json) · [Run manifest](docs/reports/work_audit/storage_pressure_20261006_peers2/run_manifest.json) · [seed1_full_prepare timings](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed1_full_prepare/case_results.json) · [seed1_full_prepare trace](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed1_full_prepare/backend_trace.jsonl.gz) · [seed1_host_stage timings](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed1_on_demand/backend_trace.jsonl.gz) · [seed2_full_prepare timings](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed2_full_prepare/case_results.json) · [seed2_full_prepare trace](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed2_full_prepare/backend_trace.jsonl.gz) · [seed2_host_stage timings](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed2_host_stage/case_results.json) · [seed2_host_stage trace](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed2_host_stage/backend_trace.jsonl.gz) · [seed2_on_demand timings](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed2_on_demand/case_results.json) · [seed2_on_demand trace](docs/reports/work_audit/storage_pressure_20261006_peers2/arms/seed2_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-storage_pressure_20261006_peers0"></a>
+<details>
+<summary><strong>Oct 6, 2026, 7:17:50 p.m. CDT · Storage-tier KV timing</strong> · storage_pressure_20261006_peers0</summary>
+
+**Question (RQ16).** With a storage-resident target prefix and equal-priority peer requests, does preparing KV during a five-second tool wait still improve target replay as concurrent peer pressure rises, and what do peers pay?
+
+**Finding.** With storage-only KV proven, first token after tool due was 370 ms on demand, 171 ms after host staging, and 60 ms after full preparation (median across 2 paired seed(s)). No peer-session or whole-system benefit is established by this single-session run. Native data readiness took a median 187 ms; the later status-poll/host-commit interval took 105 ms.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 0 peer session(s), started 0 ms into the tool wait.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | full_prepare | 61.0 | 56.7 | not recorded | not recorded | 0 | 199.4 | 121.8 | 16103.4 | 0 | 2048 | 2112 | yes |
+| 1 | host_stage | 170.3 | 166.5 | not recorded | not recorded | 0 | 169.5 | 111.7 | 16257.0 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 355.0 | 349.7 | not recorded | not recorded | 0 | not recorded | not recorded | 16255.6 | 2048 | 0 | 2112 | not applicable |
+| 2 | full_prepare | 58.3 | 56.6 | not recorded | not recorded | 0 | 174.3 | 99.1 | 15922.4 | 0 | 2048 | 2112 | yes |
+| 2 | host_stage | 170.8 | 165.0 | not recorded | not recorded | 0 | 223.2 | 63.8 | 16263.7 | 0 | 2048 | 2112 | yes |
+| 2 | on_demand | 385.7 | 380.6 | not recorded | not recorded | 0 | not recorded | not recorded | 16376.7 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Single-session storage timing only. Peer-session cost and a busy-workload benefit are not measured. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1 2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK_AUDIT_STORAGE_PROMPT_ID=storage_pressure_20261006_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=0 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/storage_pressure_20261006_peers0/summary.json) · [Run manifest](docs/reports/work_audit/storage_pressure_20261006_peers0/run_manifest.json) · [seed1_full_prepare timings](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed1_full_prepare/case_results.json) · [seed1_full_prepare trace](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed1_full_prepare/backend_trace.jsonl.gz) · [seed1_host_stage timings](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed1_on_demand/backend_trace.jsonl.gz) · [seed2_full_prepare timings](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed2_full_prepare/case_results.json) · [seed2_full_prepare trace](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed2_full_prepare/backend_trace.jsonl.gz) · [seed2_host_stage timings](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed2_host_stage/case_results.json) · [seed2_host_stage trace](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed2_host_stage/backend_trace.jsonl.gz) · [seed2_on_demand timings](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed2_on_demand/case_results.json) · [seed2_on_demand trace](docs/reports/work_audit/storage_pressure_20261006_peers0/arms/seed2_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-storage_native_gate_20261006"></a>
+<details>
+<summary><strong>Oct 6, 2026, 7:06:07 p.m. CDT · Storage-tier KV timing</strong> · storage_native_gate_20261006</summary>
+
+**Question (RQ16).** With a storage-resident target prefix and equal-priority peer requests, does preparing KV during a five-second tool wait still improve target replay as concurrent peer pressure rises, and what do peers pay?
+
+**Finding.** With storage-only KV proven, first token after tool due was 369 ms on demand, 170 ms after host staging, and 64 ms after full preparation (median across 1 paired seed(s)). No peer-session or whole-system benefit is established by this single-session run. Native data readiness took a median 262 ms; the later status-poll/host-commit interval took 62 ms.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 0 peer session(s), started 0 ms into the tool wait.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | full_prepare | 64.2 | 59.1 | not recorded | not recorded | 0 | 264.9 | 91.3 | 15940.6 | 0 | 2048 | 2112 | yes |
+| 1 | host_stage | 170.2 | 164.6 | not recorded | not recorded | 0 | 258.5 | 32.6 | 16102.0 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 369.3 | 365.9 | not recorded | not recorded | 0 | not recorded | not recorded | 16260.5 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Single-session storage timing only. Peer-session cost and a busy-workload benefit are not measured. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK_AUDIT_STORAGE_PROMPT_ID=storage_pressure_20261006_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=0 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/storage_native_gate_20261006/summary.json) · [Run manifest](docs/reports/work_audit/storage_native_gate_20261006/run_manifest.json) · [seed1_full_prepare timings](docs/reports/work_audit/storage_native_gate_20261006/arms/seed1_full_prepare/case_results.json) · [seed1_full_prepare trace](docs/reports/work_audit/storage_native_gate_20261006/arms/seed1_full_prepare/backend_trace.jsonl.gz) · [seed1_host_stage timings](docs/reports/work_audit/storage_native_gate_20261006/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/storage_native_gate_20261006/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/storage_native_gate_20261006/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/storage_native_gate_20261006/arms/seed1_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
 <a id="run-storage_audit_20261006_213611"></a>
 <details>
 <summary><strong>Oct 6, 2026, 4:42:18 p.m. CDT · Storage-tier KV timing</strong> · storage_audit_20261006_213611</summary>
@@ -244,11 +403,11 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 3 | full_prepare | 64.7 | 60.0 | 202.8 | 2070.6 | 2 | 16109.2 | 0 | 2048 | 2112 | yes |
-| 3 | host_stage | 165.6 | 161.6 | 196.3 | 1938.8 | 2 | 16267.5 | 0 | 2048 | 2112 | yes |
-| 3 | on_demand | 336.6 | 333.3 | 153.7 | 1934.1 | 0 | 16281.5 | 2048 | 0 | 2112 | not applicable |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 3 | full_prepare | 64.7 | 60.0 | 202.8 | 2070.6 | 2 | not recorded | not recorded | 16109.2 | 0 | 2048 | 2112 | yes |
+| 3 | host_stage | 165.6 | 161.6 | 196.3 | 1938.8 | 2 | not recorded | not recorded | 16267.5 | 0 | 2048 | 2112 | yes |
+| 3 | on_demand | 336.6 | 333.3 | 153.7 | 1934.1 | 0 | not recorded | not recorded | 16281.5 | 2048 | 0 | 2112 | not applicable |
 
 **Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
 
@@ -259,7 +418,7 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_STORAGE_SEEDS='3' WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_PEERS=2 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
+WORK_AUDIT_STORAGE_SEEDS='3' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ15 WORK_AUDIT_STORAGE_PROMPT_ID= WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=2 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/storage_audit_20261006_213611/summary.json) · [Run manifest](docs/reports/work_audit/storage_audit_20261006_213611/run_manifest.json) · [seed3_full_prepare timings](docs/reports/work_audit/storage_audit_20261006_213611/arms/seed3_full_prepare/case_results.json) · [seed3_full_prepare trace](docs/reports/work_audit/storage_audit_20261006_213611/arms/seed3_full_prepare/backend_trace.jsonl.gz) · [seed3_host_stage timings](docs/reports/work_audit/storage_audit_20261006_213611/arms/seed3_host_stage/case_results.json) · [seed3_host_stage trace](docs/reports/work_audit/storage_audit_20261006_213611/arms/seed3_host_stage/backend_trace.jsonl.gz) · [seed3_on_demand timings](docs/reports/work_audit/storage_audit_20261006_213611/arms/seed3_on_demand/case_results.json) · [seed3_on_demand trace](docs/reports/work_audit/storage_audit_20261006_213611/arms/seed3_on_demand/backend_trace.jsonl.gz)
@@ -278,11 +437,11 @@ WORK_AUDIT_STORAGE_SEEDS='3' WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2 | full_prepare | 59.4 | 56.7 | 155.5 | 1887.7 | 0 | 16568.0 | 0 | 2048 | 2112 | yes |
-| 2 | host_stage | 165.3 | 162.5 | 158.8 | 1972.5 | 0 | 15896.9 | 0 | 2048 | 2112 | yes |
-| 2 | on_demand | 330.3 | 328.3 | 160.1 | 1898.9 | 0 | 16154.3 | 2048 | 0 | 2112 | not applicable |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2 | full_prepare | 59.4 | 56.7 | 155.5 | 1887.7 | 0 | not recorded | not recorded | 16568.0 | 0 | 2048 | 2112 | yes |
+| 2 | host_stage | 165.3 | 162.5 | 158.8 | 1972.5 | 0 | not recorded | not recorded | 15896.9 | 0 | 2048 | 2112 | yes |
+| 2 | on_demand | 330.3 | 328.3 | 160.1 | 1898.9 | 0 | not recorded | not recorded | 16154.3 | 2048 | 0 | 2112 | not applicable |
 
 **Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
 
@@ -293,7 +452,7 @@ WORK_AUDIT_STORAGE_SEEDS='3' WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_PEERS=2 WORK_AUDIT_STORAGE_PEER_START_MS=1000 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
+WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ15 WORK_AUDIT_STORAGE_PROMPT_ID= WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=2 WORK_AUDIT_STORAGE_PEER_START_MS=1000 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/storage_audit_20261006_212924/summary.json) · [Run manifest](docs/reports/work_audit/storage_audit_20261006_212924/run_manifest.json) · [seed2_full_prepare timings](docs/reports/work_audit/storage_audit_20261006_212924/arms/seed2_full_prepare/case_results.json) · [seed2_full_prepare trace](docs/reports/work_audit/storage_audit_20261006_212924/arms/seed2_full_prepare/backend_trace.jsonl.gz) · [seed2_host_stage timings](docs/reports/work_audit/storage_audit_20261006_212924/arms/seed2_host_stage/case_results.json) · [seed2_host_stage trace](docs/reports/work_audit/storage_audit_20261006_212924/arms/seed2_host_stage/backend_trace.jsonl.gz) · [seed2_on_demand timings](docs/reports/work_audit/storage_audit_20261006_212924/arms/seed2_on_demand/case_results.json) · [seed2_on_demand trace](docs/reports/work_audit/storage_audit_20261006_212924/arms/seed2_on_demand/backend_trace.jsonl.gz)
@@ -312,11 +471,11 @@ WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | full_prepare | 61.9 | 56.8 | not recorded | not recorded | 0 | 15780.3 | 0 | 2048 | 2112 | yes |
-| 1 | host_stage | 169.7 | 163.2 | not recorded | not recorded | 0 | 16102.9 | 0 | 2048 | 2112 | yes |
-| 1 | on_demand | 358.5 | 355.8 | not recorded | not recorded | 0 | 16159.7 | 2048 | 0 | 2112 | not applicable |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | full_prepare | 61.9 | 56.8 | not recorded | not recorded | 0 | not recorded | not recorded | 15780.3 | 0 | 2048 | 2112 | yes |
+| 1 | host_stage | 169.7 | 163.2 | not recorded | not recorded | 0 | not recorded | not recorded | 16102.9 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 358.5 | 355.8 | not recorded | not recorded | 0 | not recorded | not recorded | 16159.7 | 2048 | 0 | 2112 | not applicable |
 
 **Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
 
@@ -327,7 +486,7 @@ WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_
 **Reproduce** (set the container image and model cache for the target host):
 
 ```bash
-WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_PEERS=0 WORK_AUDIT_STORAGE_PEER_START_MS=1000 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
+WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ15 WORK_AUDIT_STORAGE_PROMPT_ID= WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=0 WORK_AUDIT_STORAGE_PEER_START_MS=1000 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 bash infra/container/run_work_audit_storage.sh
 ```
 
 **Evidence:** [Summary](docs/reports/work_audit/storage_audit_20261006_212239/summary.json) · [Run manifest](docs/reports/work_audit/storage_audit_20261006_212239/run_manifest.json) · [seed1_full_prepare timings](docs/reports/work_audit/storage_audit_20261006_212239/arms/seed1_full_prepare/case_results.json) · [seed1_full_prepare trace](docs/reports/work_audit/storage_audit_20261006_212239/arms/seed1_full_prepare/backend_trace.jsonl.gz) · [seed1_host_stage timings](docs/reports/work_audit/storage_audit_20261006_212239/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/storage_audit_20261006_212239/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/storage_audit_20261006_212239/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/storage_audit_20261006_212239/arms/seed1_on_demand/backend_trace.jsonl.gz)

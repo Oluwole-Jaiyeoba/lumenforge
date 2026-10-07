@@ -41,6 +41,11 @@ HOOK_TARGETS: tuple[SGLangHookTarget, ...] = (
         },
     ),
     SGLangHookTarget(
+        module="sglang.srt.managers.cache_controller",
+        class_name="PrefetchOperation",
+        methods={"increment": "storage_prefetch.data_ready"},
+    ),
+    SGLangHookTarget(
         module="sglang.srt.mem_cache.hiradix_cache",
         class_name="HiRadixCache",
         methods={
@@ -251,6 +256,7 @@ OPTIONAL_HOOKS: frozenset[tuple[str, str]] = frozenset(
         ("HiCacheController", "prefetch"),
         ("HiRadixCache", "evict_host"),
         ("HiRadixCache", "pop_prefetch_loaded_tokens"),
+        ("PrefetchOperation", "increment"),
     }
 )
 

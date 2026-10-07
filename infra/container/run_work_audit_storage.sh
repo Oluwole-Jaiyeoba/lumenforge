@@ -17,6 +17,8 @@ PEER_START_MS="${WORK_AUDIT_STORAGE_PEER_START_MS:-0}"
 PEER_PROMPT_TOKENS="${WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS:-1024}"
 PEER_MAX_TOKENS="${WORK_AUDIT_STORAGE_PEER_MAX_TOKENS:-96}"
 PAGE_SIZE="${WORK_AUDIT_STORAGE_PAGE_SIZE:-64}"
+QUESTION_ID="${WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID:-RQ15}"
+PROMPT_ID="${WORK_AUDIT_STORAGE_PROMPT_ID:-${RUN_ID}}"
 RUN_ROOT="${DIRECT_ROOT}/artifacts/results/work_audit/${RUN_ID}"
 SERVER_PID=""
 CONTAINER_CID=""
@@ -115,12 +117,13 @@ summaries = [row for row in rows if row.get("event") == "trace.install.summary"]
 if not summaries or not validate_installation("kv_lifecycle_lean", "v0510", summaries[-1])["valid"]:
     raise SystemExit("Required pinned SGLang KV hooks are missing")
 installed = summaries[-1].get("installed_hooks") or []
-for hook in ("HiCacheController.prefetch", "HiRadixCache.evict_host"):
+for hook in ("HiCacheController.prefetch", "HiRadixCache.evict_host", "PrefetchOperation.increment"):
     if not any(hook in value for value in installed):
         raise SystemExit(f"Required native storage hook missing: {hook}")
 PY
     python3 -m agentic_experiments.runners.run_work_audit_storage \
-      --run-id "${RUN_ID}_seed${seed}" --arm "${arm}" --model "${MODEL}" \
+      --run-id "${RUN_ID}_seed${seed}" --prompt-id "${PROMPT_ID}_seed${seed}" \
+      --arm "${arm}" --model "${MODEL}" \
       --prompt-tokens "${PROMPT_TOKENS}" --wait-ms "${WAIT_MS}" \
       --peer-count "${PEER_COUNT}" --peer-start-ms "${PEER_START_MS}" \
       --peer-prompt-tokens "${PEER_PROMPT_TOKENS}" --peer-max-tokens "${PEER_MAX_TOKENS}" \
@@ -134,12 +137,13 @@ PY
   done
 done
 python3 -m agentic_experiments.runners.analyze_work_audit_storage \
-  --arms-dir "${RUN_ROOT}/arms" --out "${RUN_ROOT}/summary.json"
+  --arms-dir "${RUN_ROOT}/arms" --out "${RUN_ROOT}/summary.json" --require-native-timing
 WORKLOAD_JSON="$(python3 - "${SEEDS}" "${WAIT_MS}" "${PROMPT_TOKENS}" "${MODEL}" "${PEER_COUNT}" "${PEER_START_MS}" "${PEER_PROMPT_TOKENS}" "${PEER_MAX_TOKENS}" "${PAGE_SIZE}" \
-  "${WORK_AUDIT_STORAGE_HOST_GB:-14}" "${WORK_AUDIT_STORAGE_MEM_FRACTION:-0.7}" <<'PY'
+  "${WORK_AUDIT_STORAGE_HOST_GB:-14}" "${WORK_AUDIT_STORAGE_MEM_FRACTION:-0.7}" "${QUESTION_ID}" "${PROMPT_ID}" <<'PY'
 import json, sys
-seeds, wait, prompt, model, peer_count, peer_start, peer_prompt, peer_max, page_size, host_gb, mem_fraction = sys.argv[1:]
-print(json.dumps({"research_question_id": "RQ15", "seeds": list(map(int, seeds.split())),
+seeds, wait, prompt, model, peer_count, peer_start, peer_prompt, peer_max, page_size, host_gb, mem_fraction, question, prompt_id = sys.argv[1:]
+print(json.dumps({"research_question_id": question, "seeds": list(map(int, seeds.split())),
+                  "prompt_id": prompt_id,
                   "session_count": 1 + int(peer_count), "peer_count": int(peer_count),
                   "peer_start_ms": int(peer_start), "peer_prompt_tokens": int(peer_prompt),
                   "peer_max_tokens": int(peer_max),

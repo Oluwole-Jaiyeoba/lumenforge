@@ -130,6 +130,33 @@ The archived manifest records page size, wait, prompt, peers, backend version,
 and runtime profile; the raw per-arm timings and compressed backend traces
 remain linked from the top-level audit.
 
+## Storage Pressure Sweep (RQ16)
+
+This follow-up changes only the number of equal-priority peers while keeping
+the target and peer prompts, five-second tool wait, model, and three storage
+arms fixed. Each arm still starts a fresh backend. The default sweep uses two
+seeds at 0, 2, and 6 peers:
+
+```bash
+WORK_AUDIT_STORAGE_SWEEP_ID=storage_pressure_reference \
+WORK_AUDIT_STORAGE_SEEDS='1 2' \
+bash infra/container/run_work_audit_storage_pressure.sh
+```
+
+The optional `PrefetchOperation.increment` trace hook is enabled only for this
+storage audit. It timestamps when native prefetch has filled all requested
+host pages. The control path separately timestamps host-cache commit; the
+client records when it notices completion. The ready-to-commit interval
+includes the status-poll delay because that poll can trigger the commit; it
+is not a pure measure of SGLang cache-commit work. This distinguishes
+storage-to-host data readiness from the later control-path observation.
+These timestamps do not distinguish a physical SSD read from an OS page-cache
+hit. The analyzer rejects missing or out-of-order native timestamps and
+requires their raw trace event to match the control result. Compare target
+due-to-first-token time, peer TTFT and completion, whole-workflow duration,
+and the number of peers whose requests intersected preparation. An early
+target win is not a system-wide win if it delays peers or the workflow.
+
 ## First Live Validation
 
 Use the accessible A10G host with the existing pinned SGLang 0.5.10.post1

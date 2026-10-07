@@ -12,12 +12,17 @@ from typing import Any
 from agentic_backends.sglang.evidence import storage_audit_event_kind
 
 
-def _replay_evidence(trace: Path) -> tuple[int, int]:
+def _replay_evidence(trace: Path) -> tuple[int, int, dict[str, tuple[int, int]]]:
     hits = 0
     matched = 0
+    native_completions: dict[str, tuple[int, int]] = {}
     with gzip.open(trace, "rt", encoding="utf-8") as handle:
         for line in handle:
             row = json.loads(line)
+            if row.get("event") == "storage_prefetch.data_ready":
+                native_completions[str(row.get("storage_request_id"))] = (
+                    int(row["ts_ns"]), int(row["completed_tokens"])
+                )
             event_kind = storage_audit_event_kind(row)
             if event_kind == "storage_hit_tokens":
                 try:
@@ -30,15 +35,17 @@ def _replay_evidence(trace: Path) -> tuple[int, int]:
                 result = row.get("result")
                 if isinstance(result, list) and result and isinstance(result[0], dict):
                     matched = max(matched, int(result[0].get("index_count") or 0))
-    return hits, matched
+    return hits, matched, native_completions
 
 
-def summarize(arms_dir: Path) -> dict[str, Any]:
+def summarize(arms_dir: Path, *, require_native_timing: bool = False) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for case_path in sorted(arms_dir.glob("*/case_results.json")):
         case = json.loads(case_path.read_text(encoding="utf-8"))
         arm = str(case["arm"])
-        native_hits, matched_prefix = _replay_evidence(case_path.parent / "backend_trace.jsonl.gz")
+        native_hits, matched_prefix, native_completions = _replay_evidence(
+            case_path.parent / "backend_trace.jsonl.gz"
+        )
         control_hits = int(((case.get("storage_stage") or {}).get("completed") or {}).get("storage_loaded_tokens") or 0)
         if arm == "on_demand" and native_hits <= 0:
             raise ValueError(f"{case_path}: on-demand replay has no proven native L3 hit")
@@ -53,6 +60,21 @@ def summarize(arms_dir: Path) -> dict[str, Any]:
         prep_start = (stage.get("accepted") or {}).get("control_request_ns")
         prep_end = ((case.get("device_load") or {}).get("completed") or {}).get("observed_ns")
         prep_end = prep_end or stage.get("completed_observed_ns")
+        accepted = stage.get("accepted") or {}
+        completed = stage.get("completed") or {}
+        requested_ns = accepted.get("storage_requested_ns")
+        ready_ns = completed.get("storage_data_ready_ns")
+        committed_ns = completed.get("storage_host_committed_ns")
+        has_native_timing = (
+            isinstance(requested_ns, int) and isinstance(ready_ns, int)
+            and isinstance(committed_ns, int) and requested_ns <= ready_ns <= committed_ns
+        )
+        if arm != "on_demand" and require_native_timing and not has_native_timing:
+            raise ValueError(f"{case_path}: ordered native storage timestamps missing")
+        if arm != "on_demand" and has_native_timing:
+            request_id = str(accepted.get("storage_request_id"))
+            if native_completions.get(request_id) != (ready_ns, control_hits):
+                raise ValueError(f"{case_path}: native data-ready trace does not match control result")
         peers_overlapping_preparation = sum(
             bool(prep_start and prep_end and peer.get("request_start_ns") and peer.get("request_end_ns")
                  and peer["request_start_ns"] < prep_end and peer["request_end_ns"] > prep_start)
@@ -68,6 +90,12 @@ def summarize(arms_dir: Path) -> dict[str, Any]:
             "workflow_duration_ms": case.get("workflow_duration_ms"),
             "peer_count": len(case.get("peers") or []),
             "peers_overlapping_preparation": peers_overlapping_preparation,
+            "storage_data_ready_ms": round((ready_ns - requested_ns) / 1e6, 3) if has_native_timing else None,
+            "storage_commit_after_ready_ms": round((committed_ns - ready_ns) / 1e6, 3) if has_native_timing else None,
+            "storage_confirmed_ms": (
+                round((stage["completed_observed_ns"] - requested_ns) / 1e6, 3)
+                if requested_ns else None
+            ),
             "peer_ttft_median_ms": (
                 statistics.median(peer["ttft_ms"] for peer in case["peers"])
                 if case.get("peers") else None
@@ -117,8 +145,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arms-dir", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--require-native-timing", action="store_true")
     args = parser.parse_args()
-    result = summarize(args.arms_dir)
+    result = summarize(args.arms_dir, require_native_timing=args.require_native_timing)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2), encoding="utf-8")
 

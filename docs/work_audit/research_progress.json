@@ -2,6 +2,26 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ16",
+      "short_question": "Does storage preparation still help under peer pressure?",
+      "evidence_date_utc": "2026-10-07",
+      "question": "With a storage-resident target prefix and equal-priority peer requests, does preparing KV during a five-second tool wait still improve target replay as concurrent peer pressure rises, and what do peers pay?",
+      "answer": "On the A10G with pinned SGLang 0.5.10.post1, a two-seed, three-arm synthetic sweep used the same 2048-token target prefix, 1024-token peer prompts, 64-token file-cache pages, fresh backend per arm, and 0, 2, or 6 peers starting at tool-wait onset. Median target deadline-to-first-token time (on demand / host stage / full prepare) was 370 / 171 / 60 ms at 0 peers, 364 / 170 / 61 ms at 2 peers, and 468 / 168 / 60 ms at 6 peers. All staged loads completed before tool return; both peers at level 2 and all six at level 6 overlapped preparation. Peer median TTFT was 157 / 393 / 456 ms at 2 peers and 1026 / 1075 / 1184 ms at 6 peers. Peer median completion was 1923 / 2158 / 2306 ms at 2 peers and 2963 / 3049 / 3150 ms at 6 peers. Whole-workflow duration was 16195 / 16141 / 15982 ms at 2 peers and 16445 / 16108 / 16045 ms at 6 peers. Native prefetch-completion evidence separated data readiness from later host-cache commit/status polling: the latter interval grew to roughly 581-586 ms for staged arms at six peers. Target replay benefited at every tested pressure, but peers sometimes waited longer; this is not an unconditional system-wide win.",
+      "hypothesis": "Known tool-return timing can hide a returning session's storage preparation even amid concurrent work, but the backend's status-poll/commit and other requests' startup can compete for software scheduling time. Pressure-aware admission or pacing may be needed to avoid shifting delay onto peers.",
+      "unknown": "These were two seeds per pressure level, with synthetic prompts, deliberate device/host eviction, one returning target, and at most six peer requests. At two peers, peer TTFT varied substantially between seeds. File-backed L3 hits do not establish physical SSD reads; OS page-cache warming may explain why native data-readiness times were shorter in later pressure runs. The ready-to-commit interval includes status-poll delay and must not be read as pure commit cost. The whole-workflow metric is the last completion among these requests, not a production throughput measure. The remote manifests have an empty Git commit because the host used a synced source copy; this change archives the evidence with the experiment code. This study does not isolate the exact cause of peer delay, prove net benefit across independent workflows, or establish hardware-offload value.",
+      "evidence_run_ids": [
+        "storage_pressure_20261006_peers0",
+        "storage_pressure_20261006_peers2",
+        "storage_pressure_20261006_peers6"
+      ],
+      "related_run_ids": [
+        "storage_pressure_20261006_peers0",
+        "storage_pressure_20261006_peers2",
+        "storage_pressure_20261006_peers6",
+        "storage_native_gate_20261006"
+      ]
+    },
+    {
       "id": "RQ15",
       "short_question": "Can storage KV be prepared during a tool wait?",
       "evidence_date_utc": "2026-10-06",

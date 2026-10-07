@@ -91,6 +91,37 @@ class TraceInstallTest(unittest.TestCase):
         self.assertIn("sglang.srt.mem_cache.hiradix_cache.HiRadixCache.match_prefix", evidence["installed_hooks"])
         self.assertEqual(evidence["hook_statuses"]["sglang.srt.mem_cache.hiradix_cache.HiRadixCache.match_prefix"], "installed")
 
+    def test_native_storage_completion_hook_emits_only_once_at_full_completion(self) -> None:
+        from agentic_backends.sglang.trace import patch
+
+        events = []
+        original_write = patch._write_event
+        patch._write_event = events.append
+        try:
+            class PrefetchOperation:
+                def __init__(self):
+                    self.request_id = "storage-1"
+                    self.token_ids = [1, 2, 3]
+                    self.completed_tokens = 0
+
+                def increment(self, count):
+                    self.completed_tokens += count
+                    return True
+
+            self.assertEqual(patch._wrap_storage_completion(PrefetchOperation, "increment"), "wrapped")
+            operation = PrefetchOperation()
+            operation.increment(1)
+            self.assertEqual(events, [])
+            operation.increment(2)
+            operation.increment(0)
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0]["event"], "storage_prefetch.data_ready")
+            self.assertEqual(events[0]["storage_request_id"], "storage-1")
+            self.assertEqual(events[0]["completed_tokens"], 3)
+            self.assertEqual(events[0]["ts_ns"], operation._agentic_storage_data_ready_ns)
+        finally:
+            patch._write_event = original_write
+
     def test_missing_required_hook_is_loud_not_silent(self) -> None:
         root = build_fake_sglang(self.tmp / "site", get_adapter("v0510"), "0.5.10.post1", drop={"HiCacheController.load"})
         proc = run_install(root, self.tmp / "trace.jsonl")

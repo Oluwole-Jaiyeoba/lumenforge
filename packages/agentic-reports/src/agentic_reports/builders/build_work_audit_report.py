@@ -405,9 +405,14 @@ def _reproduction(summary: dict, timing: bool) -> str:
     workload = manifest.get("workload") or {}
     if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
         command = (f"WORK_AUDIT_STORAGE_SEEDS='{ ' '.join(map(str, workload.get('seeds') or [])) }' "
+                   f"WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID={workload.get('research_question_id', 'RQ15')} "
+                   f"WORK_AUDIT_STORAGE_PROMPT_ID={workload.get('prompt_id', '')} "
+                   f"WORK_AUDIT_STORAGE_MODEL={workload.get('model', manifest.get('model', ''))} "
                    f"WORK_AUDIT_STORAGE_WAIT_MS={workload.get('tool_wait_ms')} "
                    f"WORK_AUDIT_STORAGE_PROMPT_TOKENS={workload.get('prompt_tokens')} "
                    f"WORK_AUDIT_STORAGE_PAGE_SIZE={workload.get('page_size_tokens')} "
+                   f"WORK_AUDIT_STORAGE_HOST_GB={workload.get('host_cache_gb', 14)} "
+                   f"WORK_AUDIT_STORAGE_MEM_FRACTION={workload.get('gpu_mem_fraction', 0.7)} "
                    f"WORK_AUDIT_STORAGE_PEERS={workload.get('peer_count', 0)} "
                    f"WORK_AUDIT_STORAGE_PEER_START_MS={workload.get('peer_start_ms', 1000)} "
                    f"WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS={workload.get('peer_prompt_tokens', 1024)} "
@@ -1096,10 +1101,17 @@ def _run_finding(summary: dict) -> str:
                          "contention during the transfer.")
         else:
             limit = "No peer-session or whole-system benefit is established by this single-session run."
+        native_times = [row["storage_data_ready_ms"] for row in summary["rows"]
+                        if row.get("storage_data_ready_ms") is not None]
+        poll_times = [row["storage_commit_after_ready_ms"] for row in summary["rows"]
+                      if row.get("storage_commit_after_ready_ms") is not None]
+        native_note = (f" Native data readiness took a median {median(native_times):.0f} ms; "
+                       f"the later status-poll/host-commit interval took {median(poll_times):.0f} ms."
+                       if native_times and poll_times else "")
         return (f"With storage-only KV proven, first token after tool due was "
                 f"{base:.0f} ms on demand, {host:.0f} ms after host staging, "
                 f"and {full:.0f} ms after full preparation "
-                f"(median across {len(summary['paired'])} paired seed(s)). " + limit)
+                f"(median across {len(summary['paired'])} paired seed(s)). " + limit + native_note)
     if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
         if summary.get("status") == "trace_off_control":
             ttft_median, ttft_p95, _ = _tool_cycle_user_metrics(summary)
@@ -1308,12 +1320,15 @@ def _result_parts(summary: dict) -> tuple[str, str]:
                  _ms(row['due_to_first_token_ms']), _ms(row['replay_ttft_ms']),
                  _ms(row.get('peer_ttft_median_ms')),
                  row.get('peers_overlapping_preparation'),
+                 _ms(row.get('storage_data_ready_ms')),
+                 _ms(row.get('storage_commit_after_ready_ms')),
                  row['native_replay_storage_hit_tokens'], row['control_storage_hit_tokens'],
                  row.get('replay_matched_prefix_tokens'),
                  "yes" if row['stage_completed_before_due'] else "not applicable")
                 for row in summary['rows']]
         detail = _mode_table(("Arm", "Due → first token", "Replay TTFT", "Peer TTFT median",
                               "Peers overlapping preparation",
+                              "Native L3 → host ready", "Ready → commit/poll",
                               "L3 tokens at replay", "L3 tokens during wait",
                               "Matched replay prefix",
                               "Staging met due time"), rows)
@@ -1665,6 +1680,7 @@ def _markdown_metrics(summary: dict) -> str:
         rows = [(row['seed'], row['arm'], row['due_to_first_token_ms'], row['replay_ttft_ms'],
                  row.get('peer_ttft_median_ms'), row.get('peer_completion_median_ms'),
                  row.get('peers_overlapping_preparation'),
+                 row.get('storage_data_ready_ms'), row.get('storage_commit_after_ready_ms'),
                  row.get('workflow_duration_ms'), row['native_replay_storage_hit_tokens'],
                  row['control_storage_hit_tokens'], row.get('replay_matched_prefix_tokens'),
                  "not applicable" if row['arm'] == 'on_demand' else
@@ -1673,6 +1689,7 @@ def _markdown_metrics(summary: dict) -> str:
         return _md_table(("Seed", "Arm", "Due → first token (ms)", "Replay TTFT (ms)",
                           "Peer TTFT median (ms)", "Peer completion median (ms)",
                           "Peers overlapping preparation",
+                          "Native L3 → host ready (ms)", "Ready → commit/poll (ms)",
                           "Whole workflow (ms)", "L3 tokens at replay", "L3 tokens in wait",
                           "Matched prefix tokens",
                           "Stage ready by due"), rows)
@@ -2061,8 +2078,14 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
     if schema == "agentic_work_audit.storage_replay.v1":
-        first_seed = summary['paired'][0]['seed']
-        arms = {row['arm']: row for row in summary['rows'] if row['seed'] == first_seed}
+        arms = {
+            arm: {
+                key: median(row[key] for row in summary['rows'] if row['arm'] == arm)
+                for key in ('due_to_first_token_ms', 'peer_ttft_median_ms')
+                if all(row.get(key) is not None for row in summary['rows'] if row['arm'] == arm)
+            }
+            for arm in ('on_demand', 'host_stage', 'full_prepare')
+        }
         base = arms['on_demand']['due_to_first_token_ms']
         full = arms['full_prepare']['due_to_first_token_ms']
         peer_count = max((row.get('peer_count') or 0 for row in summary['rows']), default=0)

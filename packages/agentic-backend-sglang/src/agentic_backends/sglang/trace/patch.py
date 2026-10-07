@@ -1703,19 +1703,28 @@ def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any
         if not request_id or request_id in tree_cache.ongoing_prefetch:
             return {"ok": False, "status": "invalid_storage_request_id", **result}
         root = tree_cache.root_node
+        requested_ns = time.time_ns()
         tree_cache.prefetch_from_storage(request_id, root, token_ids)
         if request_id not in tree_cache.ongoing_prefetch:
             return {"ok": False, "status": "native_prefetch_not_admitted", **result}
-        return {"ok": True, "status": "storage_prefetch_accepted", "storage_request_id": request_id, **result}
+        entry.setdefault("storage_prefetch_times", {})[request_id] = {"requested_ns": requested_ns}
+        return {"ok": True, "status": "storage_prefetch_accepted", "storage_request_id": request_id,
+                "storage_requested_ns": requested_ns, **result}
     if action == "storage_prefetch_status":
         request_id = str(command.get("storage_request_id") or "")
         if not request_id:
             return {"ok": False, "status": "storage_request_id_required"}
         pending = request_id in tree_cache.ongoing_prefetch
+        timing = entry.get("storage_prefetch_times", {}).get(request_id, {})
+        if pending:
+            operation = tree_cache.ongoing_prefetch[request_id][3]
+            timing["data_ready_ns"] = getattr(operation, "_agentic_storage_data_ready_ns", None)
         if pending and not tree_cache.check_prefetch_progress(request_id):
-            return {"ok": True, "status": "storage_prefetch_pending", "storage_request_id": request_id}
+            return {"ok": True, "status": "storage_prefetch_pending", "storage_request_id": request_id,
+                    "storage_data_ready_ns": timing.get("data_ready_ns")}
         loaded = int(tree_cache.prefetch_loaded_tokens_by_reqid.pop(request_id, 0))
         match, gpu_after, host_after = _storage_audit_match(entry)
+        committed_ns = time.time_ns()
         if loaded > 0:
             entry["last_host_node"] = match.last_host_node
             entry["last_node"] = match.last_device_node
@@ -1723,6 +1732,9 @@ def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any
             "ok": loaded > 0 and host_after > 0,
             "status": "storage_prefetch_complete" if loaded > 0 and host_after > 0 else "storage_prefetch_no_hit",
             "storage_request_id": request_id, "storage_loaded_tokens": loaded,
+            "storage_requested_ns": timing.get("requested_ns"),
+            "storage_data_ready_ns": timing.get("data_ready_ns"),
+            "storage_host_committed_ns": committed_ns,
             "gpu_tokens_after": gpu_after, "host_tokens_after": host_after,
         }
     return {"ok": False, "status": "unknown_storage_action"}
@@ -3990,6 +4002,34 @@ def _wrap_decode_batch_only(cls: type, method_name: str, event_name: str) -> str
     return "wrapped"
 
 
+def _wrap_storage_completion(cls: type, method_name: str) -> str:
+    """Mark the moment native I/O has populated every requested host page."""
+    original = getattr(cls, method_name, None)
+    if original is None:
+        return "missing_method"
+    if not callable(original):
+        return "signature_mismatch:not_callable"
+    if getattr(original, "_agentic_kv_wrapped", False):
+        return "already_wrapped"
+
+    @functools.wraps(original)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        result = original(self, *args, **kwargs)
+        token_count = len(getattr(self, "token_ids", ()))
+        if result and token_count > 0 and getattr(self, "completed_tokens", 0) >= token_count:
+            if getattr(self, "_agentic_storage_data_ready_ns", None) is None:
+                ready_ns = time.time_ns()
+                self._agentic_storage_data_ready_ns = ready_ns
+                _write_event({"event": "storage_prefetch.data_ready", "ts_ns": ready_ns,
+                              "storage_request_id": getattr(self, "request_id", None),
+                              "completed_tokens": getattr(self, "completed_tokens", None)})
+        return result
+
+    wrapper._agentic_kv_wrapped = True  # type: ignore[attr-defined]
+    setattr(cls, method_name, wrapper)
+    return "wrapped"
+
+
 def _try_patch(
     importer: Callable[[], Any], class_name: str, methods: dict[str, str], *,
     control_only: bool = False, decode_only: bool = False,
@@ -4011,7 +4051,8 @@ def _try_patch(
             )
         return {method_name: f"missing_class:{type(exc).__name__}" for method_name in methods}
 
-    return {method_name: (_wrap_control_only(cls, method_name) if control_only
+    return {method_name: (_wrap_storage_completion(cls, method_name) if class_name == "PrefetchOperation"
+                          else _wrap_control_only(cls, method_name) if control_only
                           else _wrap_decode_batch_only(cls, method_name, event_name) if decode_only
                           else _wrap_method(cls, method_name, event_name))
             for method_name, event_name in methods.items()}
@@ -4096,6 +4137,8 @@ def install_sglang_kv_trace() -> None:
     hook_statuses: dict[str, str] = {}
     for target in adapter.hook_targets:
         target_methods = dict(target.methods)
+        if target.class_name == "PrefetchOperation" and not _truthy_env("AGENTIC_KV_STORAGE_AUDIT_ENABLE"):
+            continue
         if target.class_name == "HiRadixCache" and not _truthy_env("AGENTIC_KV_STORAGE_AUDIT_ENABLE"):
             target_methods.pop("pop_prefetch_loaded_tokens", None)
             target_methods.pop("evict_host", None)

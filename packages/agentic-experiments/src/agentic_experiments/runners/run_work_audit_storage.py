@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,8 @@ async def stage_storage(client: httpx.AsyncClient, url: str, identity: dict[str,
             continue
         if not result.get("ok") or int(result.get("storage_loaded_tokens") or 0) <= 0:
             raise RuntimeError(f"native L3 hit not proved: {json.dumps(result, sort_keys=True)}")
+        if not result.get("storage_data_ready_ns") or not result.get("storage_host_committed_ns"):
+            raise RuntimeError(f"native storage completion timestamp missing: {json.dumps(result, sort_keys=True)}")
         return {"accepted": accepted, "completed": result, "completed_observed_ns": time.time_ns()}
     raise TimeoutError("native L3 prefetch did not complete")
 
@@ -50,7 +53,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     initial_id = f"{session}-initial"
     # The prompt must be byte-identical across arms of one seed; only trace
     # identities differ. Otherwise a storage timing comparison is confounded.
-    prompt = make_prompt(args.run_id, args.prompt_tokens)
+    prompt = make_prompt(args.prompt_id or args.run_id, args.prompt_tokens)
     identity = {"session_id": session, "prefix_id": prefix,
                 "prompt_hash": prompt_hash(prompt), "request_id": initial_id}
     async with httpx.AsyncClient(timeout=90) as client:
@@ -80,7 +83,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         async def peer(index: int) -> dict[str, Any]:
             await asyncio.sleep(args.peer_start_ms / 1000)
             peer_session = f"{session}-peer{index}"
-            peer_prompt = make_prompt(f"{args.run_id}-peer{index}", args.peer_prompt_tokens)
+            peer_prompt = make_prompt(f"{args.prompt_id or args.run_id}-peer{index}", args.peer_prompt_tokens)
             result = await completion(
                 client, base_url=args.base_url, model=args.model, prompt=peer_prompt,
                 request_context=context(session_id=peer_session, prefix_id=peer_session,
@@ -105,9 +108,10 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 device_load = {"accepted": accepted,
                                "completed": await confirm_load(client, args.control_url, str(accepted["load_id"]))}
             if time.time_ns() > due_ns:
+                overshoot_ms = (time.time_ns() - due_ns) / 1e6
                 raise RuntimeError(
                     f"{args.arm} did not finish preparation inside the {args.wait_ms} ms tool wait; "
-                    "run a longer wait for the paired latency comparison"
+                    f"overshoot_ms={overshoot_ms:.3f}"
                 )
         remaining = (due_ns - time.time_ns()) / 1e9
         if remaining > 0:
@@ -139,6 +143,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--prompt-id")
     parser.add_argument("--arm", choices=("on_demand", "host_stage", "full_prepare"), required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct")
@@ -154,8 +159,16 @@ def main() -> None:
     args = parser.parse_args()
     if args.prompt_tokens < 512 or args.wait_ms < 1 or args.peer_count < 0:
         parser.error("need a 512+ token prompt and a positive wait")
-    result = asyncio.run(run(args))
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result = asyncio.run(run(args))
+    except Exception as exc:
+        (args.out.parent / "case_failure.json").write_text(json.dumps({
+            "run_id": args.run_id, "arm": args.arm, "status": "failed",
+            "error_type": type(exc).__name__, "error": str(exc),
+            "traceback": traceback.format_exc(), "recorded_ns": time.time_ns(),
+        }, indent=2), encoding="utf-8")
+        raise
     args.out.write_text(json.dumps(result, indent=2), encoding="utf-8")
 
 

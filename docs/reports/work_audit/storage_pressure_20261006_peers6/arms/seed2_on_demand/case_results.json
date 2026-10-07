@@ -1,0 +1,110 @@
+{
+  "run_id": "storage_pressure_20261006_peers6_seed2",
+  "arm": "on_demand",
+  "session_id": "storage_pressure_20261006_peers6_seed2-on_demand",
+  "frontend_priority": "equal",
+  "prompt_tokens_target": 2048,
+  "wait_ms": 5000,
+  "initial": {
+    "request_start_ns": 1791333576369728216,
+    "request_end_ns": 1791333587009525986,
+    "first_token_ns": 1791333585257102228,
+    "ttft_ms": 8887.372,
+    "total_latency_ms": 10639.796,
+    "stream_chunks": 18
+  },
+  "host_precursor": {
+    "gpu_tokens": 0,
+    "host_tokens": 2048,
+    "ok": true,
+    "prefix_tokens": 2098,
+    "status": "residency_observed",
+    "control_request_ns": 1791333587027286792,
+    "control_response_ns": 1791333587038640535
+  },
+  "storage_eviction": {
+    "gpu_tokens": 0,
+    "gpu_tokens_after": 0,
+    "host_tokens": 2048,
+    "host_tokens_after": 0,
+    "ok": true,
+    "prefix_tokens": 2098,
+    "removed_host_match_tokens": 2048,
+    "status": "storage_only_candidate",
+    "control_request_ns": 1791333587038645025,
+    "control_response_ns": 1791333587067454018
+  },
+  "tool_start_ns": 1791333587067456928,
+  "tool_due_ns": 1791333592067456928,
+  "tool_end_ns": 1791333592070177363,
+  "storage_stage": null,
+  "device_load": null,
+  "replay": {
+    "request_start_ns": 1791333592070257575,
+    "request_end_ns": 1791333592854073096,
+    "first_token_ns": 1791333592570113826,
+    "ttft_ms": 499.855,
+    "total_latency_ms": 783.815,
+    "stream_chunks": 18
+  },
+  "peers": [
+    {
+      "peer_index": 0,
+      "request_start_ns": 1791333587098662423,
+      "request_end_ns": 1791333590107208525,
+      "first_token_ns": 1791333587311087377,
+      "ttft_ms": 212.423,
+      "total_latency_ms": 3008.545,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 1,
+      "request_start_ns": 1791333587129681014,
+      "request_end_ns": 1791333590107457711,
+      "first_token_ns": 1791333587848886775,
+      "ttft_ms": 719.205,
+      "total_latency_ms": 2977.776,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 2,
+      "request_start_ns": 1791333587149386363,
+      "request_end_ns": 1791333590107105663,
+      "first_token_ns": 1791333588187841681,
+      "ttft_ms": 1038.454,
+      "total_latency_ms": 2957.718,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 3,
+      "request_start_ns": 1791333587169296378,
+      "request_end_ns": 1791333590107155854,
+      "first_token_ns": 1791333588188237660,
+      "ttft_ms": 1018.94,
+      "total_latency_ms": 2937.858,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 4,
+      "request_start_ns": 1791333587189267112,
+      "request_end_ns": 1791333590107045392,
+      "first_token_ns": 1791333588310490145,
+      "ttft_ms": 1121.221,
+      "total_latency_ms": 2917.777,
+      "stream_chunks": 98
+    },
+    {
+      "peer_index": 5,
+      "request_start_ns": 1791333587208773017,
+      "request_end_ns": 1791333590107403910,
+      "first_token_ns": 1791333588310869884,
+      "ttft_ms": 1102.096,
+      "total_latency_ms": 2898.63,
+      "stream_chunks": 98
+    }
+  ],
+  "due_to_first_token_ms": 502.657,
+  "tool_end_to_first_token_ms": 499.936,
+  "stage_completed_before_due": false,
+  "workflow_duration_ms": 16484.345
+}

@@ -1,0 +1,80 @@
+{
+  "schema": "agentic_work_audit.storage_replay.v1",
+  "run_id": "storage_native_gate_20261006",
+  "status": "complete",
+  "rows": [
+    {
+      "seed": 1,
+      "arm": "full_prepare",
+      "due_to_first_token_ms": 64.16,
+      "tool_end_to_first_token_ms": 59.174,
+      "replay_ttft_ms": 59.116,
+      "replay_total_latency_ms": 327.044,
+      "workflow_duration_ms": 15940.571,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": 264.903,
+      "storage_commit_after_ready_ms": 91.324,
+      "storage_confirmed_ms": 358.313,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 1,
+      "arm": "host_stage",
+      "due_to_first_token_ms": 170.249,
+      "tool_end_to_first_token_ms": 164.622,
+      "replay_ttft_ms": 164.563,
+      "replay_total_latency_ms": 452.28,
+      "workflow_duration_ms": 16101.98,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": 258.529,
+      "storage_commit_after_ready_ms": 32.602,
+      "storage_confirmed_ms": 292.457,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 1,
+      "arm": "on_demand",
+      "due_to_first_token_ms": 369.298,
+      "tool_end_to_first_token_ms": 365.946,
+      "replay_ttft_ms": 365.894,
+      "replay_total_latency_ms": 652.186,
+      "workflow_duration_ms": 16260.458,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": null,
+      "storage_commit_after_ready_ms": null,
+      "storage_confirmed_ms": null,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "native_replay_storage_hit_tokens": 2048,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 0,
+      "stage_completed_before_due": false,
+      "removed_host_match_tokens": 2048
+    }
+  ],
+  "paired": [
+    {
+      "seed": 1,
+      "host_stage_delta_ms": -199.049,
+      "full_prepare_delta_ms": -305.13800000000003
+    }
+  ],
+  "median_host_stage_delta_ms": -199.049,
+  "median_full_prepare_delta_ms": -305.13800000000003,
+  "interpretation_limit": "Single-session storage timing only. Peer-session cost and a busy-workload benefit are not measured. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads."
+}
