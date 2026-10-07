@@ -67,3 +67,35 @@ def test_failed_arm_blocks_three_seed_conclusion(tmp_path):
     assert len(summary["paired_comparisons"]) == 1
     assert summary["failed_arms"][0]["backend_assertion"] == "cache tree"
     assert "seed3_host_stage" in summary["missing_arm_ids"]
+
+
+def test_capacity_skip_is_visible_but_does_not_claim_failure(tmp_path):
+    _case(tmp_path, 1, "on_demand", due_ms=400, workflow_ms=9000, hit_tokens=2048)
+    staged = _case(tmp_path, 1, "host_stage", due_ms=200, workflow_ms=9500, hit_tokens=0)
+    path = staged / "case_results.json"
+    case = json.loads(path.read_text(encoding="utf-8"))
+    case["turns"].append({"turn": 2, "request_id": "s1-turn02",
+                          "due_to_first_token_ms": 300, "ttft_ms": 300,
+                          "prompt_tokens": 3500,
+                          "preparation": {"skip_reason": "host_capacity_insufficient"}})
+    case["turns"].append({"turn": 3, "request_id": "s1-turn03",
+                          "due_to_first_token_ms": 320, "ttft_ms": 320,
+                          "prompt_tokens": 3600,
+                          "preparation": {"skip_reason": "storage_prefetch_rate_limited"}})
+    path.write_text(json.dumps(case), encoding="utf-8")
+    result = analyze(tmp_path, expected_seeds=[1], expected_arms=["on_demand", "host_stage"])
+    assert result["status"] == "complete"
+    assert result["arms"][1]["preparation_skips"] == [
+        "host_capacity_insufficient", "storage_prefetch_rate_limited",
+    ]
+
+
+def test_unexpected_preparation_error_blocks_claim(tmp_path):
+    _case(tmp_path, 1, "on_demand", due_ms=400, workflow_ms=9000, hit_tokens=2048)
+    staged = _case(tmp_path, 1, "host_stage", due_ms=200, workflow_ms=9500, hit_tokens=0)
+    path = staged / "case_results.json"
+    case = json.loads(path.read_text(encoding="utf-8"))
+    case["turns"][0]["preparation"] = {"error": "storage_prefix_anchor_mismatch"}
+    path.write_text(json.dumps(case), encoding="utf-8")
+    result = analyze(tmp_path, expected_seeds=[1], expected_arms=["on_demand", "host_stage"])
+    assert result["status"] == "blocked"

@@ -61,6 +61,8 @@ def summarize_arm(case: dict[str, Any], hit_tokens: dict[str, int]) -> dict[str,
         "stage_attempt_count": sum(bool(row["preparation"]) for row in turns),
         "preparation_errors": [row["preparation"]["error"] for row in turns
                                if row["preparation"] and "error" in row["preparation"]],
+        "preparation_skips": [row["preparation"]["skip_reason"] for row in turns
+                              if row["preparation"] and "skip_reason" in row["preparation"]],
         "prompt_token_range": [min(row["prompt_tokens"] for row in turns),
                                max(row["prompt_tokens"] for row in turns)],
     }
@@ -113,7 +115,8 @@ def analyze(arms_dir: Path, *, expected_seeds: list[int] | None = None,
                        if f"seed{seed}_{arm}" not in observed_arm_ids]
     staged_arms = [arm for arm in arms if arm["arm"] == "host_stage"]
     has_effective_stage = any(arm["stage_before_due_count"] > 0 for arm in staged_arms)
-    status = ("blocked" if failed_arms or missing_arm_ids else
+    has_preparation_error = any(arm["preparation_errors"] for arm in staged_arms)
+    status = ("blocked" if failed_arms or missing_arm_ids or has_preparation_error else
               "complete" if comparisons and has_effective_stage else
               "insufficient_exposure" if comparisons else "calibration")
     return {"schema": "agentic_work_audit.storage_cycles.summary.v1", "status": status,
@@ -121,9 +124,9 @@ def analyze(arms_dir: Path, *, expected_seeds: list[int] | None = None,
             "paired_comparisons": comparisons, "failed_arms": failed_arms,
             "related_run_ids": related_run_ids or [],
             "missing_arm_ids": missing_arm_ids,
-            "blocked_reason": ("Pinned SGLang 0.5.10.post1 hit a cache-tree assertion during "
-                               "concurrent partial storage prefetch; the comparison stopped "
-                               "before all paired seeds completed.") if status == "blocked" else None,
+            "blocked_reason": ("A paired arm failed or a non-capacity storage preparation error occurred; "
+                               "inspect the saved server log and per-turn control result.")
+                              if status == "blocked" else None,
             "limitations": ["file-backed storage is not an independently benchmarked physical SSD",
                             "a missing-suffix residency observation is not proof of a physical SSD read",
                             "requests are synthetic equal-priority coding sessions"]}

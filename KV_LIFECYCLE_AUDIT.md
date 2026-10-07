@@ -6,15 +6,25 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ18: When does early storage staging stop helping everyone?
+
+**Question.** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
+
+**What the evidence says.** In paired controlled runs with one returning session and 0, 1, 3, or 7 concurrent peers, host staging reduced the returning session's deadline-to-first-token delay by 150, 186-207, 206, and 157 ms respectively. Whole-workload duration fell by 116-190 ms across these pairs. With one peer, that peer completed 60-64 ms later in both seeds; with three peers, all completed 54-56 ms later; with seven peers, all completed 66-106 ms later. Thus the returning-session gain is not a win for every session. Replay output hashes matched across arms in the four- and eight-session runs. These controlled runs deliberately made a 2048-token prefix storage-only before the tool wait; natural-pressure loading is tested separately in RQ17.
+
+**Working hypothesis.** Tool-return timing can hide a storage load for the returning session, but loading during concurrent work shifts some delay to peers.
+
+**Not yet proved.** The controlled ladder used one seed at one, four, and eight sessions, two seeds at two sessions, synthetic prompts, a five-second tool wait, and deliberate GPU/host eviction. Peer sessions issued concurrent requests rather than full independent multi-turn workflows. File-backed L3 hits may be served by the OS page cache and do not prove physical SSD I/O. These data do not establish hardware-offload value or a production threshold.
+
 ### RQ17: Does storage staging help across repeated tool returns?
 
 **Question.** With eight equal-priority agent sessions, six tool returns each, growing prompt histories, and natural GPU/host cache displacement, can storage-to-host staging during known tool waits improve replay delay and whole-workload time without harming other sessions?
 
-**What the evidence says.** The intended three-seed study is blocked, not a validated performance result. On the pinned A10G/SGLang 0.5.10.post1 backend, the only complete on-demand versus host-stage pair used 48 replays per arm. The host-stage arm loaded 38,400 tokens during tool waits and completed nine stages before their tool-return deadlines. Median deadline-to-first-token delay was 1705.9 to 1702.0 ms (essentially tied); p95 was 4358.7 to 4843.8 ms (worse); and whole-workload duration was 43.153 to 44.153 s (1.000 s slower). Native replay L3 hits were 19 on demand and 16 with staging. Individual staged turns sometimes improved and sometimes worsened. Seed 2's host-stage arm then hit a cache-tree assertion in SGLang's evict_host path during partial-prefix prefetch, so the remaining pairs were not run. A separate full-GPU-prepare pilot hit a scheduler assertion. These failures are preserved, and the unsafe partial-prefix prefetch extension has been removed from the shared backend.
+**What the evidence says.** The original three-seed study was blocked: one completed pair used 48 replays per arm, with median deadline-to-first-token delay 1705.9 to 1702.0 ms, p95 4358.7 to 4843.8 ms, and whole-workload duration 43.153 to 44.153 s. A later host-stage arm hit SGLang's evict_host cache-tree assertion; a full-GPU-prepare pilot hit a separate scheduler assertion. The unguarded partial-prefix path was replaced by a capacity- and rate-limit-guarded suffix path. In a subsequent one-seed eight-session, six-tool-return gate, that guarded path completed without a cache-tree failure. Only one of nine observed storage candidates staged before due time, and eight were skipped for insufficient host capacity. Median replay delay changed from 1046 to 1038 ms; whole-workload time rose from 27.336 to 27.468 s. This is a successful safety gate under one pressure setup, not a demonstrated whole-workload gain or a completed three-seed study.
 
 **Working hypothesis.** When many sessions contend for the host cache, staging a missing storage suffix may need reservation and cache-tree synchronization; simply issuing the native prefetch early can move work into tool waits but cannot be assumed to improve end-to-end performance or remain safe under pressure.
 
-**Not yet proved.** The study has only one completed pair and no validated cross-seed performance conclusion. It does not isolate the exact internal cause of either scheduler assertion. The workload is synthetic, and file-backed L3 hits do not prove physical SSD reads. The failed prototype's partial-prefetch behavior is intentionally unavailable in the current safe code; the archived trace and server log explain why. Future tests need a version-specific safety fix and a new live gate before repeating this workload.
+**Not yet proved.** There is no validated cross-seed performance conclusion. The exact internal cause of the historical assertions remains unknown. The first guarded attempt recorded a native prefetch refusal and was blocked by the audit gate; the adapter now explicitly checks SGLang's prefetch rate limit. The completed retry had only one successful early stage and was not a full repeat of the three-seed study. The guard prevents prefetch when host capacity is insufficient; it does not fix SGLang's underlying eviction assertion or establish safety across versions and loads. The workload is synthetic, and file-backed L3 hits do not prove physical SSD reads.
 
 ### RQ16: Does storage preparation still help under peer pressure?
 
@@ -162,7 +172,14 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Oct&nbsp;6,&nbsp;2026,&nbsp;9:59:24&nbsp;p.m.&nbsp;CDT | [Repeated storage-resume timing](#run-storage_cycles_rq17_20261006) | RQ17 | 8&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | Blocked: on demand → host staging | Replay&nbsp;delay:&nbsp;1706&nbsp;→&nbsp;1702&nbsp;ms | Whole&nbsp;workload:&nbsp;43.15&nbsp;→&nbsp;44.15&nbsp;s | One-pair&nbsp;diagnostic;&nbsp;pinned&nbsp;cache&nbsp;assertion&nbsp;stopped&nbsp;remaining&nbsp;seeds | Blocked&nbsp;after&nbsp;one&nbsp;completed&nbsp;pair:&nbsp;host&nbsp;staging&nbsp;changed&nbsp;median&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-3.9&nbsp;ms&nbsp;and&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+1000.1&nbsp;ms.&nbsp;A&nbsp;later&nbsp;host-stage&nbsp;arm&nbsp;hit&nbsp;a&nbsp;pinned&nbsp;SGLang&nbsp;cache-tree&nbsp;assertion.&nbsp;This&nbsp;one-pair&nbsp;observation&nbsp;is&nbsp;not&nbsp;a&nbsp;validated&nbsp;performance&nbsp;conclusion. | blocked |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;11:50:41&nbsp;p.m.&nbsp;CDT | [Repeated storage-resume timing](#run-rq18_guarded_cycles_retry_20261007) | RQ17 | 8&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | On demand → host staging | Replay&nbsp;delay:&nbsp;1046&nbsp;→&nbsp;1038&nbsp;ms | Whole&nbsp;workload:&nbsp;27.34&nbsp;→&nbsp;27.47&nbsp;s | Synthetic&nbsp;file-backed&nbsp;storage;&nbsp;full-GPU&nbsp;preparation&nbsp;not&nbsp;tested | Across&nbsp;1&nbsp;paired&nbsp;seeds,&nbsp;host&nbsp;staging&nbsp;changed&nbsp;median&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-8&nbsp;ms&nbsp;and&nbsp;whole-workload&nbsp;duration&nbsp;by&nbsp;+131&nbsp;ms&nbsp;(negative&nbsp;is&nbsp;faster).&nbsp;On-demand&nbsp;replay&nbsp;had&nbsp;15&nbsp;native&nbsp;storage&nbsp;hits;&nbsp;staging&nbsp;completed&nbsp;before&nbsp;due&nbsp;time&nbsp;on&nbsp;1&nbsp;waits.&nbsp;These&nbsp;are&nbsp;associations&nbsp;in&nbsp;a&nbsp;small&nbsp;synthetic,&nbsp;file-backed&nbsp;workload,&nbsp;not&nbsp;an&nbsp;isolated&nbsp;physical-SSD&nbsp;or&nbsp;hardware&nbsp;speedup. | native L3 hits verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;11:43:07&nbsp;p.m.&nbsp;CDT | [Repeated storage-resume timing](#run-rq18_guarded_cycles_20261007) | RQ17 | 8&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | Blocked: on demand → host staging | Replay&nbsp;delay:&nbsp;1084&nbsp;→&nbsp;1073&nbsp;ms | Whole&nbsp;workload:&nbsp;28.83&nbsp;→&nbsp;29.23&nbsp;s | Blocked&nbsp;by&nbsp;preparation&nbsp;error&nbsp;or&nbsp;incomplete&nbsp;arm | Blocked&nbsp;after&nbsp;one&nbsp;completed&nbsp;pair:&nbsp;host&nbsp;staging&nbsp;changed&nbsp;median&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-11.2&nbsp;ms&nbsp;and&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+394.2&nbsp;ms.&nbsp;Native&nbsp;prefetch&nbsp;was&nbsp;declined&nbsp;once;&nbsp;an&nbsp;explicit&nbsp;rate-limit&nbsp;check&nbsp;was&nbsp;added&nbsp;afterward.&nbsp;This&nbsp;one-pair&nbsp;observation&nbsp;is&nbsp;not&nbsp;a&nbsp;validated&nbsp;performance&nbsp;conclusion. | blocked |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;11:40:39&nbsp;p.m.&nbsp;CDT | [Safe storage-stage session ladder](#run-rq18_safe_ladder_n8_20261007) | RQ18 | 1&nbsp;returning&nbsp;+&nbsp;7&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage | First&nbsp;token:&nbsp;325&nbsp;→&nbsp;168&nbsp;ms | Peer&nbsp;TTFT:&nbsp;1326&nbsp;→&nbsp;1438&nbsp;ms | Whole&nbsp;workload:&nbsp;6.55&nbsp;→&nbsp;6.43&nbsp;s | Native&nbsp;storage-only&nbsp;KV&nbsp;and&nbsp;replay&nbsp;reuse&nbsp;were&nbsp;verified.&nbsp;First-token&nbsp;delay&nbsp;changed&nbsp;from&nbsp;325&nbsp;to&nbsp;168&nbsp;ms&nbsp;with&nbsp;host&nbsp;staging&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s).&nbsp;Peer&nbsp;timing&nbsp;and&nbsp;whole-workload&nbsp;changes&nbsp;are&nbsp;recorded&nbsp;separately;&nbsp;a&nbsp;single&nbsp;pair&nbsp;is&nbsp;not&nbsp;enough&nbsp;to&nbsp;claim&nbsp;a&nbsp;win-win. | L3 hit and replay reuse verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;11:35:33&nbsp;p.m.&nbsp;CDT | [Safe storage-stage session ladder](#run-rq18_safe_ladder_n4_20261007) | RQ18 | 1&nbsp;returning&nbsp;+&nbsp;3&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage | First&nbsp;token:&nbsp;376&nbsp;→&nbsp;170&nbsp;ms | Peer&nbsp;TTFT:&nbsp;1168&nbsp;→&nbsp;1223&nbsp;ms | Whole&nbsp;workload:&nbsp;6.59&nbsp;→&nbsp;6.41&nbsp;s | Native&nbsp;storage-only&nbsp;KV&nbsp;and&nbsp;replay&nbsp;reuse&nbsp;were&nbsp;verified.&nbsp;First-token&nbsp;delay&nbsp;changed&nbsp;from&nbsp;376&nbsp;to&nbsp;170&nbsp;ms&nbsp;with&nbsp;host&nbsp;staging&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s).&nbsp;Peer&nbsp;timing&nbsp;and&nbsp;whole-workload&nbsp;changes&nbsp;are&nbsp;recorded&nbsp;separately;&nbsp;a&nbsp;single&nbsp;pair&nbsp;is&nbsp;not&nbsp;enough&nbsp;to&nbsp;claim&nbsp;a&nbsp;win-win. | L3 hit and replay reuse verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;11:29:59&nbsp;p.m.&nbsp;CDT | [Safe storage-stage session ladder](#run-rq18_safe_ladder_n2_s2_20261007) | RQ18 | 1&nbsp;returning&nbsp;+&nbsp;1&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage | First&nbsp;token:&nbsp;348&nbsp;→&nbsp;162&nbsp;ms | Peer&nbsp;TTFT:&nbsp;98&nbsp;→&nbsp;137&nbsp;ms | Whole&nbsp;workload:&nbsp;6.52&nbsp;→&nbsp;6.37&nbsp;s | Native&nbsp;storage-only&nbsp;KV&nbsp;and&nbsp;replay&nbsp;reuse&nbsp;were&nbsp;verified.&nbsp;First-token&nbsp;delay&nbsp;changed&nbsp;from&nbsp;348&nbsp;to&nbsp;162&nbsp;ms&nbsp;with&nbsp;host&nbsp;staging&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s).&nbsp;Peer&nbsp;timing&nbsp;and&nbsp;whole-workload&nbsp;changes&nbsp;are&nbsp;recorded&nbsp;separately;&nbsp;a&nbsp;single&nbsp;pair&nbsp;is&nbsp;not&nbsp;enough&nbsp;to&nbsp;claim&nbsp;a&nbsp;win-win. | L3 hit and replay reuse verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;11:24:59&nbsp;p.m.&nbsp;CDT | [Safe storage-stage session ladder](#run-rq18_safe_ladder_n2_20261007) | RQ18 | 1&nbsp;returning&nbsp;+&nbsp;1&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage | First&nbsp;token:&nbsp;374&nbsp;→&nbsp;167&nbsp;ms | Peer&nbsp;TTFT:&nbsp;98&nbsp;→&nbsp;145&nbsp;ms | Whole&nbsp;workload:&nbsp;6.57&nbsp;→&nbsp;6.40&nbsp;s | Native&nbsp;storage-only&nbsp;KV&nbsp;and&nbsp;replay&nbsp;reuse&nbsp;were&nbsp;verified.&nbsp;First-token&nbsp;delay&nbsp;changed&nbsp;from&nbsp;374&nbsp;to&nbsp;167&nbsp;ms&nbsp;with&nbsp;host&nbsp;staging&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s).&nbsp;Peer&nbsp;timing&nbsp;and&nbsp;whole-workload&nbsp;changes&nbsp;are&nbsp;recorded&nbsp;separately;&nbsp;a&nbsp;single&nbsp;pair&nbsp;is&nbsp;not&nbsp;enough&nbsp;to&nbsp;claim&nbsp;a&nbsp;win-win. | L3 hit and replay reuse verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;11:19:42&nbsp;p.m.&nbsp;CDT | [Safe storage-stage session ladder](#run-rq18_safe_ladder_n1b_20261007) | RQ18 | 1&nbsp;returning&nbsp;+&nbsp;0&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage | First&nbsp;token:&nbsp;317&nbsp;→&nbsp;167&nbsp;ms | No&nbsp;peer&nbsp;session | Whole&nbsp;workload:&nbsp;6.76&nbsp;→&nbsp;6.63&nbsp;s | Native&nbsp;storage-only&nbsp;KV&nbsp;and&nbsp;replay&nbsp;reuse&nbsp;were&nbsp;verified.&nbsp;First-token&nbsp;delay&nbsp;changed&nbsp;from&nbsp;317&nbsp;to&nbsp;167&nbsp;ms&nbsp;with&nbsp;host&nbsp;staging&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s).&nbsp;No&nbsp;competing&nbsp;session&nbsp;was&nbsp;present;&nbsp;this&nbsp;only&nbsp;validates&nbsp;the&nbsp;load&nbsp;path. | L3 hit and replay reuse verified |
+| Oct&nbsp;6,&nbsp;2026,&nbsp;9:59:24&nbsp;p.m.&nbsp;CDT | [Repeated storage-resume timing](#run-storage_cycles_rq17_20261006) | RQ17 | 8&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | Blocked: on demand → host staging | Replay&nbsp;delay:&nbsp;1706&nbsp;→&nbsp;1702&nbsp;ms | Whole&nbsp;workload:&nbsp;43.15&nbsp;→&nbsp;44.15&nbsp;s | Blocked&nbsp;by&nbsp;backend&nbsp;assertion;&nbsp;incomplete&nbsp;paired&nbsp;study | Blocked&nbsp;after&nbsp;one&nbsp;completed&nbsp;pair:&nbsp;host&nbsp;staging&nbsp;changed&nbsp;median&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-3.9&nbsp;ms&nbsp;and&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+1000.1&nbsp;ms.&nbsp;Native&nbsp;prefetch&nbsp;was&nbsp;declined&nbsp;once;&nbsp;an&nbsp;explicit&nbsp;rate-limit&nbsp;check&nbsp;was&nbsp;added&nbsp;afterward.&nbsp;This&nbsp;one-pair&nbsp;observation&nbsp;is&nbsp;not&nbsp;a&nbsp;validated&nbsp;performance&nbsp;conclusion. | blocked |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;7:40:44&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_pressure_20261006_peers6) | RQ16 | 1&nbsp;returning&nbsp;+&nbsp;6&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;468&nbsp;→&nbsp;168&nbsp;→&nbsp;59&nbsp;ms | Peer&nbsp;TTFT:&nbsp;1026&nbsp;→&nbsp;1075&nbsp;→&nbsp;1184&nbsp;ms | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;468&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;168&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;59&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;2&nbsp;paired&nbsp;seed(s)).&nbsp;Peers&nbsp;overlapped&nbsp;preparation;&nbsp;their&nbsp;median&nbsp;TTFT&nbsp;changed&nbsp;from&nbsp;1026&nbsp;to&nbsp;1184&nbsp;ms.&nbsp;This&nbsp;is&nbsp;not&nbsp;a&nbsp;proven&nbsp;win-win.&nbsp;Native&nbsp;data&nbsp;readiness&nbsp;took&nbsp;a&nbsp;median&nbsp;80&nbsp;ms;&nbsp;the&nbsp;later&nbsp;status-poll/host-commit&nbsp;interval&nbsp;took&nbsp;585&nbsp;ms. | L3 hit verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;7:29:17&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_pressure_20261006_peers2) | RQ16 | 1&nbsp;returning&nbsp;+&nbsp;2&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;364&nbsp;→&nbsp;169&nbsp;→&nbsp;61&nbsp;ms | Peer&nbsp;TTFT:&nbsp;157&nbsp;→&nbsp;393&nbsp;→&nbsp;456&nbsp;ms | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;364&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;169&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;61&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;2&nbsp;paired&nbsp;seed(s)).&nbsp;Peers&nbsp;overlapped&nbsp;preparation;&nbsp;their&nbsp;median&nbsp;TTFT&nbsp;changed&nbsp;from&nbsp;157&nbsp;to&nbsp;456&nbsp;ms.&nbsp;This&nbsp;is&nbsp;not&nbsp;a&nbsp;proven&nbsp;win-win.&nbsp;Native&nbsp;data&nbsp;readiness&nbsp;took&nbsp;a&nbsp;median&nbsp;85&nbsp;ms;&nbsp;the&nbsp;later&nbsp;status-poll/host-commit&nbsp;interval&nbsp;took&nbsp;326&nbsp;ms. | L3 hit verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;7:17:50&nbsp;p.m.&nbsp;CDT | [Storage-tier KV timing](#run-storage_pressure_20261006_peers0) | RQ16 | 1&nbsp;returning&nbsp;+&nbsp;0&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage → full prepare | First&nbsp;token:&nbsp;370&nbsp;→&nbsp;171&nbsp;→&nbsp;60&nbsp;ms | No&nbsp;peer&nbsp;session | Small&nbsp;synthetic&nbsp;workload | With&nbsp;storage-only&nbsp;KV&nbsp;proven,&nbsp;first&nbsp;token&nbsp;after&nbsp;tool&nbsp;due&nbsp;was&nbsp;370&nbsp;ms&nbsp;on&nbsp;demand,&nbsp;171&nbsp;ms&nbsp;after&nbsp;host&nbsp;staging,&nbsp;and&nbsp;60&nbsp;ms&nbsp;after&nbsp;full&nbsp;preparation&nbsp;(median&nbsp;across&nbsp;2&nbsp;paired&nbsp;seed(s)).&nbsp;No&nbsp;peer-session&nbsp;or&nbsp;whole-system&nbsp;benefit&nbsp;is&nbsp;established&nbsp;by&nbsp;this&nbsp;single-session&nbsp;run.&nbsp;Native&nbsp;data&nbsp;readiness&nbsp;took&nbsp;a&nbsp;median&nbsp;187&nbsp;ms;&nbsp;the&nbsp;later&nbsp;status-poll/host-commit&nbsp;interval&nbsp;took&nbsp;105&nbsp;ms. | L3 hit verified |
@@ -257,22 +274,263 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 ## Experiment details
 
+<a id="run-rq18_guarded_cycles_retry_20261007"></a>
+<details>
+<summary><strong>Oct 6, 2026, 11:50:41 p.m. CDT · Repeated storage-resume timing</strong> · rq18_guarded_cycles_retry_20261007</summary>
+
+**Question (RQ17).** With eight equal-priority agent sessions, six tool returns each, growing prompt histories, and natural GPU/host cache displacement, can storage-to-host staging during known tool waits improve replay delay and whole-workload time without harming other sessions?
+
+**Finding.** Across 1 paired seeds, host staging changed median replay delay by -8 ms and whole-workload duration by +131 ms (negative is faster). On-demand replay had 15 native storage hits; staging completed before due time on 1 waits. These are associations in a small synthetic, file-backed workload, not an isolated physical-SSD or hardware speedup.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned SGLang 0.5.10.post1. Each session began near 2048 prompt tokens and gained 900 tool-result words per turn. Tool waits varied from 1000 to 4000 ms by a fixed seed. Fresh backend and file-cache path per arm; GPU KV cap 10240 tokens, host cache 1 GiB, 64-token pages. No explicit eviction or frontend priority. The host-stage arm observes natural residency during each wait; replay is submitted at its due time even if staging misses it. The adapter validates the suffix anchor, host capacity, and native rate limit before native prefetch. CUDA graphs on; overlap scheduling on. Full GPU preparation was not tested in this run.
+
+**Key measurements**
+
+| Seed | Mode | Sessions | Replays | Whole workload (ms) | Due → first token median (ms) | Due → first token p95 (ms) | Replay TTFT median (ms) | Storage candidates | Stage ready by due | Stage skips | Tokens staged from L3 | Native L3 replay hits | L3 replay tokens | Stage errors |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | on_demand | 8 | 48 | 27336.2 | 1046.1 | 1873.2 | 1045.2 | 9 | 0 | 0 | 0 | 15 | 73088 | 0 |
+| 1 | host_stage | 8 | 48 | 27467.6 | 1038.1 | 1911.5 | 1037.0 | 9 | 1 | 8 | 6720 | 13 | 66368 | 0 |
+
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
+
+**Stage skip reasons.** host_capacity_insufficient (8)
+
+**Limits**
+
+- file-backed storage is not an independently benchmarked physical SSD
+- a missing-suffix residency observation is not proof of a physical SSD read
+- requests are synthetic equal-priority coding sessions
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_CYCLES_SEEDS='1' WORK_AUDIT_CYCLES_ARMS='on_demand host_stage' WORK_AUDIT_CYCLES_SESSIONS='8' WORK_AUDIT_CYCLES_TURNS='6' WORK_AUDIT_CYCLES_INITIAL_TOKENS='2048' WORK_AUDIT_CYCLES_TOOL_WORDS='900' WORK_AUDIT_CYCLES_DECODE_TOKENS='16' WORK_AUDIT_CYCLES_WAIT_MS='1000' WORK_AUDIT_CYCLES_WAIT_SPREAD_MS='3000' WORK_AUDIT_CYCLES_STAGGER_MS='250' WORK_AUDIT_CYCLES_GPU_TOKENS='10240' WORK_AUDIT_CYCLES_HOST_GB='1' WORK_AUDIT_CYCLES_CUDA_GRAPH='1' WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE='1' WORK_AUDIT_CYCLES_RUN_ID='new_unique_id' bash infra/container/run_work_audit_storage_cycles.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq18_guarded_cycles_retry_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq18_guarded_cycles_retry_20261007/run_manifest.json) · [seed1_on_demand per-turn timings](docs/reports/work_audit/rq18_guarded_cycles_retry_20261007/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/rq18_guarded_cycles_retry_20261007/arms/seed1_on_demand/backend_trace.jsonl.gz) · [seed1_host_stage per-turn timings](docs/reports/work_audit/rq18_guarded_cycles_retry_20261007/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/rq18_guarded_cycles_retry_20261007/arms/seed1_host_stage/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq18_guarded_cycles_20261007"></a>
+<details>
+<summary><strong>Oct 6, 2026, 11:43:07 p.m. CDT · Repeated storage-resume timing</strong> · rq18_guarded_cycles_20261007</summary>
+
+**Question (RQ17).** With eight equal-priority agent sessions, six tool returns each, growing prompt histories, and natural GPU/host cache displacement, can storage-to-host staging during known tool waits improve replay delay and whole-workload time without harming other sessions?
+
+**Finding.** Blocked after one completed pair: host staging changed median replay delay by -11.2 ms and whole-workload time by +394.2 ms. Native prefetch was declined once; an explicit rate-limit check was added afterward. This one-pair observation is not a validated performance conclusion.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned SGLang 0.5.10.post1. Each session began near 2048 prompt tokens and gained 900 tool-result words per turn. Tool waits varied from 1000 to 4000 ms by a fixed seed. Fresh backend and file-cache path per arm; GPU KV cap 10240 tokens, host cache 1 GiB, 64-token pages. No explicit eviction or frontend priority. The host-stage arm observes natural residency during each wait; replay is submitted at its due time even if staging misses it. The run checked suffix anchor and host capacity, but did not yet classify a native rate-limit refusal; the current adapter checks that limit too. CUDA graphs on; overlap scheduling on. Full GPU preparation was not tested in this run.
+
+**Key measurements**
+
+| Seed | Mode | Sessions | Replays | Whole workload (ms) | Due → first token median (ms) | Due → first token p95 (ms) | Replay TTFT median (ms) | Storage candidates | Stage ready by due | Stage skips | Tokens staged from L3 | Native L3 replay hits | L3 replay tokens | Stage errors |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | on_demand | 8 | 48 | 28831.5 | 1083.9 | 2192.8 | 1082.6 | 11 | 0 | 0 | 0 | 18 | 98048 | 0 |
+| 1 | host_stage | 8 | 48 | 29225.6 | 1072.8 | 2448.4 | 1072.3 | 11 | 2 | 8 | 12480 | 17 | 89280 | 1 |
+
+**Evidence gate.** blocked. Timestamp: First request; displayed in Central Time.
+
+**Stage skip reasons.** host_capacity_insufficient (8)
+
+**Limits**
+
+- file-backed storage is not an independently benchmarked physical SSD
+- a missing-suffix residency observation is not proof of a physical SSD read
+- requests are synthetic equal-priority coding sessions
+
+**Reproduction note.** The current adapter checks native rate limiting before prefetch; this command will not reproduce the earlier unclassified refusal exactly.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_CYCLES_SEEDS='1' WORK_AUDIT_CYCLES_ARMS='on_demand host_stage' WORK_AUDIT_CYCLES_SESSIONS='8' WORK_AUDIT_CYCLES_TURNS='6' WORK_AUDIT_CYCLES_INITIAL_TOKENS='2048' WORK_AUDIT_CYCLES_TOOL_WORDS='900' WORK_AUDIT_CYCLES_DECODE_TOKENS='16' WORK_AUDIT_CYCLES_WAIT_MS='1000' WORK_AUDIT_CYCLES_WAIT_SPREAD_MS='3000' WORK_AUDIT_CYCLES_STAGGER_MS='250' WORK_AUDIT_CYCLES_GPU_TOKENS='10240' WORK_AUDIT_CYCLES_HOST_GB='1' WORK_AUDIT_CYCLES_CUDA_GRAPH='1' WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE='1' WORK_AUDIT_CYCLES_RUN_ID='new_unique_id' bash infra/container/run_work_audit_storage_cycles.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq18_guarded_cycles_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq18_guarded_cycles_20261007/run_manifest.json) · [seed1_on_demand per-turn timings](docs/reports/work_audit/rq18_guarded_cycles_20261007/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/rq18_guarded_cycles_20261007/arms/seed1_on_demand/backend_trace.jsonl.gz) · [seed1_host_stage per-turn timings](docs/reports/work_audit/rq18_guarded_cycles_20261007/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/rq18_guarded_cycles_20261007/arms/seed1_host_stage/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq18_safe_ladder_n8_20261007"></a>
+<details>
+<summary><strong>Oct 6, 2026, 11:40:39 p.m. CDT · Safe storage-stage session ladder</strong> · rq18_safe_ladder_n8_20261007</summary>
+
+**Question (RQ18).** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
+
+**Finding.** Native storage-only KV and replay reuse were verified. First-token delay changed from 325 to 168 ms with host staging across 1 paired seed(s). Peer timing and whole-workload changes are recorded separately; a single pair is not enough to claim a win-win.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 7 peer session(s), started 0 ms into the tool wait. CUDA graphs on; overlap scheduling on. Matching replay output hashes were required across arms.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | host_stage | 168.1 | 165.8 | 1437.9 | 3154.5 | 7 | 73.8 | 872.4 | 6432.5 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 324.8 | 322.6 | 1326.3 | 3053.3 | 0 | not recorded | not recorded | 6548.2 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_AUDIT_STORAGE_PROMPT_ID=rq18_safe_ladder_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=7 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 WORK_AUDIT_STORAGE_ARMS='on_demand host_stage' WORK_AUDIT_STORAGE_CUDA_GRAPH=1 WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE=1 WORK_AUDIT_STORAGE_VERIFY_OUTPUT=1 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq18_safe_ladder_n8_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq18_safe_ladder_n8_20261007/run_manifest.json) · [seed1_host_stage timings](docs/reports/work_audit/rq18_safe_ladder_n8_20261007/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/rq18_safe_ladder_n8_20261007/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/rq18_safe_ladder_n8_20261007/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/rq18_safe_ladder_n8_20261007/arms/seed1_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq18_safe_ladder_n4_20261007"></a>
+<details>
+<summary><strong>Oct 6, 2026, 11:35:33 p.m. CDT · Safe storage-stage session ladder</strong> · rq18_safe_ladder_n4_20261007</summary>
+
+**Question (RQ18).** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
+
+**Finding.** Native storage-only KV and replay reuse were verified. First-token delay changed from 376 to 170 ms with host staging across 1 paired seed(s). Peer timing and whole-workload changes are recorded separately; a single pair is not enough to claim a win-win.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 3 peer session(s), started 0 ms into the tool wait. CUDA graphs on; overlap scheduling on. Matching replay output hashes were required across arms.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | host_stage | 170.1 | 167.1 | 1223.1 | 2653.9 | 3 | 75.0 | 896.0 | 6405.0 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 376.3 | 373.7 | 1167.8 | 2598.1 | 0 | not recorded | not recorded | 6594.9 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_AUDIT_STORAGE_PROMPT_ID=rq18_safe_ladder_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=3 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 WORK_AUDIT_STORAGE_ARMS='on_demand host_stage' WORK_AUDIT_STORAGE_CUDA_GRAPH=1 WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE=1 WORK_AUDIT_STORAGE_VERIFY_OUTPUT=1 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq18_safe_ladder_n4_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq18_safe_ladder_n4_20261007/run_manifest.json) · [seed1_host_stage timings](docs/reports/work_audit/rq18_safe_ladder_n4_20261007/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/rq18_safe_ladder_n4_20261007/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/rq18_safe_ladder_n4_20261007/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/rq18_safe_ladder_n4_20261007/arms/seed1_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq18_safe_ladder_n2_s2_20261007"></a>
+<details>
+<summary><strong>Oct 6, 2026, 11:29:59 p.m. CDT · Safe storage-stage session ladder</strong> · rq18_safe_ladder_n2_s2_20261007</summary>
+
+**Question (RQ18).** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
+
+**Finding.** Native storage-only KV and replay reuse were verified. First-token delay changed from 348 to 162 ms with host staging across 1 paired seed(s). Peer timing and whole-workload changes are recorded separately; a single pair is not enough to claim a win-win.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 1 peer session(s), started 0 ms into the tool wait. CUDA graphs on; overlap scheduling on.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2 | host_stage | 162.1 | 160.4 | 136.9 | 1144.8 | 1 | 76.9 | 200.0 | 6368.0 | 0 | 2048 | 2112 | yes |
+| 2 | on_demand | 347.7 | 342.6 | 97.7 | 1084.4 | 0 | not recorded | not recorded | 6517.5 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_AUDIT_STORAGE_PROMPT_ID=rq18_safe_ladder_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=1 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 WORK_AUDIT_STORAGE_ARMS='on_demand host_stage' WORK_AUDIT_STORAGE_CUDA_GRAPH=1 WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE=1 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq18_safe_ladder_n2_s2_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq18_safe_ladder_n2_s2_20261007/run_manifest.json) · [seed2_host_stage timings](docs/reports/work_audit/rq18_safe_ladder_n2_s2_20261007/arms/seed2_host_stage/case_results.json) · [seed2_host_stage trace](docs/reports/work_audit/rq18_safe_ladder_n2_s2_20261007/arms/seed2_host_stage/backend_trace.jsonl.gz) · [seed2_on_demand timings](docs/reports/work_audit/rq18_safe_ladder_n2_s2_20261007/arms/seed2_on_demand/case_results.json) · [seed2_on_demand trace](docs/reports/work_audit/rq18_safe_ladder_n2_s2_20261007/arms/seed2_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq18_safe_ladder_n2_20261007"></a>
+<details>
+<summary><strong>Oct 6, 2026, 11:24:59 p.m. CDT · Safe storage-stage session ladder</strong> · rq18_safe_ladder_n2_20261007</summary>
+
+**Question (RQ18).** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
+
+**Finding.** Native storage-only KV and replay reuse were verified. First-token delay changed from 374 to 167 ms with host staging across 1 paired seed(s). Peer timing and whole-workload changes are recorded separately; a single pair is not enough to claim a win-win.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 1 peer session(s), started 0 ms into the tool wait. CUDA graphs on; overlap scheduling on.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | host_stage | 166.8 | 162.1 | 145.3 | 1149.0 | 1 | 86.4 | 193.4 | 6401.6 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 373.6 | 369.0 | 97.9 | 1084.9 | 0 | not recorded | not recorded | 6574.2 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_AUDIT_STORAGE_PROMPT_ID=rq18_safe_ladder_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=1 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 WORK_AUDIT_STORAGE_ARMS='on_demand host_stage' WORK_AUDIT_STORAGE_CUDA_GRAPH=1 WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE=1 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq18_safe_ladder_n2_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq18_safe_ladder_n2_20261007/run_manifest.json) · [seed1_host_stage timings](docs/reports/work_audit/rq18_safe_ladder_n2_20261007/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/rq18_safe_ladder_n2_20261007/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/rq18_safe_ladder_n2_20261007/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/rq18_safe_ladder_n2_20261007/arms/seed1_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq18_safe_ladder_n1b_20261007"></a>
+<details>
+<summary><strong>Oct 6, 2026, 11:19:42 p.m. CDT · Safe storage-stage session ladder</strong> · rq18_safe_ladder_n1b_20261007</summary>
+
+**Question (RQ18).** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
+
+**Finding.** Native storage-only KV and replay reuse were verified. First-token delay changed from 317 to 167 ms with host staging across 1 paired seed(s). No competing session was present; this only validates the load path.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The early arms staged L3→L2 or L3→L2→L1 before tool return. There were 0 peer session(s), started 0 ms into the tool wait. CUDA graphs on; overlap scheduling on.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | host_stage | 167.2 | 162.0 | not recorded | not recorded | 0 | 269.6 | 58.1 | 6625.8 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 317.4 | 312.2 | not recorded | not recorded | 0 | not recorded | not recorded | 6762.4 | 2048 | 0 | 2112 | not applicable |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Single-session storage timing only. Peer-session cost and a busy-workload benefit are not measured. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_AUDIT_STORAGE_PROMPT_ID=rq18_safe_ladder_n1b_20261007 WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=0 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 WORK_AUDIT_STORAGE_ARMS='on_demand host_stage' WORK_AUDIT_STORAGE_CUDA_GRAPH=1 WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE=1 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq18_safe_ladder_n1b_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq18_safe_ladder_n1b_20261007/run_manifest.json) · [seed1_host_stage timings](docs/reports/work_audit/rq18_safe_ladder_n1b_20261007/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/rq18_safe_ladder_n1b_20261007/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/rq18_safe_ladder_n1b_20261007/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/rq18_safe_ladder_n1b_20261007/arms/seed1_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
 <a id="run-storage_cycles_rq17_20261006"></a>
 <details>
 <summary><strong>Oct 6, 2026, 9:59:24 p.m. CDT · Repeated storage-resume timing</strong> · storage_cycles_rq17_20261006</summary>
 
 **Question (RQ17).** With eight equal-priority agent sessions, six tool returns each, growing prompt histories, and natural GPU/host cache displacement, can storage-to-host staging during known tool waits improve replay delay and whole-workload time without harming other sessions?
 
-**Finding.** Blocked after one completed pair: host staging changed median replay delay by -3.9 ms and whole-workload time by +1000.1 ms. A later host-stage arm hit a pinned SGLang cache-tree assertion. This one-pair observation is not a validated performance conclusion.
+**Finding.** Blocked after one completed pair: host staging changed median replay delay by -3.9 ms and whole-workload time by +1000.1 ms. Native prefetch was declined once; an explicit rate-limit check was added afterward. This one-pair observation is not a validated performance conclusion.
 
-**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned SGLang 0.5.10.post1. Each session began near 2048 prompt tokens and gained 900 tool-result words per turn. Tool waits varied from 1000 to 4000 ms by a fixed seed. Fresh backend and file-cache path per arm; GPU KV cap 10240 tokens, host cache 1 GiB, 64-token pages. No explicit eviction or frontend priority. The host-stage arm observes natural residency during each wait; replay is submitted at its due time even if staging misses it. This blocked diagnostic used an experimental partial-suffix prefetch which has since been removed after a live cache-tree assertion. A separate full-GPU-prepare pilot also hit a scheduler assertion and is excluded.
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned SGLang 0.5.10.post1. Each session began near 2048 prompt tokens and gained 900 tool-result words per turn. Tool waits varied from 1000 to 4000 ms by a fixed seed. Fresh backend and file-cache path per arm; GPU KV cap 10240 tokens, host cache 1 GiB, 64-token pages. No explicit eviction or frontend priority. The host-stage arm observes natural residency during each wait; replay is submitted at its due time even if staging misses it. The historical blocked run used an unguarded partial-suffix prefetch; the current adapter refuses prefetch when it would require host eviction. A separate full-GPU-prepare pilot hit a scheduler assertion and is excluded.
 
 **Key measurements**
 
-| Seed | Mode | Sessions | Replays | Whole workload (ms) | Due → first token median (ms) | Due → first token p95 (ms) | Replay TTFT median (ms) | Storage candidates | Stage ready by due | Tokens staged from L3 | Native L3 replay hits | L3 replay tokens | Stage errors |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | on_demand | 8 | 48 | 43152.9 | 1705.9 | 4358.7 | 1705.1 | 10 | 0 | 0 | 19 | 94720 | 0 |
-| 1 | host_stage | 8 | 48 | 44153.0 | 1702.0 | 4843.8 | 1701.4 | 11 | 9 | 38400 | 16 | 76672 | 2 |
+| Seed | Mode | Sessions | Replays | Whole workload (ms) | Due → first token median (ms) | Due → first token p95 (ms) | Replay TTFT median (ms) | Storage candidates | Stage ready by due | Stage skips | Tokens staged from L3 | Native L3 replay hits | L3 replay tokens | Stage errors |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | on_demand | 8 | 48 | 43152.9 | 1705.9 | 4358.7 | 1705.1 | 10 | 0 | 0 | 0 | 19 | 94720 | 0 |
+| 1 | host_stage | 8 | 48 | 44153.0 | 1702.0 | 4843.8 | 1701.4 | 11 | 9 | 0 | 38400 | 16 | 76672 | 2 |
 
 **Evidence gate.** blocked. Timestamp: First request; displayed in Central Time.
 
@@ -283,6 +541,8 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 - requests are synthetic equal-priority coding sessions
 
 **Safety note.** The failed partial-prefetch behavior is intentionally unavailable in current code. This command runs the guarded safe variant, not an exact replay of the failed prototype.
+
+**Reproduction note.** The current adapter checks native rate limiting before prefetch; this command will not reproduce the earlier unclassified refusal exactly.
 
 **Run guarded variant** (set the container image and model cache for the target host):
 

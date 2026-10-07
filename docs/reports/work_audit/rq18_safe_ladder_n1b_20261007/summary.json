@@ -1,0 +1,67 @@
+{
+  "schema": "agentic_work_audit.storage_replay.v1",
+  "run_id": "rq18_safe_ladder_n1b_20261007",
+  "status": "complete",
+  "rows": [
+    {
+      "seed": 1,
+      "arm": "host_stage",
+      "due_to_first_token_ms": 167.152,
+      "tool_end_to_first_token_ms": 162.079,
+      "replay_ttft_ms": 162.021,
+      "replay_total_latency_ms": 286.166,
+      "workflow_duration_ms": 6625.78,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": 269.615,
+      "storage_commit_after_ready_ms": 58.113,
+      "storage_confirmed_ms": 330.118,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "peer_ttft_ms": [],
+      "peer_completion_ms": [],
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 1,
+      "arm": "on_demand",
+      "due_to_first_token_ms": 317.395,
+      "tool_end_to_first_token_ms": 312.27,
+      "replay_ttft_ms": 312.221,
+      "replay_total_latency_ms": 436.268,
+      "workflow_duration_ms": 6762.374,
+      "peer_count": 0,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": null,
+      "storage_commit_after_ready_ms": null,
+      "storage_confirmed_ms": null,
+      "peer_ttft_median_ms": null,
+      "peer_completion_median_ms": null,
+      "peer_ttft_ms": [],
+      "peer_completion_ms": [],
+      "native_replay_storage_hit_tokens": 2048,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 0,
+      "stage_completed_before_due": false,
+      "removed_host_match_tokens": 2048
+    }
+  ],
+  "paired": [
+    {
+      "seed": 1,
+      "host_stage_delta_ms": -150.243,
+      "host_stage_workflow_delta_ms": -136.59400000000005,
+      "peer_ttft_deltas_ms": [],
+      "peer_completion_deltas_ms": [],
+      "observed_no_peer_harm": true,
+      "observed_whole_workload_improvement": true
+    }
+  ],
+  "median_host_stage_delta_ms": -150.243,
+  "median_full_prepare_delta_ms": null,
+  "interpretation_limit": "Single-session storage timing only. Peer-session cost and a busy-workload benefit are not measured. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads."
+}

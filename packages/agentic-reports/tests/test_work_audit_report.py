@@ -37,6 +37,44 @@ def test_storage_audit_report_shows_native_hits_and_reproduction():
     assert "seed1_on_demand" in markdown
 
 
+def test_two_arm_storage_ladder_report_keeps_peer_and_workflow_changes():
+    rows = [
+        {"seed": 1, "arm": arm, "due_to_first_token_ms": delay,
+         "replay_ttft_ms": delay, "workflow_duration_ms": workflow,
+         "peer_count": 1, "peer_ttft_median_ms": peer_ttft,
+         "peer_completion_median_ms": peer_finish,
+         "peers_overlapping_preparation": int(arm == "host_stage"),
+         "native_replay_storage_hit_tokens": 2048 if arm == "on_demand" else 0,
+         "control_storage_hit_tokens": 0 if arm == "on_demand" else 2048,
+         "stage_completed_before_due": arm == "host_stage"}
+        for arm, delay, workflow, peer_ttft, peer_finish in (
+            ("on_demand", 320, 6700, 180, 500),
+            ("host_stage", 160, 6800, 220, 530),
+        )
+    ]
+    summary = {"schema": "agentic_work_audit.storage_replay.v1", "run_id": "ladder-2",
+               "status": "complete", "rows": rows,
+               "paired": [{"seed": 1, "host_stage_delta_ms": -160,
+                           "host_stage_workflow_delta_ms": 100,
+                           "peer_ttft_deltas_ms": [40], "peer_completion_deltas_ms": [30]}],
+               "median_host_stage_delta_ms": -160, "median_full_prepare_delta_ms": None,
+               "_manifest": {"hardware_profile": "nvidia_a10g_24gb",
+                             "backend_version": "0.5.10.post1", "model": "qwen",
+                             "workload": {"research_question_id": "RQ18", "seeds": [1],
+                                          "arms": ["on_demand", "host_stage"],
+                                          "prompt_tokens": 2048, "tool_wait_ms": 5000,
+                                          "peer_count": 1, "cuda_graph": True,
+                                          "overlap_schedule": True}}}
+    path = Path("docs/reports/work_audit/ladder-2/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "Safe storage-stage session ladder" in page
+    assert "Each peer" in page and "TTFT change" in page
+    assert "On demand → host stage" in markdown
+    assert "Whole workload: 6.70 → 6.80 s" in markdown.replace("&nbsp;", " ")
+    assert "WORK_AUDIT_STORAGE_CUDA_GRAPH=1" in markdown
+
+
 def test_storage_cycles_report_shows_paired_workflow_and_replay_cost():
     arms = [{
         "seed": 1, "arm": mode, "session_count": 8, "replay_count": 48,
@@ -52,7 +90,8 @@ def test_storage_cycles_report_shows_paired_workflow_and_replay_cost():
         "paired_comparisons": [{"seed": 1, "mode": "host_stage", "workflow_delta_ms": 1000,
                                 "median_due_to_first_token_delta_ms": -200,
                                 "median_replay_ttft_delta_ms": -200}],
-        "_manifest": {"hardware_profile": "nvidia_a10g_24gb", "backend_version": "0.5.10.post1",
+        "_manifest": {"run_id": "storage_cycles_rq17_20261006",
+                      "hardware_profile": "nvidia_a10g_24gb", "backend_version": "0.5.10.post1",
                       "workload": {"seeds": [1], "arms": ["on_demand", "host_stage"],
                                    "session_count": 8, "turns_per_session": 6}},
     }
@@ -88,6 +127,36 @@ def test_storage_cycles_blocked_run_does_not_claim_validated_win():
     assert "Blocked after one completed pair" in page
     assert "one-pair observation is not a validated performance conclusion" in markdown
     assert "seed2_host_stage server failure" in markdown
+
+
+def test_guarded_storage_cycles_blocked_run_names_preparation_error():
+    arms = [{"seed": 1, "arm": arm, "session_count": 8, "replay_count": 48,
+             "workflow_duration_ms": 29000, "due_to_first_token_median_ms": 500,
+             "due_to_first_token_p95_ms": 700, "replay_ttft_median_ms": 500,
+             "natural_storage_candidate_waits": 11, "stage_before_due_count": int(arm == "host_stage") * 2,
+             "stage_loaded_tokens": 1000, "native_replay_storage_hit_count": 2,
+             "native_replay_storage_hit_tokens": 2000,
+             "preparation_skips": ["host_capacity_insufficient"] if arm == "host_stage" else [],
+             "preparation_errors": ["native_prefetch_not_admitted"] if arm == "host_stage" else []}
+            for arm in ("on_demand", "host_stage")]
+    summary = {"schema": "agentic_work_audit.storage_cycles.summary.v1", "status": "blocked",
+               "arms": arms, "paired_comparisons": [{"seed": 1, "mode": "host_stage",
+                   "workflow_delta_ms": 394, "median_due_to_first_token_delta_ms": -11,
+                   "median_replay_ttft_delta_ms": -10}], "failed_arms": [], "missing_arm_ids": [],
+               "_manifest": {"run_id": "rq18_guarded_cycles_20261007",
+                             "workload": {"seeds": [1], "arms": ["on_demand", "host_stage"],
+                                          "session_count": 8, "turns_per_session": 6,
+                                          "cuda_graph": True, "overlap_schedule": True}}}
+    page = render([(Path("docs/reports/work_audit/rq18_guarded_cycles/summary.json"), summary)])
+    markdown = render_markdown([(Path("docs/reports/work_audit/rq18_guarded_cycles/summary.json"), summary)])
+    assert "Native prefetch was declined once" in page
+    assert "cache-tree assertion" not in page
+    assert "WORK_AUDIT_CYCLES_CUDA_GRAPH=&#x27;1&#x27;" in page
+    assert "Stage skips" in page
+    assert "Stage skip reasons" in markdown
+    assert "host_capacity_insufficient (1)" in markdown
+    assert "failed partial-prefetch behavior" not in markdown
+    assert "will not reproduce the earlier unclassified refusal exactly" in markdown
 
 
 def test_storage_report_calls_out_peer_cost_when_preparation_overlaps():

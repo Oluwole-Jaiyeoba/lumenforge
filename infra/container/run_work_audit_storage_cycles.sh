@@ -18,6 +18,8 @@ CONTAINER_CID=""
 [[ -d "${MODEL_CACHE}" ]] || { echo "Model cache missing: ${MODEL_CACHE}" >&2; exit 2; }
 [[ ! -e "${RUN_ROOT}" ]] || { echo "Run ID already exists: ${RUN_ROOT}" >&2; exit 2; }
 [[ "${SEEDS}" =~ ^[0-9]+(\ [0-9]+)*$ ]] || { echo "Invalid seed list" >&2; exit 2; }
+[[ "${WORK_AUDIT_CYCLES_CUDA_GRAPH:-0}" =~ ^[01]$ ]] || { echo "CUDA graph flag must be 0 or 1" >&2; exit 2; }
+[[ "${WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE:-0}" =~ ^[01]$ ]] || { echo "Overlap flag must be 0 or 1" >&2; exit 2; }
 if curl -fsS http://127.0.0.1:30000/v1/models >/dev/null 2>&1; then
   echo "Port 30000 is already in use; refusing to disturb that server" >&2; exit 2
 fi
@@ -83,6 +85,10 @@ for seed in "${seed_values[@]}"; do
     export HICACHE_STORAGE_BACKEND_EXTRA_CONFIG='{"prefetch_threshold":64}'
     export MEM_FRACTION_STATIC="${WORK_AUDIT_CYCLES_MEM_FRACTION:-0.7}"
     export EXTRA_SERVER_ARGS="--hicache-write-policy write_through --page-size 64 --max-total-tokens ${WORK_AUDIT_CYCLES_GPU_TOKENS:-16384}"
+    export CUDA_GRAPH_FLAG="--disable-cuda-graph"
+    export OVERLAP_FLAG="--disable-overlap-schedule"
+    [[ "${WORK_AUDIT_CYCLES_CUDA_GRAPH:-0}" == "1" ]] && CUDA_GRAPH_FLAG=""
+    [[ "${WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE:-0}" == "1" ]] && OVERLAP_FLAG=""
     echo "Starting seed${seed}_${arm} (GPU tokens ${WORK_AUDIT_CYCLES_GPU_TOKENS:-16384}, host GiB ${HICACHE_SIZE_GB})"
     (
       cd "${DIRECT_ROOT}"
@@ -143,10 +149,11 @@ WORKLOAD_JSON="$(python3 - "${SEEDS}" "${ARMS}" "${MODEL}" \
   "${WORK_AUDIT_CYCLES_INITIAL_TOKENS:-2048}" "${WORK_AUDIT_CYCLES_TOOL_WORDS:-900}" \
   "${WORK_AUDIT_CYCLES_DECODE_TOKENS:-16}" "${WORK_AUDIT_CYCLES_WAIT_MS:-1000}" \
   "${WORK_AUDIT_CYCLES_WAIT_SPREAD_MS:-3000}" "${WORK_AUDIT_CYCLES_STAGGER_MS:-250}" \
-  "${WORK_AUDIT_CYCLES_GPU_TOKENS:-16384}" "${WORK_AUDIT_CYCLES_HOST_GB:-1}" <<'PY'
+  "${WORK_AUDIT_CYCLES_GPU_TOKENS:-16384}" "${WORK_AUDIT_CYCLES_HOST_GB:-1}" \
+  "${WORK_AUDIT_CYCLES_CUDA_GRAPH:-0}" "${WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE:-0}" <<'PY'
 import json, sys
 (seeds, arms, model, sessions, turns, initial, words, decode, wait, spread,
- stagger, gpu, host) = sys.argv[1:]
+ stagger, gpu, host, graph, overlap) = sys.argv[1:]
 print(json.dumps({"research_question_id": "RQ17", "seeds": list(map(int, seeds.split())),
                   "arms": arms.split(), "model": model, "session_count": int(sessions),
                   "turns_per_session": int(turns), "initial_tokens": int(initial),
@@ -155,6 +162,7 @@ print(json.dumps({"research_question_id": "RQ17", "seeds": list(map(int, seeds.s
                   "session_stagger_ms": int(stagger), "gpu_kv_token_cap": int(gpu),
                   "host_cache_gb": int(host), "page_size_tokens": 64,
                   "storage_backend": "file", "write_policy": "write_through",
+                  "cuda_graph": graph == "1", "overlap_schedule": overlap == "1",
                   "frontend_priority": "equal", "fresh_backend_per_arm": True,
                   "trace_profile": "kv_lifecycle_lean", "manual_eviction": False}))
 PY

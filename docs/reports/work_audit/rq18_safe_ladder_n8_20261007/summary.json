@@ -1,0 +1,121 @@
+{
+  "schema": "agentic_work_audit.storage_replay.v1",
+  "run_id": "rq18_safe_ladder_n8_20261007",
+  "status": "complete",
+  "rows": [
+    {
+      "seed": 1,
+      "arm": "host_stage",
+      "due_to_first_token_ms": 168.12,
+      "tool_end_to_first_token_ms": 165.861,
+      "replay_ttft_ms": 165.796,
+      "replay_total_latency_ms": 337.295,
+      "output_verification_enabled": true,
+      "replay_output_sha256": "978a9c5cd1cfb2e763e482fd678a1617fee233601ec0d1e4ede471f1ce86ef6e",
+      "replay_output_characters": 63,
+      "workflow_duration_ms": 6432.502,
+      "peer_count": 7,
+      "peers_overlapping_preparation": 7,
+      "storage_data_ready_ms": 73.796,
+      "storage_commit_after_ready_ms": 872.356,
+      "storage_confirmed_ms": 947.339,
+      "peer_ttft_median_ms": 1437.906,
+      "peer_completion_median_ms": 3154.457,
+      "peer_ttft_ms": [
+        1141.452,
+        1340.853,
+        1437.906,
+        1418.394,
+        1615.266,
+        1583.847,
+        2140.103
+      ],
+      "peer_completion_ms": [
+        3223.652,
+        3193.446,
+        3173.697,
+        3154.457,
+        3124.523,
+        3092.857,
+        3062.002
+      ],
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 1,
+      "arm": "on_demand",
+      "due_to_first_token_ms": 324.824,
+      "tool_end_to_first_token_ms": 322.709,
+      "replay_ttft_ms": 322.629,
+      "replay_total_latency_ms": 497.344,
+      "output_verification_enabled": true,
+      "replay_output_sha256": "978a9c5cd1cfb2e763e482fd678a1617fee233601ec0d1e4ede471f1ce86ef6e",
+      "replay_output_characters": 63,
+      "workflow_duration_ms": 6548.216,
+      "peer_count": 7,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": null,
+      "storage_commit_after_ready_ms": null,
+      "storage_confirmed_ms": null,
+      "peer_ttft_median_ms": 1326.35,
+      "peer_completion_median_ms": 3053.272,
+      "peer_ttft_ms": [
+        1050.528,
+        2174.981,
+        1232.372,
+        1326.35,
+        1307.46,
+        1509.15,
+        1490.416
+      ],
+      "peer_completion_ms": [
+        3118.011,
+        3093.81,
+        3073.263,
+        3053.272,
+        3034.313,
+        3014.349,
+        2995.68
+      ],
+      "native_replay_storage_hit_tokens": 2048,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 0,
+      "stage_completed_before_due": false,
+      "removed_host_match_tokens": 2048
+    }
+  ],
+  "paired": [
+    {
+      "seed": 1,
+      "host_stage_delta_ms": -156.704,
+      "host_stage_workflow_delta_ms": -115.71399999999994,
+      "peer_ttft_deltas_ms": [
+        90.92399999999998,
+        -834.1280000000002,
+        205.53399999999988,
+        92.0440000000001,
+        307.80600000000004,
+        74.69699999999989,
+        649.6870000000001
+      ],
+      "peer_completion_deltas_ms": [
+        105.64100000000008,
+        99.63599999999997,
+        100.4340000000002,
+        101.18499999999995,
+        90.21000000000004,
+        78.50799999999981,
+        66.32200000000012
+      ],
+      "observed_no_peer_harm": false,
+      "observed_whole_workload_improvement": true
+    }
+  ],
+  "median_host_stage_delta_ms": -156.704,
+  "median_full_prepare_delta_ms": null,
+  "interpretation_limit": "Small concurrent-peer timing only; this does not establish a production-workload benefit. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads."
+}

@@ -38,7 +38,8 @@ def _replay_evidence(trace: Path) -> tuple[int, int, dict[str, tuple[int, int]]]
     return hits, matched, native_completions
 
 
-def summarize(arms_dir: Path, *, require_native_timing: bool = False) -> dict[str, Any]:
+def summarize(arms_dir: Path, *, require_native_timing: bool = False,
+              expected_arms: tuple[str, ...] = ("on_demand", "host_stage", "full_prepare")) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for case_path in sorted(arms_dir.glob("*/case_results.json")):
         case = json.loads(case_path.read_text(encoding="utf-8"))
@@ -87,6 +88,9 @@ def summarize(arms_dir: Path, *, require_native_timing: bool = False) -> dict[st
             "tool_end_to_first_token_ms": case["tool_end_to_first_token_ms"],
             "replay_ttft_ms": case["replay"]["ttft_ms"],
             "replay_total_latency_ms": case["replay"]["total_latency_ms"],
+            "output_verification_enabled": bool(case.get("output_verification_enabled")),
+            "replay_output_sha256": case["replay"].get("output_sha256"),
+            "replay_output_characters": case["replay"].get("output_characters"),
             "workflow_duration_ms": case.get("workflow_duration_ms"),
             "peer_count": len(case.get("peers") or []),
             "peers_overlapping_preparation": peers_overlapping_preparation,
@@ -104,6 +108,8 @@ def summarize(arms_dir: Path, *, require_native_timing: bool = False) -> dict[st
                 statistics.median(peer["total_latency_ms"] for peer in case["peers"])
                 if case.get("peers") else None
             ),
+            "peer_ttft_ms": [peer["ttft_ms"] for peer in case.get("peers") or []],
+            "peer_completion_ms": [peer["total_latency_ms"] for peer in case.get("peers") or []],
             "native_replay_storage_hit_tokens": native_hits,
             "replay_matched_prefix_tokens": matched_prefix,
             "control_storage_hit_tokens": control_hits,
@@ -121,12 +127,37 @@ def summarize(arms_dir: Path, *, require_native_timing: bool = False) -> dict[st
         by_seed.setdefault(row["seed"], {})[row["arm"]] = row
     paired = []
     for seed, arms in sorted(by_seed.items()):
-        if set(arms) != {"on_demand", "host_stage", "full_prepare"}:
+        if set(arms) != set(expected_arms):
             raise ValueError(f"Seed {seed} has incomplete arms: {sorted(arms)}")
+        if any(row["output_verification_enabled"] for row in arms.values()):
+            hashes = [row["replay_output_sha256"] for row in arms.values()]
+            if (not all(row["output_verification_enabled"] and row["replay_output_characters"]
+                        for row in arms.values()) or len(set(hashes)) != 1):
+                raise ValueError(f"Seed {seed}: replay output verification failed")
         base = arms["on_demand"]["due_to_first_token_ms"]
-        paired.append({"seed": seed,
-                       "host_stage_delta_ms": arms["host_stage"]["due_to_first_token_ms"] - base,
-                       "full_prepare_delta_ms": arms["full_prepare"]["due_to_first_token_ms"] - base})
+        pair = {"seed": seed,
+                "host_stage_delta_ms": arms["host_stage"]["due_to_first_token_ms"] - base}
+        if all(arms[arm]["workflow_duration_ms"] is not None for arm in ("on_demand", "host_stage")):
+            pair["host_stage_workflow_delta_ms"] = (arms["host_stage"]["workflow_duration_ms"]
+                                                    - arms["on_demand"]["workflow_duration_ms"])
+        if len(expected_arms) == 2:
+            baseline_peers = arms["on_demand"]["peer_ttft_ms"]
+            staged_peers = arms["host_stage"]["peer_ttft_ms"]
+            baseline_completions = arms["on_demand"]["peer_completion_ms"]
+            staged_completions = arms["host_stage"]["peer_completion_ms"]
+            pair["peer_ttft_deltas_ms"] = [new - old for new, old in zip(staged_peers, baseline_peers)]
+            pair["peer_completion_deltas_ms"] = [new - old for new, old in zip(staged_completions,
+                                                                                baseline_completions)]
+            pair["observed_no_peer_harm"] = all(delta <= 0 for delta in (
+                pair["peer_ttft_deltas_ms"] + pair["peer_completion_deltas_ms"]
+            ))
+            pair["observed_whole_workload_improvement"] = (
+                pair.get("host_stage_workflow_delta_ms") is not None
+                and pair["host_stage_workflow_delta_ms"] <= 0
+            )
+        if "full_prepare" in expected_arms:
+            pair["full_prepare_delta_ms"] = arms["full_prepare"]["due_to_first_token_ms"] - base
+        paired.append(pair)
     peer_count = rows[0]["peer_count"]
     if any(row["peer_count"] != peer_count for row in rows):
         raise ValueError("Peer count differs between paired arms")
@@ -136,7 +167,8 @@ def summarize(arms_dir: Path, *, require_native_timing: bool = False) -> dict[st
     return {"schema": "agentic_work_audit.storage_replay.v1", "run_id": arms_dir.parent.name,
             "status": "complete", "rows": rows, "paired": paired,
             "median_host_stage_delta_ms": statistics.median(p["host_stage_delta_ms"] for p in paired),
-            "median_full_prepare_delta_ms": statistics.median(p["full_prepare_delta_ms"] for p in paired),
+            "median_full_prepare_delta_ms": (statistics.median(p["full_prepare_delta_ms"] for p in paired)
+                                             if "full_prepare" in expected_arms else None),
             "interpretation_limit": scope + " A file-backend L3 hit does not prove physical SSD I/O; "
                                     "the OS page cache may serve reads."}
 
@@ -146,8 +178,14 @@ def main() -> None:
     parser.add_argument("--arms-dir", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--require-native-timing", action="store_true")
+    parser.add_argument("--arms", default="on_demand host_stage full_prepare")
     args = parser.parse_args()
-    result = summarize(args.arms_dir, require_native_timing=args.require_native_timing)
+    expected_arms = tuple(args.arms.split())
+    if expected_arms not in (("on_demand", "host_stage"),
+                             ("on_demand", "host_stage", "full_prepare")):
+        parser.error("unsupported arm list")
+    result = summarize(args.arms_dir, require_native_timing=args.require_native_timing,
+                       expected_arms=expected_arms)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2), encoding="utf-8")
 

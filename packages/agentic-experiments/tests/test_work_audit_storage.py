@@ -36,6 +36,37 @@ def test_paired_storage_summary_requires_real_hits(tmp_path):
                                    "full_prepare_delta_ms": -220}]
 
 
+def test_two_arm_storage_ladder_keeps_workflow_cost(tmp_path):
+    _arm(tmp_path, 1, "on_demand", 2048, 0)
+    _arm(tmp_path, 1, "host_stage", 0, 2048)
+    for arm, duration in (("on_demand", 8000), ("host_stage", 8300)):
+        path = tmp_path / f"seed1_{arm}" / "case_results.json"
+        case = json.loads(path.read_text(encoding="utf-8"))
+        case["workflow_duration_ms"] = duration
+        path.write_text(json.dumps(case), encoding="utf-8")
+    summary = summarize(tmp_path, expected_arms=("on_demand", "host_stage"))
+    assert summary["paired"] == [{"seed": 1, "host_stage_delta_ms": -180,
+                                   "host_stage_workflow_delta_ms": 300,
+                                   "peer_ttft_deltas_ms": [], "peer_completion_deltas_ms": [],
+                                   "observed_no_peer_harm": True,
+                                   "observed_whole_workload_improvement": False}]
+    assert summary["median_full_prepare_delta_ms"] is None
+
+
+def test_two_arm_storage_ladder_rejects_mismatched_replies(tmp_path):
+    _arm(tmp_path, 1, "on_demand", 2048, 0)
+    _arm(tmp_path, 1, "host_stage", 0, 2048)
+    for arm, digest in (("on_demand", "a"), ("host_stage", "b")):
+        path = tmp_path / f"seed1_{arm}" / "case_results.json"
+        case = json.loads(path.read_text(encoding="utf-8"))
+        case["output_verification_enabled"] = True
+        case["replay"]["output_sha256"] = digest
+        case["replay"]["output_characters"] = 10
+        path.write_text(json.dumps(case), encoding="utf-8")
+    with pytest.raises(ValueError, match="replay output verification failed"):
+        summarize(tmp_path, expected_arms=("on_demand", "host_stage"))
+
+
 def test_unproven_on_demand_hit_fails(tmp_path):
     _arm(tmp_path, 1, "on_demand", 0, 0)
     _arm(tmp_path, 1, "host_stage", 0, 2048)

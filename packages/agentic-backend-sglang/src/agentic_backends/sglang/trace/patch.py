@@ -1665,6 +1665,38 @@ def _storage_audit_match(entry: dict[str, Any]) -> tuple[Any, int, int]:
     return match, len(match.device_indices), int(match.host_hit_length)
 
 
+def _storage_prefetch_plan(
+    tree_cache: Any, controller: Any, match: Any, token_ids: list[int],
+    matched_tokens: int,
+) -> tuple[Any, list[int], dict[str, Any]]:
+    page_size = int(tree_cache.page_size)
+    aligned_length = len(token_ids) // page_size * page_size
+    candidate_tokens = aligned_length - matched_tokens
+    if candidate_tokens < max(page_size, int(tree_cache.prefetch_threshold)):
+        return None, [], {"status": "storage_suffix_too_short"}
+
+    node = match.last_host_node if matched_tokens else tree_cache.root_node
+    depth = 0
+    current = node
+    while current is not tree_cache.root_node:
+        if current is None:
+            return None, [], {"status": "storage_prefix_parent_missing"}
+        depth += len(current.key)
+        current = current.parent
+    if depth != matched_tokens:
+        return None, [], {"status": "storage_prefix_anchor_mismatch", "anchor_tokens": depth}
+
+    free_tokens = int(controller.mem_pool_host.available_size())
+    if free_tokens < candidate_tokens:
+        return None, [], {"status": "host_capacity_insufficient", "host_free_tokens": free_tokens,
+                          "host_required_tokens": candidate_tokens}
+    if controller.prefetch_rate_limited():
+        return None, [], {"status": "storage_prefetch_rate_limited",
+                          "host_free_tokens": free_tokens, "host_required_tokens": candidate_tokens}
+    return node, token_ids[matched_tokens:aligned_length], {"host_free_tokens": free_tokens,
+                                                              "host_required_tokens": candidate_tokens}
+
+
 def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any]) -> dict[str, Any]:
     """Exercise pinned SGLang's native L3 prefetch on the scheduler thread."""
     tree_cache = entry["tree_cache"]
@@ -1700,19 +1732,21 @@ def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any
             "host_tokens_after": host_after, **result,
         }
     if action == "prefetch_storage":
-        if gpu_tokens or host_tokens:
-            return {"ok": False, "status": "not_storage_only", **result}
+        node, suffix, plan = _storage_prefetch_plan(
+            tree_cache, controller, match, token_ids, matched_tokens,
+        )
+        if node is None:
+            return {"ok": False, **plan, **result}
         request_id = str(command.get("storage_request_id") or "")
         if not request_id or request_id in tree_cache.ongoing_prefetch:
             return {"ok": False, "status": "invalid_storage_request_id", **result}
-        root = tree_cache.root_node
         requested_ns = time.time_ns()
-        tree_cache.prefetch_from_storage(request_id, root, token_ids)
+        tree_cache.prefetch_from_storage(request_id, node, suffix)
         if request_id not in tree_cache.ongoing_prefetch:
             return {"ok": False, "status": "native_prefetch_not_admitted", **result}
         entry.setdefault("storage_prefetch_times", {})[request_id] = {"requested_ns": requested_ns}
         return {"ok": True, "status": "storage_prefetch_accepted", "storage_request_id": request_id,
-                "storage_requested_ns": requested_ns, **result}
+                "storage_requested_ns": requested_ns, **plan, **result}
     if action == "storage_prefetch_status":
         request_id = str(command.get("storage_request_id") or "")
         if not request_id:

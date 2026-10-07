@@ -1,0 +1,94 @@
+{
+  "run_id": "rq18_safe_ladder_n2_20261007_seed1",
+  "arm": "host_stage",
+  "session_id": "rq18_safe_ladder_n2_20261007_seed1-host_stage",
+  "frontend_priority": "equal",
+  "prompt_tokens_target": 2048,
+  "wait_ms": 5000,
+  "initial": {
+    "request_start_ns": 1791347041422071457,
+    "request_end_ns": 1791347042453912219,
+    "first_token_ns": 1791347042328874072,
+    "ttft_ms": 906.801,
+    "total_latency_ms": 1031.839,
+    "stream_chunks": 18
+  },
+  "host_precursor": {
+    "gpu_tokens": 0,
+    "host_tokens": 2048,
+    "ok": true,
+    "prefix_tokens": 2093,
+    "status": "residency_observed",
+    "storage_candidate_tokens": 45,
+    "control_request_ns": 1791347042491356025,
+    "control_response_ns": 1791347042519915608
+  },
+  "storage_eviction": {
+    "gpu_tokens": 0,
+    "gpu_tokens_after": 0,
+    "host_tokens": 2048,
+    "host_tokens_after": 0,
+    "ok": true,
+    "prefix_tokens": 2093,
+    "removed_host_match_tokens": 2048,
+    "status": "storage_only_candidate",
+    "storage_candidate_tokens": 45,
+    "control_request_ns": 1791347042519918368,
+    "control_response_ns": 1791347042531089502
+  },
+  "tool_start_ns": 1791347042531091552,
+  "tool_due_ns": 1791347047531091552,
+  "tool_end_ns": 1791347047535741824,
+  "storage_stage": {
+    "accepted": {
+      "gpu_tokens": 0,
+      "host_free_tokens": 488320,
+      "host_required_tokens": 2048,
+      "host_tokens": 0,
+      "ok": true,
+      "prefix_tokens": 2093,
+      "status": "storage_prefetch_accepted",
+      "storage_candidate_tokens": 2093,
+      "storage_request_id": "rq18_safe_ladder_n2_20261007_seed1-host_stage-storage",
+      "storage_requested_ns": 1791347042552999870,
+      "control_request_ns": 1791347042531112833,
+      "control_response_ns": 1791347042559360309
+    },
+    "completed": {
+      "gpu_tokens_after": 0,
+      "host_tokens_after": 2048,
+      "ok": true,
+      "status": "storage_prefetch_complete",
+      "storage_data_ready_ns": 1791347042639431925,
+      "storage_host_committed_ns": 1791347042832852492,
+      "storage_loaded_tokens": 2048,
+      "storage_request_id": "rq18_safe_ladder_n2_20261007_seed1-host_stage-storage",
+      "storage_requested_ns": 1791347042552999870
+    },
+    "completed_observed_ns": 1791347042833980377
+  },
+  "device_load": null,
+  "replay": {
+    "request_start_ns": 1791347047535790515,
+    "request_end_ns": 1791347047823704317,
+    "first_token_ns": 1791347047697853775,
+    "ttft_ms": 162.062,
+    "total_latency_ms": 287.913,
+    "stream_chunks": 18
+  },
+  "peers": [
+    {
+      "peer_index": 0,
+      "request_start_ns": 1791347042549430922,
+      "request_end_ns": 1791347043698422389,
+      "first_token_ns": 1791347042694725041,
+      "ttft_ms": 145.293,
+      "total_latency_ms": 1148.99,
+      "stream_chunks": 98
+    }
+  ],
+  "due_to_first_token_ms": 166.762,
+  "tool_end_to_first_token_ms": 162.112,
+  "stage_completed_before_due": true,
+  "workflow_duration_ms": 6401.633
+}

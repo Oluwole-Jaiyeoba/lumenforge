@@ -15,7 +15,7 @@ import httpx
 
 from .run_kv_movement_interference import context, make_prompt, prompt_hash
 from .run_sustained_decode_kv_overlap import stream_decode
-from .run_work_audit_storage import control, stage_storage
+from .run_work_audit_storage import StorageControlRejected, control, stage_storage
 from .run_work_audit_tool_cycles import tool_result
 
 
@@ -35,7 +35,7 @@ async def inspect_during_wait(
     await asyncio.sleep(inspect_delay_ms / 1000)
     residency = await control(client, args.control_url, "storage_status", identity)
     storage_candidate = int(residency.get("storage_candidate_tokens") or 0) >= args.page_size
-    safe_stage_eligible = int(residency["gpu_tokens"]) == 0 and int(residency["host_tokens"]) == 0
+    safe_stage_eligible = storage_candidate
     result: dict[str, Any] = {"residency": residency, "natural_storage_candidate": storage_candidate,
                               "safe_stage_eligible": safe_stage_eligible,
                               "inspection_before_due": time.time_ns() < due_ns,
@@ -43,6 +43,13 @@ async def inspect_during_wait(
     if safe_stage_eligible and args.arm != "on_demand" and result["inspection_before_due"]:
         try:
             result["preparation"] = await prepare_during_wait(client, args, identity, storage_id, due_ns)
+        except StorageControlRejected as exc:
+            if exc.result.get("status") in {"host_capacity_insufficient", "storage_suffix_too_short",
+                                            "storage_prefetch_no_hit", "storage_prefetch_rate_limited"}:
+                result["preparation"] = {"skip_reason": exc.result["status"],
+                                         "control_result": exc.result}
+            else:
+                result["preparation"] = {"error": str(exc)}
         except Exception as exc:
             result["preparation"] = {"error": f"{type(exc).__name__}: {exc}"}
     return result

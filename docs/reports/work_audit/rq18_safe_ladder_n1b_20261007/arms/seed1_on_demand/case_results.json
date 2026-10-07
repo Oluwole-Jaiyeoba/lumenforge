@@ -1,0 +1,57 @@
+{
+  "run_id": "rq18_safe_ladder_n1b_20261007_seed1",
+  "arm": "on_demand",
+  "session_id": "rq18_safe_ladder_n1b_20261007_seed1-on_demand",
+  "frontend_priority": "equal",
+  "prompt_tokens_target": 2048,
+  "wait_ms": 5000,
+  "initial": {
+    "request_start_ns": 1791346609228831051,
+    "request_end_ns": 1791346610485271255,
+    "first_token_ns": 1791346610116837991,
+    "ttft_ms": 888.006,
+    "total_latency_ms": 1256.439,
+    "stream_chunks": 18
+  },
+  "host_precursor": {
+    "gpu_tokens": 0,
+    "host_tokens": 2048,
+    "ok": true,
+    "prefix_tokens": 2104,
+    "status": "residency_observed",
+    "storage_candidate_tokens": 56,
+    "control_request_ns": 1791346610497013628,
+    "control_response_ns": 1791346610527850633
+  },
+  "storage_eviction": {
+    "gpu_tokens": 0,
+    "gpu_tokens_after": 0,
+    "host_tokens": 2048,
+    "host_tokens_after": 0,
+    "ok": true,
+    "prefix_tokens": 2104,
+    "removed_host_match_tokens": 2048,
+    "status": "storage_only_candidate",
+    "storage_candidate_tokens": 56,
+    "control_request_ns": 1791346610527853733,
+    "control_response_ns": 1791346610549761167
+  },
+  "tool_start_ns": 1791346610549763117,
+  "tool_due_ns": 1791346615549763117,
+  "tool_end_ns": 1791346615554887937,
+  "storage_stage": null,
+  "device_load": null,
+  "replay": {
+    "request_start_ns": 1791346615554936368,
+    "request_end_ns": 1791346615991205516,
+    "first_token_ns": 1791346615867158040,
+    "ttft_ms": 312.221,
+    "total_latency_ms": 436.268,
+    "stream_chunks": 18
+  },
+  "peers": [],
+  "due_to_first_token_ms": 317.395,
+  "tool_end_to_first_token_ms": 312.27,
+  "stage_completed_before_due": false,
+  "workflow_duration_ms": 6762.374
+}

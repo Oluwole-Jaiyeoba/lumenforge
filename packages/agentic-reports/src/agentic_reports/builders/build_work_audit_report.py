@@ -235,6 +235,11 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
+        historical_unguarded = str(manifest.get("run_id") or "").startswith("storage_cycles_rq17_")
+        earlier_rate_limit_gap = any(
+            "native_prefetch_not_admitted" in error
+            for arm in summary["arms"] for error in arm.get("preparation_errors") or []
+        )
         brief = (f"{_esc(workload.get('session_count'))} equal-priority sessions · "
                  f"{_esc(workload.get('turns_per_session'))} tool returns each · natural file-cache pressure")
         detail = (f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
@@ -250,11 +255,19 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                   "No explicit eviction or frontend priority. The host-stage arm observes natural "
                   "residency during each wait; replay is submitted at its due time even if "
                   "staging misses it. "
-                  + ("This blocked diagnostic used an experimental partial-suffix prefetch "
-                     "which has since been removed after a live cache-tree assertion. "
-                     if summary.get("status") == "blocked" else
-                     "Current safe control staging is limited to fully storage-only prefixes. ")
-                  + "A separate full-GPU-prepare pilot also hit a scheduler assertion and is excluded.")
+                  + ("The historical blocked run used an unguarded partial-suffix prefetch; "
+                     "the current adapter refuses prefetch when it would require host eviction. "
+                     if historical_unguarded else
+                     "The run checked suffix anchor and host capacity, but did not yet classify "
+                     "a native rate-limit refusal; the current adapter checks that limit too. "
+                     if earlier_rate_limit_gap else
+                     "The adapter validates the suffix anchor, host capacity, and native rate limit "
+                     "before native prefetch. ")
+                  + (f"CUDA graphs {'on' if workload.get('cuda_graph') else 'off'}; "
+                     f"overlap scheduling {'on' if workload.get('overlap_schedule') else 'off'}. "
+                     if 'cuda_graph' in workload else "")
+                  + ("A separate full-GPU-prepare pilot hit a scheduler assertion and is excluded."
+                     if historical_unguarded else "Full GPU preparation was not tested in this run."))
         return brief, detail
     if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
         peers = int(workload.get("peer_count") or 0)
@@ -269,7 +282,12 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                   "after the same synthetic tool wait. A positive native L3 hit was required. "
                   "The early arms staged L3→L2 or L3→L2→L1 before tool return. "
                   f"There were {peers} peer session(s), started "
-                  f"{_esc(workload.get('peer_start_ms', 1000))} ms into the tool wait.")
+                  f"{_esc(workload.get('peer_start_ms', 1000))} ms into the tool wait."
+                  + (f" CUDA graphs {'on' if workload.get('cuda_graph') else 'off'}; "
+                     f"overlap scheduling {'on' if workload.get('overlap_schedule') else 'off'}."
+                     if 'cuda_graph' in workload else "")
+                  + (" Matching replay output hashes were required across arms."
+                     if workload.get('verify_output') else ""))
         return brief, detail
     if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
         brief = (f"{_esc(summary.get('active_count'))} active + "
@@ -461,15 +479,29 @@ def _reproduction(summary: dict, timing: bool) -> str:
             "WORK_AUDIT_CYCLES_STAGGER_MS": workload.get("session_stagger_ms"),
             "WORK_AUDIT_CYCLES_GPU_TOKENS": workload.get("gpu_kv_token_cap"),
             "WORK_AUDIT_CYCLES_HOST_GB": workload.get("host_cache_gb"),
+            "WORK_AUDIT_CYCLES_CUDA_GRAPH": int(workload["cuda_graph"]) if "cuda_graph" in workload else None,
+            "WORK_AUDIT_CYCLES_OVERLAP_SCHEDULE": int(workload["overlap_schedule"]) if "overlap_schedule" in workload else None,
         }
         command = " ".join(f"{key}='{value}'" for key, value in settings.items() if value is not None)
-        note = ("<p><strong>Safety note.</strong> The failed partial-prefetch behavior is "
-                "intentionally unavailable in current code; the command below runs only "
-                "the guarded safe control path.</p>" if summary.get("status") == "blocked" else "")
+        note = ("<p><strong>Safety note.</strong> The historical unguarded partial-prefetch "
+                "behavior is unavailable; this command uses a capacity-guarded suffix path "
+                "and is not an exact replay of the failed prototype.</p>"
+                if str(manifest.get("run_id") or "").startswith("storage_cycles_rq17_") else "")
+        if any("native_prefetch_not_admitted" in error for arm in summary["arms"]
+               for error in arm.get("preparation_errors") or []):
+            note += ("<p><strong>Reproduction note.</strong> The current adapter checks native "
+                     "rate limiting before prefetch; this command will not reproduce the earlier "
+                     "unclassified refusal exactly.</p>")
         return (note + "<p><strong>How to run the safe variant.</strong> Choose a new run ID:</p><pre><code>"
                 + _esc(command + " WORK_AUDIT_CYCLES_RUN_ID='new_unique_id' "
                        "bash infra/container/run_work_audit_storage_cycles.sh") + "</code></pre>")
     if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
+        storage_extra = ""
+        if workload.get("research_question_id") == "RQ18":
+            storage_extra = (f"WORK_AUDIT_STORAGE_ARMS='{ ' '.join(workload.get('arms') or []) }' "
+                             f"WORK_AUDIT_STORAGE_CUDA_GRAPH={int(workload.get('cuda_graph', False))} "
+                             f"WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE={int(workload.get('overlap_schedule', False))} "
+                             + ("WORK_AUDIT_STORAGE_VERIFY_OUTPUT=1 " if workload.get("verify_output") else ""))
         command = (f"WORK_AUDIT_STORAGE_SEEDS='{ ' '.join(map(str, workload.get('seeds') or [])) }' "
                    f"WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID={workload.get('research_question_id', 'RQ15')} "
                    f"WORK_AUDIT_STORAGE_PROMPT_ID={workload.get('prompt_id', '')} "
@@ -483,7 +515,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
                    f"WORK_AUDIT_STORAGE_PEER_START_MS={workload.get('peer_start_ms', 1000)} "
                    f"WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS={workload.get('peer_prompt_tokens', 1024)} "
                    f"WORK_AUDIT_STORAGE_PEER_MAX_TOKENS={workload.get('peer_max_tokens', 96)} "
-                   "bash infra/container/run_work_audit_storage.sh")
+                   f"{storage_extra}bash infra/container/run_work_audit_storage.sh")
         return "<p><strong>How to reproduce.</strong></p><pre><code>" + _esc(command) + "</code></pre>"
     if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
         settings = {
@@ -1153,14 +1185,22 @@ def _run_finding(summary: dict) -> str:
         baseline = [arm for arm in summary["arms"] if arm["arm"] == "on_demand"]
         staged = [arm for arm in summary["arms"] if arm["arm"] == "host_stage"]
         if summary.get("status") == "blocked":
+            rate_limit_gap = any("native_prefetch_not_admitted" in error
+                                 for arm in summary["arms"]
+                                 for error in arm.get("preparation_errors") or [])
+            failure = ("Native prefetch was declined once; an explicit rate-limit check was added afterward. "
+                       if rate_limit_gap else
+                       "A later host-stage arm hit a pinned SGLang cache-tree assertion. "
+                       if any(row.get("backend_assertion") for row in summary.get("failed_arms") or []) else
+                       "The staged arm recorded a preparation error or a required arm failed. ")
             if pairs:
                 pair = pairs[0]
                 return ("Blocked after one completed pair: host staging changed median replay "
                         f"delay by {pair['median_due_to_first_token_delta_ms']:+.1f} ms and "
                         f"whole-workload time by {pair['workflow_delta_ms']:+.1f} ms. "
-                        "A later host-stage arm hit a pinned SGLang cache-tree assertion. "
+                        + failure +
                         "This one-pair observation is not a validated performance conclusion.")
-            return "Blocked by a pinned SGLang cache-tree assertion before a paired comparison completed."
+            return "Blocked: " + failure.strip() + " No validated paired comparison completed."
         if summary.get("status") == "insufficient_exposure":
             return "Paired modes finished, but no storage stage completed before a tool deadline; no staging effect is established."
         if not pairs:
@@ -1176,6 +1216,20 @@ def _run_finding(summary: dict) -> str:
                 "These are associations in a small synthetic, file-backed workload, not an "
                 "isolated physical-SSD or hardware speedup.")
     if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
+        workload = (summary.get("_manifest") or {}).get("workload") or {}
+        if workload.get("research_question_id") == "RQ18":
+            baseline = median(row["due_to_first_token_ms"] for row in summary["rows"]
+                              if row["arm"] == "on_demand")
+            staged = median(row["due_to_first_token_ms"] for row in summary["rows"]
+                            if row["arm"] == "host_stage")
+            peer_count = int(workload.get("peer_count") or 0)
+            peer_note = ("No competing session was present; this only validates the load path."
+                         if not peer_count else
+                         "Peer timing and whole-workload changes are recorded separately; "
+                         "a single pair is not enough to claim a win-win.")
+            return (f"Native storage-only KV and replay reuse were verified. First-token "
+                    f"delay changed from {baseline:.0f} to {staged:.0f} ms with host staging "
+                    f"across {len(summary['paired'])} paired seed(s). {peer_note}")
         base, host, full = (
             median(row["due_to_first_token_ms"] for row in summary["rows"] if row["arm"] == arm)
             for arm in ("on_demand", "host_stage", "full_prepare")
@@ -1400,6 +1454,8 @@ def _kind(summary: dict) -> str:
     workload = (summary.get("_manifest") or {}).get("workload") or {}
     if workload.get("research_question_id") == "RQ13":
         return "Backend scheduling and KV overlap"
+    if workload.get("research_question_id") == "RQ18":
+        return "Safe storage-stage session ladder"
     if workload.get("research_question_id") == "RQ12":
         return "Decode slowdown attribution"
     if workload.get("research_question_id") == "RQ9":
@@ -1416,12 +1472,13 @@ def _result_parts(summary: dict) -> tuple[str, str]:
                  _ms(arm["due_to_first_token_p95_ms"]),
                  _ms(arm["replay_ttft_median_ms"]),
                  arm["natural_storage_candidate_waits"], arm["stage_before_due_count"],
-                 arm["stage_loaded_tokens"], arm["native_replay_storage_hit_count"],
+                 len(arm.get("preparation_skips") or []), arm["stage_loaded_tokens"],
+                 arm["native_replay_storage_hit_count"],
                  arm["native_replay_storage_hit_tokens"],
                  len(arm["preparation_errors"])) for arm in summary["arms"]]
         detail = _mode_table(("Seed / mode", "Whole workload", "Due → first token median",
                               "Due → first token p95", "Replay TTFT median",
-                              "Storage candidates", "Stage ready by due", "Tokens staged from L3",
+                              "Storage candidates", "Stage ready by due", "Stage skips", "Tokens staged from L3",
                               "Native L3 replay hits", "L3 replay tokens", "Stage errors"), rows)
         pairs = summary.get("paired_comparisons") or []
         pair_rows = [(pair["seed"], _ms(pair["workflow_delta_ms"]),
@@ -1430,8 +1487,16 @@ def _result_parts(summary: dict) -> tuple[str, str]:
         detail += _mode_table(("Seed", "Whole-workload change", "Replay-delay change",
                                "Replay-TTFT change"), pair_rows)
         detail += ("<p>Negative changes favor host staging. Per-session completion and all "
-                   "per-turn timings are retained in each arm's raw case results. "
-                   "Full GPU preparation is excluded after a live scheduler assertion.</p>")
+                   "per-turn timings are retained in each arm's raw case results. ")
+        skip_reasons = [reason for arm in summary["arms"]
+                        for reason in arm.get("preparation_skips") or []]
+        if skip_reasons:
+            detail += "Skipped prefetches: " + _esc(", ".join(
+                f"{reason} ({skip_reasons.count(reason)})" for reason in sorted(set(skip_reasons)))) + ". "
+        if str((summary.get("_manifest") or {}).get("run_id") or "").startswith("storage_cycles_rq17_"):
+            detail += "Full GPU preparation is excluded after a live scheduler assertion.</p>"
+        else:
+            detail += "Full GPU preparation was not compared in this run.</p>"
         if summary.get("status") == "blocked":
             failed = "; ".join(f"{row['arm_id']}: {row['backend_assertion'] or row['client_error']}"
                                for row in summary.get("failed_arms") or [])
@@ -1457,6 +1522,18 @@ def _result_parts(summary: dict) -> tuple[str, str]:
                               "L3 tokens at replay", "L3 tokens during wait",
                               "Matched replay prefix",
                               "Staging met due time"), rows)
+        if "median_full_prepare_delta_ms" in summary and summary["median_full_prepare_delta_ms"] is None:
+            pair_rows = [(pair["seed"], _ms(pair["host_stage_delta_ms"]),
+                          _ms(pair.get("host_stage_workflow_delta_ms")),
+                          ", ".join(_ms(value) for value in pair["peer_ttft_deltas_ms"]) or "no peers",
+                          ", ".join(_ms(value) for value in pair["peer_completion_deltas_ms"]) or "no peers")
+                         for pair in summary["paired"]]
+            detail += _mode_table(("Seed", "Replay-delay change", "Whole-workload change",
+                                   "Each peer's TTFT change", "Each peer's completion change"), pair_rows)
+            return (f"{len(summary['paired'])} paired seed(s) · native L3 hit and replay reuse verified · "
+                    f"host-stage replay change {summary['median_host_stage_delta_ms']:+.0f} ms",
+                    detail + "<p>Negative changes favor staging. This is a controlled, "
+                             "file-backed diagnostic, not a production result.</p>")
         return (f"{len(summary['paired'])} paired seed(s) · native L3 hit verified · "
                 f"host-stage median change {summary['median_host_stage_delta_ms']:+.0f} ms · "
                 f"full-prepare median change {summary['median_full_prepare_delta_ms']:+.0f} ms",
@@ -1806,13 +1883,14 @@ def _markdown_metrics(summary: dict) -> str:
                  arm["workflow_duration_ms"], arm["due_to_first_token_median_ms"],
                  arm["due_to_first_token_p95_ms"], arm["replay_ttft_median_ms"],
                  arm["natural_storage_candidate_waits"], arm["stage_before_due_count"],
-                 arm["stage_loaded_tokens"], arm["native_replay_storage_hit_count"],
+                 len(arm.get("preparation_skips") or []), arm["stage_loaded_tokens"],
+                 arm["native_replay_storage_hit_count"],
                  arm["native_replay_storage_hit_tokens"], len(arm["preparation_errors"]))
                 for arm in summary["arms"]]
         return _md_table(("Seed", "Mode", "Sessions", "Replays", "Whole workload (ms)",
                           "Due → first token median (ms)", "Due → first token p95 (ms)",
                           "Replay TTFT median (ms)", "Storage candidates", "Stage ready by due",
-                          "Tokens staged from L3", "Native L3 replay hits", "L3 replay tokens",
+                          "Stage skips", "Tokens staged from L3", "Native L3 replay hits", "L3 replay tokens",
                           "Stage errors"), rows)
     if schema == "agentic_work_audit.storage_replay.v1":
         rows = [(row['seed'], row['arm'], row['due_to_first_token_ms'], row['replay_ttft_ms'],
@@ -2232,12 +2310,34 @@ def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str
                  else "On demand → host staging"),
                 f"Replay delay: {base_delay:.0f} → {stage_delay:.0f} ms",
                 f"Whole workload: {base_work / 1000:.2f} → {stage_work / 1000:.2f} s",
-                "One-pair diagnostic; pinned cache assertion stopped remaining seeds"
+                ("Blocked by backend assertion; incomplete paired study"
+                 if any(row.get("backend_assertion") for row in summary.get("failed_arms") or []) else
+                 "Blocked by preparation error or incomplete arm")
                 if summary.get("status") == "blocked" else
-                "Synthetic file-backed storage; GPU-prepare arm blocked",
+                "Synthetic file-backed storage; full-GPU preparation not tested",
                 _run_finding(summary), "blocked" if summary.get("status") == "blocked"
                 else "native L3 hits verified")
     if schema == "agentic_work_audit.storage_replay.v1":
+        if "median_full_prepare_delta_ms" in summary and summary["median_full_prepare_delta_ms"] is None:
+            base = median(row["due_to_first_token_ms"] for row in summary["rows"]
+                          if row["arm"] == "on_demand")
+            staged = median(row["due_to_first_token_ms"] for row in summary["rows"]
+                            if row["arm"] == "host_stage")
+            base_work = median(row["workflow_duration_ms"] for row in summary["rows"]
+                               if row["arm"] == "on_demand")
+            stage_work = median(row["workflow_duration_ms"] for row in summary["rows"]
+                                if row["arm"] == "host_stage")
+            peer_count = max((row.get("peer_count") or 0 for row in summary["rows"]), default=0)
+            peer = "No peer session"
+            if peer_count:
+                base_peer = median(row["peer_ttft_median_ms"] for row in summary["rows"]
+                                   if row["arm"] == "on_demand")
+                stage_peer = median(row["peer_ttft_median_ms"] for row in summary["rows"]
+                                    if row["arm"] == "host_stage")
+                peer = f"Peer TTFT: {base_peer:.0f} → {stage_peer:.0f} ms"
+            return ("On demand → host stage", f"First token: {base:.0f} → {staged:.0f} ms",
+                    peer, f"Whole workload: {base_work / 1000:.2f} → {stage_work / 1000:.2f} s",
+                    _run_finding(summary), "L3 hit and replay reuse verified")
         arms = {
             arm: {
                 key: median(row[key] for row in summary['rows'] if row['arm'] == arm)
@@ -2453,15 +2553,29 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                       f"**Setup.** {setup_text}", "",
                       "**Key measurements**", "", _markdown_metrics(summary), "",
                       f"**Evidence gate.** {'physical copy and decode launches verified' if summary.get('_decode_submission') and (summary.get('_physical_overlap') or {}).get('status') == 'verified' else 'validated timing; partial CUDA capture' if summary.get('_cuda_kernel_subset') else summary.get('status', 'unknown')}. Timestamp: {source}; displayed in Central Time.", ""))
+        if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
+            skip_reasons = [reason for arm in summary["arms"]
+                            for reason in arm.get("preparation_skips") or []]
+            if skip_reasons:
+                lines.extend(("**Stage skip reasons.** " + ", ".join(
+                    f"{reason} ({skip_reasons.count(reason)})" for reason in sorted(set(skip_reasons))), ""))
         if limits:
             lines.extend(("**Limits**", "", *(f"- {limit}" for limit in limits[:3]), ""))
         if command:
             blocked_variant = (summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1"
-                               and summary.get("status") == "blocked")
+                               and str((summary.get("_manifest") or {}).get("run_id") or "")
+                               .startswith("storage_cycles_rq17_"))
             if blocked_variant:
                 lines.extend(("**Safety note.** The failed partial-prefetch behavior is intentionally "
                               "unavailable in current code. This command runs the guarded safe variant, "
                               "not an exact replay of the failed prototype.", ""))
+            if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1" and any(
+                "native_prefetch_not_admitted" in error for arm in summary["arms"]
+                for error in arm.get("preparation_errors") or []
+            ):
+                lines.extend(("**Reproduction note.** The current adapter checks native rate limiting "
+                              "before prefetch; this command will not reproduce the earlier unclassified "
+                              "refusal exactly.", ""))
             lines.extend(("**Run guarded variant** (set the container image and model cache for the target host):"
                           if blocked_variant else
                           "**Reproduce** (set the container image and model cache for the target host):",

@@ -2,15 +2,38 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ18",
+      "short_question": "When does early storage staging stop helping everyone?",
+      "evidence_date_utc": "2026-10-07",
+      "question": "If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?",
+      "answer": "In paired controlled runs with one returning session and 0, 1, 3, or 7 concurrent peers, host staging reduced the returning session's deadline-to-first-token delay by 150, 186-207, 206, and 157 ms respectively. Whole-workload duration fell by 116-190 ms across these pairs. With one peer, that peer completed 60-64 ms later in both seeds; with three peers, all completed 54-56 ms later; with seven peers, all completed 66-106 ms later. Thus the returning-session gain is not a win for every session. Replay output hashes matched across arms in the four- and eight-session runs. These controlled runs deliberately made a 2048-token prefix storage-only before the tool wait; natural-pressure loading is tested separately in RQ17.",
+      "hypothesis": "Tool-return timing can hide a storage load for the returning session, but loading during concurrent work shifts some delay to peers.",
+      "unknown": "The controlled ladder used one seed at one, four, and eight sessions, two seeds at two sessions, synthetic prompts, a five-second tool wait, and deliberate GPU/host eviction. Peer sessions issued concurrent requests rather than full independent multi-turn workflows. File-backed L3 hits may be served by the OS page cache and do not prove physical SSD I/O. These data do not establish hardware-offload value or a production threshold.",
+      "evidence_run_ids": [
+        "rq18_safe_ladder_n1b_20261007",
+        "rq18_safe_ladder_n2_20261007",
+        "rq18_safe_ladder_n2_s2_20261007",
+        "rq18_safe_ladder_n4_20261007",
+        "rq18_safe_ladder_n8_20261007"
+      ],
+      "related_run_ids": [
+        "rq18_safe_ladder_n1b_20261007",
+        "rq18_safe_ladder_n2_20261007",
+        "rq18_safe_ladder_n2_s2_20261007",
+        "rq18_safe_ladder_n4_20261007",
+        "rq18_safe_ladder_n8_20261007"
+      ]
+    },
+    {
       "id": "RQ17",
       "short_question": "Does storage staging help across repeated tool returns?",
       "evidence_date_utc": "2026-10-07",
       "question": "With eight equal-priority agent sessions, six tool returns each, growing prompt histories, and natural GPU/host cache displacement, can storage-to-host staging during known tool waits improve replay delay and whole-workload time without harming other sessions?",
-      "answer": "The intended three-seed study is blocked, not a validated performance result. On the pinned A10G/SGLang 0.5.10.post1 backend, the only complete on-demand versus host-stage pair used 48 replays per arm. The host-stage arm loaded 38,400 tokens during tool waits and completed nine stages before their tool-return deadlines. Median deadline-to-first-token delay was 1705.9 to 1702.0 ms (essentially tied); p95 was 4358.7 to 4843.8 ms (worse); and whole-workload duration was 43.153 to 44.153 s (1.000 s slower). Native replay L3 hits were 19 on demand and 16 with staging. Individual staged turns sometimes improved and sometimes worsened. Seed 2's host-stage arm then hit a cache-tree assertion in SGLang's evict_host path during partial-prefix prefetch, so the remaining pairs were not run. A separate full-GPU-prepare pilot hit a scheduler assertion. These failures are preserved, and the unsafe partial-prefix prefetch extension has been removed from the shared backend.",
+      "answer": "The original three-seed study was blocked: one completed pair used 48 replays per arm, with median deadline-to-first-token delay 1705.9 to 1702.0 ms, p95 4358.7 to 4843.8 ms, and whole-workload duration 43.153 to 44.153 s. A later host-stage arm hit SGLang's evict_host cache-tree assertion; a full-GPU-prepare pilot hit a separate scheduler assertion. The unguarded partial-prefix path was replaced by a capacity- and rate-limit-guarded suffix path. In a subsequent one-seed eight-session, six-tool-return gate, that guarded path completed without a cache-tree failure. Only one of nine observed storage candidates staged before due time, and eight were skipped for insufficient host capacity. Median replay delay changed from 1046 to 1038 ms; whole-workload time rose from 27.336 to 27.468 s. This is a successful safety gate under one pressure setup, not a demonstrated whole-workload gain or a completed three-seed study.",
       "hypothesis": "When many sessions contend for the host cache, staging a missing storage suffix may need reservation and cache-tree synchronization; simply issuing the native prefetch early can move work into tool waits but cannot be assumed to improve end-to-end performance or remain safe under pressure.",
-      "unknown": "The study has only one completed pair and no validated cross-seed performance conclusion. It does not isolate the exact internal cause of either scheduler assertion. The workload is synthetic, and file-backed L3 hits do not prove physical SSD reads. The failed prototype's partial-prefetch behavior is intentionally unavailable in the current safe code; the archived trace and server log explain why. Future tests need a version-specific safety fix and a new live gate before repeating this workload.",
-      "evidence_run_ids": ["storage_cycles_rq17_20261006"],
-      "related_run_ids": ["storage_cycles_rq17_20261006", "storage_cycles_full_pilot_20261006"]
+      "unknown": "There is no validated cross-seed performance conclusion. The exact internal cause of the historical assertions remains unknown. The first guarded attempt recorded a native prefetch refusal and was blocked by the audit gate; the adapter now explicitly checks SGLang's prefetch rate limit. The completed retry had only one successful early stage and was not a full repeat of the three-seed study. The guard prevents prefetch when host capacity is insufficient; it does not fix SGLang's underlying eviction assertion or establish safety across versions and loads. The workload is synthetic, and file-backed L3 hits do not prove physical SSD reads.",
+      "evidence_run_ids": ["storage_cycles_rq17_20261006", "rq18_guarded_cycles_retry_20261007"],
+      "related_run_ids": ["storage_cycles_rq17_20261006", "storage_cycles_full_pilot_20261006", "rq18_guarded_cycles_20261007", "rq18_guarded_cycles_retry_20261007"]
     },
     {
       "id": "RQ16",

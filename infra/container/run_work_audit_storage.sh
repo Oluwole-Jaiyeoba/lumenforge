@@ -25,10 +25,12 @@ CONTAINER_CID=""
 
 [[ -d "${MODEL_CACHE}" ]] || { echo "Model cache missing: ${MODEL_CACHE}" >&2; exit 2; }
 [[ "${PAGE_SIZE}" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid page size" >&2; exit 2; }
-[[ "${ARMS}" == "on_demand host_stage full_prepare" ]] || {
-  echo "Only the three audited arms are supported" >&2; exit 2;
+[[ "${ARMS}" == "on_demand host_stage full_prepare" || "${ARMS}" == "on_demand host_stage" ]] || {
+  echo "Supported arms: 'on_demand host_stage' or 'on_demand host_stage full_prepare'" >&2; exit 2;
 }
 [[ "${SEEDS}" =~ ^[0-9]+(\ [0-9]+)*$ ]] || { echo "Invalid seed list" >&2; exit 2; }
+[[ "${WORK_AUDIT_STORAGE_CUDA_GRAPH:-0}" =~ ^[01]$ ]] || { echo "CUDA graph flag must be 0 or 1" >&2; exit 2; }
+[[ "${WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE:-0}" =~ ^[01]$ ]] || { echo "Overlap flag must be 0 or 1" >&2; exit 2; }
 if curl -fsS http://127.0.0.1:30000/v1/models >/dev/null 2>&1; then
   echo "Port 30000 is already in use; refusing to disturb the server" >&2; exit 2
 fi
@@ -65,6 +67,8 @@ read -r -a seed_values <<< "${SEEDS}"
 for seed in "${seed_values[@]}"; do
   if (( seed % 2 )); then
     read -r -a arm_values <<< "${ARMS}"
+  elif [[ "${ARMS}" == "on_demand host_stage" ]]; then
+    arm_values=(host_stage on_demand)
   else
     arm_values=(full_prepare host_stage on_demand)
   fi
@@ -95,6 +99,10 @@ for seed in "${seed_values[@]}"; do
     export HICACHE_STORAGE_BACKEND_EXTRA_CONFIG="{\"prefetch_threshold\":${PAGE_SIZE}}"
     export EXTRA_SERVER_ARGS="--hicache-write-policy write_through --page-size ${PAGE_SIZE}"
     export MEM_FRACTION_STATIC="${WORK_AUDIT_STORAGE_MEM_FRACTION:-0.7}"
+    export CUDA_GRAPH_FLAG="--disable-cuda-graph"
+    export OVERLAP_FLAG="--disable-overlap-schedule"
+    [[ "${WORK_AUDIT_STORAGE_CUDA_GRAPH:-0}" == "1" ]] && CUDA_GRAPH_FLAG=""
+    [[ "${WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE:-0}" == "1" ]] && OVERLAP_FLAG=""
     echo "Starting seed${seed}_${arm} with fresh backend and storage path"
     (
       cd "${DIRECT_ROOT}"
@@ -127,21 +135,24 @@ PY
       --prompt-tokens "${PROMPT_TOKENS}" --wait-ms "${WAIT_MS}" \
       --peer-count "${PEER_COUNT}" --peer-start-ms "${PEER_START_MS}" \
       --peer-prompt-tokens "${PEER_PROMPT_TOKENS}" --peer-max-tokens "${PEER_MAX_TOKENS}" \
+      ${WORK_AUDIT_STORAGE_VERIFY_OUTPUT:+--verify-output} \
       --out "${ARM_ROOT}/case_results.json"
     python3 -m agentic_backends.sglang.trace_contract --adapter v0510 \
       --profile kv_lifecycle_lean --trace "${ARM_ROOT}/backend_trace.jsonl" \
       --out "${ARM_ROOT}/instrumentation_audit.json"
     gzip -f "${ARM_ROOT}/backend_trace.jsonl"
     stop_backend
+    find "${ARM_ROOT}/storage" -type f -delete
     sleep 3
   done
 done
 python3 -m agentic_experiments.runners.analyze_work_audit_storage \
-  --arms-dir "${RUN_ROOT}/arms" --out "${RUN_ROOT}/summary.json" --require-native-timing
+  --arms-dir "${RUN_ROOT}/arms" --out "${RUN_ROOT}/summary.json" \
+  --arms "${ARMS}" --require-native-timing
 WORKLOAD_JSON="$(python3 - "${SEEDS}" "${WAIT_MS}" "${PROMPT_TOKENS}" "${MODEL}" "${PEER_COUNT}" "${PEER_START_MS}" "${PEER_PROMPT_TOKENS}" "${PEER_MAX_TOKENS}" "${PAGE_SIZE}" \
-  "${WORK_AUDIT_STORAGE_HOST_GB:-14}" "${WORK_AUDIT_STORAGE_MEM_FRACTION:-0.7}" "${QUESTION_ID}" "${PROMPT_ID}" <<'PY'
+  "${WORK_AUDIT_STORAGE_HOST_GB:-14}" "${WORK_AUDIT_STORAGE_MEM_FRACTION:-0.7}" "${QUESTION_ID}" "${PROMPT_ID}" "${ARMS}" "${WORK_AUDIT_STORAGE_CUDA_GRAPH:-0}" "${WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE:-0}" "${WORK_AUDIT_STORAGE_VERIFY_OUTPUT:-}" <<'PY'
 import json, sys
-seeds, wait, prompt, model, peer_count, peer_start, peer_prompt, peer_max, page_size, host_gb, mem_fraction, question, prompt_id = sys.argv[1:]
+seeds, wait, prompt, model, peer_count, peer_start, peer_prompt, peer_max, page_size, host_gb, mem_fraction, question, prompt_id, arms, graph, overlap, verify = sys.argv[1:]
 print(json.dumps({"research_question_id": question, "seeds": list(map(int, seeds.split())),
                   "prompt_id": prompt_id,
                   "session_count": 1 + int(peer_count), "peer_count": int(peer_count),
@@ -152,7 +163,8 @@ print(json.dumps({"research_question_id": question, "seeds": list(map(int, seeds
                   "storage_prefetch_policy": "wait_complete", "write_policy": "write_through",
                   "page_size_tokens": int(page_size),
                   "host_cache_gb": float(host_gb), "gpu_mem_fraction": float(mem_fraction),
-                  "arms": ["on_demand", "host_stage", "full_prepare"],
+                  "arms": arms.split(), "cuda_graph": graph == "1",
+                  "overlap_schedule": overlap == "1", "verify_output": bool(verify),
                   "fresh_backend_per_arm": True}))
 PY
 )"

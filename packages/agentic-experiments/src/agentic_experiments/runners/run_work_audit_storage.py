@@ -18,6 +18,13 @@ from .run_kv_movement_interference import (
 from .run_work_audit_timing import confirm_load
 
 
+class StorageControlRejected(RuntimeError):
+    def __init__(self, action: str, result: dict[str, Any]):
+        self.action = action
+        self.result = result
+        super().__init__(f"{action} failed: {json.dumps(result, sort_keys=True)}")
+
+
 async def control(client: httpx.AsyncClient, url: str, action: str, identity: dict[str, str], **extra: Any) -> dict[str, Any]:
     started_ns = time.time_ns()
     response = await client.post(url, json={"action": action, **identity, **extra, "control_timeout_ms": 15000})
@@ -25,7 +32,7 @@ async def control(client: httpx.AsyncClient, url: str, action: str, identity: di
     result["control_request_ns"] = started_ns
     result["control_response_ns"] = time.time_ns()
     if not result.get("ok"):
-        raise RuntimeError(f"{action} failed: {json.dumps(result, sort_keys=True)}")
+        raise StorageControlRejected(action, result)
     return result
 
 
@@ -40,7 +47,7 @@ async def stage_storage(client: httpx.AsyncClient, url: str, identity: dict[str,
             await asyncio.sleep(0.25)
             continue
         if not result.get("ok") or int(result.get("storage_loaded_tokens") or 0) <= 0:
-            raise RuntimeError(f"native L3 hit not proved: {json.dumps(result, sort_keys=True)}")
+            raise StorageControlRejected("storage_prefetch_status", result)
         if not result.get("storage_data_ready_ns") or not result.get("storage_host_committed_ns"):
             raise RuntimeError(f"native storage completion timestamp missing: {json.dumps(result, sort_keys=True)}")
         return {"accepted": accepted, "completed": result, "completed_observed_ns": time.time_ns()}
@@ -61,7 +68,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                                    request_context=context(session_id=session, prefix_id=prefix,
                                                            phase="storage_initial", request_id=initial_id,
                                                            p_hash=identity["prompt_hash"]),
-                                   max_tokens=args.max_tokens)
+                                   max_tokens=args.max_tokens, capture_chunks=args.verify_output)
         host_status = None
         for _ in range(4):
             await evict_device_prefix(client, url=args.control_url, session_id=session, prefix_id=prefix,
@@ -89,7 +96,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 request_context=context(session_id=peer_session, prefix_id=peer_session,
                                         phase="storage_peer", request_id=f"{peer_session}-request",
                                         p_hash=prompt_hash(peer_prompt)),
-                max_tokens=args.peer_max_tokens,
+                max_tokens=args.peer_max_tokens, capture_chunks=args.verify_output,
             )
             return {"peer_index": index, **result}
 
@@ -123,10 +130,11 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                                   request_context=context(session_id=session, prefix_id=prefix,
                                                           phase="storage_replay", request_id=replay_id,
                                                           p_hash=prompt_hash(replay_prompt(prompt))),
-                                  max_tokens=args.max_tokens)
+                                  max_tokens=args.max_tokens, capture_chunks=args.verify_output)
         peers = await asyncio.gather(*peer_tasks)
     return {
         "run_id": args.run_id, "arm": args.arm, "session_id": session, "frontend_priority": "equal",
+        "output_verification_enabled": args.verify_output,
         "prompt_tokens_target": args.prompt_tokens, "wait_ms": args.wait_ms,
         "initial": initial, "host_precursor": host_status, "storage_eviction": evicted,
         "tool_start_ns": tool_start_ns, "tool_due_ns": due_ns, "tool_end_ns": tool_end_ns,
@@ -156,6 +164,7 @@ def main() -> None:
     parser.add_argument("--peer-start-ms", type=int, default=1000)
     parser.add_argument("--peer-prompt-tokens", type=int, default=1024)
     parser.add_argument("--peer-max-tokens", type=int, default=96)
+    parser.add_argument("--verify-output", action="store_true")
     args = parser.parse_args()
     if args.prompt_tokens < 512 or args.wait_ms < 1 or args.peer_count < 0:
         parser.error("need a 512+ token prompt and a positive wait")
