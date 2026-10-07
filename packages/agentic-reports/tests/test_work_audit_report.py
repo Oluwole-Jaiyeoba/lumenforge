@@ -75,6 +75,41 @@ def test_two_arm_storage_ladder_report_keeps_peer_and_workflow_changes():
     assert "WORK_AUDIT_STORAGE_CUDA_GRAPH=1" in markdown
 
 
+def test_storage_control_placebo_report_separates_poll_wait_and_peer_phases():
+    rows = []
+    for arm, peer_ttft in (("on_demand", 100), ("control_only", 125), ("host_stage", 160)):
+        rows.append({"seed": 1, "arm": arm, "due_to_first_token_ms": 300,
+                     "replay_ttft_ms": 150, "workflow_duration_ms": 6000,
+                     "peer_count": 1, "peer_ttft_median_ms": peer_ttft,
+                     "peer_completion_median_ms": 2000, "peers_overlapping_preparation": 1,
+                     "native_replay_storage_hit_tokens": 2048 if arm != "host_stage" else 0,
+                     "control_storage_hit_tokens": 2048 if arm == "host_stage" else 0,
+                     "stage_completed_before_due": arm == "host_stage",
+                     "peer_phase_times": [{"request_to_lookup_ms": 20,
+                                           "lookup_to_first_token_ms": peer_ttft - 20}],
+                     "storage_ready_to_poll_ms": 188 if arm == "host_stage" else None,
+                     "storage_poll_queue_ms": 700 if arm == "host_stage" else None,
+                     "storage_poll_execution_ms": 6 if arm == "host_stage" else None})
+    summary = {"schema": "agentic_work_audit.storage_replay.v1", "run_id": "placebo-1",
+               "status": "complete", "rows": rows, "paired": [{
+                   "seed": 1, "host_stage_delta_ms": 0,
+                   "control_only_peer_ttft_deltas_ms": [25],
+                   "host_stage_peer_ttft_deltas_ms": [60],
+                   "control_only_peer_completion_deltas_ms": [20],
+                   "host_stage_peer_completion_deltas_ms": [50]}],
+               "median_host_stage_delta_ms": 0, "median_full_prepare_delta_ms": None,
+               "_manifest": {"workload": {"research_question_id": "RQ19", "peer_count": 1,
+                                          "arms": ["on_demand", "control_only", "host_stage"]}}}
+    path = Path("docs/reports/work_audit/placebo-1/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "Storage staging and peer-delay control" in page
+    assert "Poll queued" in page
+    assert "Peer request → cache lookup" in markdown
+    assert "Control-only peer TTFT changes" in page
+    assert "WORK_AUDIT_STORAGE_ARMS='on_demand control_only host_stage'" in markdown
+
+
 def test_storage_cycles_report_shows_paired_workflow_and_replay_cost():
     arms = [{
         "seed": 1, "arm": mode, "session_count": 8, "replay_count": 48,
@@ -198,7 +233,7 @@ def test_storage_report_shows_native_read_and_commit_separately():
                "_manifest": {"workload": {"seeds": [1], "peer_count": 2}}}
     markdown = render_markdown([(Path("runs/storage-native/summary.json"), summary)])
     assert "Native L3 → host ready (ms)" in markdown
-    assert "Ready → commit/poll (ms)" in markdown
+    assert "Ready → status observed (ms)" in markdown
     assert "Native data readiness took a median 42 ms" in markdown
     assert "status-poll/host-commit interval took 61 ms" in markdown
     assert "42" in markdown and "61" in markdown

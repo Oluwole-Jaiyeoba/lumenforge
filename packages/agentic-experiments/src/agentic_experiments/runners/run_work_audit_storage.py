@@ -54,6 +54,13 @@ async def stage_storage(client: httpx.AsyncClient, url: str, identity: dict[str,
     raise TimeoutError("native L3 prefetch did not complete")
 
 
+async def probe_controls(client: httpx.AsyncClient, url: str, identity: dict[str, str]) -> list[dict[str, Any]]:
+    checks = [await control(client, url, "storage_status", identity) for _ in range(2)]
+    await asyncio.sleep(0.25)
+    checks.append(await control(client, url, "storage_status", identity))
+    return checks
+
+
 async def run(args: argparse.Namespace) -> dict[str, Any]:
     session = f"{args.run_id}-{args.arm}"
     prefix = f"{session}-prefix"
@@ -103,7 +110,12 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         peer_tasks = [asyncio.create_task(peer(index)) for index in range(args.peer_count)]
         staged: dict[str, Any] | None = None
         device_load: dict[str, Any] | None = None
-        if args.arm != "on_demand":
+        control_probes: list[dict[str, Any]] | None = None
+        if args.arm == "control_only":
+            control_probes = await probe_controls(client, args.control_url, identity)
+            if any(check["gpu_tokens"] or check["host_tokens"] for check in control_probes):
+                raise RuntimeError("control-only arm changed KV residency")
+        elif args.arm != "on_demand":
             staged = await stage_storage(client, args.control_url, identity, f"{session}-storage")
             if args.arm == "full_prepare":
                 accepted = await prepare_prefix(client, url=args.control_url, session_id=session,
@@ -138,7 +150,8 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         "prompt_tokens_target": args.prompt_tokens, "wait_ms": args.wait_ms,
         "initial": initial, "host_precursor": host_status, "storage_eviction": evicted,
         "tool_start_ns": tool_start_ns, "tool_due_ns": due_ns, "tool_end_ns": tool_end_ns,
-        "storage_stage": staged, "device_load": device_load, "replay": replay, "peers": peers,
+        "storage_stage": staged, "device_load": device_load, "control_probes": control_probes,
+        "replay": replay, "peers": peers,
         "due_to_first_token_ms": round((replay["first_token_ns"] - due_ns) / 1e6, 3),
         "tool_end_to_first_token_ms": round((replay["first_token_ns"] - tool_end_ns) / 1e6, 3),
         "stage_completed_before_due": staged is not None and staged["completed_observed_ns"] <= due_ns,
@@ -152,7 +165,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--prompt-id")
-    parser.add_argument("--arm", choices=("on_demand", "host_stage", "full_prepare"), required=True)
+    parser.add_argument("--arm", choices=("on_demand", "control_only", "host_stage", "full_prepare"), required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct")
     parser.add_argument("--base-url", default="http://127.0.0.1:30000/v1")

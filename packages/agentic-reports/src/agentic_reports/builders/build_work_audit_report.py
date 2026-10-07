@@ -271,6 +271,10 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
         return brief, detail
     if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
         peers = int(workload.get("peer_count") or 0)
+        arms_note = ("The control-only arm made three residency checks without transferring KV; "
+                     "the host-stage arm fetched KV from L3 to L2 before tool return. "
+                     if "control_only" in (workload.get("arms") or []) else
+                     "The early arms staged L3→L2 or L3→L2→L1 before tool return. ")
         brief = (f"1 returning + {peers} peer session(s) · {workload.get('prompt_tokens')} prompt tokens · "
                  f"{workload.get('tool_wait_ms')} ms tool wait · file-backed L3")
         detail = (f"<strong>How it ran.</strong> {_esc(manifest.get('hardware_profile'))}; "
@@ -280,8 +284,8 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
                   "equal frontend priority, lean KV trace. "
                   "Each arm populated a prefix, evicted it from GPU and host, then replayed it "
                   "after the same synthetic tool wait. A positive native L3 hit was required. "
-                  "The early arms staged L3→L2 or L3→L2→L1 before tool return. "
-                  f"There were {peers} peer session(s), started "
+                  + arms_note
+                  + f"There were {peers} peer session(s), started "
                   f"{_esc(workload.get('peer_start_ms', 1000))} ms into the tool wait."
                   + (f" CUDA graphs {'on' if workload.get('cuda_graph') else 'off'}; "
                      f"overlap scheduling {'on' if workload.get('overlap_schedule') else 'off'}."
@@ -497,7 +501,7 @@ def _reproduction(summary: dict, timing: bool) -> str:
                        "bash infra/container/run_work_audit_storage_cycles.sh") + "</code></pre>")
     if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
         storage_extra = ""
-        if workload.get("research_question_id") == "RQ18":
+        if workload.get("research_question_id") in {"RQ18", "RQ19"}:
             storage_extra = (f"WORK_AUDIT_STORAGE_ARMS='{ ' '.join(workload.get('arms') or []) }' "
                              f"WORK_AUDIT_STORAGE_CUDA_GRAPH={int(workload.get('cuda_graph', False))} "
                              f"WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE={int(workload.get('overlap_schedule', False))} "
@@ -1217,6 +1221,16 @@ def _run_finding(summary: dict) -> str:
                 "isolated physical-SSD or hardware speedup.")
     if summary.get("schema") == "agentic_work_audit.storage_replay.v1":
         workload = (summary.get("_manifest") or {}).get("workload") or {}
+        if workload.get("research_question_id") == "RQ19":
+            rows = {arm: [row for row in summary["rows"] if row["arm"] == arm]
+                    for arm in ("on_demand", "control_only", "host_stage")}
+            peer = {arm: median(row["peer_ttft_median_ms"] for row in arm_rows)
+                    for arm, arm_rows in rows.items()}
+            return ("Three-way control: peer median first-token time was "
+                    f"{peer['on_demand']:.0f} ms without early activity, "
+                    f"{peer['control_only']:.0f} ms with control probes only, and "
+                    f"{peer['host_stage']:.0f} ms with actual KV staging. "
+                    "This small synthetic comparison locates an effect; it does not prove a hardware cause.")
         if workload.get("research_question_id") == "RQ18":
             baseline = median(row["due_to_first_token_ms"] for row in summary["rows"]
                               if row["arm"] == "on_demand")
@@ -1456,6 +1470,8 @@ def _kind(summary: dict) -> str:
         return "Backend scheduling and KV overlap"
     if workload.get("research_question_id") == "RQ18":
         return "Safe storage-stage session ladder"
+    if workload.get("research_question_id") == "RQ19":
+        return "Storage staging and peer-delay control"
     if workload.get("research_question_id") == "RQ12":
         return "Decode slowdown attribution"
     if workload.get("research_question_id") == "RQ9":
@@ -1518,10 +1534,44 @@ def _result_parts(summary: dict) -> tuple[str, str]:
                 for row in summary['rows']]
         detail = _mode_table(("Arm", "Due → first token", "Replay TTFT", "Peer TTFT median",
                               "Peers overlapping preparation",
-                              "Native L3 → host ready", "Ready → commit/poll",
+                              "Native L3 → host ready", "Ready → status observed",
                               "L3 tokens at replay", "L3 tokens during wait",
                               "Matched replay prefix",
                               "Staging met due time"), rows)
+        if any(row["arm"] == "control_only" for row in summary["rows"]):
+            pair_rows = [(pair["seed"],
+                          ", ".join(_ms(value) for value in pair["control_only_peer_ttft_deltas_ms"]),
+                          ", ".join(_ms(value) for value in pair["host_stage_peer_ttft_deltas_ms"]),
+                          ", ".join(_ms(value) for value in pair["control_only_peer_completion_deltas_ms"]),
+                          ", ".join(_ms(value) for value in pair["host_stage_peer_completion_deltas_ms"]))
+                         for pair in summary["paired"]]
+            detail += _mode_table(("Seed", "Control-only peer TTFT changes", "Staged peer TTFT changes",
+                                   "Control-only peer completion changes", "Staged peer completion changes"),
+                                  pair_rows)
+            phase_rows = [(row["seed"], row["arm"],
+                           _ms(median(peer["request_to_lookup_ms"] for peer in row["peer_phase_times"]
+                                      if peer["request_to_lookup_ms"] is not None)),
+                           _ms(median(peer["lookup_to_first_token_ms"] for peer in row["peer_phase_times"]
+                                      if peer["lookup_to_first_token_ms"] is not None)))
+                          for row in summary["rows"] if row.get("peer_phase_times")
+                          and all(peer["request_to_lookup_ms"] is not None
+                                  and peer["lookup_to_first_token_ms"] is not None
+                                  for peer in row["peer_phase_times"])]
+            if phase_rows:
+                detail += _mode_table(("Seed", "Arm", "Peer request → cache lookup median",
+                                       "Peer cache lookup → first token median"), phase_rows)
+            poll_rows = [(row["seed"], _ms(row["storage_ready_to_poll_ms"]),
+                          _ms(row["storage_poll_queue_ms"]),
+                          _ms(row["storage_poll_execution_ms"]))
+                         for row in summary["rows"] if row.get("storage_ready_to_poll_ms") is not None]
+            if poll_rows:
+                detail += _mode_table(("Seed", "Data ready → poll queued", "Poll queued → dequeued",
+                                       "Poll execution"), poll_rows)
+            return (f"{len(summary['paired'])} paired seed(s) · baseline, control probes, KV staging · "
+                    "native L3 replay hits and staged reuse verified",
+                    detail + "<p>Changes are relative to on-demand baseline. The status-commit timestamp "
+                             "is observed when a control poll executes, not necessarily when data first "
+                             "became usable.</p>")
         if "median_full_prepare_delta_ms" in summary and summary["median_full_prepare_delta_ms"] is None:
             pair_rows = [(pair["seed"], _ms(pair["host_stage_delta_ms"]),
                           _ms(pair.get("host_stage_workflow_delta_ms")),
@@ -1899,16 +1949,34 @@ def _markdown_metrics(summary: dict) -> str:
                  row.get('storage_data_ready_ms'), row.get('storage_commit_after_ready_ms'),
                  row.get('workflow_duration_ms'), row['native_replay_storage_hit_tokens'],
                  row['control_storage_hit_tokens'], row.get('replay_matched_prefix_tokens'),
-                 "not applicable" if row['arm'] == 'on_demand' else
+                 "not applicable" if row['arm'] in {'on_demand', 'control_only'} else
                  row['stage_completed_before_due'])
                 for row in summary['rows']]
-        return _md_table(("Seed", "Arm", "Due → first token (ms)", "Replay TTFT (ms)",
+        table = _md_table(("Seed", "Arm", "Due → first token (ms)", "Replay TTFT (ms)",
                           "Peer TTFT median (ms)", "Peer completion median (ms)",
                           "Peers overlapping preparation",
-                          "Native L3 → host ready (ms)", "Ready → commit/poll (ms)",
+                          "Native L3 → host ready (ms)", "Ready → status observed (ms)",
                           "Whole workflow (ms)", "L3 tokens at replay", "L3 tokens in wait",
                           "Matched prefix tokens",
                           "Stage ready by due"), rows)
+        if any(row['arm'] == 'control_only' for row in summary['rows']):
+            phase_rows = [(row['seed'], row['arm'],
+                           median(peer['request_to_lookup_ms'] for peer in row['peer_phase_times']),
+                           median(peer['lookup_to_first_token_ms'] for peer in row['peer_phase_times']))
+                          for row in summary['rows'] if row.get('peer_phase_times')
+                          and all(peer['request_to_lookup_ms'] is not None
+                                  and peer['lookup_to_first_token_ms'] is not None
+                                  for peer in row['peer_phase_times'])]
+            if phase_rows:
+                table += "\n\n" + _md_table(("Seed", "Arm", "Peer request → cache lookup median (ms)",
+                                                 "Peer cache lookup → first token median (ms)"), phase_rows)
+            poll_rows = [(row['seed'], row['storage_ready_to_poll_ms'],
+                          row['storage_poll_queue_ms'], row['storage_poll_execution_ms'])
+                         for row in summary['rows'] if row.get('storage_ready_to_poll_ms') is not None]
+            if poll_rows:
+                table += "\n\n" + _md_table(("Seed", "Data ready → poll queued (ms)",
+                                                 "Poll queued → dequeued (ms)", "Poll execution (ms)"), poll_rows)
+        return table
     if schema == "agentic_work_audit.tool_cycles.v1":
         if summary.get("status") == "trace_off_control":
             rows = [(f"{row['session_id']} · {row['turn']}", row['prompt_tokens'],
@@ -2318,6 +2386,22 @@ def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str
                 _run_finding(summary), "blocked" if summary.get("status") == "blocked"
                 else "native L3 hits verified")
     if schema == "agentic_work_audit.storage_replay.v1":
+        if any(row['arm'] == 'control_only' for row in summary['rows']):
+            by_arm = {arm: [row for row in summary['rows'] if row['arm'] == arm]
+                      for arm in ('on_demand', 'control_only', 'host_stage')}
+            replay = [median(row['due_to_first_token_ms'] for row in by_arm[arm])
+                      for arm in by_arm]
+            peer = [median(row['peer_completion_median_ms'] for row in by_arm[arm])
+                    for arm in by_arm]
+            workflow = [median(row['workflow_duration_ms'] for row in by_arm[arm])
+                        for arm in by_arm]
+            return ('No early action → control checks → KV staging',
+                    'First token: ' + ' → '.join(f'{value:.0f}' for value in replay) + ' ms',
+                    'Peer finish: ' + ' → '.join(f'{value:.0f}' for value in peer) + ' ms',
+                    'Whole workload: ' + ' → '.join(f'{value / 1000:.2f}' for value in workflow) + ' s',
+                    'Early staging helped the returning session but delayed peers; control checks alone '
+                    'explain only part of the peer delay.',
+                    'Native L3 hits and replay reuse verified')
         if "median_full_prepare_delta_ms" in summary and summary["median_full_prepare_delta_ms"] is None:
             base = median(row["due_to_first_token_ms"] for row in summary["rows"]
                           if row["arm"] == "on_demand")

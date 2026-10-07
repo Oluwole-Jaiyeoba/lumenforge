@@ -1,0 +1,224 @@
+{
+  "schema": "agentic_work_audit.storage_replay.v1",
+  "run_id": "rq19_control_placebo_n4_s2_20261007",
+  "status": "complete",
+  "rows": [
+    {
+      "seed": 2,
+      "arm": "control_only",
+      "due_to_first_token_ms": 351.877,
+      "tool_end_to_first_token_ms": 348.921,
+      "replay_ttft_ms": 348.873,
+      "replay_total_latency_ms": 518.781,
+      "output_verification_enabled": true,
+      "replay_output_sha256": "b34de17bbb2d2b6b77326417dbbc8495351e38114a5a995ecb3dc1e19cec434f",
+      "replay_output_characters": 72,
+      "workflow_duration_ms": 6559.143,
+      "peer_count": 3,
+      "control_probe_count": 3,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": null,
+      "storage_commit_after_ready_ms": null,
+      "storage_ready_to_poll_ms": null,
+      "storage_poll_queue_ms": null,
+      "storage_poll_execution_ms": null,
+      "control_queue_ms": [
+        0.117,
+        0.2,
+        0.13,
+        0.09,
+        2.686,
+        663.664
+      ],
+      "storage_confirmed_ms": null,
+      "peer_ttft_median_ms": 1174.406,
+      "peer_completion_median_ms": 2607.273,
+      "peer_ttft_ms": [
+        987.848,
+        1174.406,
+        1737.291
+      ],
+      "peer_completion_ms": [
+        2626.639,
+        2607.273,
+        2587.202
+      ],
+      "peer_phase_times": [
+        {
+          "peer_index": 0,
+          "request_to_lookup_ms": 49.212,
+          "lookup_to_first_token_ms": 938.636
+        },
+        {
+          "peer_index": 1,
+          "request_to_lookup_ms": 61.108,
+          "lookup_to_first_token_ms": 1113.297
+        },
+        {
+          "peer_index": 2,
+          "request_to_lookup_ms": 45.585,
+          "lookup_to_first_token_ms": 1691.705
+        }
+      ],
+      "native_replay_storage_hit_tokens": 2048,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 0,
+      "stage_completed_before_due": false,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 2,
+      "arm": "host_stage",
+      "due_to_first_token_ms": 163.02,
+      "tool_end_to_first_token_ms": 160.022,
+      "replay_ttft_ms": 159.971,
+      "replay_total_latency_ms": 331.152,
+      "output_verification_enabled": true,
+      "replay_output_sha256": "b34de17bbb2d2b6b77326417dbbc8495351e38114a5a995ecb3dc1e19cec434f",
+      "replay_output_characters": 72,
+      "workflow_duration_ms": 6409.284,
+      "peer_count": 3,
+      "control_probe_count": 0,
+      "peers_overlapping_preparation": 3,
+      "storage_data_ready_ms": 83.525,
+      "storage_commit_after_ready_ms": 910.843,
+      "storage_ready_to_poll_ms": 183.236,
+      "storage_poll_queue_ms": 721.825,
+      "storage_poll_execution_ms": 5.783,
+      "control_queue_ms": [
+        0.096,
+        0.112,
+        0.082,
+        0.054,
+        3.857,
+        721.825
+      ],
+      "storage_confirmed_ms": 995.455,
+      "peer_ttft_median_ms": 1237.053,
+      "peer_completion_median_ms": 2666.906,
+      "peer_ttft_ms": [
+        1050.98,
+        1237.053,
+        1798.131
+      ],
+      "peer_completion_ms": [
+        2686.294,
+        2666.906,
+        2648.18
+      ],
+      "peer_phase_times": [
+        {
+          "peer_index": 0,
+          "request_to_lookup_ms": 48.165,
+          "lookup_to_first_token_ms": 1002.815
+        },
+        {
+          "peer_index": 1,
+          "request_to_lookup_ms": 110.584,
+          "lookup_to_first_token_ms": 1126.468
+        },
+        {
+          "peer_index": 2,
+          "request_to_lookup_ms": 96.002,
+          "lookup_to_first_token_ms": 1702.127
+        }
+      ],
+      "native_replay_storage_hit_tokens": 0,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 2048,
+      "stage_completed_before_due": true,
+      "removed_host_match_tokens": 2048
+    },
+    {
+      "seed": 2,
+      "arm": "on_demand",
+      "due_to_first_token_ms": 352.775,
+      "tool_end_to_first_token_ms": 349.436,
+      "replay_ttft_ms": 349.388,
+      "replay_total_latency_ms": 520.082,
+      "output_verification_enabled": true,
+      "replay_output_sha256": "b34de17bbb2d2b6b77326417dbbc8495351e38114a5a995ecb3dc1e19cec434f",
+      "replay_output_characters": 72,
+      "workflow_duration_ms": 6621.252,
+      "peer_count": 3,
+      "control_probe_count": 0,
+      "peers_overlapping_preparation": 0,
+      "storage_data_ready_ms": null,
+      "storage_commit_after_ready_ms": null,
+      "storage_ready_to_poll_ms": null,
+      "storage_poll_queue_ms": null,
+      "storage_poll_execution_ms": null,
+      "control_queue_ms": [
+        0.123,
+        0.13,
+        0.126
+      ],
+      "storage_confirmed_ms": null,
+      "peer_ttft_median_ms": 1158.749,
+      "peer_completion_median_ms": 2587.672,
+      "peer_ttft_ms": [
+        967.893,
+        1158.749,
+        1717.983
+      ],
+      "peer_completion_ms": [
+        2608.019,
+        2587.672,
+        2567.273
+      ],
+      "peer_phase_times": [
+        {
+          "peer_index": 0,
+          "request_to_lookup_ms": 49.922,
+          "lookup_to_first_token_ms": 917.971
+        },
+        {
+          "peer_index": 1,
+          "request_to_lookup_ms": 58.402,
+          "lookup_to_first_token_ms": 1100.346
+        },
+        {
+          "peer_index": 2,
+          "request_to_lookup_ms": 42.555,
+          "lookup_to_first_token_ms": 1675.428
+        }
+      ],
+      "native_replay_storage_hit_tokens": 2048,
+      "replay_matched_prefix_tokens": 2112,
+      "control_storage_hit_tokens": 0,
+      "stage_completed_before_due": false,
+      "removed_host_match_tokens": 2048
+    }
+  ],
+  "paired": [
+    {
+      "seed": 2,
+      "host_stage_delta_ms": -189.75499999999997,
+      "host_stage_workflow_delta_ms": -211.96800000000076,
+      "control_only_delta_ms": -0.8979999999999677,
+      "control_only_peer_ttft_deltas_ms": [
+        19.954999999999927,
+        15.656999999999925,
+        19.307999999999993
+      ],
+      "control_only_peer_completion_deltas_ms": [
+        18.620000000000346,
+        19.601000000000113,
+        19.929000000000087
+      ],
+      "host_stage_peer_ttft_deltas_ms": [
+        83.08699999999999,
+        78.30400000000009,
+        80.14800000000014
+      ],
+      "host_stage_peer_completion_deltas_ms": [
+        78.27500000000009,
+        79.23399999999992,
+        80.9069999999997
+      ]
+    }
+  ],
+  "median_host_stage_delta_ms": -189.75499999999997,
+  "median_full_prepare_delta_ms": null,
+  "interpretation_limit": "Small concurrent-peer timing only; this does not establish a production-workload benefit. The three status checks approximate the staged arm's control-call pattern but do not execute native prefetch. The status-commit timestamp is recorded when that check runs; it is not an independent timestamp of first host-cache usability. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads."
+}

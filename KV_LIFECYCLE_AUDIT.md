@@ -6,6 +6,16 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ19: Where do storage-stage delays come from?
+
+**Question.** When early storage-to-host KV staging delays peer requests, how much is associated with the scheduler-control path versus the native staging action, and what explains the apparent delay from storage data readiness to cache availability?
+
+**What the evidence says.** Two order-reversed, four-session controlled runs compared no early action, three scheduler-control status checks without transfer, and real storage-to-host staging. Median peer completion moved from 2585 to 2618 to 2647 ms in seed 1 and from 2588 to 2607 to 2667 ms in seed 2. Thus control-only checks added about 33 and 20 ms, while real staging added about 62 and 79 ms versus baseline. The returning session's due-to-first-token delay fell from 380 to 162 ms and 353 to 163 ms with staging; whole-workload duration fell by 224 and 212 ms. Native data readiness took 76 and 84 ms. The later status-observed timestamp followed after 189/183 ms until the next poll, 702/722 ms waiting for scheduler-control dequeue, and only about 6 ms inside the final status action. Earlier four- and eight-session traces show the same poll/queue pattern. The long data-ready-to-status interval is not a measurement of storage copying or cache-commit execution. Peer first-token differences appeared both before the first backend cache lookup and after it, depending on the peer.
+
+**Working hypothesis.** The busy scheduler delays execution of status checks and may postpone publication of prefetched KV; issuing control checks also has some peer cost. Native staging adds further cost, but these runs do not separate storage I/O, host-cache bookkeeping, CPU scheduling, and GPU effects within that remainder.
+
+**Not yet proved.** Only two seeds, three fresh peer requests, a synthetic five-second tool wait, and a deliberately forced storage-only target prefix were tested. The three control-only status checks approximate the staging arm's control-call pattern but do not execute the same native prefetch action. File-backed data may have come from the OS page cache. The exact moment prefetched KV became usable is not independently timestamped; the reported commit timestamp is taken when a status check executes. These results do not establish physical SSD latency, HBM contention, production frequency, or a hardware-offload benefit.
+
 ### RQ18: When does early storage staging stop helping everyone?
 
 **Question.** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
@@ -172,6 +182,8 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;7,&nbsp;2026,&nbsp;9:45:46&nbsp;a.m.&nbsp;CDT | [Storage staging and peer-delay control](#run-rq19_control_placebo_n4_s2_20261007) | RQ19 | 1&nbsp;returning&nbsp;+&nbsp;3&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | No early action → control checks → KV staging | First&nbsp;token:&nbsp;353&nbsp;→&nbsp;352&nbsp;→&nbsp;163&nbsp;ms | Peer&nbsp;finish:&nbsp;2588&nbsp;→&nbsp;2607&nbsp;→&nbsp;2667&nbsp;ms | Whole&nbsp;workload:&nbsp;6.62&nbsp;→&nbsp;6.56&nbsp;→&nbsp;6.41&nbsp;s | Early&nbsp;staging&nbsp;helped&nbsp;the&nbsp;returning&nbsp;session&nbsp;but&nbsp;delayed&nbsp;peers;&nbsp;control&nbsp;checks&nbsp;alone&nbsp;explain&nbsp;only&nbsp;part&nbsp;of&nbsp;the&nbsp;peer&nbsp;delay. | Native L3 hits and replay reuse verified |
+| Oct&nbsp;7,&nbsp;2026,&nbsp;9:38:46&nbsp;a.m.&nbsp;CDT | [Storage staging and peer-delay control](#run-rq19_control_placebo_n4_s1_20261007) | RQ19 | 1&nbsp;returning&nbsp;+&nbsp;3&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | No early action → control checks → KV staging | First&nbsp;token:&nbsp;380&nbsp;→&nbsp;319&nbsp;→&nbsp;162&nbsp;ms | Peer&nbsp;finish:&nbsp;2585&nbsp;→&nbsp;2618&nbsp;→&nbsp;2647&nbsp;ms | Whole&nbsp;workload:&nbsp;6.59&nbsp;→&nbsp;6.53&nbsp;→&nbsp;6.37&nbsp;s | Early&nbsp;staging&nbsp;helped&nbsp;the&nbsp;returning&nbsp;session&nbsp;but&nbsp;delayed&nbsp;peers;&nbsp;control&nbsp;checks&nbsp;alone&nbsp;explain&nbsp;only&nbsp;part&nbsp;of&nbsp;the&nbsp;peer&nbsp;delay. | Native L3 hits and replay reuse verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;11:50:41&nbsp;p.m.&nbsp;CDT | [Repeated storage-resume timing](#run-rq18_guarded_cycles_retry_20261007) | RQ17 | 8&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | On demand → host staging | Replay&nbsp;delay:&nbsp;1046&nbsp;→&nbsp;1038&nbsp;ms | Whole&nbsp;workload:&nbsp;27.34&nbsp;→&nbsp;27.47&nbsp;s | Synthetic&nbsp;file-backed&nbsp;storage;&nbsp;full-GPU&nbsp;preparation&nbsp;not&nbsp;tested | Across&nbsp;1&nbsp;paired&nbsp;seeds,&nbsp;host&nbsp;staging&nbsp;changed&nbsp;median&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-8&nbsp;ms&nbsp;and&nbsp;whole-workload&nbsp;duration&nbsp;by&nbsp;+131&nbsp;ms&nbsp;(negative&nbsp;is&nbsp;faster).&nbsp;On-demand&nbsp;replay&nbsp;had&nbsp;15&nbsp;native&nbsp;storage&nbsp;hits;&nbsp;staging&nbsp;completed&nbsp;before&nbsp;due&nbsp;time&nbsp;on&nbsp;1&nbsp;waits.&nbsp;These&nbsp;are&nbsp;associations&nbsp;in&nbsp;a&nbsp;small&nbsp;synthetic,&nbsp;file-backed&nbsp;workload,&nbsp;not&nbsp;an&nbsp;isolated&nbsp;physical-SSD&nbsp;or&nbsp;hardware&nbsp;speedup. | native L3 hits verified |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;11:43:07&nbsp;p.m.&nbsp;CDT | [Repeated storage-resume timing](#run-rq18_guarded_cycles_20261007) | RQ17 | 8&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | Blocked: on demand → host staging | Replay&nbsp;delay:&nbsp;1084&nbsp;→&nbsp;1073&nbsp;ms | Whole&nbsp;workload:&nbsp;28.83&nbsp;→&nbsp;29.23&nbsp;s | Blocked&nbsp;by&nbsp;preparation&nbsp;error&nbsp;or&nbsp;incomplete&nbsp;arm | Blocked&nbsp;after&nbsp;one&nbsp;completed&nbsp;pair:&nbsp;host&nbsp;staging&nbsp;changed&nbsp;median&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-11.2&nbsp;ms&nbsp;and&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+394.2&nbsp;ms.&nbsp;Native&nbsp;prefetch&nbsp;was&nbsp;declined&nbsp;once;&nbsp;an&nbsp;explicit&nbsp;rate-limit&nbsp;check&nbsp;was&nbsp;added&nbsp;afterward.&nbsp;This&nbsp;one-pair&nbsp;observation&nbsp;is&nbsp;not&nbsp;a&nbsp;validated&nbsp;performance&nbsp;conclusion. | blocked |
 | Oct&nbsp;6,&nbsp;2026,&nbsp;11:40:39&nbsp;p.m.&nbsp;CDT | [Safe storage-stage session ladder](#run-rq18_safe_ladder_n8_20261007) | RQ18 | 1&nbsp;returning&nbsp;+&nbsp;7&nbsp;peer&nbsp;session(s)&nbsp;·&nbsp;2048&nbsp;prompt&nbsp;tokens&nbsp;·&nbsp;5000&nbsp;ms&nbsp;tool&nbsp;wait&nbsp;·&nbsp;file-backed&nbsp;L3 | On demand → host stage | First&nbsp;token:&nbsp;325&nbsp;→&nbsp;168&nbsp;ms | Peer&nbsp;TTFT:&nbsp;1326&nbsp;→&nbsp;1438&nbsp;ms | Whole&nbsp;workload:&nbsp;6.55&nbsp;→&nbsp;6.43&nbsp;s | Native&nbsp;storage-only&nbsp;KV&nbsp;and&nbsp;replay&nbsp;reuse&nbsp;were&nbsp;verified.&nbsp;First-token&nbsp;delay&nbsp;changed&nbsp;from&nbsp;325&nbsp;to&nbsp;168&nbsp;ms&nbsp;with&nbsp;host&nbsp;staging&nbsp;across&nbsp;1&nbsp;paired&nbsp;seed(s).&nbsp;Peer&nbsp;timing&nbsp;and&nbsp;whole-workload&nbsp;changes&nbsp;are&nbsp;recorded&nbsp;separately;&nbsp;a&nbsp;single&nbsp;pair&nbsp;is&nbsp;not&nbsp;enough&nbsp;to&nbsp;claim&nbsp;a&nbsp;win-win. | L3 hit and replay reuse verified |
@@ -274,6 +286,94 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 ## Experiment details
 
+<a id="run-rq19_control_placebo_n4_s2_20261007"></a>
+<details>
+<summary><strong>Oct 7, 2026, 9:45:46 a.m. CDT · Storage staging and peer-delay control</strong> · rq19_control_placebo_n4_s2_20261007</summary>
+
+**Question (RQ19).** When early storage-to-host KV staging delays peer requests, how much is associated with the scheduler-control path versus the native staging action, and what explains the apparent delay from storage data readiness to cache availability?
+
+**Finding.** Three-way control: peer median first-token time was 1159 ms without early activity, 1174 ms with control probes only, and 1237 ms with actual KV staging. This small synthetic comparison locates an effect; it does not prove a hardware cause.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The control-only arm made three residency checks without transferring KV; the host-stage arm fetched KV from L3 to L2 before tool return. There were 3 peer session(s), started 0 ms into the tool wait. CUDA graphs on; overlap scheduling on. Matching replay output hashes were required across arms.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2 | control_only | 351.9 | 348.9 | 1174.4 | 2607.3 | 0 | not recorded | not recorded | 6559.1 | 2048 | 0 | 2112 | not applicable |
+| 2 | host_stage | 163.0 | 160.0 | 1237.1 | 2666.9 | 3 | 83.5 | 910.8 | 6409.3 | 0 | 2048 | 2112 | yes |
+| 2 | on_demand | 352.8 | 349.4 | 1158.7 | 2587.7 | 0 | not recorded | not recorded | 6621.3 | 2048 | 0 | 2112 | not applicable |
+
+| Seed | Arm | Peer request → cache lookup median (ms) | Peer cache lookup → first token median (ms) |
+| --- | --- | --- | --- |
+| 2 | control_only | 49.2 | 1113.3 |
+| 2 | host_stage | 96.0 | 1126.5 |
+| 2 | on_demand | 49.9 | 1100.3 |
+
+| Seed | Data ready → poll queued (ms) | Poll queued → dequeued (ms) | Poll execution (ms) |
+| --- | --- | --- | --- |
+| 2 | 183.2 | 721.8 | 5.8 |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. The three status checks approximate the staged arm's control-call pattern but do not execute native prefetch. The status-commit timestamp is recorded when that check runs; it is not an independent timestamp of first host-cache usability. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ19 WORK_AUDIT_STORAGE_PROMPT_ID=rq19_control_placebo_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=3 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 WORK_AUDIT_STORAGE_ARMS='on_demand control_only host_stage' WORK_AUDIT_STORAGE_CUDA_GRAPH=1 WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE=1 WORK_AUDIT_STORAGE_VERIFY_OUTPUT=1 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/run_manifest.json) · [seed2_control_only timings](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/arms/seed2_control_only/case_results.json) · [seed2_control_only trace](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/arms/seed2_control_only/backend_trace.jsonl.gz) · [seed2_host_stage timings](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/arms/seed2_host_stage/case_results.json) · [seed2_host_stage trace](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/arms/seed2_host_stage/backend_trace.jsonl.gz) · [seed2_on_demand timings](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/arms/seed2_on_demand/case_results.json) · [seed2_on_demand trace](docs/reports/work_audit/rq19_control_placebo_n4_s2_20261007/arms/seed2_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-rq19_control_placebo_n4_s1_20261007"></a>
+<details>
+<summary><strong>Oct 7, 2026, 9:38:46 a.m. CDT · Storage staging and peer-delay control</strong> · rq19_control_placebo_n4_s1_20261007</summary>
+
+**Question (RQ19).** When early storage-to-host KV staging delays peer requests, how much is associated with the scheduler-control path versus the native staging action, and what explains the apparent delay from storage data readiness to cache availability?
+
+**Finding.** Three-way control: peer median first-token time was 1157 ms without early activity, 1176 ms with control probes only, and 1216 ms with actual KV staging. This small synthetic comparison locates an effect; it does not prove a hardware cause.
+
+**Setup.** nvidia_a10g_24gb; Qwen/Qwen2.5-1.5B-Instruct; pinned backend 0.5.10.post1. Fresh backend and storage path per arm; write-through storage, 64-token pages, equal frontend priority, lean KV trace. Each arm populated a prefix, evicted it from GPU and host, then replayed it after the same synthetic tool wait. A positive native L3 hit was required. The control-only arm made three residency checks without transferring KV; the host-stage arm fetched KV from L3 to L2 before tool return. There were 3 peer session(s), started 0 ms into the tool wait. CUDA graphs on; overlap scheduling on. Matching replay output hashes were required across arms.
+
+**Key measurements**
+
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | control_only | 319.0 | 316.2 | 1176.4 | 2618.4 | 0 | not recorded | not recorded | 6529.8 | 2048 | 0 | 2112 | not applicable |
+| 1 | host_stage | 161.7 | 158.6 | 1216.3 | 2647.1 | 3 | 76.0 | 896.3 | 6366.8 | 0 | 2048 | 2112 | yes |
+| 1 | on_demand | 379.5 | 376.8 | 1157.0 | 2585.1 | 0 | not recorded | not recorded | 6591.0 | 2048 | 0 | 2112 | not applicable |
+
+| Seed | Arm | Peer request → cache lookup median (ms) | Peer cache lookup → first token median (ms) |
+| --- | --- | --- | --- |
+| 1 | control_only | 47.9 | 1116.5 |
+| 1 | host_stage | 85.1 | 1116.9 |
+| 1 | on_demand | 44.8 | 1101.4 |
+
+| Seed | Data ready → poll queued (ms) | Poll queued → dequeued (ms) | Poll execution (ms) |
+| --- | --- | --- | --- |
+| 1 | 188.9 | 701.7 | 5.7 |
+
+**Evidence gate.** complete. Timestamp: Manifest completion time; start unavailable; displayed in Central Time.
+
+**Limits**
+
+- Small concurrent-peer timing only; this does not establish a production-workload benefit. The three status checks approximate the staged arm's control-call pattern but do not execute native prefetch. The status-commit timestamp is recorded when that check runs; it is not an independent timestamp of first host-cache usability. A file-backend L3 hit does not prove physical SSD I/O; the OS page cache may serve reads.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ19 WORK_AUDIT_STORAGE_PROMPT_ID=rq19_control_placebo_shared WORK_AUDIT_STORAGE_MODEL=Qwen/Qwen2.5-1.5B-Instruct WORK_AUDIT_STORAGE_WAIT_MS=5000 WORK_AUDIT_STORAGE_PROMPT_TOKENS=2048 WORK_AUDIT_STORAGE_PAGE_SIZE=64 WORK_AUDIT_STORAGE_HOST_GB=14.0 WORK_AUDIT_STORAGE_MEM_FRACTION=0.7 WORK_AUDIT_STORAGE_PEERS=3 WORK_AUDIT_STORAGE_PEER_START_MS=0 WORK_AUDIT_STORAGE_PEER_PROMPT_TOKENS=1024 WORK_AUDIT_STORAGE_PEER_MAX_TOKENS=96 WORK_AUDIT_STORAGE_ARMS='on_demand control_only host_stage' WORK_AUDIT_STORAGE_CUDA_GRAPH=1 WORK_AUDIT_STORAGE_OVERLAP_SCHEDULE=1 WORK_AUDIT_STORAGE_VERIFY_OUTPUT=1 bash infra/container/run_work_audit_storage.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/summary.json) · [Run manifest](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/run_manifest.json) · [seed1_control_only timings](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/arms/seed1_control_only/case_results.json) · [seed1_control_only trace](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/arms/seed1_control_only/backend_trace.jsonl.gz) · [seed1_host_stage timings](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/arms/seed1_host_stage/case_results.json) · [seed1_host_stage trace](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/arms/seed1_host_stage/backend_trace.jsonl.gz) · [seed1_on_demand timings](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/arms/seed1_on_demand/case_results.json) · [seed1_on_demand trace](docs/reports/work_audit/rq19_control_placebo_n4_s1_20261007/arms/seed1_on_demand/backend_trace.jsonl.gz)
+
+</details>
+
 <a id="run-rq18_guarded_cycles_retry_20261007"></a>
 <details>
 <summary><strong>Oct 6, 2026, 11:50:41 p.m. CDT · Repeated storage-resume timing</strong> · rq18_guarded_cycles_retry_20261007</summary>
@@ -362,7 +462,7 @@ WORK_AUDIT_CYCLES_SEEDS='1' WORK_AUDIT_CYCLES_ARMS='on_demand host_stage' WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | host_stage | 168.1 | 165.8 | 1437.9 | 3154.5 | 7 | 73.8 | 872.4 | 6432.5 | 0 | 2048 | 2112 | yes |
 | 1 | on_demand | 324.8 | 322.6 | 1326.3 | 3053.3 | 0 | not recorded | not recorded | 6548.2 | 2048 | 0 | 2112 | not applicable |
@@ -395,7 +495,7 @@ WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | host_stage | 170.1 | 167.1 | 1223.1 | 2653.9 | 3 | 75.0 | 896.0 | 6405.0 | 0 | 2048 | 2112 | yes |
 | 1 | on_demand | 376.3 | 373.7 | 1167.8 | 2598.1 | 0 | not recorded | not recorded | 6594.9 | 2048 | 0 | 2112 | not applicable |
@@ -428,7 +528,7 @@ WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2 | host_stage | 162.1 | 160.4 | 136.9 | 1144.8 | 1 | 76.9 | 200.0 | 6368.0 | 0 | 2048 | 2112 | yes |
 | 2 | on_demand | 347.7 | 342.6 | 97.7 | 1084.4 | 0 | not recorded | not recorded | 6517.5 | 2048 | 0 | 2112 | not applicable |
@@ -461,7 +561,7 @@ WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | host_stage | 166.8 | 162.1 | 145.3 | 1149.0 | 1 | 86.4 | 193.4 | 6401.6 | 0 | 2048 | 2112 | yes |
 | 1 | on_demand | 373.6 | 369.0 | 97.9 | 1084.9 | 0 | not recorded | not recorded | 6574.2 | 2048 | 0 | 2112 | not applicable |
@@ -494,7 +594,7 @@ WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ18 WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | host_stage | 167.2 | 162.0 | not recorded | not recorded | 0 | 269.6 | 58.1 | 6625.8 | 0 | 2048 | 2112 | yes |
 | 1 | on_demand | 317.4 | 312.2 | not recorded | not recorded | 0 | not recorded | not recorded | 6762.4 | 2048 | 0 | 2112 | not applicable |
@@ -566,7 +666,7 @@ WORK_AUDIT_CYCLES_SEEDS='1 2 3' WORK_AUDIT_CYCLES_ARMS='on_demand host_stage' WO
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | full_prepare | 59.0 | 57.5 | 1185.5 | 3148.7 | 6 | 78.9 | 584.6 | 15950.2 | 0 | 2048 | 2112 | yes |
 | 1 | host_stage | 166.6 | 164.2 | 1075.2 | 3013.6 | 6 | 82.0 | 585.2 | 16119.2 | 0 | 2048 | 2112 | yes |
@@ -603,7 +703,7 @@ WORK_AUDIT_STORAGE_SEEDS='1 2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | full_prepare | 61.0 | 57.3 | 711.6 | 2451.5 | 2 | 96.0 | 448.3 | 15927.8 | 0 | 2048 | 2112 | yes |
 | 1 | host_stage | 172.3 | 168.1 | 199.9 | 1979.0 | 2 | 82.9 | 191.2 | 16170.0 | 0 | 2048 | 2112 | yes |
@@ -640,7 +740,7 @@ WORK_AUDIT_STORAGE_SEEDS='1 2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | full_prepare | 61.0 | 56.7 | not recorded | not recorded | 0 | 199.4 | 121.8 | 16103.4 | 0 | 2048 | 2112 | yes |
 | 1 | host_stage | 170.3 | 166.5 | not recorded | not recorded | 0 | 169.5 | 111.7 | 16257.0 | 0 | 2048 | 2112 | yes |
@@ -677,7 +777,7 @@ WORK_AUDIT_STORAGE_SEEDS='1 2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | full_prepare | 64.2 | 59.1 | not recorded | not recorded | 0 | 264.9 | 91.3 | 15940.6 | 0 | 2048 | 2112 | yes |
 | 1 | host_stage | 170.2 | 164.6 | not recorded | not recorded | 0 | 258.5 | 32.6 | 16102.0 | 0 | 2048 | 2112 | yes |
@@ -711,7 +811,7 @@ WORK_AUDIT_STORAGE_SEEDS='1' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ16 WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 3 | full_prepare | 64.7 | 60.0 | 202.8 | 2070.6 | 2 | not recorded | not recorded | 16109.2 | 0 | 2048 | 2112 | yes |
 | 3 | host_stage | 165.6 | 161.6 | 196.3 | 1938.8 | 2 | not recorded | not recorded | 16267.5 | 0 | 2048 | 2112 | yes |
@@ -745,7 +845,7 @@ WORK_AUDIT_STORAGE_SEEDS='3' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ15 WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2 | full_prepare | 59.4 | 56.7 | 155.5 | 1887.7 | 0 | not recorded | not recorded | 16568.0 | 0 | 2048 | 2112 | yes |
 | 2 | host_stage | 165.3 | 162.5 | 158.8 | 1972.5 | 0 | not recorded | not recorded | 15896.9 | 0 | 2048 | 2112 | yes |
@@ -779,7 +879,7 @@ WORK_AUDIT_STORAGE_SEEDS='2' WORK_AUDIT_STORAGE_RESEARCH_QUESTION_ID=RQ15 WORK_A
 
 **Key measurements**
 
-| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → commit/poll (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
+| Seed | Arm | Due → first token (ms) | Replay TTFT (ms) | Peer TTFT median (ms) | Peer completion median (ms) | Peers overlapping preparation | Native L3 → host ready (ms) | Ready → status observed (ms) | Whole workflow (ms) | L3 tokens at replay | L3 tokens in wait | Matched prefix tokens | Stage ready by due |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | full_prepare | 61.9 | 56.8 | not recorded | not recorded | 0 | not recorded | not recorded | 15780.3 | 0 | 2048 | 2112 | yes |
 | 1 | host_stage | 169.7 | 163.2 | not recorded | not recorded | 0 | not recorded | not recorded | 16102.9 | 0 | 2048 | 2112 | yes |

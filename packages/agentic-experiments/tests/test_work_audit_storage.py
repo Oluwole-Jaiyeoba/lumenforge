@@ -11,10 +11,12 @@ def _arm(root, seed, arm, native_hits, control_hits):
     path.mkdir()
     case = {
         "arm": arm,
-        "due_to_first_token_ms": {"on_demand": 300, "host_stage": 120, "full_prepare": 80}[arm],
+        "due_to_first_token_ms": {"on_demand": 300, "control_only": 310,
+                                  "host_stage": 120, "full_prepare": 80}[arm],
         "tool_end_to_first_token_ms": 100,
         "replay": {"ttft_ms": 100, "total_latency_ms": 400},
-        "stage_completed_before_due": arm != "on_demand",
+        "stage_completed_before_due": arm not in {"on_demand", "control_only"},
+        "control_probes": [{"ok": True}] * 3 if arm == "control_only" else None,
         "storage_eviction": {"evicted_tokens": 2048},
         "storage_stage": {"completed": {"storage_loaded_tokens": control_hits}} if control_hits else None,
     }
@@ -51,6 +53,16 @@ def test_two_arm_storage_ladder_keeps_workflow_cost(tmp_path):
                                    "observed_no_peer_harm": True,
                                    "observed_whole_workload_improvement": False}]
     assert summary["median_full_prepare_delta_ms"] is None
+
+
+def test_control_only_separates_scheduler_probes_from_storage_stage(tmp_path):
+    _arm(tmp_path, 1, "on_demand", 2048, 0)
+    _arm(tmp_path, 1, "control_only", 2048, 0)
+    _arm(tmp_path, 1, "host_stage", 0, 2048)
+    summary = summarize(tmp_path, expected_arms=("on_demand", "control_only", "host_stage"))
+    assert summary["paired"][0]["control_only_delta_ms"] == 10
+    assert summary["paired"][0]["host_stage_delta_ms"] == -180
+    assert next(row for row in summary["rows"] if row["arm"] == "control_only")["control_probe_count"] == 3
 
 
 def test_two_arm_storage_ladder_rejects_mismatched_replies(tmp_path):
@@ -115,9 +127,17 @@ def test_native_storage_timing_requires_ordered_correlated_evidence(tmp_path):
         with gzip.open(path / "backend_trace.jsonl.gz", "at", encoding="utf-8") as handle:
             handle.write(json.dumps({"event": "storage_prefetch.data_ready", "ts_ns": 130_000_000,
                                      "storage_request_id": arm, "completed_tokens": 2048}) + "\n")
+            handle.write(json.dumps({"event": "agentic_kv.prepare_prefix.result",
+                                     "status": "storage_prefetch_complete", "storage_request_id": arm,
+                                     "command": {"control_queued_ns": 150_000_000,
+                                                 "control_dequeued_ns": 170_000_000},
+                                     "ts_ns": 180_000_000}) + "\n")
     rows = summarize(tmp_path, require_native_timing=True)["rows"]
     assert [row["storage_data_ready_ms"] for row in rows if row["arm"] != "on_demand"] == [30.0, 30.0]
     assert [row["storage_commit_after_ready_ms"] for row in rows if row["arm"] != "on_demand"] == [50.0, 50.0]
+    assert [row["storage_ready_to_poll_ms"] for row in rows if row["arm"] != "on_demand"] == [20.0, 20.0]
+    assert [row["storage_poll_queue_ms"] for row in rows if row["arm"] != "on_demand"] == [20.0, 20.0]
+    assert [row["storage_poll_execution_ms"] for row in rows if row["arm"] != "on_demand"] == [10.0, 10.0]
 
     path = tmp_path / "seed1_host_stage" / "case_results.json"
     case = json.loads(path.read_text(encoding="utf-8"))

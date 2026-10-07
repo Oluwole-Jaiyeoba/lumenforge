@@ -2,6 +2,16 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ19",
+      "short_question": "Where do storage-stage delays come from?",
+      "evidence_date_utc": "2026-10-07",
+      "question": "When early storage-to-host KV staging delays peer requests, how much is associated with the scheduler-control path versus the native staging action, and what explains the apparent delay from storage data readiness to cache availability?",
+      "answer": "Two order-reversed, four-session controlled runs compared no early action, three scheduler-control status checks without transfer, and real storage-to-host staging. Median peer completion moved from 2585 to 2618 to 2647 ms in seed 1 and from 2588 to 2607 to 2667 ms in seed 2. Thus control-only checks added about 33 and 20 ms, while real staging added about 62 and 79 ms versus baseline. The returning session's due-to-first-token delay fell from 380 to 162 ms and 353 to 163 ms with staging; whole-workload duration fell by 224 and 212 ms. Native data readiness took 76 and 84 ms. The later status-observed timestamp followed after 189/183 ms until the next poll, 702/722 ms waiting for scheduler-control dequeue, and only about 6 ms inside the final status action. Earlier four- and eight-session traces show the same poll/queue pattern. The long data-ready-to-status interval is not a measurement of storage copying or cache-commit execution. Peer first-token differences appeared both before the first backend cache lookup and after it, depending on the peer.",
+      "hypothesis": "The busy scheduler delays execution of status checks and may postpone publication of prefetched KV; issuing control checks also has some peer cost. Native staging adds further cost, but these runs do not separate storage I/O, host-cache bookkeeping, CPU scheduling, and GPU effects within that remainder.",
+      "unknown": "Only two seeds, three fresh peer requests, a synthetic five-second tool wait, and a deliberately forced storage-only target prefix were tested. The three control-only status checks approximate the staging arm's control-call pattern but do not execute the same native prefetch action. File-backed data may have come from the OS page cache. The exact moment prefetched KV became usable is not independently timestamped; the reported commit timestamp is taken when a status check executes. These results do not establish physical SSD latency, HBM contention, production frequency, or a hardware-offload benefit.",
+      "evidence_run_ids": ["rq19_control_placebo_n4_s1_20261007", "rq19_control_placebo_n4_s2_20261007"]
+    },
+    {
       "id": "RQ18",
       "short_question": "When does early storage staging stop helping everyone?",
       "evidence_date_utc": "2026-10-07",

@@ -25,8 +25,8 @@ CONTAINER_CID=""
 
 [[ -d "${MODEL_CACHE}" ]] || { echo "Model cache missing: ${MODEL_CACHE}" >&2; exit 2; }
 [[ "${PAGE_SIZE}" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid page size" >&2; exit 2; }
-[[ "${ARMS}" == "on_demand host_stage full_prepare" || "${ARMS}" == "on_demand host_stage" ]] || {
-  echo "Supported arms: 'on_demand host_stage' or 'on_demand host_stage full_prepare'" >&2; exit 2;
+[[ "${ARMS}" == "on_demand host_stage full_prepare" || "${ARMS}" == "on_demand host_stage" || "${ARMS}" == "on_demand control_only host_stage" ]] || {
+  echo "Supported arms: 'on_demand host_stage', 'on_demand host_stage full_prepare', or 'on_demand control_only host_stage'" >&2; exit 2;
 }
 [[ "${SEEDS}" =~ ^[0-9]+(\ [0-9]+)*$ ]] || { echo "Invalid seed list" >&2; exit 2; }
 [[ "${WORK_AUDIT_STORAGE_CUDA_GRAPH:-0}" =~ ^[01]$ ]] || { echo "CUDA graph flag must be 0 or 1" >&2; exit 2; }
@@ -69,6 +69,8 @@ for seed in "${seed_values[@]}"; do
     read -r -a arm_values <<< "${ARMS}"
   elif [[ "${ARMS}" == "on_demand host_stage" ]]; then
     arm_values=(host_stage on_demand)
+  elif [[ "${ARMS}" == "on_demand control_only host_stage" ]]; then
+    arm_values=(host_stage control_only on_demand)
   else
     arm_values=(full_prepare host_stage on_demand)
   fi
