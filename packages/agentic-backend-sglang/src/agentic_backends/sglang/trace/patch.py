@@ -1679,7 +1679,10 @@ def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any
         match, gpu_tokens, host_tokens = _storage_audit_match(entry)
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "status": "storage_match_failed", "error": f"{type(exc).__name__}: {exc}"}
-    result = {"gpu_tokens": gpu_tokens, "host_tokens": host_tokens, "prefix_tokens": len(token_ids)}
+    matched_tokens = gpu_tokens + host_tokens
+    storage_candidate_tokens = max(0, len(token_ids) - matched_tokens)
+    result = {"gpu_tokens": gpu_tokens, "host_tokens": host_tokens, "prefix_tokens": len(token_ids),
+              "storage_candidate_tokens": storage_candidate_tokens}
     if action == "storage_status":
         return {"ok": True, "status": "residency_observed", **result}
     if action == "evict_host":

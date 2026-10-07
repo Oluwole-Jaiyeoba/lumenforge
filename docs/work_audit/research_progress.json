@@ -2,6 +2,17 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ17",
+      "short_question": "Does storage staging help across repeated tool returns?",
+      "evidence_date_utc": "2026-10-07",
+      "question": "With eight equal-priority agent sessions, six tool returns each, growing prompt histories, and natural GPU/host cache displacement, can storage-to-host staging during known tool waits improve replay delay and whole-workload time without harming other sessions?",
+      "answer": "The intended three-seed study is blocked, not a validated performance result. On the pinned A10G/SGLang 0.5.10.post1 backend, the only complete on-demand versus host-stage pair used 48 replays per arm. The host-stage arm loaded 38,400 tokens during tool waits and completed nine stages before their tool-return deadlines. Median deadline-to-first-token delay was 1705.9 to 1702.0 ms (essentially tied); p95 was 4358.7 to 4843.8 ms (worse); and whole-workload duration was 43.153 to 44.153 s (1.000 s slower). Native replay L3 hits were 19 on demand and 16 with staging. Individual staged turns sometimes improved and sometimes worsened. Seed 2's host-stage arm then hit a cache-tree assertion in SGLang's evict_host path during partial-prefix prefetch, so the remaining pairs were not run. A separate full-GPU-prepare pilot hit a scheduler assertion. These failures are preserved, and the unsafe partial-prefix prefetch extension has been removed from the shared backend.",
+      "hypothesis": "When many sessions contend for the host cache, staging a missing storage suffix may need reservation and cache-tree synchronization; simply issuing the native prefetch early can move work into tool waits but cannot be assumed to improve end-to-end performance or remain safe under pressure.",
+      "unknown": "The study has only one completed pair and no validated cross-seed performance conclusion. It does not isolate the exact internal cause of either scheduler assertion. The workload is synthetic, and file-backed L3 hits do not prove physical SSD reads. The failed prototype's partial-prefetch behavior is intentionally unavailable in the current safe code; the archived trace and server log explain why. Future tests need a version-specific safety fix and a new live gate before repeating this workload.",
+      "evidence_run_ids": ["storage_cycles_rq17_20261006"],
+      "related_run_ids": ["storage_cycles_rq17_20261006", "storage_cycles_full_pilot_20261006"]
+    },
+    {
       "id": "RQ16",
       "short_question": "Does storage preparation still help under peer pressure?",
       "evidence_date_utc": "2026-10-07",

@@ -37,6 +37,59 @@ def test_storage_audit_report_shows_native_hits_and_reproduction():
     assert "seed1_on_demand" in markdown
 
 
+def test_storage_cycles_report_shows_paired_workflow_and_replay_cost():
+    arms = [{
+        "seed": 1, "arm": mode, "session_count": 8, "replay_count": 48,
+        "workflow_duration_ms": workflow, "due_to_first_token_median_ms": delay,
+        "due_to_first_token_p95_ms": delay + 100, "replay_ttft_median_ms": delay,
+        "natural_storage_candidate_waits": 10, "stage_before_due_count": staged,
+        "stage_loaded_tokens": staged * 512, "native_replay_storage_hit_count": 2,
+        "native_replay_storage_hit_tokens": 2048, "preparation_errors": [],
+    } for mode, workflow, delay, staged in (
+        ("on_demand", 40000, 500, 0), ("host_stage", 41000, 300, 7))]
+    summary = {
+        "schema": "agentic_work_audit.storage_cycles.summary.v1", "arms": arms,
+        "paired_comparisons": [{"seed": 1, "mode": "host_stage", "workflow_delta_ms": 1000,
+                                "median_due_to_first_token_delta_ms": -200,
+                                "median_replay_ttft_delta_ms": -200}],
+        "_manifest": {"hardware_profile": "nvidia_a10g_24gb", "backend_version": "0.5.10.post1",
+                      "workload": {"seeds": [1], "arms": ["on_demand", "host_stage"],
+                                   "session_count": 8, "turns_per_session": 6}},
+    }
+    path = Path("docs/reports/work_audit/rq17/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "Repeated storage-resume timing" in page
+    assert "Whole-workload change" in page
+    assert "Full GPU preparation is excluded" in page
+    assert "Whole workload: 40.00 → 41.00 s" in markdown.replace("&nbsp;", " ")
+    assert "run_work_audit_storage_cycles.sh" in markdown
+
+
+def test_storage_cycles_blocked_run_does_not_claim_validated_win():
+    arms = [{"seed": 1, "arm": mode, "session_count": 8, "replay_count": 48,
+             "workflow_duration_ms": workflow, "due_to_first_token_median_ms": delay,
+             "due_to_first_token_p95_ms": delay, "replay_ttft_median_ms": delay,
+             "natural_storage_candidate_waits": 10, "stage_before_due_count": staged,
+             "stage_loaded_tokens": 1000, "native_replay_storage_hit_count": 2,
+             "native_replay_storage_hit_tokens": 2000, "preparation_errors": []}
+            for mode, workflow, delay, staged in (
+                ("on_demand", 40000, 500, 0), ("host_stage", 41000, 300, 7))]
+    summary = {"schema": "agentic_work_audit.storage_cycles.summary.v1", "status": "blocked",
+               "arms": arms, "paired_comparisons": [{"seed": 1, "mode": "host_stage",
+                   "workflow_delta_ms": 1000, "median_due_to_first_token_delta_ms": -200,
+                   "median_replay_ttft_delta_ms": -200}],
+               "failed_arms": [{"arm_id": "seed2_host_stage", "backend_assertion": "cache tree",
+                                "client_error": "HTTP 500"}],
+               "missing_arm_ids": ["seed2_host_stage", "seed2_on_demand"]}
+    path = Path("docs/reports/work_audit/rq17/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    assert "Blocked after one completed pair" in page
+    assert "one-pair observation is not a validated performance conclusion" in markdown
+    assert "seed2_host_stage server failure" in markdown
+
+
 def test_storage_report_calls_out_peer_cost_when_preparation_overlaps():
     rows = [
         {"seed": 1, "arm": arm, "due_to_first_token_ms": delay,
