@@ -11,6 +11,68 @@ from agentic_reports.builders.build_work_audit_report import (
 )
 
 
+def test_memory_tier_report_proves_native_tier_hits_and_full_system_metrics():
+    base = {
+        "seed": 1, "pattern": "burst", "started_ns": 1791485498893546751,
+        "session_count": 6, "turns_per_session": 10, "replay_count": 60,
+        "p95_due_to_first_token_ms": 120, "mean_ttft_ms": 90,
+        "p95_ttft_ms": 115, "total_due_to_first_token_ms": 6000,
+        "total_ttft_ms": 5400, "total_submission_delay_ms": 8,
+        "native_match_count": 60, "native_gpu_hit_replays": 60,
+        "native_gpu_hit_tokens": 200000, "native_host_hit_replays": 0,
+        "native_host_hit_tokens": 0, "native_storage_hit_replays": 0,
+        "native_storage_hit_tokens": 0,
+    }
+    arms = []
+    for mode, workload, delay in (("resident", 20000, 100), ("host", 24000, 300),
+                                   ("storage", 30000, 600)):
+        arm = dict(base, mode=mode, workflow_duration_ms=workload,
+                   mean_due_to_first_token_ms=delay)
+        if mode == "host":
+            arm.update(native_gpu_hit_replays=30, native_gpu_hit_tokens=100000,
+                       native_host_hit_replays=30, native_host_hit_tokens=100000)
+        if mode == "storage":
+            arm.update(native_gpu_hit_replays=20, native_gpu_hit_tokens=70000,
+                       native_host_hit_replays=20, native_host_hit_tokens=70000,
+                       native_storage_hit_replays=20, native_storage_hit_tokens=60000)
+        arms.append(arm)
+    comparisons = [
+        {"seed": 1, "pattern": "burst", "mode": mode,
+         "workload_delta_ms": delta, "workload_change_pct": pct,
+         "mean_due_to_first_token_delta_ms": replay, "p95_due_to_first_token_delta_ms": replay,
+         "mean_ttft_delta_ms": replay}
+        for mode, delta, pct, replay in (("host", 4000, 20, 200), ("storage", 10000, 50, 500))
+    ]
+    summary = {
+        "schema": "agentic_work_audit.memory_tiers.summary.v1", "run_id": "tiers-1",
+        "status": "complete", "started_ns": base["started_ns"], "arms": arms,
+        "comparisons": comparisons, "issues": [], "exposure_warnings": [],
+        "limitations": ["Synthetic equal-priority sessions."],
+        "_manifest": {"model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+                      "hardware_profile": "nvidia_a10g_24gb", "backend_version": "0.5.10.post1",
+                      "workload": {"research_question_id": "RQ23", "seeds": [1],
+                                   "return_patterns": ["burst"],
+                                   "modes": ["resident", "host", "storage"],
+                                   "session_count": 6, "turns_per_session": 10,
+                                   "initial_tokens": 4096, "tool_result_words": 16,
+                                   "decode_tokens": 16, "tool_wait_ms": 1000,
+                                   "burst_window_ms": 75, "spread_window_ms": 1000,
+                                   "resident_gpu_tokens": 40960, "restricted_gpu_tokens": 8192,
+                                   "host_cache_gb": 2, "storage_host_cache_gb": 1,
+                                   "max_inflight": 6, "cuda_graph": True,
+                                   "overlap_schedule": True, "trace_profile": "kv_lifecycle_lean"}},
+    }
+    path = Path("docs/reports/work_audit/tiers-1/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    for document in (page, markdown):
+        assert "GPU / CPU / storage KV gap" in document
+        assert "Native GPU / CPU / storage replay hits" in document
+        assert "20 / 20 / 20" in document
+        assert "run_work_audit_memory_tiers.sh" in document
+    assert "20.00 s → 24.00 s → 30.00 s" in markdown.replace("&nbsp;", " ")
+
+
 def test_storage_audit_report_shows_native_hits_and_reproduction():
     rows = [
         {"seed": 1, "arm": arm, "due_to_first_token_ms": delay,

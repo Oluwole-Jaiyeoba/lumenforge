@@ -2,6 +2,17 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ23",
+      "short_question": "How large is the GPU, CPU and storage KV gap?",
+      "evidence_date_utc": "2026-10-08",
+      "question": "With a 7B coding model, equal-priority multi-turn sessions and no prefetch before tool return, how far do whole-workload time and replay response time separate when KV stays on GPU, spills to CPU, or can fall through CPU to file-backed storage? Does a near-simultaneous tool-return burst make the gap worse than normally spread returns?",
+      "answer": "Eighteen fresh-backend A10G arms completed: three rotated seeds, six sessions, ten one-second tool waits per session, and both spread and 75 ms burst returns. With spread returns, median whole-workload time was 34.796 seconds all-GPU, 67.632 seconds with CPU-tier KV, and 104.891 seconds with GPU+CPU+storage tiering. Median mean due-to-first-token delay was 130, 1799 and 3936 ms. With burst returns, whole-workload time was 28.070, 67.695 and 102.487 seconds, while mean replay delay was 260, 2267 and 3956 ms. Relative to all-GPU, CPU tiering added about 94% workload time for spread returns and 141% for burst returns; storage tiering added about 202% and 264%. Client submission waiting stayed small. Native SGLang evidence showed all 360 all-GPU replays using GPU KV, all 360 CPU-tier replays using host KV, and 148 native storage hits in the storage arms; the other storage-mode replays were naturally served from GPU or CPU as cache state evolved.",
+      "hypothesis": "Unprepared tool returns expose a large placement gap even though earlier experiments showed that an isolated host-to-GPU copy can be cheap. The dominant cost here is the full lower-tier replay recovery and serialized service behavior under repeated multi-session demand, not late client submission. Simultaneous returns increase the relative penalty because the all-GPU reference batches them efficiently while lower-tier recovery remains expensive.",
+      "unknown": "This is a synthetic worst-credible setup, not a production distribution: every session used the same 4096-token starting context, ten fixed one-second waits and 16 output tokens. GPU and CPU cache caps were deliberately different to force tier exposure. File-backed storage used normal operating-system caching and the page cache was not flushed, so a native storage hit is logical L3 evidence rather than proof of a physical SSD read. The experiment measures the unprepared gap; it does not yet show how much exact tool-return knowledge and advance staging can close it, or isolate storage I/O from cache reconstruction and scheduler service time.",
+      "evidence_run_ids": ["memory_tiers_7b_full_20261008"],
+      "related_run_ids": ["memory_tiers_7b_full_20261008"]
+    },
+    {
       "id": "RQ22",
       "short_question": "Can session-level advance loading make CPU spill invisible?",
       "evidence_date_utc": "2026-10-08",

@@ -95,6 +95,8 @@ def _pair_gates(pairs: list[dict], *, nonblocking: bool = False) -> str:
 def _first_request_ns(path: Path) -> int | None:
     if path.exists():
         summary = json.loads(path.read_text(encoding="utf-8"))
+        if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+            return summary.get("started_ns")
         if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
             return summary.get("started_ns")
         if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
@@ -152,6 +154,19 @@ def _time(summary: dict) -> tuple[int, str, str, str]:
 
 
 def _links(path: Path, summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+        links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>']
+        for name in ("run_manifest.json", "source_sha256.txt"):
+            target = path.parent / name
+            if target.exists():
+                links.append(f'<a href="{_esc(target.as_posix())}">{_esc(name)}</a>')
+        for row in summary.get("arms", []):
+            arm = f"seed{row['seed']}/{row['pattern']}_{row['mode']}"
+            base = path.parent.as_posix() + "/arms/" + arm
+            label = arm.replace("/", " · ")
+            links.extend((f'<a href="{_esc(base)}/case_results.json">{_esc(label)} timings</a>',
+                          f'<a href="{_esc(base)}/backend_trace.jsonl.gz">{_esc(label)} trace</a>'))
+        return " · ".join(links)
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
         links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>']
         for name in ("run_manifest.json", "source_sha256.txt", "source_bundle.tar.gz", "package_sources.tar.gz",
@@ -250,6 +265,10 @@ def _links(path: Path, summary: dict) -> str:
 
 
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
+    if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+        from .memory_tier_report import setup
+        return ("All-GPU vs CPU-tiered vs storage-tiered KV",
+                "<strong>How it ran.</strong> " + _esc(setup(summary)))
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
         from .coordinated_swap_report import setup
         pipeline = (summary.get("configuration") or {}).get("schedule_style") == "session_pipeline"
@@ -497,6 +516,9 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 
 
 def _reproduction(summary: dict, timing: bool) -> str:
+    if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+        from .memory_tier_report import reproduction
+        return "<p><strong>Reproduce.</strong></p><pre><code>" + _esc(reproduction(summary)) + "</code></pre>"
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
         from .coordinated_swap_report import reproduction
         return "<p><strong>Reproduce.</strong></p><pre><code>" + _esc(reproduction(summary)) + "</code></pre>"
@@ -1222,6 +1244,9 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 
 
 def _run_finding(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+        from .memory_tier_report import finding
+        return finding(summary)
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
         from .coordinated_swap_report import finding
         return finding(summary)
@@ -1504,6 +1529,8 @@ def _run_finding(summary: dict) -> str:
 
 
 def _kind(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+        return "GPU / CPU / storage KV gap"
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
         config = summary.get("configuration") or {}
         rounds = config.get("turns", 0)
@@ -1512,6 +1539,7 @@ def _kind(summary: dict) -> str:
         return name + (" (calibration)" if rounds < 40 else "")
     schema = summary.get("schema")
     names = {
+        "agentic_work_audit.memory_tiers.summary.v1": "GPU / CPU / storage KV gap",
         "agentic_work_audit.kv_load_attribution.v1": "Busy workload · KV-load attribution",
         "agentic_work_audit.busy_comparison.v1": "Busy workload · controller KV timing",
         "agentic_work_audit.controller_window.v1": "Controller-chosen load window",
@@ -1547,6 +1575,14 @@ def _kind(summary: dict) -> str:
 
 def _result_parts(summary: dict) -> tuple[str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.memory_tiers.summary.v1":
+        from .memory_tier_report import (
+            HEADERS, COMPARISON_HEADERS, NOTES, table_rows, comparison_rows,
+        )
+        detail = _mode_table(HEADERS, table_rows(summary))
+        detail += _mode_table(COMPARISON_HEADERS, comparison_rows(summary))
+        detail += f"<p>{_esc(NOTES)}</p>"
+        return _esc(_run_finding(summary)), detail
     if schema == "agentic_work_audit.coordinated_swap.summary.v1":
         from .coordinated_swap_report import (
             HEADERS, COMPARISON_HEADERS, SESSION_HEADERS, NOTES, CONTROL_HEADERS, CONTROL_NOTES,
@@ -2024,6 +2060,12 @@ def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
 
 def _markdown_metrics(summary: dict) -> str:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.memory_tiers.summary.v1":
+        from .memory_tier_report import (
+            HEADERS, COMPARISON_HEADERS, NOTES, table_rows, comparison_rows,
+        )
+        return (_md_table(HEADERS, table_rows(summary)) + "\n\n"
+                + _md_table(COMPARISON_HEADERS, comparison_rows(summary)) + "\n\n" + NOTES)
     if schema == "agentic_work_audit.coordinated_swap.summary.v1":
         from .coordinated_swap_report import (
             HEADERS, COMPARISON_HEADERS, SESSION_HEADERS, NOTES, CONTROL_HEADERS, CONTROL_NOTES,
@@ -2487,6 +2529,30 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.memory_tiers.summary.v1":
+        arms = summary.get("arms", [])
+        def mode_median(mode: str, field: str, pattern: str) -> float | None:
+            values = [arm[field] for arm in arms
+                      if arm["mode"] == mode and arm["pattern"] == pattern]
+            return median(values) if values else None
+
+        pattern = "burst" if any(arm["pattern"] == "burst" for arm in arms) else "spread"
+        resident_delay = mode_median("resident", "mean_due_to_first_token_ms", pattern)
+        host_delay = mode_median("host", "mean_due_to_first_token_ms", pattern)
+        storage_delay = mode_median("storage", "mean_due_to_first_token_ms", pattern)
+        resident_work = mode_median("resident", "workflow_duration_ms", pattern)
+        host_work = mode_median("host", "workflow_duration_ms", pattern)
+        storage_work = mode_median("storage", "workflow_duration_ms", pattern)
+        delay = " → ".join(f"{value:.0f} ms" for value in
+                           (resident_delay, host_delay, storage_delay) if value is not None)
+        workflow = " → ".join(f"{value / 1000:.2f} s" for value in
+                              (resident_work, host_work, storage_work) if value is not None)
+        exposure = sum(arm["native_host_hit_replays"] + arm["native_storage_hit_replays"]
+                       for arm in arms)
+        gate = summary.get("status", "unknown") + f"; {exposure} proven lower-tier replay hits"
+        return (f"All GPU → CPU tier → storage tier ({pattern} returns)", delay or "unavailable",
+                "All equal-priority sessions included", workflow or "unavailable",
+                _run_finding(summary), gate)
     if schema == "agentic_work_audit.coordinated_swap.summary.v1":
         arms = summary.get("arms", [])
         def mode_medians(field, scale, suffix):
@@ -2757,6 +2823,16 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                 arm = f"seed{row['seed']}_{row['arm']}"
                 evidence.append(f"[{arm} timings]({base}/arms/{arm}/case_results.json)")
                 evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
+        if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+            for name, label in (("source_sha256.txt", "Source hashes"),):
+                if (path.parent / name).exists():
+                    evidence.append(f"[{label}]({base}/{name})")
+            for row in summary.get("arms", []):
+                arm = f"seed{row['seed']}/{row['pattern']}_{row['mode']}"
+                evidence.append(f"[{arm} timings]({base}/arms/{arm}/case_results.json)")
+                evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
+                if (path.parent / "arms" / arm / "instrumentation_audit.json").exists():
+                    evidence.append(f"[{arm} hook gate]({base}/arms/{arm}/instrumentation_audit.json)")
         if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
             for name in ("source_sha256.txt", "source_bundle.tar.gz", "package_sources.tar.gz",
                          "source_validation.json", "postrun_analysis_sources.tar.gz"):
