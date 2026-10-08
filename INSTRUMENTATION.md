@@ -62,6 +62,17 @@ can enable its control-only scheduler pump with
 commands without writing scheduler events. Its installation and live evidence
 must pass the same fail-loud gates. The original `kv_lifecycle` flag defaults
 remain unchanged for archived runs.
+`kv_lifecycle_counts` uses the same hook requirements but sets
+`AGENTIC_KV_TRACE_INDEX_DETAIL=count`. Tensor trace records contain dimensions,
+types and counts only: no GPU-to-CPU value reads, min/max scans, or complete
+index hashes. This is suitable for large swap timing studies that prove native
+completion and replay prefix size separately. It cannot establish exact slot
+identity or support joins that require index fingerprints. Existing profiles
+retain full tensor summaries unless the count knob is explicitly enabled.
+The coordinated-swap launcher selects this profile by default and records it
+in each arm's configuration. Earlier calibration pilots used the more costly
+`kv_lifecycle_lean` tensor summaries; do not treat their transfer intervals as
+isolated link-bandwidth measurements.
 `kv_decode_overlap` adds request-linked decode-batch timestamps to the lean
 lifecycle evidence. Set `WORK_AUDIT_FORWARD_TRACE=1` to also time nested model
 forward calls for the RQ10 audit. The gate then requires the additional worker

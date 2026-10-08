@@ -118,6 +118,12 @@ def _tensor_summary(value: Any) -> dict[str, Any]:
         summary["numel"] = int(value.numel())
     except Exception:
         pass
+    if os.environ.get("AGENTIC_KV_TRACE_INDEX_DETAIL", "full") == "count":
+        if "int" in str(getattr(value, "dtype", "")).lower() and "numel" in summary:
+            summary["index_count"] = summary["numel"]
+        # Size-only evidence intentionally has no values or index fingerprint.
+        # In particular, do not synchronize/copy a CUDA tensor for logging.
+        return summary
     try:
         is_integer_tensor = "int" in str(getattr(value, "dtype", "")).lower()
         if is_integer_tensor and "numel" in summary:
@@ -1556,6 +1562,9 @@ def _register_preparable_prefix(
         "last_host_node_id": _safe_summary(_node_id(last_host_node)),
         "last_node_id": _safe_summary(_node_id(last_node)),
     }
+    if _truthy_env("AGENTIC_KV_COORDINATED_AUDIT_ENABLE"):
+        entry["coordinated_token_ids"] = list(getattr(req, "origin_input_ids", []) or [])
+        entry["coordinated_extra_key"] = getattr(req, "extra_key", None)
     if _truthy_env("AGENTIC_KV_STORAGE_AUDIT_ENABLE"):
         # Retain IDs only in memory for a bounded, opt-in storage probe. They
         # never enter the trace or control response.
@@ -1865,6 +1874,43 @@ def _prepare_load_status(load_id: str) -> dict[str, Any]:
 
 
 def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
+    if command.get("action") in {"prepare_group", "release_group", "residency_group"}:
+        if not _truthy_env("AGENTIC_KV_COORDINATED_AUDIT_ENABLE") or _truthy_env("AGENTIC_KV_PREPARE_LOAD_WORKER"):
+            return {"ok": False, "status": "coordinated_group_disabled"}
+        from agentic_backends.sglang.versions.v0510_coordinated_kv import prepare_group
+        try:
+            members = command.get("prefixes") or []
+            if not isinstance(members, list) or not 1 <= len(members) <= 20:
+                raise ValueError("Invalid prefix group")
+            if len({m.get("session_id") for m in members}) != len(members):
+                raise ValueError("Duplicate group member")
+            entries = []
+            with _PREPARABLE_PREFIXES_LOCK:
+                for member in members:
+                    entry = next((_PREPARABLE_PREFIXES[k] for k in _prepare_command_lookup_keys(member)
+                                  if k in _PREPARABLE_PREFIXES), None)
+                    if entry is None:
+                        raise ValueError("Unregistered group member")
+                    entries.append(entry)
+            def enqueue(member):
+                token = _ACTIVE_AGENT_CONTEXT.set({"agent_session_id": member["session_id"],
+                    "agent_request_id": member.get("request_id"), "agent_phase": "audit_prepare"})
+                try:
+                    return _execute_prepare_prefix_command(member)
+                finally:
+                    _ACTIVE_AGENT_CONTEXT.reset(token)
+            if command["action"] != "prepare_group":
+                action = "release_prefix" if command["action"] == "release_group" else "prefix_residency"
+                results = [{**enqueue({**member, "action": action}), "session_id": member["session_id"]}
+                           for member in members]
+                return {"ok": all(r.get("ok") for r in results), "status": command["action"], "members": results}
+            result, tracking = prepare_group(entries, members, enqueue)
+            if tracking:
+                with _PREPARE_LOADS_LOCK:
+                    _PREPARE_LOADS[tracking["load_id"]] = tracking
+            return result
+        except Exception as exc:
+            return {"ok": False, "status": "group_prepare_error", "error": str(exc)}
     lookup_keys = _prepare_command_lookup_keys(command)
     raw_plan_only = command.get("plan_only")
     plan_only = _truthy_env("AGENTIC_KV_PREPARE_PLAN_ONLY", default=False) or (
@@ -1890,6 +1936,22 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
 
     if command.get("action") in {"storage_status", "evict_host", "prefetch_storage", "storage_prefetch_status"}:
         return _execute_storage_audit_command(command, entry)
+
+    if command.get("action") in {"prefix_residency", "release_prefix"}:
+        if not _truthy_env("AGENTIC_KV_COORDINATED_AUDIT_ENABLE"):
+            return {"ok": False, "status": "coordinated_audit_disabled"}
+        from agentic_backends.sglang.versions.v0510_coordinated_kv import assert_private_prefix, prefix_control
+        try:
+            if command["action"] == "release_prefix":
+                with _PREPARABLE_PREFIXES_LOCK:
+                    assert_private_prefix(entry, list(_PREPARABLE_PREFIXES.values()))
+            result = prefix_control(entry, command)
+        except Exception as exc:
+            result = {"ok": False, "status": "prefix_control_error", "error": str(exc)}
+        _write_event({"event": "agentic_kv.coordinated.prefix_control",
+                      "action": command["action"], "request_id": command.get("request_id"),
+                      "session_id": command.get("session_id"), **result})
+        return result
 
     tree_cache = entry.get("tree_cache")
     if tree_cache is not None:
@@ -1935,6 +1997,10 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         minimum_host_tokens = 1
     minimum_host_tokens = max(1, minimum_host_tokens)
     candidates = _preparable_node_candidates(entry)
+    if command.get("whole_prefix") and _truthy_env("AGENTIC_KV_COORDINATED_AUDIT_ENABLE"):
+        from agentic_backends.sglang.versions.v0510_coordinated_kv import prefix_control
+        prefix_control(entry, {"action": "prefix_residency"})
+        candidates = _preparable_node_candidates(entry)
     eligible_candidates = [
         candidate
         for candidate in candidates
@@ -1944,6 +2010,8 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
         and candidate["host_tokens"] >= minimum_host_tokens
     ]
     selected = max(eligible_candidates, key=lambda candidate: int(candidate["host_tokens"]), default=None)
+    if command.get("whole_prefix") and _truthy_env("AGENTIC_KV_COORDINATED_AUDIT_ENABLE") and eligible_candidates:
+        selected = eligible_candidates[0]
     if tree_cache is None or selected is None:
         return {
             "ok": False,
@@ -2052,6 +2120,10 @@ def _execute_prepare_prefix_command(command: dict[str, Any]) -> dict[str, Any]:
             "load_back_threshold_effective": effective_threshold,
             "reason": "SGLang load_back skipped this node because of threshold, quota, or memory pressure.",
         }
+
+    if command.get("_coordinated_defer") and _truthy_env("AGENTIC_KV_COORDINATED_AUDIT_ENABLE"):
+        return {"ok": True, "status": "reserved_for_group", "node_id": node_id,
+                "loaded_tokens": int(len(device_indices))}
 
     if worker_load:
         load_id = str(command.get("load_id") or f"{command.get('request_id') or node_id}:async:{start_ns}")

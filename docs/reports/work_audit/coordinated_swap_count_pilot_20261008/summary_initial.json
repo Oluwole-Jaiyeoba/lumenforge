@@ -1,0 +1,432 @@
+{
+  "schema": "agentic_work_audit.coordinated_swap.summary.v1",
+  "run_id": "coordinated_swap_count_pilot_20261008",
+  "status": "complete",
+  "issues": [],
+  "arms": [
+    {
+      "trial": 1,
+      "mode": "resident",
+      "started_ns": 1791487238121104602,
+      "config": {
+        "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_swap_count_pilot_20261008/arms/trial1_resident",
+        "mode": "resident",
+        "model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "base_url": "http://127.0.0.1:30000/v1",
+        "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+        "sessions": 20,
+        "turns": 3,
+        "wait_ms": 1000,
+        "initial_tokens": 8192,
+        "tool_words": 16,
+        "decode_tokens": 8,
+        "restricted_gpu_tokens": 110592,
+        "resident_gpu_tokens": 262144,
+        "io_backend": "kernel",
+        "restore_style": "group",
+        "trace_profile": "kv_lifecycle_counts",
+        "trial": 1
+      },
+      "replays": 60,
+      "workload_ms": 6601.678412,
+      "mean_due_to_first_token_ms": 732.5418143833333,
+      "p95_due_to_first_token_ms": 1834.66364,
+      "total_due_to_first_token_ms": 43952.508862999995,
+      "total_ttft_ms": 33339.129,
+      "mean_ttft_ms": 555.65215,
+      "total_submission_delay_ms": 10613.378625999996,
+      "total_alignment_padding_ms": 18356.049716,
+      "output_tokens": 480,
+      "setup_ms": 17128.956171,
+      "minimum_gpu_prefix_fraction": 0.9896110171539019,
+      "native_matches": 60,
+      "measured_load_count": 0,
+      "measured_loaded_tokens": 0,
+      "measured_released_tokens": 0,
+      "restores_before_due": 0,
+      "restores_after_due": 0,
+      "correctness": {
+        "before": {
+          "id": "365f962a6bf241329ea736bf5659d6e9",
+          "object": "chat.completion",
+          "created": 1791487222,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "after": {
+          "id": "18d2fe5275e04732bd35f2e935885d2c",
+          "object": "chat.completion",
+          "created": 1791487222,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "equal_output": true
+      },
+      "per_session_completion_ms": {
+        "swap-s00": 5601.297188,
+        "swap-s01": 5601.149635,
+        "swap-s02": 5602.037352,
+        "swap-s03": 5601.536952,
+        "swap-s04": 5601.768647,
+        "swap-s05": 5601.41923,
+        "swap-s06": 5602.158084,
+        "swap-s07": 5600.30486,
+        "swap-s08": 5602.268466,
+        "swap-s09": 5601.653675,
+        "swap-s10": 6601.068491,
+        "swap-s11": 6599.831748,
+        "swap-s12": 6601.55739,
+        "swap-s13": 6601.311395,
+        "swap-s14": 6600.826896,
+        "swap-s15": 6600.705154,
+        "swap-s16": 6601.185713,
+        "swap-s17": 6600.569771,
+        "swap-s18": 6601.678412,
+        "swap-s19": 6600.951258
+      }
+    },
+    {
+      "trial": 1,
+      "mode": "coordinated",
+      "started_ns": 1791487362300768804,
+      "config": {
+        "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_swap_count_pilot_20261008/arms/trial1_coordinated",
+        "mode": "coordinated",
+        "model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "base_url": "http://127.0.0.1:30000/v1",
+        "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+        "sessions": 20,
+        "turns": 3,
+        "wait_ms": 1000,
+        "initial_tokens": 8192,
+        "tool_words": 16,
+        "decode_tokens": 8,
+        "restricted_gpu_tokens": 110592,
+        "resident_gpu_tokens": 262144,
+        "io_backend": "kernel",
+        "restore_style": "group",
+        "trace_profile": "kv_lifecycle_counts",
+        "trial": 1
+      },
+      "replays": 60,
+      "workload_ms": 9613.343235,
+      "mean_due_to_first_token_ms": 1664.5723118166666,
+      "p95_due_to_first_token_ms": 2434.489197,
+      "total_due_to_first_token_ms": 99874.33870900002,
+      "total_ttft_ms": 33817.935999999994,
+      "mean_ttft_ms": 563.6322666666666,
+      "total_submission_delay_ms": 66056.40645400001,
+      "total_alignment_padding_ms": 18269.214441,
+      "output_tokens": 480,
+      "setup_ms": 18168.571525,
+      "minimum_gpu_prefix_fraction": 0.9896110171539019,
+      "native_matches": 60,
+      "measured_load_count": 5,
+      "measured_loaded_tokens": 412160,
+      "measured_released_tokens": 414080,
+      "restores_before_due": 0,
+      "restores_after_due": 50,
+      "correctness": {
+        "before": {
+          "id": "7bacd5f02e564f738c8e4f67d74213e1",
+          "object": "chat.completion",
+          "created": 1791487345,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "after": {
+          "id": "0a723d2c6b0f4425ab666bff3e41ac13",
+          "object": "chat.completion",
+          "created": 1791487346,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "equal_output": true
+      },
+      "per_session_completion_ms": {
+        "swap-s00": 8164.438704,
+        "swap-s01": 8162.523978,
+        "swap-s02": 8163.035178,
+        "swap-s03": 8163.878793,
+        "swap-s04": 8164.809471,
+        "swap-s05": 8164.066007,
+        "swap-s06": 8163.669219,
+        "swap-s07": 8162.829344,
+        "swap-s08": 8164.623757,
+        "swap-s09": 8164.25196,
+        "swap-s10": 9613.223403,
+        "swap-s11": 9613.088241,
+        "swap-s12": 9613.343235,
+        "swap-s13": 9612.397238,
+        "swap-s14": 9611.135204,
+        "swap-s15": 9612.268685,
+        "swap-s16": 9612.127513,
+        "swap-s17": 9612.638952,
+        "swap-s18": 9612.754965,
+        "swap-s19": 9612.51925
+      }
+    },
+    {
+      "trial": 1,
+      "mode": "independent",
+      "started_ns": 1791487489311768425,
+      "config": {
+        "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_swap_count_pilot_20261008/arms/trial1_independent",
+        "mode": "independent",
+        "model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "base_url": "http://127.0.0.1:30000/v1",
+        "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+        "sessions": 20,
+        "turns": 3,
+        "wait_ms": 1000,
+        "initial_tokens": 8192,
+        "tool_words": 16,
+        "decode_tokens": 8,
+        "restricted_gpu_tokens": 110592,
+        "resident_gpu_tokens": 262144,
+        "io_backend": "kernel",
+        "restore_style": "group",
+        "trace_profile": "kv_lifecycle_counts",
+        "trial": 1
+      },
+      "replays": 60,
+      "workload_ms": 7455.058534,
+      "mean_due_to_first_token_ms": 1143.2174264833334,
+      "p95_due_to_first_token_ms": 2278.342693,
+      "total_due_to_first_token_ms": 68593.045589,
+      "total_ttft_ms": 68469.38899999997,
+      "mean_ttft_ms": 1141.1564833333334,
+      "total_submission_delay_ms": 123.65239899999999,
+      "total_alignment_padding_ms": 0,
+      "output_tokens": 480,
+      "setup_ms": 16857.941996,
+      "minimum_gpu_prefix_fraction": 0.0,
+      "native_matches": 60,
+      "measured_load_count": 0,
+      "measured_loaded_tokens": 0,
+      "measured_released_tokens": 0,
+      "restores_before_due": 0,
+      "restores_after_due": 0,
+      "correctness": {
+        "before": {
+          "id": "925a846e3b4d40c39e6f3af835aafb20",
+          "object": "chat.completion",
+          "created": 1791487474,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "after": {
+          "id": "2c32f79957b64dea89f74f3caf3d3248",
+          "object": "chat.completion",
+          "created": 1791487474,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "equal_output": true
+      },
+      "per_session_completion_ms": {
+        "swap-s00": 6790.647632,
+        "swap-s01": 6791.945897,
+        "swap-s02": 6792.072209,
+        "swap-s03": 6791.204283,
+        "swap-s04": 6791.06475,
+        "swap-s05": 6791.470348,
+        "swap-s06": 6792.198221,
+        "swap-s07": 6791.813314,
+        "swap-s08": 6789.431079,
+        "swap-s09": 6792.321744,
+        "swap-s10": 6790.933668,
+        "swap-s11": 6790.798775,
+        "swap-s12": 6791.338745,
+        "swap-s13": 7455.058534,
+        "swap-s14": 7454.714777,
+        "swap-s15": 7454.455242,
+        "swap-s16": 7454.594325,
+        "swap-s17": 7454.068165,
+        "swap-s18": 7454.829179,
+        "swap-s19": 7454.942252
+      }
+    }
+  ],
+  "started_ns": 1791487238121104602,
+  "configuration": {
+    "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_swap_count_pilot_20261008/arms/trial1_resident",
+    "mode": "resident",
+    "model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "base_url": "http://127.0.0.1:30000/v1",
+    "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+    "sessions": 20,
+    "turns": 3,
+    "wait_ms": 1000,
+    "initial_tokens": 8192,
+    "tool_words": 16,
+    "decode_tokens": 8,
+    "restricted_gpu_tokens": 110592,
+    "resident_gpu_tokens": 262144,
+    "io_backend": "kernel",
+    "restore_style": "group",
+    "trace_profile": "kv_lifecycle_counts",
+    "trial": 1
+  },
+  "comparisons": [
+    {
+      "trial": 1,
+      "reference": "independent",
+      "workload_change_pct": 28.950607042946675,
+      "due_to_first_token_change_ms": 521.3548853333332
+    },
+    {
+      "trial": 1,
+      "reference": "resident",
+      "workload_change_pct": 45.61968389017008,
+      "due_to_first_token_change_ms": 932.0304974333333
+    }
+  ],
+  "failures": [],
+  "research_question": "Can ideally coordinated independent sessions hide real CPU/GPU KV swaps?",
+  "limitations": [
+    "Optimistic paired timeline; not a fair causal comparison of grouping alone.",
+    "Twenty separate synthetic contexts; fixed tool-result text and forced output length.",
+    "Setup excluded and reported separately; measured control, swap and alignment delays included.",
+    "Matched GPU prefix is reuse evidence, not an independent tensor-level proof of every copy.",
+    "No storage, semantic priorities, or shared model context."
+  ]
+}

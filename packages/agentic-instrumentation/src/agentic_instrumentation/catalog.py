@@ -64,6 +64,8 @@ PROFILES: dict[str, Profile] = {
         Profile("kv_lifecycle", ("kv.load_gpu", "kv.prefix_match"), "Cache movement and replay match"),
         Profile("kv_lifecycle_lean", ("kv.load_gpu", "kv.prefix_match"),
                 "Cache movement and replay match without scheduler tracing"),
+        Profile("kv_lifecycle_counts", ("kv.load_gpu", "kv.prefix_match"),
+                "Cache movement and replay counts without copying or hashing tensor indices"),
         Profile("kv_decode_overlap", ("kv.load_gpu", "kv.prefix_match", "batch.decode_step"),
                 "Cache movement plus narrow decode-batch timing"),
         Profile("tool_cycle_timing", ("kv.prefix_match", "batch.decode_step"),

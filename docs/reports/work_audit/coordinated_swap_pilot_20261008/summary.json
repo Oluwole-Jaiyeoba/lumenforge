@@ -1,0 +1,40 @@
+{
+  "schema": "agentic_work_audit.coordinated_swap.summary.v1",
+  "run_id": "coordinated_swap_pilot_20261008",
+  "status": "blocked",
+  "issues": [
+    "trial1_coordinated: RuntimeError: Restored-prefix diagnostic output mismatch"
+  ],
+  "arms": [],
+  "started_ns": 1791485496136453690,
+  "configuration": {
+    "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_swap_pilot_20261008/arms/trial1_coordinated",
+    "mode": "coordinated",
+    "model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "base_url": "http://127.0.0.1:30000/v1",
+    "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+    "sessions": 20,
+    "turns": 3,
+    "wait_ms": 1000,
+    "initial_tokens": 8192,
+    "tool_words": 16,
+    "decode_tokens": 32,
+    "restricted_gpu_tokens": 110592,
+    "trial": 1,
+    "restore_style": "serial",
+    "trace_profile": "kv_lifecycle_lean",
+    "control_style": "individual"
+  },
+  "comparisons": [],
+  "failures": [
+    "trial1_coordinated: RuntimeError: Restored-prefix diagnostic output mismatch"
+  ],
+  "research_question": "Can ideally coordinated independent sessions hide real CPU/GPU KV swaps?",
+  "limitations": [
+    "Optimistic paired timeline; not a fair causal comparison of grouping alone.",
+    "Twenty separate synthetic contexts; fixed tool-result text and forced output length.",
+    "Setup excluded and reported separately; measured control, swap and alignment delays included.",
+    "Matched GPU prefix is reuse evidence, not an independent tensor-level proof of every copy.",
+    "No storage, semantic priorities, or shared model context."
+  ]
+}

@@ -95,6 +95,8 @@ def _pair_gates(pairs: list[dict], *, nonblocking: bool = False) -> str:
 def _first_request_ns(path: Path) -> int | None:
     if path.exists():
         summary = json.loads(path.read_text(encoding="utf-8"))
+        if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
+            return summary.get("started_ns")
         if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
             return summary.get("started_ns")
         if summary.get("schema") == "agentic_work_audit.tool_cycles.v1":
@@ -150,6 +152,19 @@ def _time(summary: dict) -> tuple[int, str, str, str]:
 
 
 def _links(path: Path, summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
+        links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>']
+        for name in ("run_manifest.json", "source_sha256.txt", "source_bundle.tar.gz", "package_sources.tar.gz",
+                     "source_validation.json", "postrun_analysis_sources.tar.gz"):
+            target = path.parent / name
+            if target.exists():
+                links.append(f'<a href="{_esc(target.as_posix())}">{_esc(name)}</a>')
+        for row in summary.get("arms", []):
+            arm = f"trial{row['trial']}_{row['mode']}"
+            base = path.parent.as_posix() + "/arms/" + arm
+            links.extend((f'<a href="{_esc(base)}/case_results.json">{_esc(arm)} timings</a>',
+                          f'<a href="{_esc(base)}/backend_trace.jsonl.gz">{_esc(arm)} trace</a>'))
+        return " · ".join(links)
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
         base = path.parent.as_posix()
         links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>',
@@ -235,6 +250,12 @@ def _links(path: Path, summary: dict) -> str:
 
 
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
+    if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
+        from .coordinated_swap_report import setup
+        return ("20 sessions; ideal paired CPU/GPU swaps",
+                "<strong>How it ran.</strong> " + _esc(setup(summary)) +
+                " Setup is excluded; real swap, control, padding and late-submission time count. "
+                "The resident reference has a larger GPU cache. Contexts are not merged.")
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
@@ -474,6 +495,9 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 
 
 def _reproduction(summary: dict, timing: bool) -> str:
+    if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
+        from .coordinated_swap_report import reproduction
+        return "<p><strong>Reproduce.</strong></p><pre><code>" + _esc(reproduction(summary)) + "</code></pre>"
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
@@ -1196,6 +1220,9 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 
 
 def _run_finding(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
+        from .coordinated_swap_report import finding
+        return finding(summary)
     status = summary.get("status")
     if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
         pairs = summary.get("paired_comparisons") or []
@@ -1475,6 +1502,9 @@ def _run_finding(summary: dict) -> str:
 
 
 def _kind(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
+        rounds = (summary.get("configuration") or {}).get("turns", 0)
+        return "Coordinated CPU/GPU swaps" + (" (calibration)" if rounds < 40 else "")
     schema = summary.get("schema")
     names = {
         "agentic_work_audit.kv_load_attribution.v1": "Busy workload · KV-load attribution",
@@ -1512,6 +1542,19 @@ def _kind(summary: dict) -> str:
 
 def _result_parts(summary: dict) -> tuple[str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.coordinated_swap.summary.v1":
+        from .coordinated_swap_report import (
+            HEADERS, COMPARISON_HEADERS, SESSION_HEADERS, NOTES, CONTROL_HEADERS, CONTROL_NOTES,
+            table_rows, comparison_rows, session_rows, control_rows,
+        )
+        detail = _mode_table(HEADERS, table_rows(summary))
+        detail += _mode_table(COMPARISON_HEADERS, comparison_rows(summary))
+        detail += f"<p>{_esc(NOTES)}</p>"
+        detail += _mode_table(CONTROL_HEADERS, control_rows(summary))
+        detail += f"<p>{_esc(CONTROL_NOTES)}</p>"
+        detail += ("<details><summary>Every session's finish time</summary>"
+                   + _mode_table(SESSION_HEADERS, session_rows(summary)) + "</details>")
+        return _esc(_run_finding(summary)), detail
     if schema == "agentic_work_audit.storage_cycles.summary.v1":
         rows = [(f"Seed {arm['seed']} · {arm['arm']}",
                  _ms(arm["workflow_duration_ms"]),
@@ -1976,6 +2019,16 @@ def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
 
 def _markdown_metrics(summary: dict) -> str:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.coordinated_swap.summary.v1":
+        from .coordinated_swap_report import (
+            HEADERS, COMPARISON_HEADERS, SESSION_HEADERS, NOTES, CONTROL_HEADERS, CONTROL_NOTES,
+            table_rows, comparison_rows, session_rows, control_rows,
+        )
+        return (_md_table(HEADERS, table_rows(summary)) + "\n\n"
+                + _md_table(COMPARISON_HEADERS, comparison_rows(summary)) + "\n\n" + NOTES
+                + "\n\n" + _md_table(CONTROL_HEADERS, control_rows(summary)) + "\n\n" + CONTROL_NOTES
+                + "\n\n<details>\n<summary>Every session's finish time</summary>\n\n"
+                + _md_table(SESSION_HEADERS, session_rows(summary)) + "\n\n</details>")
     if schema == "agentic_work_audit.storage_cycles.summary.v1":
         rows = [(arm["seed"], arm["arm"], arm["session_count"], arm["replay_count"],
                  arm["workflow_duration_ms"], arm["due_to_first_token_median_ms"],
@@ -2429,6 +2482,16 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.coordinated_swap.summary.v1":
+        arms = summary.get("arms", [])
+        def mode_medians(field, scale, suffix):
+            return "; ".join(f"{mode}: {median(a[field] for a in arms if a['mode'] == mode) / scale:.1f}{suffix}"
+                             for mode in ("independent", "coordinated", "resident")
+                             if any(a["mode"] == mode for a in arms))
+        times = mode_medians("workload_ms", 1000, "s")
+        delays = mode_medians("mean_due_to_first_token_ms", 1, "ms")
+        return ("Independent / coordinated / resident (per-mode trial medians)", delays or "unavailable",
+                "All 20 sessions included", times or "unavailable", _run_finding(summary), summary.get("status", "unknown"))
     if schema == "agentic_work_audit.storage_cycles.summary.v1":
         pairs = summary.get("paired_comparisons") or []
         if not pairs:
@@ -2688,6 +2751,15 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
             for row in summary["rows"]:
                 arm = f"seed{row['seed']}_{row['arm']}"
                 evidence.append(f"[{arm} timings]({base}/arms/{arm}/case_results.json)")
+                evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
+        if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
+            for name in ("source_sha256.txt", "source_bundle.tar.gz", "package_sources.tar.gz",
+                         "source_validation.json", "postrun_analysis_sources.tar.gz"):
+                if (path.parent / name).exists():
+                    evidence.append(f"[{name}]({base}/{name})")
+            for row in summary.get("arms", []):
+                arm = f"trial{row['trial']}_{row['mode']}"
+                evidence.append(f"[{arm} per-turn timings]({base}/arms/{arm}/case_results.json)")
                 evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
         if summary.get("schema") == "agentic_work_audit.storage_cycles.summary.v1":
             for row in summary["arms"]:

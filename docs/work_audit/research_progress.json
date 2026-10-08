@@ -2,6 +2,17 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ21",
+      "short_question": "Can ideal paired tool waits hide CPU/GPU KV swaps?",
+      "evidence_date_utc": "2026-10-08",
+      "question": "With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?",
+      "answer": "The native swaps and replay-prefix checks worked, but the waits did not hide the handovers. All nine arms completed 800 replays each. Across three rotated trials, independent sessions finished in 80.272-81.557 seconds, coordinated sessions in 99.703-101.347 seconds, and the same paired schedule with resident KV in 80.728-80.749 seconds. Coordination was 24.2-24.3% slower than the independent baseline, and all twenty sessions finished later in every paired comparison. Its mean TTFT after submission was only 316-321 ms versus 719-761 ms independently, but mean delay from tool due time to first token rose to 803-849 ms versus 724-766 ms. All 790 measured session restores per coordinated arm were observed ready after their original deadlines; the first ten sessions were prepared during excluded setup. Coordinated and resident replays reused at least 98.9% of their input prefix on GPU. CUDA graphs and overlap scheduling were on. This is a functional swapping proof, not GPU-resident-like performance.",
+      "hypothesis": "The current release, restore and readiness-check sequence exceeds the available handover window. Coordinated controls took about 40-42 seconds of combined wall time per run; 79 native CUDA-stream load intervals totaled about 16.9 seconds. Those intervals overlap control time and must not be added together. The roughly 19-21 second whole-workload penalty versus the resident schedule appears before replay submission; after-submission TTFT was similar. This does not isolate copy-engine occupancy, scheduler bookkeeping or each control round trip as the single cause.",
+      "unknown": "This uses twenty separate synthetic contexts, eight output tokens per replay, forty one-second tool waits, and an imposed GPU KV-pool cap, not exhausted physical GPU memory. The independent baseline has different ready times and batching. Initial priming is excluded; measured control, alignment and submission waits count. Count-only tracing avoids reading tensor index values but does not prove exact slot identity or zero tracing overhead. One setup reply was compared before and after a restore in each arm, not every replay or tensor. Earlier short pilots used different tracing, transfer or control settings and must not be pooled with the full run. These results do not establish production behavior or a hardware-offload benefit.",
+      "evidence_run_ids": ["coordinated_swap_count_full_20261008"],
+      "related_run_ids": ["coordinated_swap_pilot_20261008", "coordinated_swap_pilot_v2_20261008", "coordinated_swap_kernel_pilot_20261008", "coordinated_swap_batched_pilot_20261008", "coordinated_swap_count_pilot_20261008", "coordinated_swap_count_full_20261008"]
+    },
+    {
       "id": "RQ20",
       "short_question": "Does selective early storage staging improve a full busy workload?",
       "evidence_date_utc": "2026-10-07",

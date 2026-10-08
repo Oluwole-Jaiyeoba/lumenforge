@@ -49,3 +49,24 @@ def test_semantic_and_per_layer_loads_remain_distinct():
     assert semantic is not None and semantic.signal_id == "kv.load_gpu"
     assert layer is not None and layer.signal_id == "kv.layer_copy"
     assert layer.payload["kv_event_type"] == "KV_LOAD_GPU"
+
+
+def test_count_profile_never_reads_tensor_values(monkeypatch):
+    from agentic_backends.sglang.trace.patch import _tensor_summary
+
+    class MetadataOnly:
+        shape = (81920,)
+        dtype = "torch.int64"
+        device = "cuda:0"
+
+        def numel(self):
+            return 81920
+
+        def detach(self):
+            raise AssertionError("Count tracing must not touch tensor values")
+
+    assert profile_flags("kv_lifecycle_counts")["AGENTIC_KV_TRACE_INDEX_DETAIL"] == "count"
+    monkeypatch.setenv("AGENTIC_KV_TRACE_INDEX_DETAIL", "count")
+    result = _tensor_summary(MetadataOnly())
+    assert result["index_count"] == 81920
+    assert not set(result) & {"sha1_16", "values", "head", "min", "max"}
