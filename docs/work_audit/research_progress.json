@@ -2,6 +2,17 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ22",
+      "short_question": "Can session-level advance loading make CPU spill invisible?",
+      "evidence_date_utc": "2026-10-08",
+      "question": "With twenty independent sessions, identical tool clocks in all modes, reserved GPU preparation space and exact tool-return times, can individual early KV restores overlap active model work and approach a fully GPU-resident reference without a group barrier?",
+      "answer": "The session pipeline worked correctly but did not make swapping invisible in the short gate. After removing a wasteful control-poll loop and moving preparation 750 ms ahead, whole-workload time was 7.200 seconds for normal restricted-cache operation, 9.804 seconds for coordinated CPU/GPU operation and 6.170 seconds for the GPU-resident reference. Coordinated mode was 36.2% slower than normal and 58.9% slower than resident; all twenty sessions finished later. Its mean TTFT after submission was 448 ms, but mean delay from tool due time to first token was 1634 ms because 71.180 seconds of submission waiting accumulated across sixty replays. Only 24 of 60 replays had KV ready by their tool deadline. All 44 actual loads were requested while other model requests were active, proving that session-level transfer/computation overlap occurred. Native CUDA-stream intervals totaled 0.971 seconds; release, residency, prepare and status controls totaled about 4.669 seconds of overlapping control wall time.",
+      "hypothesis": "The remaining gap is primarily a preparation-throughput and software-control problem, not absence of overlap. Closely spaced session returns required 44 separate release/load handovers. Even with a 750 ms lead and two-session headroom, individual controls could not keep up, so late preparation became submission delay. Dynamic micro-batching of several soon-due independent sessions may retain session-level scheduling while reducing control transactions and native load launches.",
+      "unknown": "This is one three-turn calibration trial with synthetic prompts, fixed one-second waits, eight output tokens, at most eight in-flight requests and an imposed GPU KV-token cap. It does not establish production performance or show that micro-batching will solve the delay. The controller used exact synthetic tool-return times, and initial priming/preparation was excluded. Native CUDA intervals are not pure copy-engine busy time, and control wall times overlap each other and model work. The first pilot used a 350 ms lead and repeated residency polling; it is retained as calibration evidence and must not be pooled with the corrected pilot.",
+      "evidence_run_ids": ["coordinated_session_pipeline_pilot_v2_20261008"],
+      "related_run_ids": ["coordinated_session_pipeline_pilot_20261008", "coordinated_session_pipeline_pilot_v2_20261008"]
+    },
+    {
       "id": "RQ21",
       "short_question": "Can ideal paired tool waits hide CPU/GPU KV swaps?",
       "evidence_date_utc": "2026-10-08",

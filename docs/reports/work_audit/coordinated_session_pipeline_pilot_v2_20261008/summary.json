@@ -1,0 +1,490 @@
+{
+  "schema": "agentic_work_audit.coordinated_swap.summary.v1",
+  "run_id": "coordinated_session_pipeline_pilot_v2_20261008",
+  "status": "complete",
+  "issues": [],
+  "arms": [
+    {
+      "trial": 1,
+      "mode": "independent",
+      "started_ns": 1791496273529847727,
+      "config": {
+        "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_independent",
+        "mode": "independent",
+        "model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "base_url": "http://127.0.0.1:30000/v1",
+        "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+        "sessions": 20,
+        "turns": 3,
+        "wait_ms": 1000,
+        "initial_tokens": 8192,
+        "tool_words": 16,
+        "decode_tokens": 8,
+        "restricted_gpu_tokens": 110592,
+        "resident_gpu_tokens": 262144,
+        "io_backend": "kernel",
+        "restore_style": "group",
+        "control_style": "group",
+        "schedule_style": "session_pipeline",
+        "prefetch_lead_ms": 750,
+        "headroom_sessions": 2,
+        "max_inflight": 8,
+        "trace_profile": "kv_lifecycle_counts",
+        "trial": 1
+      },
+      "replays": 60,
+      "workload_ms": 7200.427242,
+      "mean_due_to_first_token_ms": 1073.29270675,
+      "p95_due_to_first_token_ms": 2226.493205,
+      "total_due_to_first_token_ms": 64397.56240500001,
+      "total_ttft_ms": 34505.4,
+      "mean_ttft_ms": 575.09,
+      "total_submission_delay_ms": 29892.162643000014,
+      "total_alignment_padding_ms": 0,
+      "output_tokens": 480,
+      "setup_ms": 16830.340115,
+      "control_wall_ms_by_action": {},
+      "control_count_by_action": {},
+      "native_cuda_interval_count": 0,
+      "native_cuda_interval_total_ms": null,
+      "minimum_gpu_prefix_fraction": 0.0,
+      "native_matches": 60,
+      "measured_load_count": 0,
+      "measured_loaded_tokens": 0,
+      "measured_released_tokens": 0,
+      "restores_before_due": 0,
+      "restores_after_due": 0,
+      "kv_ready_before_due": 0,
+      "kv_ready_after_due": 0,
+      "mean_kv_ready_margin_ms": null,
+      "already_resident_replays": 0,
+      "correctness": {
+        "before": {
+          "id": "7b3677a5c4734fc08baf13afb217b2c6",
+          "object": "chat.completion",
+          "created": 1791496258,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "after": {
+          "id": "01fc9914dba94568a153935a05ba6a1a",
+          "object": "chat.completion",
+          "created": 1791496258,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "equal_output": true
+      },
+      "per_session_completion_ms": {
+        "swap-s00": 5996.18668,
+        "swap-s01": 5997.944411,
+        "swap-s02": 5997.822769,
+        "swap-s03": 5997.30563,
+        "swap-s04": 5997.448192,
+        "swap-s05": 5997.574075,
+        "swap-s06": 5997.695107,
+        "swap-s07": 6001.346013,
+        "swap-s08": 6814.264078,
+        "swap-s09": 6814.39288,
+        "swap-s10": 6814.139035,
+        "swap-s11": 6814.630594,
+        "swap-s12": 6816.559559,
+        "swap-s13": 6813.998303,
+        "swap-s14": 6812.870753,
+        "swap-s15": 6814.513002,
+        "swap-s16": 7200.28472,
+        "swap-s17": 7200.427242,
+        "swap-s18": 7200.107536,
+        "swap-s19": 7199.788111
+      }
+    },
+    {
+      "trial": 1,
+      "mode": "coordinated",
+      "started_ns": 1791496403357771421,
+      "config": {
+        "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_coordinated",
+        "mode": "coordinated",
+        "model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "base_url": "http://127.0.0.1:30000/v1",
+        "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+        "sessions": 20,
+        "turns": 3,
+        "wait_ms": 1000,
+        "initial_tokens": 8192,
+        "tool_words": 16,
+        "decode_tokens": 8,
+        "restricted_gpu_tokens": 110592,
+        "resident_gpu_tokens": 262144,
+        "io_backend": "kernel",
+        "restore_style": "group",
+        "control_style": "group",
+        "schedule_style": "session_pipeline",
+        "prefetch_lead_ms": 750,
+        "headroom_sessions": 2,
+        "max_inflight": 8,
+        "trace_profile": "kv_lifecycle_counts",
+        "trial": 1
+      },
+      "replays": 60,
+      "workload_ms": 9804.470691,
+      "mean_due_to_first_token_ms": 1633.99963395,
+      "p95_due_to_first_token_ms": 3078.275993,
+      "total_due_to_first_token_ms": 98039.97803700001,
+      "total_ttft_ms": 26859.855999999992,
+      "mean_ttft_ms": 447.66426666666666,
+      "total_submission_delay_ms": 71180.11853199998,
+      "total_alignment_padding_ms": 0,
+      "output_tokens": 480,
+      "setup_ms": 17875.280996,
+      "control_wall_ms_by_action": {
+        "release_prefix": 811.9546290000002,
+        "prefix_residency": 2007.1487319999992,
+        "prepare": 1659.9314089999998,
+        "load_status": 190.25470000000004
+      },
+      "control_count_by_action": {
+        "release_prefix": 44,
+        "prefix_residency": 120,
+        "prepare": 44,
+        "load_status": 45
+      },
+      "native_cuda_interval_count": 44,
+      "native_cuda_interval_total_ms": 970.8249589999999,
+      "minimum_gpu_prefix_fraction": 0.9896110171539019,
+      "native_matches": 60,
+      "measured_load_count": 44,
+      "measured_loaded_tokens": 362688,
+      "measured_released_tokens": 364416,
+      "restores_before_due": 9,
+      "restores_after_due": 35,
+      "kv_ready_before_due": 24,
+      "kv_ready_after_due": 36,
+      "mean_kv_ready_margin_ms": -606.6085010000003,
+      "already_resident_replays": 16,
+      "correctness": {
+        "before": {
+          "id": "5b0f7a70a4664e70a137de2fa4938225",
+          "object": "chat.completion",
+          "created": 1791496387,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "after": {
+          "id": "3faf34634c1c493aa3c36880a1246da6",
+          "object": "chat.completion",
+          "created": 1791496387,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "equal_output": true
+      },
+      "per_session_completion_ms": {
+        "swap-s00": 8485.975319,
+        "swap-s01": 7232.83085,
+        "swap-s02": 7881.947349,
+        "swap-s03": 7232.705658,
+        "swap-s04": 7231.527018,
+        "swap-s05": 7232.565146,
+        "swap-s06": 7882.297175,
+        "swap-s07": 9804.470691,
+        "swap-s08": 8653.725975,
+        "swap-s09": 7882.460108,
+        "swap-s10": 7882.5909,
+        "swap-s11": 8535.75715,
+        "swap-s12": 8876.338099,
+        "swap-s13": 8653.857677,
+        "swap-s14": 8652.387431,
+        "swap-s15": 8876.113396,
+        "swap-s16": 8653.420559,
+        "swap-s17": 8876.774187,
+        "swap-s18": 8876.629075,
+        "swap-s19": 9638.290863
+      }
+    },
+    {
+      "trial": 1,
+      "mode": "resident",
+      "started_ns": 1791496536710804732,
+      "config": {
+        "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_resident",
+        "mode": "resident",
+        "model": "Qwen/Qwen2.5-1.5B-Instruct",
+        "base_url": "http://127.0.0.1:30000/v1",
+        "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+        "sessions": 20,
+        "turns": 3,
+        "wait_ms": 1000,
+        "initial_tokens": 8192,
+        "tool_words": 16,
+        "decode_tokens": 8,
+        "restricted_gpu_tokens": 110592,
+        "resident_gpu_tokens": 262144,
+        "io_backend": "kernel",
+        "restore_style": "group",
+        "control_style": "group",
+        "schedule_style": "session_pipeline",
+        "prefetch_lead_ms": 750,
+        "headroom_sessions": 2,
+        "max_inflight": 8,
+        "trace_profile": "kv_lifecycle_counts",
+        "trial": 1
+      },
+      "replays": 60,
+      "workload_ms": 6169.509696,
+      "mean_due_to_first_token_ms": 792.11460245,
+      "p95_due_to_first_token_ms": 2201.073579,
+      "total_due_to_first_token_ms": 47526.876147,
+      "total_ttft_ms": 24586.379,
+      "mean_ttft_ms": 409.77298333333334,
+      "total_submission_delay_ms": 22940.496184999996,
+      "total_alignment_padding_ms": 0,
+      "output_tokens": 480,
+      "setup_ms": 17349.433322,
+      "control_wall_ms_by_action": {},
+      "control_count_by_action": {},
+      "native_cuda_interval_count": 0,
+      "native_cuda_interval_total_ms": null,
+      "minimum_gpu_prefix_fraction": 0.9896110171539019,
+      "native_matches": 60,
+      "measured_load_count": 0,
+      "measured_loaded_tokens": 0,
+      "measured_released_tokens": 0,
+      "restores_before_due": 0,
+      "restores_after_due": 0,
+      "kv_ready_before_due": 0,
+      "kv_ready_after_due": 0,
+      "mean_kv_ready_margin_ms": null,
+      "already_resident_replays": 0,
+      "correctness": {
+        "before": {
+          "id": "82b60560c7bd437bac32aed7eadb0e38",
+          "object": "chat.completion",
+          "created": 1791496520,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "after": {
+          "id": "e3cf7987e53344ae89d50866072aab20",
+          "object": "chat.completion",
+          "created": 1791496521,
+          "model": "Qwen/Qwen2.5-1.5B-Instruct",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "\ncontext\nI'm",
+                "reasoning_content": null,
+                "tool_calls": null
+              },
+              "logprobs": null,
+              "finish_reason": "length",
+              "matched_stop": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8233,
+            "total_tokens": 8241,
+            "completion_tokens": 8,
+            "prompt_tokens_details": null,
+            "reasoning_tokens": 0
+          },
+          "metadata": {
+            "weight_version": "default"
+          }
+        },
+        "equal_output": true
+      },
+      "per_session_completion_ms": {
+        "swap-s00": 4885.120991,
+        "swap-s01": 4885.799374,
+        "swap-s02": 4885.337075,
+        "swap-s03": 5583.16904,
+        "swap-s04": 5581.49187,
+        "swap-s05": 4886.041908,
+        "swap-s06": 5582.884105,
+        "swap-s07": 5583.294553,
+        "swap-s08": 5583.032588,
+        "swap-s09": 5866.103287,
+        "swap-s10": 5866.318521,
+        "swap-s11": 5585.36068,
+        "swap-s12": 5866.590706,
+        "swap-s13": 5583.544527,
+        "swap-s14": 5583.414305,
+        "swap-s15": 5866.730578,
+        "swap-s16": 6168.842754,
+        "swap-s17": 6169.063478,
+        "swap-s18": 6169.362693,
+        "swap-s19": 6169.509696
+      }
+    }
+  ],
+  "started_ns": 1791496273529847727,
+  "configuration": {
+    "out_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_independent",
+    "mode": "independent",
+    "model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "base_url": "http://127.0.0.1:30000/v1",
+    "control_url": "http://127.0.0.1:31991/prepare_prefix_kv",
+    "sessions": 20,
+    "turns": 3,
+    "wait_ms": 1000,
+    "initial_tokens": 8192,
+    "tool_words": 16,
+    "decode_tokens": 8,
+    "restricted_gpu_tokens": 110592,
+    "resident_gpu_tokens": 262144,
+    "io_backend": "kernel",
+    "restore_style": "group",
+    "control_style": "group",
+    "schedule_style": "session_pipeline",
+    "prefetch_lead_ms": 750,
+    "headroom_sessions": 2,
+    "max_inflight": 8,
+    "trace_profile": "kv_lifecycle_counts",
+    "trial": 1
+  },
+  "comparisons": [
+    {
+      "trial": 1,
+      "reference": "independent",
+      "workload_change_pct": 36.16512411667252,
+      "due_to_first_token_change_ms": 560.7069272000001,
+      "sessions_finished_sooner": 0,
+      "sessions_finished_later": 20
+    },
+    {
+      "trial": 1,
+      "reference": "resident",
+      "workload_change_pct": 58.91815029250584,
+      "due_to_first_token_change_ms": 841.8850315000001,
+      "sessions_finished_sooner": 0,
+      "sessions_finished_later": 20
+    }
+  ],
+  "failures": [],
+  "research_question": "Can ideally coordinated independent sessions hide real CPU/GPU KV swaps?",
+  "limitations": [
+    "Optimistic paired timeline; not a fair causal comparison of grouping alone.",
+    "Twenty separate synthetic contexts; fixed tool-result text and forced output length.",
+    "Setup excluded and reported separately; measured control, swap and alignment delays included.",
+    "Matched GPU prefix is reuse evidence, not an independent tensor-level proof of every copy.",
+    "No storage, semantic priorities, or shared model context."
+  ]
+}

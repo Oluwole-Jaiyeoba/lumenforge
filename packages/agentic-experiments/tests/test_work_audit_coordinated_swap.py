@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from agentic_controller.coordinated_swap import PairRotation
+from agentic_controller.coordinated_swap import PairRotation, SessionPipelinePolicy
 from agentic_experiments.runners.run_work_audit_coordinated_swap import initial_prompt, metrics
 from agentic_experiments.runners.run_kv_movement_interference import make_prompt
 from agentic_experiments.runners.analyze_work_audit_coordinated_swap import analyze, first_matches, measured_controls
@@ -16,6 +16,21 @@ def test_rotation_has_two_pairs_not_a_shared_context():
     assert schedule.boundary(10, 12) == 12
     with pytest.raises(ValueError):
         PairRotation(21)
+
+
+def test_session_pipeline_spreads_arrivals_and_evicts_farthest_safe_session():
+    policy = SessionPipelinePolicy(prefetch_lead_ms=350, headroom_sessions=2, max_inflight=8)
+    assert policy.initial_due_ns(1_000_000_000, 10) == 1_500_000_000
+    assert policy.prefetch_at_ns(2_000_000_000) == 1_650_000_000
+    assert policy.next_tool_due_ns(2_000_000_000) == 3_000_000_000
+    states = [
+        {"id": "soon", "due_ns": 3, "resident": True},
+        {"id": "late", "due_ns": 9, "resident": True},
+        {"id": "active", "due_ns": 12, "resident": True, "active": True},
+        {"id": "host", "due_ns": 20, "resident": False},
+    ]
+    assert policy.victim(states, incoming_due_ns=2)["id"] == "late"
+    assert policy.victim(states, incoming_due_ns=10) is None
 
 
 def test_metrics_include_wait_before_submission():

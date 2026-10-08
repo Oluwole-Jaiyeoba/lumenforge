@@ -6,6 +6,16 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ22: Can session-level advance loading make CPU spill invisible?
+
+**Question.** With twenty independent sessions, identical tool clocks in all modes, reserved GPU preparation space and exact tool-return times, can individual early KV restores overlap active model work and approach a fully GPU-resident reference without a group barrier?
+
+**What the evidence says.** The session pipeline worked correctly but did not make swapping invisible in the short gate. After removing a wasteful control-poll loop and moving preparation 750 ms ahead, whole-workload time was 7.200 seconds for normal restricted-cache operation, 9.804 seconds for coordinated CPU/GPU operation and 6.170 seconds for the GPU-resident reference. Coordinated mode was 36.2% slower than normal and 58.9% slower than resident; all twenty sessions finished later. Its mean TTFT after submission was 448 ms, but mean delay from tool due time to first token was 1634 ms because 71.180 seconds of submission waiting accumulated across sixty replays. Only 24 of 60 replays had KV ready by their tool deadline. All 44 actual loads were requested while other model requests were active, proving that session-level transfer/computation overlap occurred. Native CUDA-stream intervals totaled 0.971 seconds; release, residency, prepare and status controls totaled about 4.669 seconds of overlapping control wall time.
+
+**Working hypothesis.** The remaining gap is primarily a preparation-throughput and software-control problem, not absence of overlap. Closely spaced session returns required 44 separate release/load handovers. Even with a 750 ms lead and two-session headroom, individual controls could not keep up, so late preparation became submission delay. Dynamic micro-batching of several soon-due independent sessions may retain session-level scheduling while reducing control transactions and native load launches.
+
+**Not yet proved.** This is one three-turn calibration trial with synthetic prompts, fixed one-second waits, eight output tokens, at most eight in-flight requests and an imposed GPU KV-token cap. It does not establish production performance or show that micro-batching will solve the delay. The controller used exact synthetic tool-return times, and initial priming/preparation was excluded. Native CUDA intervals are not pure copy-engine busy time, and control wall times overlap each other and model work. The first pilot used a 350 ms lead and repeated residency polling; it is retained as calibration evidence and must not be pooled with the corrected pilot.
+
 ### RQ21: Can ideal paired tool waits hide CPU/GPU KV swaps?
 
 **Question.** With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?
@@ -202,11 +212,13 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Oct&nbsp;8,&nbsp;2026,&nbsp;2:28:45&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps](#run-coordinated_swap_count_full_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;748.3ms;&nbsp;coordinated:&nbsp;826.9ms;&nbsp;resident:&nbsp;339.6ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;81.0s;&nbsp;coordinated:&nbsp;100.6s;&nbsp;resident:&nbsp;80.7s | Coordinated&nbsp;workload&nbsp;was&nbsp;24.3%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;24.6%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;2370&nbsp;restores&nbsp;were&nbsp;observed&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
-| Oct&nbsp;8,&nbsp;2026,&nbsp;2:20:38&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_count_pilot_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;1143.2ms;&nbsp;coordinated:&nbsp;1664.6ms;&nbsp;resident:&nbsp;732.5ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.5s;&nbsp;coordinated:&nbsp;9.6s;&nbsp;resident:&nbsp;6.6s | Coordinated&nbsp;workload&nbsp;was&nbsp;29.0%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;45.6%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;50&nbsp;restores&nbsp;were&nbsp;observed&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
-| Oct&nbsp;8,&nbsp;2026,&nbsp;2:13:43&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_batched_pilot_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | coordinated:&nbsp;6828.2ms | All&nbsp;20&nbsp;sessions&nbsp;included | coordinated:&nbsp;27.1s | 50&nbsp;restores&nbsp;were&nbsp;observed&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
-| Oct&nbsp;8,&nbsp;2026,&nbsp;2:04:28&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_kernel_pilot_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;5643.7ms;&nbsp;coordinated:&nbsp;7012.3ms;&nbsp;resident:&nbsp;916.4ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;24.1s;&nbsp;coordinated:&nbsp;27.6s;&nbsp;resident:&nbsp;7.1s | Coordinated&nbsp;workload&nbsp;was&nbsp;14.3%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;287.1%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;50&nbsp;restores&nbsp;were&nbsp;observed&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
-| Oct&nbsp;8,&nbsp;2026,&nbsp;1:55:10&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_pilot_v2_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;4781.6ms;&nbsp;coordinated:&nbsp;7393.6ms;&nbsp;resident:&nbsp;1101.2ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;22.5s;&nbsp;coordinated:&nbsp;29.4s;&nbsp;resident:&nbsp;8.6s | Coordinated&nbsp;workload&nbsp;was&nbsp;30.4%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;243.3%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;50&nbsp;restores&nbsp;were&nbsp;observed&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;4:51:13&nbsp;p.m.&nbsp;CDT | [Session-level coordinated KV (calibration)](#run-coordinated_session_pipeline_pilot_v2_20261008) | RQ22 | 20&nbsp;sessions;&nbsp;session-level&nbsp;advance&nbsp;KV&nbsp;loading | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;1073.3ms;&nbsp;coordinated:&nbsp;1634.0ms;&nbsp;resident:&nbsp;792.1ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.2s;&nbsp;coordinated:&nbsp;9.8s;&nbsp;resident:&nbsp;6.2s | Coordinated&nbsp;workload&nbsp;was&nbsp;36.2%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;58.9%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;36&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;4:42:28&nbsp;p.m.&nbsp;CDT | [Session-level coordinated KV (calibration)](#run-coordinated_session_pipeline_pilot_20261008) | RQ22 | 20&nbsp;sessions;&nbsp;session-level&nbsp;advance&nbsp;KV&nbsp;loading | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;992.6ms;&nbsp;coordinated:&nbsp;2352.7ms;&nbsp;resident:&nbsp;791.0ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.1s;&nbsp;coordinated:&nbsp;12.2s;&nbsp;resident:&nbsp;6.2s | Coordinated&nbsp;workload&nbsp;was&nbsp;71.5%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;97.2%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;46&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;2:28:45&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps](#run-coordinated_swap_count_full_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;748.3ms;&nbsp;coordinated:&nbsp;826.9ms;&nbsp;resident:&nbsp;339.6ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;81.0s;&nbsp;coordinated:&nbsp;100.6s;&nbsp;resident:&nbsp;80.7s | Coordinated&nbsp;workload&nbsp;was&nbsp;24.3%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;24.6%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;2370&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;2:20:38&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_count_pilot_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;1143.2ms;&nbsp;coordinated:&nbsp;1664.6ms;&nbsp;resident:&nbsp;732.5ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.5s;&nbsp;coordinated:&nbsp;9.6s;&nbsp;resident:&nbsp;6.6s | Coordinated&nbsp;workload&nbsp;was&nbsp;29.0%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;45.6%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;50&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;2:13:43&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_batched_pilot_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | coordinated:&nbsp;6828.2ms | All&nbsp;20&nbsp;sessions&nbsp;included | coordinated:&nbsp;27.1s | 50&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;2:04:28&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_kernel_pilot_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;5643.7ms;&nbsp;coordinated:&nbsp;7012.3ms;&nbsp;resident:&nbsp;916.4ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;24.1s;&nbsp;coordinated:&nbsp;27.6s;&nbsp;resident:&nbsp;7.1s | Coordinated&nbsp;workload&nbsp;was&nbsp;14.3%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;287.1%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;50&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;1:55:10&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_pilot_v2_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;4781.6ms;&nbsp;coordinated:&nbsp;7393.6ms;&nbsp;resident:&nbsp;1101.2ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;22.5s;&nbsp;coordinated:&nbsp;29.4s;&nbsp;resident:&nbsp;8.6s | Coordinated&nbsp;workload&nbsp;was&nbsp;30.4%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;243.3%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;50&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;1:51:36&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps (calibration)](#run-coordinated_swap_pilot_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | unavailable | All&nbsp;20&nbsp;sessions&nbsp;included | unavailable | Evidence&nbsp;incomplete;&nbsp;no&nbsp;performance&nbsp;conclusion.&nbsp;trial1_coordinated:&nbsp;RuntimeError:&nbsp;Restored-prefix&nbsp;diagnostic&nbsp;output&nbsp;mismatch | blocked |
 | Oct&nbsp;7,&nbsp;2026,&nbsp;11:00:30&nbsp;a.m.&nbsp;CDT | [Selective storage staging across repeated sessions](#run-rq20_selective_storage_pair_20261007) | RQ20 | 8&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | On demand → selective staging | Replay&nbsp;delay:&nbsp;seed&nbsp;1&nbsp;1096&nbsp;→&nbsp;1158&nbsp;ms;&nbsp;seed&nbsp;2&nbsp;847&nbsp;→&nbsp;936&nbsp;ms | Session&nbsp;finish&nbsp;changes&nbsp;range&nbsp;from&nbsp;-818&nbsp;to&nbsp;+1750&nbsp;ms | Whole&nbsp;workload:&nbsp;seed&nbsp;1&nbsp;28.55&nbsp;→&nbsp;27.84&nbsp;s;&nbsp;seed&nbsp;2&nbsp;29.98&nbsp;→&nbsp;30.57&nbsp;s | Mixed&nbsp;result&nbsp;across&nbsp;2&nbsp;paired&nbsp;seeds:&nbsp;seed&nbsp;1&nbsp;whole&nbsp;workload&nbsp;-703&nbsp;ms,&nbsp;median&nbsp;replay&nbsp;delay&nbsp;+62&nbsp;ms;&nbsp;seed&nbsp;2&nbsp;whole&nbsp;workload&nbsp;+596&nbsp;ms,&nbsp;median&nbsp;replay&nbsp;delay&nbsp;+89&nbsp;ms.&nbsp;3&nbsp;stages&nbsp;finished&nbsp;before&nbsp;due&nbsp;time;&nbsp;there&nbsp;is&nbsp;no&nbsp;consistent&nbsp;whole-workload&nbsp;gain.&nbsp;Synthetic&nbsp;file-backed&nbsp;storage&nbsp;does&nbsp;not&nbsp;establish&nbsp;a&nbsp;physical-SSD&nbsp;or&nbsp;hardware&nbsp;benefit. | native L3 hits verified |
 | Oct&nbsp;7,&nbsp;2026,&nbsp;10:57:02&nbsp;a.m.&nbsp;CDT | [Selective storage staging across repeated sessions](#run-rq20_exposure_h1_g10240_w900_s6_20261007) | RQ20 | 6&nbsp;equal-priority&nbsp;sessions&nbsp;·&nbsp;6&nbsp;tool&nbsp;returns&nbsp;each&nbsp;·&nbsp;natural&nbsp;file-cache&nbsp;pressure | Calibration only | No&nbsp;paired&nbsp;comparison | No&nbsp;peer&nbsp;comparison | Not&nbsp;established | Calibration&nbsp;run&nbsp;only;&nbsp;no&nbsp;paired&nbsp;mode&nbsp;comparison. | pilot |
@@ -314,19 +326,211 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 ## Experiment details
 
+<a id="run-coordinated_session_pipeline_pilot_v2_20261008"></a>
+<details>
+<summary><strong>Oct 8, 2026, 4:51:13 p.m. CDT · Session-level coordinated KV (calibration)</strong> · coordinated_session_pipeline_pilot_v2_20261008</summary>
+
+**Question (RQ22).** With twenty independent sessions, identical tool clocks in all modes, reserved GPU preparation space and exact tool-return times, can individual early KV restores overlap active model work and approach a fully GPU-resident reference without a group barrier?
+
+**Finding.** Coordinated workload was 36.2% longer than independent (median paired change). Coordinated workload was 58.9% longer than resident (median paired change). 36 coordinated replays had KV become ready after their tool deadline.
+
+**Setup.** 20 separate sessions; 4 labels of 5; 3 tool rounds; 1,000 ms waits; individual session clocks; no group barrier; 750 ms prefetch lead; 2 session headroom; at most 8 requests in flight; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; group control calls; kv_lifecycle_counts tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+
+**Key measurements**
+
+| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | KV ready on time / late | Minimum GPU prefix reuse |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / independent | 7.200 | 1073.3 | 2226.5 | 34.505 | 64.398 | 29.892 | 0.000 | 0 | 0 / 0 | 0.0% |
+| 1 / coordinated | 9.804 | 1634.0 | 3078.3 | 26.860 | 98.040 | 71.180 | 0.000 | 44 | 24 / 36 | 99.0% |
+| 1 / resident | 6.170 | 792.1 | 2201.1 | 24.586 | 47.527 | 22.940 | 0.000 | 0 | 0 / 0 | 99.0% |
+
+| Trial / reference | Whole-workload change | Mean replay-delay change (ms) | Sessions finishing sooner / later |
+| --- | --- | --- | --- |
+| 1 / independent | +36.2% | +560.7 | 0 / 20 |
+| 1 / resident | +58.9% | +841.9 | 0 / 20 |
+
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
+
+| Trial / mode | Excluded setup (s) | Measured control calls | Total control wall time (s) | Native CUDA-stream intervals / total (s) | Explicit restored / released KV tokens |
+| --- | --- | --- | --- | --- | --- |
+| 1 / independent | 16.830 | 0 | 0.000 | not measured | 0 / 0 |
+| 1 / coordinated | 17.875 | 253 | 4.669 | 44 / 0.971 | 362,688 / 364,416 |
+| 1 / resident | 17.349 | 0 | 0.000 | not measured | 0 / 0 |
+
+Control wall time includes waiting for the backend and checking its reply. The CUDA-stream interval can include gaps between launching copies; it is not a measurement of copy-engine busy time alone. These intervals can overlap control wall time, so do not add them together. Initial priming and diagnostics are reported as excluded setup, not hidden inside the workload duration.
+
+<details>
+<summary>Every session's finish time</summary>
+
+| Trial / session | Independent finish (s) | Coordinated finish (s) | Resident finish (s) |
+| --- | --- | --- | --- |
+| 1 / swap-s00 | 5.996 | 8.486 | 4.885 |
+| 1 / swap-s01 | 5.998 | 7.233 | 4.886 |
+| 1 / swap-s02 | 5.998 | 7.882 | 4.885 |
+| 1 / swap-s03 | 5.997 | 7.233 | 5.583 |
+| 1 / swap-s04 | 5.997 | 7.232 | 5.581 |
+| 1 / swap-s05 | 5.998 | 7.233 | 4.886 |
+| 1 / swap-s06 | 5.998 | 7.882 | 5.583 |
+| 1 / swap-s07 | 6.001 | 9.804 | 5.583 |
+| 1 / swap-s08 | 6.814 | 8.654 | 5.583 |
+| 1 / swap-s09 | 6.814 | 7.882 | 5.866 |
+| 1 / swap-s10 | 6.814 | 7.883 | 5.866 |
+| 1 / swap-s11 | 6.815 | 8.536 | 5.585 |
+| 1 / swap-s12 | 6.817 | 8.876 | 5.867 |
+| 1 / swap-s13 | 6.814 | 8.654 | 5.584 |
+| 1 / swap-s14 | 6.813 | 8.652 | 5.583 |
+| 1 / swap-s15 | 6.815 | 8.876 | 5.867 |
+| 1 / swap-s16 | 7.200 | 8.653 | 6.169 |
+| 1 / swap-s17 | 7.200 | 8.877 | 6.169 |
+| 1 / swap-s18 | 7.200 | 8.877 | 6.169 |
+| 1 / swap-s19 | 7.200 | 9.638 | 6.170 |
+
+</details>
+
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Optimistic paired timeline; not a fair causal comparison of grouping alone.
+- Twenty separate synthetic contexts; fixed tool-result text and forced output length.
+- Setup excluded and reported separately; measured control, swap and alignment delays included.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+SWAP_RUN_ID=coordinated_session_pipeline_pilot_v2_20261008_repeat \
+SWAP_TURNS=3 \
+SWAP_DECODE_TOKENS=8 \
+SWAP_INITIAL_TOKENS=8192 \
+SWAP_GPU_TOKENS=110592 \
+SWAP_RESIDENT_TOKENS=262144 \
+SWAP_TOOL_WORDS=16 \
+SWAP_IO_BACKEND=kernel \
+SWAP_RESTORE_STYLE=group \
+SWAP_CONTROL_STYLE=group \
+SWAP_SCHEDULE_STYLE=session_pipeline \
+SWAP_PREFETCH_LEAD_MS=750 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
+SWAP_TRACE_PROFILE=kv_lifecycle_counts \
+SWAP_TRIALS=1 \
+SWAP_MODES='independent coordinated resident' \
+bash infra/container/run_work_audit_coordinated_swap.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/summary.json) · [Run manifest](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/run_manifest.json) · [source_sha256.txt](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/source_sha256.txt) · [source_bundle.tar.gz](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/source_bundle.tar.gz) · [trial1_independent per-turn timings](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_independent/case_results.json) · [trial1_independent trace](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_independent/backend_trace.jsonl.gz) · [trial1_coordinated per-turn timings](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_coordinated/case_results.json) · [trial1_coordinated trace](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_coordinated/backend_trace.jsonl.gz) · [trial1_resident per-turn timings](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_resident/case_results.json) · [trial1_resident trace](docs/reports/work_audit/coordinated_session_pipeline_pilot_v2_20261008/arms/trial1_resident/backend_trace.jsonl.gz)
+
+</details>
+
+<a id="run-coordinated_session_pipeline_pilot_20261008"></a>
+<details>
+<summary><strong>Oct 8, 2026, 4:42:28 p.m. CDT · Session-level coordinated KV (calibration)</strong> · coordinated_session_pipeline_pilot_20261008</summary>
+
+**Question (RQ22).** With twenty independent sessions, identical tool clocks in all modes, reserved GPU preparation space and exact tool-return times, can individual early KV restores overlap active model work and approach a fully GPU-resident reference without a group barrier?
+
+**Finding.** Coordinated workload was 71.5% longer than independent (median paired change). Coordinated workload was 97.2% longer than resident (median paired change). 46 coordinated replays had KV become ready after their tool deadline.
+
+**Setup.** 20 separate sessions; 4 labels of 5; 3 tool rounds; 1,000 ms waits; individual session clocks; no group barrier; 350 ms prefetch lead; 2 session headroom; at most 8 requests in flight; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; group control calls; kv_lifecycle_counts tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+
+**Key measurements**
+
+| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | KV ready on time / late | Minimum GPU prefix reuse |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / independent | 7.088 | 992.6 | 2222.8 | 30.688 | 59.554 | 28.866 | 0.000 | 0 | 0 / 0 | 0.0% |
+| 1 / coordinated | 12.154 | 2352.7 | 4177.8 | 23.078 | 141.161 | 118.083 | 0.000 | 48 | 14 / 46 | 99.0% |
+| 1 / resident | 6.162 | 791.0 | 2199.6 | 24.518 | 47.459 | 22.940 | 0.000 | 0 | 0 / 0 | 99.0% |
+
+| Trial / reference | Whole-workload change | Mean replay-delay change (ms) | Sessions finishing sooner / later |
+| --- | --- | --- | --- |
+| 1 / independent | +71.5% | +1360.1 | 0 / 20 |
+| 1 / resident | +97.2% | +1561.7 | 0 / 20 |
+
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
+
+| Trial / mode | Excluded setup (s) | Measured control calls | Total control wall time (s) | Native CUDA-stream intervals / total (s) | Explicit restored / released KV tokens |
+| --- | --- | --- | --- | --- | --- |
+| 1 / independent | 16.985 | 0 | 0.000 | not measured | 0 / 0 |
+| 1 / coordinated | 18.309 | 525 | 10.609 | 48 / 1.060 | 395,712 / 397,504 |
+| 1 / resident | 17.288 | 0 | 0.000 | not measured | 0 / 0 |
+
+Control wall time includes waiting for the backend and checking its reply. The CUDA-stream interval can include gaps between launching copies; it is not a measurement of copy-engine busy time alone. These intervals can overlap control wall time, so do not add them together. Initial priming and diagnostics are reported as excluded setup, not hidden inside the workload duration.
+
+<details>
+<summary>Every session's finish time</summary>
+
+| Trial / session | Independent finish (s) | Coordinated finish (s) | Resident finish (s) |
+| --- | --- | --- | --- |
+| 1 / swap-s00 | 6.311 | 9.063 | 4.881 |
+| 1 / swap-s01 | 5.701 | 9.328 | 4.880 |
+| 1 / swap-s02 | 5.701 | 9.328 | 4.880 |
+| 1 / swap-s03 | 6.313 | 9.679 | 5.575 |
+| 1 / swap-s04 | 5.699 | 9.328 | 5.574 |
+| 1 / swap-s05 | 5.701 | 10.452 | 4.879 |
+| 1 / swap-s06 | 6.312 | 10.253 | 5.573 |
+| 1 / swap-s07 | 6.313 | 10.453 | 5.574 |
+| 1 / swap-s08 | 6.790 | 10.453 | 5.575 |
+| 1 / swap-s09 | 6.313 | 11.115 | 5.857 |
+| 1 / swap-s10 | 6.789 | 11.271 | 5.857 |
+| 1 / swap-s11 | 6.790 | 11.116 | 5.857 |
+| 1 / swap-s12 | 6.310 | 11.272 | 5.858 |
+| 1 / swap-s13 | 6.312 | 11.116 | 5.575 |
+| 1 / swap-s14 | 6.312 | 11.001 | 5.574 |
+| 1 / swap-s15 | 6.790 | 11.052 | 5.575 |
+| 1 / swap-s16 | 7.088 | 11.116 | 6.162 |
+| 1 / swap-s17 | 7.087 | 11.398 | 6.162 |
+| 1 / swap-s18 | 7.088 | 11.051 | 6.162 |
+| 1 / swap-s19 | 7.087 | 12.154 | 6.162 |
+
+</details>
+
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Optimistic paired timeline; not a fair causal comparison of grouping alone.
+- Twenty separate synthetic contexts; fixed tool-result text and forced output length.
+- Setup excluded and reported separately; measured control, swap and alignment delays included.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+SWAP_RUN_ID=coordinated_session_pipeline_pilot_20261008_repeat \
+SWAP_TURNS=3 \
+SWAP_DECODE_TOKENS=8 \
+SWAP_INITIAL_TOKENS=8192 \
+SWAP_GPU_TOKENS=110592 \
+SWAP_RESIDENT_TOKENS=262144 \
+SWAP_TOOL_WORDS=16 \
+SWAP_IO_BACKEND=kernel \
+SWAP_RESTORE_STYLE=group \
+SWAP_CONTROL_STYLE=group \
+SWAP_SCHEDULE_STYLE=session_pipeline \
+SWAP_PREFETCH_LEAD_MS=350 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
+SWAP_TRACE_PROFILE=kv_lifecycle_counts \
+SWAP_TRIALS=1 \
+SWAP_MODES='independent coordinated resident' \
+bash infra/container/run_work_audit_coordinated_swap.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/summary.json) · [Run manifest](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/run_manifest.json) · [source_sha256.txt](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/source_sha256.txt) · [source_bundle.tar.gz](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/source_bundle.tar.gz) · [trial1_independent per-turn timings](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/arms/trial1_independent/case_results.json) · [trial1_independent trace](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/arms/trial1_independent/backend_trace.jsonl.gz) · [trial1_coordinated per-turn timings](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/arms/trial1_coordinated/case_results.json) · [trial1_coordinated trace](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/arms/trial1_coordinated/backend_trace.jsonl.gz) · [trial1_resident per-turn timings](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/arms/trial1_resident/case_results.json) · [trial1_resident trace](docs/reports/work_audit/coordinated_session_pipeline_pilot_20261008/arms/trial1_resident/backend_trace.jsonl.gz)
+
+</details>
+
 <a id="run-coordinated_swap_count_full_20261008"></a>
 <details>
 <summary><strong>Oct 8, 2026, 2:28:45 p.m. CDT · Coordinated CPU/GPU swaps</strong> · coordinated_swap_count_full_20261008</summary>
 
 **Question (RQ21).** With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?
 
-**Finding.** Coordinated workload was 24.3% longer than independent (median paired change). Coordinated workload was 24.6% longer than resident (median paired change). 2370 restores were observed ready after their tool deadline.
+**Finding.** Coordinated workload was 24.3% longer than independent (median paired change). Coordinated workload was 24.6% longer than resident (median paired change). 2370 coordinated replays had KV become ready after their tool deadline.
 
-**Setup.** 20 separate sessions; 4 groups of 5; 40 tool rounds; 1,000 ms waits; paired AB/CD rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; group control calls; kv_lifecycle_counts tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control, padding and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+**Setup.** 20 separate sessions; 4 labels of 5; 40 tool rounds; 1,000 ms waits; paired AB/CD group rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; group control calls; kv_lifecycle_counts tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
 
 **Key measurements**
 
-| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | Session restores ready on time / late | Minimum GPU prefix reuse |
+| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | KV ready on time / late | Minimum GPU prefix reuse |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 / independent | 81.557 | 766.0 | 1051.3 | 609.193 | 612.767 | 3.574 | 0.000 | 0 | 0 / 0 | 0.0% |
 | 1 / coordinated | 101.347 | 848.8 | 1193.1 | 257.192 | 679.044 | 421.851 | 318.076 | 79 | 0 / 790 | 98.9% |
@@ -347,7 +551,7 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | 3 / independent | +24.3% | +78.6 | 0 / 20 |
 | 3 / resident | +24.6% | +492.3 | 0 / 20 |
 
-Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. Ready on time / late counts session restores, not batches. The modes deliberately use different ready-time patterns; this is an optimistic comparison, not a production fairness test.
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
 
 | Trial / mode | Excluded setup (s) | Measured control calls | Total control wall time (s) | Native CUDA-stream intervals / total (s) | Explicit restored / released KV tokens |
 | --- | --- | --- | --- | --- | --- |
@@ -452,6 +656,10 @@ SWAP_TOOL_WORDS=16 \
 SWAP_IO_BACKEND=kernel \
 SWAP_RESTORE_STYLE=group \
 SWAP_CONTROL_STYLE=group \
+SWAP_SCHEDULE_STYLE=barrier \
+SWAP_PREFETCH_LEAD_MS=750 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
 SWAP_TRACE_PROFILE=kv_lifecycle_counts \
 SWAP_TRIALS='1 2 3' \
 SWAP_MODES='independent coordinated resident' \
@@ -468,13 +676,13 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 
 **Question (RQ21).** With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?
 
-**Finding.** Coordinated workload was 29.0% longer than independent (median paired change). Coordinated workload was 45.6% longer than resident (median paired change). 50 restores were observed ready after their tool deadline.
+**Finding.** Coordinated workload was 29.0% longer than independent (median paired change). Coordinated workload was 45.6% longer than resident (median paired change). 50 coordinated replays had KV become ready after their tool deadline.
 
-**Setup.** 20 separate sessions; 4 groups of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; individual control calls; kv_lifecycle_counts tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control, padding and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+**Setup.** 20 separate sessions; 4 labels of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD group rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; individual control calls; kv_lifecycle_counts tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
 
 **Key measurements**
 
-| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | Session restores ready on time / late | Minimum GPU prefix reuse |
+| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | KV ready on time / late | Minimum GPU prefix reuse |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 / independent | 7.455 | 1143.2 | 2278.3 | 68.469 | 68.593 | 0.124 | 0.000 | 0 | 0 / 0 | 0.0% |
 | 1 / coordinated | 9.613 | 1664.6 | 2434.5 | 33.818 | 99.874 | 66.056 | 18.269 | 5 | 0 / 50 | 99.0% |
@@ -485,7 +693,7 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 | 1 / independent | +29.0% | +521.4 | 0 / 20 |
 | 1 / resident | +45.6% | +932.0 | 0 / 20 |
 
-Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. Ready on time / late counts session restores, not batches. The modes deliberately use different ready-time patterns; this is an optimistic comparison, not a production fairness test.
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
 
 | Trial / mode | Excluded setup (s) | Measured control calls | Total control wall time (s) | Native CUDA-stream intervals / total (s) | Explicit restored / released KV tokens |
 | --- | --- | --- | --- | --- | --- |
@@ -544,6 +752,10 @@ SWAP_TOOL_WORDS=16 \
 SWAP_IO_BACKEND=kernel \
 SWAP_RESTORE_STYLE=group \
 SWAP_CONTROL_STYLE=individual \
+SWAP_SCHEDULE_STYLE=barrier \
+SWAP_PREFETCH_LEAD_MS=750 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
 SWAP_TRACE_PROFILE=kv_lifecycle_counts \
 SWAP_TRIALS=1 \
 SWAP_MODES='independent coordinated resident' \
@@ -560,19 +772,19 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 
 **Question (RQ21).** With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?
 
-**Finding.** 50 restores were observed ready after their tool deadline.
+**Finding.** 50 coordinated replays had KV become ready after their tool deadline.
 
-**Setup.** 20 separate sessions; 4 groups of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control, padding and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+**Setup.** 20 separate sessions; 4 labels of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD group rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; group restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
 
 **Key measurements**
 
-| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | Session restores ready on time / late | Minimum GPU prefix reuse |
+| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | KV ready on time / late | Minimum GPU prefix reuse |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 / coordinated | 27.075 | 6828.2 | 8876.4 | 41.468 | 409.692 | 368.224 | 7.109 | 5 | 0 / 50 | 99.0% |
 
 No comparable measurements recorded.
 
-Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. Ready on time / late counts session restores, not batches. The modes deliberately use different ready-time patterns; this is an optimistic comparison, not a production fairness test.
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
 
 | Trial / mode | Excluded setup (s) | Measured control calls | Total control wall time (s) | Native CUDA-stream intervals / total (s) | Explicit restored / released KV tokens |
 | --- | --- | --- | --- | --- | --- |
@@ -629,6 +841,10 @@ SWAP_TOOL_WORDS=16 \
 SWAP_IO_BACKEND=kernel \
 SWAP_RESTORE_STYLE=group \
 SWAP_CONTROL_STYLE=individual \
+SWAP_SCHEDULE_STYLE=barrier \
+SWAP_PREFETCH_LEAD_MS=750 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
 SWAP_TRACE_PROFILE=kv_lifecycle_lean \
 SWAP_TRIALS=1 \
 SWAP_MODES=coordinated \
@@ -645,13 +861,13 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 
 **Question (RQ21).** With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?
 
-**Finding.** Coordinated workload was 14.3% longer than independent (median paired change). Coordinated workload was 287.1% longer than resident (median paired change). 50 restores were observed ready after their tool deadline.
+**Finding.** Coordinated workload was 14.3% longer than independent (median paired change). Coordinated workload was 287.1% longer than resident (median paired change). 50 coordinated replays had KV become ready after their tool deadline.
 
-**Setup.** 20 separate sessions; 4 groups of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; serial restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control, padding and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+**Setup.** 20 separate sessions; 4 labels of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD group rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 8 output tokens per replay; native kernel KV transfer; serial restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: nvidia_a10g_24gb; backend version: 0.5.10.post1. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
 
 **Key measurements**
 
-| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | Session restores ready on time / late | Minimum GPU prefix reuse |
+| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | KV ready on time / late | Minimum GPU prefix reuse |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 / independent | 24.125 | 5643.7 | 9810.9 | 338.483 | 338.620 | 0.137 | 0.000 | 0 | 0 / 0 | 0.0% |
 | 1 / coordinated | 27.575 | 7012.3 | 8885.5 | 41.471 | 420.737 | 379.266 | 7.128 | 50 | 0 / 50 | 99.0% |
@@ -662,7 +878,7 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 | 1 / independent | +14.3% | +1368.6 | 2 / 18 |
 | 1 / resident | +287.1% | +6095.9 | 0 / 20 |
 
-Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. Ready on time / late counts session restores, not batches. The modes deliberately use different ready-time patterns; this is an optimistic comparison, not a production fairness test.
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
 
 | Trial / mode | Excluded setup (s) | Measured control calls | Total control wall time (s) | Native CUDA-stream intervals / total (s) | Explicit restored / released KV tokens |
 | --- | --- | --- | --- | --- | --- |
@@ -721,6 +937,10 @@ SWAP_TOOL_WORDS=16 \
 SWAP_IO_BACKEND=kernel \
 SWAP_RESTORE_STYLE=serial \
 SWAP_CONTROL_STYLE=individual \
+SWAP_SCHEDULE_STYLE=barrier \
+SWAP_PREFETCH_LEAD_MS=750 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
 SWAP_TRACE_PROFILE=kv_lifecycle_lean \
 SWAP_TRIALS=1 \
 SWAP_MODES='independent coordinated resident' \
@@ -737,13 +957,13 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 
 **Question (RQ21).** With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?
 
-**Finding.** Coordinated workload was 30.4% longer than independent (median paired change). Coordinated workload was 243.3% longer than resident (median paired change). 50 restores were observed ready after their tool deadline.
+**Finding.** Coordinated workload was 30.4% longer than independent (median paired change). Coordinated workload was 243.3% longer than resident (median paired change). 50 coordinated replays had KV become ready after their tool deadline.
 
-**Setup.** 20 separate sessions; 4 groups of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 32 output tokens per replay; native direct KV transfer; serial restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: see manifest; backend version: see runtime record. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control, padding and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+**Setup.** 20 separate sessions; 4 labels of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD group rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 32 output tokens per replay; native direct KV transfer; serial restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: see manifest; backend version: see runtime record. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
 
 **Key measurements**
 
-| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | Session restores ready on time / late | Minimum GPU prefix reuse |
+| Trial / mode | Whole workload (s) | Due to first token mean (ms) | Due to first token p95 (ms) | Total TTFT (s) | Total due delay (s) | Submission waiting total (s) | Scheduled slot padding sum (s) | Explicit native load batches | KV ready on time / late | Minimum GPU prefix reuse |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 / independent | 22.547 | 4781.6 | 9180.9 | 286.735 | 286.894 | 0.159 | 0.000 | 0 | 0 / 0 | 0.0% |
 | 1 / coordinated | 29.396 | 7393.6 | 9560.6 | 40.828 | 443.616 | 402.788 | 0.042 | 50 | 0 / 50 | 99.0% |
@@ -754,7 +974,7 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 | 1 / independent | +30.4% | +2612.0 | 0 / 20 |
 | 1 / resident | +243.3% | +6292.4 | 0 / 20 |
 
-Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. Ready on time / late counts session restores, not batches. The modes deliberately use different ready-time patterns; this is an optimistic comparison, not a production fairness test.
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
 
 | Trial / mode | Excluded setup (s) | Measured control calls | Total control wall time (s) | Native CUDA-stream intervals / total (s) | Explicit restored / released KV tokens |
 | --- | --- | --- | --- | --- | --- |
@@ -813,6 +1033,10 @@ SWAP_TOOL_WORDS=16 \
 SWAP_IO_BACKEND=direct \
 SWAP_RESTORE_STYLE=serial \
 SWAP_CONTROL_STYLE=individual \
+SWAP_SCHEDULE_STYLE=barrier \
+SWAP_PREFETCH_LEAD_MS=750 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
 SWAP_TRACE_PROFILE=kv_lifecycle_lean \
 SWAP_TRIALS=1 \
 SWAP_MODES='independent coordinated resident' \
@@ -831,7 +1055,7 @@ bash infra/container/run_work_audit_coordinated_swap.sh
 
 **Finding.** Evidence incomplete; no performance conclusion. trial1_coordinated: RuntimeError: Restored-prefix diagnostic output mismatch
 
-**Setup.** 20 separate sessions; 4 groups of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 32 output tokens per replay; native direct KV transfer; serial restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: see manifest; backend version: see runtime record. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control, padding and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
+**Setup.** 20 separate sessions; 4 labels of 5; 3 tool rounds; 1,000 ms waits; paired AB/CD group rotation; restricted GPU/8 GiB host KV; 8192 initial prompt words and 16 new tool words per round; GPU token caps 110592 restricted / 262144 resident; 32 output tokens per replay; native direct KV transfer; serial restore submission; individual control calls; kv_lifecycle_lean tracing; no storage; CUDA graphs and overlap scheduling on. Model: Qwen/Qwen2.5-1.5B-Instruct; hardware: see manifest; backend version: see runtime record. Initial setup is excluded. The restricted KV budget is imposed on the same GPU, not a claim that all its physical memory was exhausted. Setup is excluded; real swap, control and late-submission time count. The resident reference has a larger GPU cache. Contexts are not merged.
 
 **Key measurements**
 
@@ -839,7 +1063,7 @@ No comparable measurements recorded.
 
 No comparable measurements recorded.
 
-Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. Ready on time / late counts session restores, not batches. The modes deliberately use different ready-time patterns; this is an optimistic comparison, not a production fairness test.
+Negative changes mean coordinated finished sooner or had less delay. Session finish times start at the measured workload start, not initial setup. TTFT, due delay, submission waiting and scheduled slot padding totals add time across requests; they are not elapsed workload time. Scheduled padding is the gap from each reply to its planned slot boundary, including the last slot's unused padding; whole-workload time stops at the actual last reply. Explicit load batches count prepare controls, not automatic loads in the independent mode. KV ready on time / late counts every coordinated replay in the session-pipeline setup; older barrier runs count only explicit restores. The modes deliberately use different residency policies; this is an optimistic comparison, not a production fairness test.
 
 No comparable measurements recorded.
 
@@ -873,6 +1097,10 @@ SWAP_TOOL_WORDS=16 \
 SWAP_IO_BACKEND=direct \
 SWAP_RESTORE_STYLE=serial \
 SWAP_CONTROL_STYLE=individual \
+SWAP_SCHEDULE_STYLE=barrier \
+SWAP_PREFETCH_LEAD_MS=750 \
+SWAP_HEADROOM_SESSIONS=2 \
+SWAP_MAX_INFLIGHT=8 \
 SWAP_TRACE_PROFILE=kv_lifecycle_lean \
 SWAP_TRIALS=1 \
 SWAP_MODES='independent coordinated resident' \

@@ -2,28 +2,36 @@
 
 ## Question
 
-Can perfectly coordinated tool waits let twenty independent sessions behave
-nearly like GPU-resident sessions, even though their combined KV exceeds the
-GPU cache budget? This is an optimistic proof of concept in the KV Lifecycle
-Audit lane, not a new lane and not a shared-context/composite agent.
+Can advance knowledge of tool-return times let twenty independent sessions
+behave nearly like GPU-resident sessions, even though their combined KV exceeds
+the GPU cache budget? The current setup prepares and releases individual
+sessions without a group barrier. This is an optimistic proof of concept in the
+KV Lifecycle Audit lane, not a shared-context/composite agent.
 
 ## Fixed Setup
 
-- Twenty separate contexts, four groups of five: A/B and C/D alternate.
-  `swap-s00` through `swap-s04` are A, `s05` through `s09` are B,
-  `s10` through `s14` are C, and `s15` through `s19` are D.
-  The runner records pair 0 for A/B and pair 1 for C/D; contexts remain separate.
-- Every tool wait lasts 1,000 ms. A paired service slot is at least 1,000 ms.
-  Faster replies wait until the slot boundary; this padding is recorded.
-  The workload ends at the last reply, without waiting out its final slot.
-  The raw scheduled-padding total includes that final slot's unused padding;
-  it is a schedule diagnostic, not an additional elapsed-time measurement.
+- Twenty separate contexts. The A/B/C/D labels remain only for identification;
+  they do not impose group turns or shared context.
+- Every session has its own 1,000 ms tool wait. Initial arrivals are spread
+  evenly across one second. Each later replay becomes due exactly 1,000 ms
+  after that session's previous reply finishes.
+- All three modes use the same individual session clocks and the same limit of
+  eight in-flight requests. No mode waits for a group boundary.
+- Coordinated mode starts preparing a session 750 ms before its known return.
+  It protects two session-sized regions of free GPU KV space. If more room is
+  needed, it releases the safe idle resident session whose next return is
+  furthest away. A prepared session is protected until its replay is submitted.
+- Releases and restores run as asynchronous client tasks while unrelated model
+  requests may remain active. Native completion and full GPU residency must be
+  confirmed before the prepared replay is submitted. Late preparation remains
+  visible as tool-due-to-first-token delay.
 - Forty replays per session; first validate three rounds using all twenty.
 - Start near 8,192 tokens per session; append sixteen synthetic tool-result
   words each round; generate exactly eight tokens per replay in the final run. Actual token counts
   are recorded. Generated answers do not determine the next synthetic prompt.
 - Restricted GPU cache: 110,592 tokens. Resident reference: 262,144 tokens.
-  Each pair must fit the restricted cap; all twenty must exceed it.
+  Eight active histories plus two preparation regions must fit the restricted
+  cap; all twenty histories must exceed it.
 - Host cache: 8 GiB; native write-through backups; no storage tier.
 - Pinned SGLang 0.5.10.post1/v0510 in Docker, A10G, Qwen2.5-1.5B-Instruct.
   CUDA graphs and overlap scheduling are both enabled. Count-only lifecycle tracing;
@@ -33,6 +41,11 @@ The restricted limit is an imposed KV-pool budget, not all physical GPU memory.
 The resident control deliberately raises that budget on the same GPU. This
 tests hiding CPU spill under controlled capacity, not physical out-of-memory
 behavior of a larger production model.
+
+The older barrier setup used paired AB/CD turns and restored ten sessions only
+after the previous ten had all finished. Select it only with
+`SWAP_SCHEDULE_STYLE=barrier` when reproducing the completed reference below.
+It is retained as historical evidence, not the default performance design.
 
 The initial 32-output-token, direct-transfer pilot exceeded the one-second
 service window even in the resident control. Keep it as calibration evidence,
@@ -56,16 +69,14 @@ these as different configurations, not interchangeable repeats.
 
 | Mode | What Happens |
 | --- | --- |
-| Independent | Stagger initial readiness within one second. Each session subsequently waits 1,000 ms after its own reply. SGLang manages the restricted cache normally. |
-| Coordinated | Prime separate host-backed prefixes, prepare the first pair, then alternate pairs. After a pair finishes useful work, release its unlocked, host-backed KV and restore the next pair through native HiCache. Transfers can use the remaining slot time. |
-| Resident | Same ideal paired schedule, with enough GPU KV capacity for all histories. Check residency before and after measurement and prefix reuse on every replay. |
+| Independent | Individual session clocks and restricted GPU KV. SGLang manages cache residency normally. |
+| Coordinated | The same clocks and restricted capacity. Prepare each session before its return; release only safe idle, later-due sessions when preparation needs room. |
+| Resident | The same clocks and request limit, with enough GPU KV capacity to retain every history. |
 
-Initial priming and arranging the pairs are excluded from the measured window,
-as an explicit optimistic assumption; their duration is saved separately.
-All control calls, transfers, late submissions and slot padding during the
-measured window count. Original tool deadlines are never replaced by restore
-completion times. This is not a causal comparison of grouping alone: arrival
-patterns, concurrency and residency policy change together.
+Initial priming and preparing the first resident set are excluded from the
+measured window as an explicit optimistic assumption; their duration is saved
+separately. Every later control call, transfer and late submission counts.
+Original tool deadlines are never replaced by restore completion times.
 
 ## Safety and Evidence
 
@@ -89,11 +100,12 @@ transfer. Native trace joins must show every replay and at least 90% GPU-prefix
 reuse in coordinated/resident modes; incomplete evidence blocks conclusions.
 
 Record workload duration, due-to-first-token mean/p95/total, total TTFT,
-submission waiting, alignment padding, per-session completion, restored and
-released tokens, and restores before/after their due times. Compare all three
-trials individually. A coordinated workload within 5% of the resident reference
-is the initial timing target, not a claim of equivalent latency or production
-performance. Report first-token delays and late restores separately.
+submission waiting, per-session completion, restored and released tokens,
+whether every replay's KV was ready by its tool deadline, and whether each
+restore began while model requests were active. Compare all three trials
+individually. A clean initial win requires coordinated mode to beat independent
+mode, finish within 5% of resident mode, and avoid materially worsening the
+tail latency or completion time of any session.
 
 ## Run on the GPU Host
 
@@ -101,6 +113,8 @@ performance. Report first-token delays and late restores separately.
 SWAP_RUN_ID=coordinated_swap_pilot \
 SWAP_TURNS=3 SWAP_TRIALS=1 \
 SWAP_IO_BACKEND=kernel SWAP_DECODE_TOKENS=8 \
+SWAP_SCHEDULE_STYLE=session_pipeline \
+SWAP_PREFETCH_LEAD_MS=750 SWAP_HEADROOM_SESSIONS=2 SWAP_MAX_INFLIGHT=8 \
 bash infra/container/run_work_audit_coordinated_swap.sh
 ```
 
@@ -110,6 +124,8 @@ Only after the pilot passes:
 SWAP_RUN_ID=coordinated_swap_full \
 SWAP_TURNS=40 SWAP_TRIALS="1 2 3" \
 SWAP_IO_BACKEND=kernel SWAP_DECODE_TOKENS=8 \
+SWAP_SCHEDULE_STYLE=session_pipeline \
+SWAP_PREFETCH_LEAD_MS=750 SWAP_HEADROOM_SESSIONS=2 SWAP_MAX_INFLIGHT=8 \
 bash infra/container/run_work_audit_coordinated_swap.sh
 ```
 
@@ -136,7 +152,8 @@ the coordinated case appear successful.
 
 ## Completed Reference
 
-`coordinated_swap_count_full_20261008` completed all nine arms, 800 replays each.
+`coordinated_swap_count_full_20261008` used the older `barrier` schedule and
+completed all nine arms, 800 replays each.
 The native prefix checks passed, with at least 98.9% GPU prefix reuse in the
 coordinated and resident modes. The paired handovers were not hidden: each
 coordinated arm had 790 session restores observed ready after its deadline.

@@ -79,12 +79,19 @@ def analyze(root: Path, trials: list[int], modes: list[str]) -> dict:
                          for member in c["result"].get("members", []) if member.get("ok")]
             loads = [c for c in case["controls"] if c["action"] in {"prepare", "prepare_group"} and c["result"].get("load_id")]
             measured_loads = [c for c in loads if c["sent_ns"] >= case["started_ns"]]
-            readiness = []
+            restore_readiness = []
+            prefetch_readiness = []
             with (folder / "harness_events.jsonl").open() as stream:
                 for line in stream:
                     row = json.loads(line)
                     if row.get("event") == "coordinated.restore_ready" and row["slot"] >= 0:
-                        readiness.append(row["ready_ns"] <= row["tool_due_ns"])
+                        restore_readiness.append(row["ready_ns"] <= row["tool_due_ns"])
+                    if row.get("event") == "coordinated.prefetch_ready":
+                        prefetch_readiness.append(row)
+            readiness_count = len(prefetch_readiness) if prefetch_readiness else len(restore_readiness)
+            ready_margins = [(r["tool_due_ns"] - r["ready_ns"]) / 1e6 for r in prefetch_readiness]
+            on_time = (sum(r["ready_ns"] <= r["tool_due_ns"] for r in prefetch_readiness)
+                       if prefetch_readiness else sum(restore_readiness))
             arms.append({"trial": trial, "mode": mode, "started_ns": case["started_ns"],
                          "config": case["config"], **case["metrics"],
                          "setup_ms": case["setup_ms"], **measured_controls(case),
@@ -94,7 +101,14 @@ def analyze(root: Path, trials: list[int], modes: list[str]) -> dict:
                          "measured_loaded_tokens": sum(c["result"]["loaded_tokens"] for c in measured_loads),
                          "measured_released_tokens": sum(c["result"]["evicted_tokens"] for c in releases
                                                          if c["sent_ns"] >= case["started_ns"]),
-                         "restores_before_due": sum(readiness), "restores_after_due": len(readiness) - sum(readiness),
+                         "restores_before_due": sum(restore_readiness),
+                         "restores_after_due": len(restore_readiness) - sum(restore_readiness),
+                         "kv_ready_before_due": on_time,
+                         "kv_ready_after_due": readiness_count - on_time,
+                         "mean_kv_ready_margin_ms": (sum(ready_margins) / len(ready_margins)
+                                                     if ready_margins else None),
+                         "already_resident_replays": sum(
+                             r.get("source") == "already_resident" for r in prefetch_readiness),
                          "correctness": case.get("correctness"),
                          "per_session_completion_ms": {
                              session: (max(r["request_end_ns"] for r in replays if r["session_id"] == session)

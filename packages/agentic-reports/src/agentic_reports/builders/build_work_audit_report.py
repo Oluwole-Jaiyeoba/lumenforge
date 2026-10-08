@@ -252,9 +252,11 @@ def _links(path: Path, summary: dict) -> str:
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
         from .coordinated_swap_report import setup
-        return ("20 sessions; ideal paired CPU/GPU swaps",
+        pipeline = (summary.get("configuration") or {}).get("schedule_style") == "session_pipeline"
+        return (("20 sessions; session-level advance KV loading" if pipeline
+                 else "20 sessions; ideal paired CPU/GPU swaps"),
                 "<strong>How it ran.</strong> " + _esc(setup(summary)) +
-                " Setup is excluded; real swap, control, padding and late-submission time count. "
+                " Setup is excluded; real swap, control and late-submission time count. "
                 "The resident reference has a larger GPU cache. Contexts are not merged.")
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
@@ -1503,8 +1505,11 @@ def _run_finding(summary: dict) -> str:
 
 def _kind(summary: dict) -> str:
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
-        rounds = (summary.get("configuration") or {}).get("turns", 0)
-        return "Coordinated CPU/GPU swaps" + (" (calibration)" if rounds < 40 else "")
+        config = summary.get("configuration") or {}
+        rounds = config.get("turns", 0)
+        name = ("Session-level coordinated KV" if config.get("schedule_style") == "session_pipeline"
+                else "Coordinated CPU/GPU swaps")
+        return name + (" (calibration)" if rounds < 40 else "")
     schema = summary.get("schema")
     names = {
         "agentic_work_audit.kv_load_attribution.v1": "Busy workload · KV-load attribution",

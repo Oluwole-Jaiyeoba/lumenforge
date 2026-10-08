@@ -7,6 +7,9 @@ RUN_ID="${SWAP_RUN_ID:-coordinated_swap_$(date +%Y%m%d_%H%M%S)}"
 RUN_ROOT="${DIRECT_ROOT}/artifacts/results/work_audit/${RUN_ID}"
 MODEL="${SWAP_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 PROFILE="${SWAP_TRACE_PROFILE:-kv_lifecycle_counts}"
+SCHEDULE_STYLE="${SWAP_SCHEDULE_STYLE:-session_pipeline}"
+RESEARCH_QUESTION_ID="RQ22"
+[[ "${SCHEDULE_STYLE}" == "barrier" ]] && RESEARCH_QUESTION_ID="RQ21"
 MODEL_CACHE="${AGENTIC_MODEL_CACHE:-${HOME}/.cache/huggingface/hub}"
 SERVER_PID=""
 CONTAINER_CID=""
@@ -37,7 +40,7 @@ export SGLANG_DOCKER_IMAGE="${SGLANG_DOCKER_IMAGE:-agentic-sglang-standard:0.5.1
 python3 "${ROOT}/scripts/create_run_manifest.py" --out "${RUN_ROOT}/run_manifest.json" \
   --run-id "${RUN_ID}" --experiment coordinated_cpu_gpu_swap --model "${MODEL}" \
   --hardware-profile nvidia_a10g_24gb --runtime-contract "${BACKEND_RUNTIME_CONTRACT_OUT}" \
-  --workload-json '{"research_question_id":"RQ21","frontend_priority":"equal","storage":false,"cuda_graph":true,"overlap_schedule":true}' \
+  --workload-json "{\"research_question_id\":\"${RESEARCH_QUESTION_ID}\",\"frontend_priority\":\"equal\",\"storage\":false,\"cuda_graph\":true,\"overlap_schedule\":true}" \
   --instrumentation "${PROFILE}" --completion-status created
 sha256sum "${ROOT}/packages/agentic-experiments/src/agentic_experiments/runners/"*coordinated_swap.py \
   "${ROOT}/packages/agentic-backend-sglang/src/agentic_backends/coordinated_audit.py" \
@@ -106,6 +109,10 @@ for trial in "${trials[@]}"; do
       --io-backend "${SWAP_IO_BACKEND:-direct}" \
       --restore-style "${SWAP_RESTORE_STYLE:-group}" \
       --control-style "${SWAP_CONTROL_STYLE:-group}" \
+      --schedule-style "${SCHEDULE_STYLE}" \
+      --prefetch-lead-ms "${SWAP_PREFETCH_LEAD_MS:-750}" \
+      --headroom-sessions "${SWAP_HEADROOM_SESSIONS:-2}" \
+      --max-inflight "${SWAP_MAX_INFLIGHT:-8}" \
       --trace-profile "${PROFILE}" \
       --resident-gpu-tokens "${SWAP_RESIDENT_TOKENS:-262144}" \
       --restricted-gpu-tokens "${SWAP_GPU_TOKENS:-110592}"

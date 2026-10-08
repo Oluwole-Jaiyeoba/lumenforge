@@ -12,7 +12,7 @@ from pathlib import Path
 import httpx
 
 from agentic_backends.coordinated_audit import validated_runtime_settings
-from agentic_controller.coordinated_swap import PairRotation
+from agentic_controller.coordinated_swap import PairRotation, SessionPipelinePolicy
 from .run_kv_movement_interference import context, make_prompt, prompt_hash, write_jsonl
 from .run_sustained_decode_kv_overlap import stream_decode
 
@@ -44,11 +44,13 @@ def initial_prompt(index: int, tokens: int) -> str:
 
 async def run(args: argparse.Namespace) -> dict:
     rotation = PairRotation(args.sessions, args.wait_ms)
+    pipeline = SessionPipelinePolicy(args.sessions, args.wait_ms, args.prefetch_lead_ms,
+                                     args.headroom_sessions, args.max_inflight)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     events = args.out_dir / "harness_events.jsonl"
     rows: list[dict] = []
     controls: list[dict] = []
-    sessions = [{"id": f"swap-s{index:02d}", "pair": rotation.pair(index),
+    sessions = [{"id": f"swap-s{index:02d}", "index": index, "pair": rotation.pair(index),
                  "prompt": initial_prompt(index, args.initial_tokens)}
                 for index in range(args.sessions)]
     setup_started_ns = time.time_ns()
@@ -81,11 +83,13 @@ async def run(args: argparse.Namespace) -> dict:
                 raise RuntimeError(f"Prefix disappeared from both cache tiers: {value}")
             return value
 
-        async def release(session: dict) -> dict:
+        async def release(session: dict, *, verify: bool = True) -> dict:
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:
                 value = await control(session, "release_prefix")
                 if value.get("ok"):
+                    if not verify:
+                        return value
                     state = await residency(session)
                     if state["gpu_tokens"] > 64 or state["host_tokens"] < state["cached_tokens"]:
                         raise RuntimeError(f"Release did not leave host-backed private KV: {state}")
@@ -95,8 +99,8 @@ async def run(args: argparse.Namespace) -> dict:
                 await asyncio.sleep(.02)
             raise TimeoutError(f"Backup/release timeout for {session['id']}")
 
-        async def restore(session: dict) -> dict:
-            before = await residency(session)
+        async def restore(session: dict, before: dict | None = None) -> dict:
+            before = before or await residency(session)
             if before["gpu_tokens"] == before["cached_tokens"] and not before["pending_loads"]:
                 return {"already_resident": True, "ready_ns": time.time_ns(), "loaded_tokens": 0}
             missing = before["cached_tokens"] - before["gpu_tokens"]
@@ -178,6 +182,151 @@ async def run(args: argparse.Namespace) -> dict:
                                       "slot": slot, "tool_due_ns": due, "ready_ns": time.time_ns(),
                                       "load_id": value.get("load_id"), "grouped": True})
 
+        async def run_session_pipeline(started: int, initially_resident: set[str],
+                                       estimated_session_tokens: int) -> None:
+            """Run individual tool clocks while preparing KV ahead of each replay."""
+            memory_lock = asyncio.Lock()
+            capacity_changed = asyncio.Event()
+            capacity_changed.set()
+            request_slots = asyncio.Semaphore(args.max_inflight)
+            headroom_tokens = estimated_session_tokens * args.headroom_sessions
+            states = {session["id"]: {
+                "session": session,
+                "due_ns": pipeline.initial_due_ns(started, session["index"]),
+                "resident": session["id"] in initially_resident,
+                "active": False,
+                "loading": False,
+                "claimed": False,
+                "completed": False,
+                "cached_tokens": session.get("cached_tokens", estimated_session_tokens),
+            } for session in sessions}
+            result["pipeline"] = {
+                "prefetch_lead_ms": args.prefetch_lead_ms,
+                "headroom_sessions": args.headroom_sessions,
+                "headroom_tokens": headroom_tokens,
+                "max_inflight": args.max_inflight,
+                "initially_resident": sorted(initially_resident),
+                "policy": "earliest-due preparation; evict safely idle farthest-due session",
+            }
+
+            async def ensure_prepared(state: dict, turn: int) -> None:
+                session = state["session"]
+                due_ns = state["due_ns"]
+
+                async def release_victim(victim: dict) -> None:
+                    victim["loading"] = True
+                    released = await release(victim["session"], verify=False)
+                    victim["resident"] = False
+                    victim["loading"] = False
+                    capacity_changed.set()
+                    write_jsonl(events, {
+                        "event": "coordinated.session_released",
+                        "session_id": victim["session"]["id"],
+                        "for_session_id": session["id"], "turn": turn,
+                        "victim_due_ns": victim["due_ns"], "incoming_due_ns": due_ns,
+                        "released_ns": time.time_ns(),
+                        "active_sessions_at_release": sum(s["active"] for s in states.values()),
+                        "evicted_tokens": released.get("evicted_tokens", 0),
+                    })
+
+                def mark_ready(source: str, loaded_tokens: int = 0) -> None:
+                    state["loading"] = False
+                    state["claimed"] = True
+                    capacity_changed.set()
+                    write_jsonl(events, {
+                        "event": "coordinated.prefetch_ready", "session_id": session["id"],
+                        "turn": turn, "tool_due_ns": due_ns, "ready_ns": time.time_ns(),
+                        "source": source, "loaded_tokens": loaded_tokens,
+                    })
+
+                while True:
+                    should_wait = False
+                    async with memory_lock:
+                        state["loading"] = True
+                        if state["resident"]:
+                            mark_ready("already_resident")
+                            return
+                        projected = (sum(s["cached_tokens"] for s in states.values() if s["resident"])
+                                     + state["cached_tokens"] + headroom_tokens)
+                        if projected > args.restricted_gpu_tokens:
+                            victim = pipeline.victim(states.values(), due_ns)
+                            if victim is None:
+                                state["loading"] = False
+                                capacity_changed.clear()
+                                should_wait = True
+                            else:
+                                await release_victim(victim)
+                                continue
+                        if not should_wait:
+                            before = await residency(session)
+                            state["resident"] = (before["gpu_tokens"] == before["cached_tokens"]
+                                                 and not before["pending_loads"])
+                            if state["resident"]:
+                                mark_ready("already_resident")
+                                return
+                            missing = before["cached_tokens"] - before["gpu_tokens"]
+                            if before["gpu_free_tokens"] >= missing + headroom_tokens:
+                                load_requested_ns = time.time_ns()
+                                active_at_request = sum(s["active"] for s in states.values())
+                                ready = await restore(session, before)
+                                state["resident"] = True
+                                state["loading"] = False
+                                state["claimed"] = True
+                                capacity_changed.set()
+                                record = {
+                                    "event": "coordinated.restore_ready", "session_id": session["id"],
+                                    "slot": turn, "turn": turn, "tool_due_ns": due_ns,
+                                    "source": "session_pipeline", "grouped": False, **ready,
+                                    "load_requested_ns": load_requested_ns,
+                                    "active_sessions_at_request": active_at_request,
+                                }
+                                write_jsonl(events, record)
+                                write_jsonl(events, {**record, "event": "coordinated.prefetch_ready"})
+                                return
+                            victim = pipeline.victim(states.values(), due_ns)
+                            if victim is not None:
+                                await release_victim(victim)
+                                continue
+                            state["loading"] = False
+                            capacity_changed.clear()
+                            should_wait = True
+                    if should_wait:
+                        try:
+                            await asyncio.wait_for(capacity_changed.wait(), timeout=.1)
+                        except TimeoutError:
+                            pass
+
+            async def session_loop(state: dict) -> None:
+                session = state["session"]
+                for turn in range(1, args.turns + 1):
+                    due_ns = state["due_ns"]
+                    await sleep_until_ns(pipeline.prefetch_at_ns(due_ns))
+                    prepared = asyncio.create_task(ensure_prepared(state, turn))
+                    await sleep_until_ns(due_ns)
+                    async with request_slots:
+                        await prepared
+                        async with memory_lock:
+                            # A claimed prefix cannot be selected as a victim. Mark it
+                            # active before giving up that claim.
+                            state["active"] = True
+                            state["claimed"] = False
+                        try:
+                            row = await request(session, turn, due_ns)
+                        except Exception:
+                            async with memory_lock:
+                                state["active"] = False
+                                capacity_changed.set()
+                            raise
+                        async with memory_lock:
+                            state["active"] = False
+                            state["cached_tokens"] = row["prompt_tokens"]
+                            state["due_ns"] = (pipeline.next_tool_due_ns(row["request_end_ns"])
+                                               if turn < args.turns else 2**63 - 1)
+                            capacity_changed.set()
+                state["completed"] = True
+
+            await asyncio.gather(*(session_loop(state) for state in states.values()))
+
         async def request(session: dict, turn: int, due_ns: int, prime: bool = False) -> dict:
             if not prime:
                 session["prompt"] += f"\nTool result {turn}: " + "context " * args.tool_words
@@ -192,6 +341,7 @@ async def run(args: argparse.Namespace) -> dict:
                 raise RuntimeError(f"Missing response/usage: {request_id}")
             if not prime and response["completion_tokens"] != args.decode_tokens:
                 raise RuntimeError(f"Unequal output work: {request_id}: {response['completion_tokens']}")
+            session["cached_tokens"] = response["usage"]["prompt_tokens"]
             row = {"event": "coordinated.replay", "request_id": request_id, "session_id": session["id"],
                    "pair": session["pair"], "turn": turn, "tool_due_ns": due_ns,
                    "request_start_ns": response["request_start_ns"],
@@ -243,14 +393,29 @@ async def run(args: argparse.Namespace) -> dict:
             initial_tokens = sum(p["prompt_tokens"] for p in primes)
             if initial_tokens <= args.restricted_gpu_tokens:
                 raise RuntimeError("All twenty prefixes fit: this does not test CPU spill")
-            peak_pair = (max(p["prompt_tokens"] for p in primes)
-                         + args.turns * (args.tool_words + 12) + args.decode_tokens) * args.sessions // 2
-            if peak_pair > args.restricted_gpu_tokens:
+            estimated_session_tokens = (max(p["prompt_tokens"] for p in primes)
+                                        + args.turns * (args.tool_words + 12) + args.decode_tokens)
+            peak_pair = estimated_session_tokens * args.sessions // 2
+            if args.schedule_style == "barrier" and peak_pair > args.restricted_gpu_tokens:
                 raise RuntimeError(f"Pair needs approximately {peak_pair} tokens, over restricted cap")
+            if (args.schedule_style == "session_pipeline"
+                    and estimated_session_tokens * (args.max_inflight + args.headroom_sessions)
+                    > args.restricted_gpu_tokens):
+                raise RuntimeError("Active sessions plus preparation headroom exceed restricted GPU capacity")
             result["prime_prompt_tokens"] = initial_tokens
             result["estimated_peak_pair_tokens"] = peak_pair
+            result["estimated_peak_session_tokens"] = estimated_session_tokens
+            initially_resident = set()
             if args.mode == "coordinated":
-                await restore_group(sessions[:args.sessions // 2], -1, time.time_ns() + 30_000_000_000)
+                if args.schedule_style == "barrier":
+                    initial = sessions[:args.sessions // 2]
+                else:
+                    reserve = estimated_session_tokens * args.headroom_sessions
+                    count = min(args.sessions, max(args.max_inflight,
+                        (args.restricted_gpu_tokens - reserve) // estimated_session_tokens))
+                    initial = sessions[:count]
+                await restore_group(initial, -1, time.time_ns() + 30_000_000_000)
+                initially_resident = {session["id"] for session in initial}
             elif args.mode == "resident":
                 for session in sessions:
                     state = await residency(session)
@@ -261,13 +426,21 @@ async def run(args: argparse.Namespace) -> dict:
             result["setup_ms"] = (started - setup_started_ns) / 1e6
             wait_ns = args.wait_ms * 1_000_000
 
-            if args.mode == "independent":
+            if args.schedule_style == "session_pipeline" and args.mode == "coordinated":
+                await run_session_pipeline(started, initially_resident, estimated_session_tokens)
+            elif args.mode in {"independent", "resident"} or args.schedule_style == "session_pipeline":
+                request_slots = (asyncio.Semaphore(args.max_inflight)
+                                 if args.schedule_style == "session_pipeline" else None)
                 async def independent_loop(session: dict, index: int) -> None:
-                    due = started + (index * wait_ns // args.sessions)
+                    due = pipeline.initial_due_ns(started, index)
                     for turn in range(1, args.turns + 1):
                         await sleep_until_ns(due)
-                        row = await request(session, turn, due)
-                        due = row["request_end_ns"] + wait_ns
+                        if request_slots is None:
+                            row = await request(session, turn, due)
+                        else:
+                            async with request_slots:
+                                row = await request(session, turn, due)
+                        due = pipeline.next_tool_due_ns(row["request_end_ns"])
                 await asyncio.gather(*(independent_loop(s, i) for i, s in enumerate(sessions)))
             else:
                 due = [started, started + wait_ns]
@@ -321,6 +494,11 @@ def main() -> None:
     parser.add_argument("--io-backend", choices=("direct", "kernel"), default="direct")
     parser.add_argument("--restore-style", choices=("serial", "group"), default="group")
     parser.add_argument("--control-style", choices=("individual", "group"), default="group")
+    parser.add_argument("--schedule-style", choices=("barrier", "session_pipeline"),
+                        default="session_pipeline")
+    parser.add_argument("--prefetch-lead-ms", type=int, default=750)
+    parser.add_argument("--headroom-sessions", type=int, default=2)
+    parser.add_argument("--max-inflight", type=int, default=8)
     parser.add_argument("--trace-profile", default="kv_lifecycle_counts")
     parser.add_argument("--trial", type=int, default=1)
     args = parser.parse_args()
