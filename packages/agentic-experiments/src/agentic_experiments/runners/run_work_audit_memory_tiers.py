@@ -146,6 +146,8 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             for session in sessions
         ))
         result["initial_setup_ms"] = (max(row["request_end_ns"] for row in initial_rows) - started_ns) / 1e6
+        workload_started_ns = time.time_ns()
+        result["measurement_started_ns"] = workload_started_ns
 
         for turn in range(1, args.turns + 1):
             previous_end_ns = max(session["turns"][-1]["request_end_ns"] for session in sessions)
@@ -189,7 +191,10 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     result.update({
         "status": "complete",
         "ended_ns": ended_ns,
-        "workflow_duration_ms": (max(row["request_end_ns"] for row in replay_rows) - started_ns) / 1e6,
+        "workflow_duration_ms": (
+            max(row["request_end_ns"] for row in replay_rows) -
+            (workload_started_ns if getattr(args, "exclude_initial_setup", False) else started_ns)
+        ) / 1e6,
         "replay_count": len(replay_rows),
         "metrics": {
             "mean_due_to_first_token_ms": statistics.mean(due_delays),
@@ -232,6 +237,7 @@ def main() -> None:
     parser.add_argument("--prime-tokens", type=int)
     parser.add_argument("--workload-namespace")
     parser.add_argument("--skip-residency-inspection", action="store_true")
+    parser.add_argument("--exclude-initial-setup", action="store_true")
     args = parser.parse_args()
     positive = (args.sessions, args.turns, args.initial_tokens, args.tool_words,
                 args.decode_tokens, args.wait_ms, args.max_inflight)

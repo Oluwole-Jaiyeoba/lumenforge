@@ -30,6 +30,7 @@ def workload_contract(args: argparse.Namespace) -> dict[str, object]:
         "workload_namespace": args.workload_namespace,
         "frontend_priority": "equal",
         "prefetch_before_tool_return": False,
+        "measurement_boundary": "after_initial_prefix_population",
     }
 
 
@@ -40,7 +41,7 @@ def fingerprint(value: dict[str, object]) -> str:
 
 async def run(args: argparse.Namespace) -> dict[str, object]:
     common = dict(
-        run_id=args.run_id, out=args.out, mode="host", pattern=args.pattern,
+        run_id=args.run_id, out=args.out, mode=args.mode, pattern=args.pattern,
         seed=args.seed, model=args.model, base_url=args.base_url,
         control_url=args.control_url, sessions=args.sessions, turns=args.turns,
         initial_tokens=args.initial_tokens, prime_tokens=args.prime_tokens,
@@ -52,7 +53,7 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
     if args.policy == "native_sglang":
         value = await native.run(argparse.Namespace(
             **common, inspect_lead_ms=0, max_inflight=args.sessions,
-            skip_residency_inspection=True,
+            skip_residency_inspection=True, exclude_initial_setup=True,
         ))
     else:
         value = await capacity.run(argparse.Namespace(
@@ -66,11 +67,19 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
     value["workload_contract"] = contract
     value["workload_fingerprint"] = fingerprint(contract)
     value["backend_contract"] = {
+        "tier_mode": args.mode,
         "gpu_token_limit": args.active_token_limit,
         "host_cache_gb": args.host_cache_gb,
+        "storage_enabled": args.storage_enabled,
+        "storage_backend": "file" if args.storage_enabled else None,
         "cuda_graph": True,
         "overlap_schedule": True,
         "trace_profile": args.trace_profile,
+    }
+    value["policy_contract"] = {
+        "policy": args.policy,
+        "max_active": args.sessions if args.policy == "native_sglang" else args.max_active,
+        "restore_before_admission": args.policy == "capacity_safe",
     }
     return value
 
@@ -80,6 +89,7 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--policy", choices=("native_sglang", "capacity_safe"), required=True)
+    parser.add_argument("--mode", choices=("resident", "host", "storage"), default="host")
     parser.add_argument("--pattern", choices=("spread", "burst"), required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--model", default="Qwen/Qwen2.5-Coder-7B-Instruct")
@@ -99,6 +109,7 @@ def main() -> None:
     parser.add_argument("--admission-token-margin", type=int, default=128)
     parser.add_argument("--page-size", type=int, default=64)
     parser.add_argument("--host-cache-gb", type=float, default=2.0)
+    parser.add_argument("--storage-enabled", action="store_true")
     parser.add_argument("--trace-profile", default="kv_lifecycle_lean")
     parser.add_argument("--workload-namespace", required=True)
     args = parser.parse_args()

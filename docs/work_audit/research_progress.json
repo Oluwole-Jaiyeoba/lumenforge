@@ -2,6 +2,21 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ26",
+      "short_question": "Does capacity-safe admission help equally across memory tiers?",
+      "significance": "research_pivot",
+      "pivot_title": "Admission policy depends on KV tier",
+      "manager_takeaway": "Capacity-safe admission was neutral for GPU-resident KV, 6-10% slower for CPU-tiered KV, and 20-24% faster for storage-tiered KV.",
+      "why_it_matters": "It shows that restricting active sessions is not automatically better. The protection paid off only when uncontrolled storage recovery was expensive enough to outweigh the controller's waiting and restoration overhead.",
+      "evidence_date_utc": "2026-10-09",
+      "question": "For identical workloads and exactly matched memory capacities within every policy pair, how does capacity-safe admission compare with native SGLang when KV is GPU-resident, CPU-tiered, or storage-tiered?",
+      "answer": "Twenty-four fresh-backend A10G arms completed: two seeds, spread and 75 ms burst tool returns, three memory tiers, and two policies. Every native/capacity-safe pair used the same Qwen2.5-Coder-7B model, six equal-priority sessions, ten one-second tool waits per session, request contents, return pattern, seed, GPU KV capacity, host-cache capacity, storage configuration, CUDA graphs, overlap scheduling, and lean trace profile. Initial prefix population was excluded from both policies. With spread returns, capacity-safe changed median whole-workload time from 26.450 to 26.473 seconds for GPU-resident KV (+0.1%), 33.272 to 35.406 seconds for CPU-tiered KV (+6.4%), and 80.672 to 61.440 seconds for storage-tiered KV (-23.8%). With burst returns, it changed workload time from 19.622 to 19.938 seconds (+1.6%), 31.664 to 34.908 seconds (+10.2%), and 80.699 to 64.717 seconds (-19.8%). Mean delay from tool return to first token followed the same direction: capacity-safe added about 9/55 ms in resident mode and 148/140 ms in CPU mode, but removed about 1119/904 ms in storage mode for spread/burst returns. All 24 arms passed the exposure and workload-equivalence gates with no capacity violation.",
+      "hypothesis": "Native SGLang already handles GPU-resident and CPU-tiered work efficiently enough that the fixed capacity-safe gate adds more waiting than it saves. Storage recovery is much more expensive; there, preventing too many sessions from recovering at once lowers backend pressure and improves both replay delay and whole-workload completion. A useful policy should therefore respond to recovery cost and memory tier instead of applying the same fixed admission limit everywhere.",
+      "unknown": "This compares complete policies, not admission logic alone: capacity-safe also releases, restores, and verifies KV before submission. Only two repetitions were run. The sessions and fixed tool waits are synthetic, generated text was not byte-compared, and file-backed storage may have been served partly by the operating-system page cache. Capacities are exactly matched inside every native/capacity-safe pair but intentionally differ across tiers so each tier is exercised. The result does not identify the best dynamic threshold or establish production performance.",
+      "evidence_run_ids": ["tier_policy_matrix_full_20261009"],
+      "related_run_ids": ["tier_policy_matrix_full_20261009"]
+    },
+    {
       "id": "RQ25",
       "short_question": "Does capacity-safe admission beat native SGLang on the same workload?",
       "significance": "research_pivot",
