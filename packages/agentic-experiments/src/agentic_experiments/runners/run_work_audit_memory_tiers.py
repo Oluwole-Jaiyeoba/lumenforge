@@ -58,9 +58,13 @@ async def inspect_residency(
 async def run(args: argparse.Namespace) -> dict[str, Any]:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     sessions = []
+    workload_namespace = getattr(args, "workload_namespace", None)
     for index in range(args.sessions):
-        session_id = f"tier-{args.pattern}-{args.mode}-s{index:02d}"
-        prompt = make_prompt(f"memory-tier-private-{index:02d}", args.initial_tokens)
+        session_id = (f"{workload_namespace}-s{index:02d}" if workload_namespace
+                      else f"tier-{args.pattern}-{args.mode}-s{index:02d}")
+        prompt_key = (f"{workload_namespace}-private-{index:02d}" if workload_namespace
+                      else f"memory-tier-private-{index:02d}")
+        prompt = make_prompt(prompt_key, args.initial_tokens)
         sessions.append({
             "session_id": session_id,
             "prefix_id": session_id,
@@ -89,7 +93,9 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     ) as client:
         request_slots = asyncio.Semaphore(args.max_inflight)
 
-        async def submit(session: dict[str, Any], turn: int, due_ns: int | None) -> dict[str, Any]:
+        async def submit(
+            session: dict[str, Any], turn: int, due_ns: int | None, *, max_tokens: int | None = None,
+        ) -> dict[str, Any]:
             request_id = f"{session['session_id']}-turn{turn:02d}"
             phase = "memory_tier_initial" if turn == 0 else "memory_tier_replay"
             async with request_slots:
@@ -106,7 +112,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                         request_id=request_id,
                         p_hash=prompt_hash(session["prompt"]),
                     ),
-                    max_tokens=args.decode_tokens,
+                    max_tokens=max_tokens or args.decode_tokens,
                     warmup_chunks=1,
                     warmup_ready=asyncio.Event(),
                 )
@@ -135,7 +141,10 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             return row
 
         # Initial requests establish identical private prefixes in every arm.
-        initial_rows = await asyncio.gather(*(submit(session, 0, None) for session in sessions))
+        initial_rows = await asyncio.gather(*(
+            submit(session, 0, None, max_tokens=getattr(args, "prime_tokens", None))
+            for session in sessions
+        ))
         result["initial_setup_ms"] = (max(row["request_end_ns"] for row in initial_rows) - started_ns) / 1e6
 
         for turn in range(1, args.turns + 1):
@@ -151,8 +160,10 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 
             inspect_at_ns = min(due_by_session.values()) - args.inspect_lead_ms * 1_000_000
             await asyncio.sleep(max(0, (inspect_at_ns - time.time_ns()) / 1e9))
-            inspections = await asyncio.gather(*(inspect_residency(client, args, session)
-                                                  for session in sessions))
+            inspections = []
+            if not getattr(args, "skip_residency_inspection", False):
+                inspections = await asyncio.gather(*(inspect_residency(client, args, session)
+                                                      for session in sessions))
 
             async def replay(session: dict[str, Any], index: int) -> dict[str, Any]:
                 due_ns = due_by_session[session["session_id"]]
@@ -218,6 +229,9 @@ def main() -> None:
     parser.add_argument("--spread-window-ms", type=int, default=1000)
     parser.add_argument("--inspect-lead-ms", type=int, default=300)
     parser.add_argument("--max-inflight", type=int, default=6)
+    parser.add_argument("--prime-tokens", type=int)
+    parser.add_argument("--workload-namespace")
+    parser.add_argument("--skip-residency-inspection", action="store_true")
     args = parser.parse_args()
     positive = (args.sessions, args.turns, args.initial_tokens, args.tool_words,
                 args.decode_tokens, args.wait_ms, args.max_inflight)

@@ -95,7 +95,10 @@ def _pair_gates(pairs: list[dict], *, nonblocking: bool = False) -> str:
 def _first_request_ns(path: Path) -> int | None:
     if path.exists():
         summary = json.loads(path.read_text(encoding="utf-8"))
-        if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
+        if summary.get("schema") in (
+            "agentic_work_audit.memory_tiers.summary.v1",
+            "agentic_work_audit.native_vs_capacity_safe.summary.v1",
+        ):
             return summary.get("started_ns")
         if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
             return summary.get("started_ns")
@@ -154,6 +157,19 @@ def _time(summary: dict) -> tuple[int, str, str, str]:
 
 
 def _links(path: Path, summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>']
+        for name in ("run_manifest.json", "source_sha256.txt"):
+            target = path.parent / name
+            if target.exists():
+                links.append(f'<a href="{_esc(target.as_posix())}">{_esc(name)}</a>')
+        for row in summary.get("arms", []):
+            arm = f"seed{row['seed']}/{row['pattern']}_{row['policy']}"
+            base = path.parent.as_posix() + "/arms/" + arm
+            label = arm.replace("/", " · ")
+            links.extend((f'<a href="{_esc(base)}/case_results.json">{_esc(label)} timings</a>',
+                          f'<a href="{_esc(base)}/backend_trace.jsonl.gz">{_esc(label)} trace</a>'))
+        return " · ".join(links)
     if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
         links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>']
         for name in ("run_manifest.json", "source_sha256.txt"):
@@ -265,6 +281,10 @@ def _links(path: Path, summary: dict) -> str:
 
 
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
+    if summary.get("schema") == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        from .native_capacity_report import setup
+        return ("Native SGLang vs capacity-safe admission",
+                "<strong>How it ran.</strong> " + _esc(setup(summary)))
     if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
         from .memory_tier_report import setup
         return ("All-GPU vs CPU-tiered vs storage-tiered KV",
@@ -516,6 +536,9 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 
 
 def _reproduction(summary: dict, timing: bool) -> str:
+    if summary.get("schema") == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        from .native_capacity_report import reproduction
+        return "<p><strong>Reproduce.</strong></p><pre><code>" + _esc(reproduction(summary)) + "</code></pre>"
     if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
         from .memory_tier_report import reproduction
         return "<p><strong>Reproduce.</strong></p><pre><code>" + _esc(reproduction(summary)) + "</code></pre>"
@@ -1279,6 +1302,9 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 
 
 def _run_finding(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        from .native_capacity_report import finding
+        return finding(summary)
     if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
         from .memory_tier_report import finding
         return finding(summary)
@@ -1564,6 +1590,8 @@ def _run_finding(summary: dict) -> str:
 
 
 def _kind(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        return "Native SGLang vs capacity-safe admission"
     if summary.get("schema") == "agentic_work_audit.memory_tiers.summary.v1":
         return "GPU / CPU / storage KV gap"
     if summary.get("schema") == "agentic_work_audit.coordinated_swap.summary.v1":
@@ -1610,6 +1638,14 @@ def _kind(summary: dict) -> str:
 
 def _result_parts(summary: dict) -> tuple[str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        from .native_capacity_report import (
+            HEADERS, COMPARISON_HEADERS, NOTES, table_rows, comparison_rows,
+        )
+        detail = _mode_table(HEADERS, table_rows(summary))
+        detail += _mode_table(COMPARISON_HEADERS, comparison_rows(summary))
+        detail += f"<p>{_esc(NOTES)}</p>"
+        return _esc(_run_finding(summary)), detail
     if schema == "agentic_work_audit.memory_tiers.summary.v1":
         from .memory_tier_report import (
             HEADERS, COMPARISON_HEADERS, NOTES, table_rows, comparison_rows,
@@ -2114,6 +2150,12 @@ def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
 
 def _markdown_metrics(summary: dict) -> str:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        from .native_capacity_report import (
+            HEADERS, COMPARISON_HEADERS, NOTES, table_rows, comparison_rows,
+        )
+        return (_md_table(HEADERS, table_rows(summary)) + "\n\n"
+                + _md_table(COMPARISON_HEADERS, comparison_rows(summary)) + "\n\n" + NOTES)
     if schema == "agentic_work_audit.memory_tiers.summary.v1":
         from .memory_tier_report import (
             HEADERS, COMPARISON_HEADERS, NOTES, table_rows, comparison_rows,
@@ -2583,6 +2625,23 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+        medians = {row["pattern"]: row for row in summary.get("pattern_medians", [])}
+        pattern = "burst" if "burst" in medians else next(iter(medians), None)
+        row = medians.get(pattern) if pattern else None
+        if not row:
+            return ("Native SGLang → capacity-safe", "Comparison incomplete",
+                    "All equal-priority sessions included", "Not established",
+                    _run_finding(summary), summary.get("status", "unknown"))
+        return (
+            f"Native SGLang → capacity-safe ({pattern} returns)",
+            (f"Mean replay delay: {row['native_mean_due_to_first_token_ms']:.0f} → "
+             f"{row['capacity_safe_mean_due_to_first_token_ms']:.0f} ms"),
+            "All equal-priority sessions included",
+            (f"{row['native_workflow_ms'] / 1000:.2f} → "
+             f"{row['capacity_safe_workflow_ms'] / 1000:.2f} s"),
+            _run_finding(summary), summary.get("status", "unknown"),
+        )
     if schema == "agentic_work_audit.memory_tiers.summary.v1":
         arms = summary.get("arms", [])
         def mode_median(mode: str, field: str, pattern: str) -> float | None:
@@ -2903,6 +2962,15 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                     evidence.append(f"[{label}]({base}/{name})")
             for row in summary.get("arms", []):
                 arm = f"seed{row['seed']}/{row['pattern']}_{row['mode']}"
+                evidence.append(f"[{arm} timings]({base}/arms/{arm}/case_results.json)")
+                evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
+                if (path.parent / "arms" / arm / "instrumentation_audit.json").exists():
+                    evidence.append(f"[{arm} hook gate]({base}/arms/{arm}/instrumentation_audit.json)")
+        if summary.get("schema") == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
+            if (path.parent / "source_sha256.txt").exists():
+                evidence.append(f"[Source hashes]({base}/source_sha256.txt)")
+            for row in summary.get("arms", []):
+                arm = f"seed{row['seed']}/{row['pattern']}_{row['policy']}"
                 evidence.append(f"[{arm} timings]({base}/arms/{arm}/case_results.json)")
                 evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
                 if (path.parent / "arms" / arm / "instrumentation_audit.json").exists():

@@ -2,6 +2,21 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ25",
+      "short_question": "Does capacity-safe admission beat native SGLang on the same workload?",
+      "significance": "research_pivot",
+      "pivot_title": "Native SGLang vs capacity-safe admission",
+      "manager_takeaway": "Capacity-safe admission shortened whole-workload time by 9-11%, but increased average replay response time by 228-250 ms.",
+      "why_it_matters": "It shows that controlling the active KV working set can improve total throughput while making individual tool-return responses less prompt; the next policy must balance both objectives.",
+      "evidence_date_utc": "2026-10-09",
+      "question": "For the same six-session CPU-tier workload, backend memory limits, model and tool-return schedule, does capacity-safe pre-admission outperform native SGLang queue and cache management?",
+      "answer": "Eight fresh-backend A10G arms completed: two order-reversed seeds, six equal-priority sessions, ten one-second tool waits per session, and both spread and 75 ms burst returns. Every paired arm used Qwen2.5-Coder-7B-Instruct, SGLang 0.5.10.post1, a 12288-token GPU KV limit, a 2 GiB host cache, CUDA graphs, overlap scheduling and lean KV tracing. Workload fingerprints, backend contracts, replay counts and output-token work matched; all arms proved host-KV exposure, and capacity-safe recorded no capacity violation. For spread returns, median whole-workload time fell from 40.933 seconds under native SGLang to 36.383 seconds with capacity-safe admission, an 11.1% improvement. For burst returns, it fell from 39.568 to 35.898 seconds, a 9.3% improvement. However, mean due-to-first-token delay rose from 482 to 732 ms for spread returns and from 904 to 1132 ms for burst returns. Capacity-safe reduced backend TTFT after submission, but moved substantial waiting before submission while it waited for a slot and complete KV restoration.",
+      "hypothesis": "Native SGLang admits the full ready set and spends longer queuing and recovering KV inside the backend. Capacity-safe limits that pressure and improves total completion time, but a strict two-session gate is too conservative for replay responsiveness. A useful controller likely needs dynamic capacity-aware admission rather than a fixed active-session cap.",
+      "unknown": "This compares two complete policies, not admission logic alone: capacity-safe also explicitly releases, restores and verifies KV. The sessions, token lengths and tool waits are synthetic, generated text was not byte-compared, and only two repetitions were run. The result does not establish production performance or identify the best dynamic admission threshold.",
+      "evidence_run_ids": ["native_vs_capacity_safe_full_20261009"],
+      "related_run_ids": ["native_vs_capacity_safe_sanity_20261009", "native_vs_capacity_safe_full_20261009"]
+    },
+    {
       "id": "RQ24",
       "short_question": "What is the tiering cost when active KV always fits?",
       "significance": "research_pivot",

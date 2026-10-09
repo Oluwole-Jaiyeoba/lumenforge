@@ -30,10 +30,17 @@ async def sleep_until_ns(deadline_ns: int) -> None:
 
 async def run(args: argparse.Namespace) -> dict[str, Any]:
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    workload_namespace = getattr(args, "workload_namespace", None)
     sessions = [{
-        "session_id": f"capacity-seed{args.seed}-s{index:02d}",
-        "prefix_id": f"capacity-seed{args.seed}-s{index:02d}",
-        "prompt": make_prompt(f"capacity-seed{args.seed}-s{index:02d}", args.initial_tokens),
+        "session_id": (f"{workload_namespace}-s{index:02d}" if workload_namespace
+                       else f"capacity-seed{args.seed}-s{index:02d}"),
+        "prefix_id": (f"{workload_namespace}-s{index:02d}" if workload_namespace
+                      else f"capacity-seed{args.seed}-s{index:02d}"),
+        "prompt": make_prompt(
+            f"{workload_namespace}-private-{index:02d}" if workload_namespace
+            else f"capacity-seed{args.seed}-s{index:02d}",
+            args.initial_tokens,
+        ),
         "previous_request_id": "",
         "prompt_tokens": 0,
         "turns": [],
@@ -264,7 +271,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                     request_id=request_id, p_hash=prompt_hash(session["prompt"]),
                     phase="capacity_prime" if turn == 0 else "capacity_replay",
                 ),
-                max_tokens=2 if turn == 0 else args.decode_tokens,
+                max_tokens=getattr(args, "prime_tokens", 2) if turn == 0 else args.decode_tokens,
                 warmup_chunks=1, warmup_ready=asyncio.Event(),
             )
             if not response["chunk_times_ns"] or not response["usage"].get("prompt_tokens"):
@@ -440,6 +447,8 @@ def main() -> None:
     parser.add_argument("--active-token-limit", type=int, default=12288)
     parser.add_argument("--admission-token-margin", type=int, default=128)
     parser.add_argument("--page-size", type=int, default=64)
+    parser.add_argument("--prime-tokens", type=int, default=2)
+    parser.add_argument("--workload-namespace")
     args = parser.parse_args()
     if min(args.sessions, args.turns, args.initial_tokens, args.tool_words, args.decode_tokens,
            args.wait_ms, args.max_active, args.active_token_limit, args.page_size) <= 0:

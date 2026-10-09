@@ -10,10 +10,22 @@ Manager-facing experiments that materially changed the direction or interpretati
 
 | Research pivot | Main finding | Why it matters |
 | --- | --- | --- |
+| [Native SGLang vs capacity-safe admission](#rq-RQ25) | Capacity-safe admission shortened whole-workload time by 9-11%, but increased average replay response time by 228-250 ms. | It shows that controlling the active KV working set can improve total throughput while making individual tool-return responses less prompt; the next policy must balance both objectives. |
 | [Capacity-safe memory tiering](#rq-RQ24) | When every admitted session fit in GPU KV, CPU tiering added 10-16% to workload time, while storage still added 93-110%. | It separated raw tier-recovery cost from GPU-cache overcommit and showed that admission pressure caused much of the earlier CPU slowdown. |
 | [Unrestricted memory-tier pressure](#rq-RQ23) | With all six sessions free to compete, CPU tiering added 94-141% to workload time and storage added 202-264%. | It revealed that lower-tier recovery and uncontrolled concurrent demand can compound into a severe full-system penalty. |
 
 ## Research progress
+
+<a id="rq-RQ25"></a>
+### RQ25: Does capacity-safe admission beat native SGLang on the same workload?
+
+**Question.** For the same six-session CPU-tier workload, backend memory limits, model and tool-return schedule, does capacity-safe pre-admission outperform native SGLang queue and cache management?
+
+**What the evidence says.** Eight fresh-backend A10G arms completed: two order-reversed seeds, six equal-priority sessions, ten one-second tool waits per session, and both spread and 75 ms burst returns. Every paired arm used Qwen2.5-Coder-7B-Instruct, SGLang 0.5.10.post1, a 12288-token GPU KV limit, a 2 GiB host cache, CUDA graphs, overlap scheduling and lean KV tracing. Workload fingerprints, backend contracts, replay counts and output-token work matched; all arms proved host-KV exposure, and capacity-safe recorded no capacity violation. For spread returns, median whole-workload time fell from 40.933 seconds under native SGLang to 36.383 seconds with capacity-safe admission, an 11.1% improvement. For burst returns, it fell from 39.568 to 35.898 seconds, a 9.3% improvement. However, mean due-to-first-token delay rose from 482 to 732 ms for spread returns and from 904 to 1132 ms for burst returns. Capacity-safe reduced backend TTFT after submission, but moved substantial waiting before submission while it waited for a slot and complete KV restoration.
+
+**Working hypothesis.** Native SGLang admits the full ready set and spends longer queuing and recovering KV inside the backend. Capacity-safe limits that pressure and improves total completion time, but a strict two-session gate is too conservative for replay responsiveness. A useful controller likely needs dynamic capacity-aware admission rather than a fixed active-session cap.
+
+**Not yet proved.** This compares two complete policies, not admission logic alone: capacity-safe also explicitly releases, restores and verifies KV. The sessions, token lengths and tool waits are synthetic, generated text was not byte-compared, and only two repetitions were run. The result does not establish production performance or identify the best dynamic admission threshold.
 
 <a id="rq-RQ24"></a>
 ### RQ24: What is the tiering cost when active KV always fits?
@@ -265,6 +277,7 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;9,&nbsp;2026,&nbsp;12:35:31&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[Native SGLang vs capacity-safe admission](#run-native_vs_capacity_safe_full_20261009) | RQ25 | Native&nbsp;SGLang&nbsp;vs&nbsp;capacity-safe&nbsp;admission | Native SGLang → capacity-safe (burst returns) | Mean&nbsp;replay&nbsp;delay:&nbsp;904&nbsp;→&nbsp;1132&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 39.57&nbsp;→&nbsp;35.90&nbsp;s | With&nbsp;identical&nbsp;workloads&nbsp;and&nbsp;backend&nbsp;memory&nbsp;limits,&nbsp;capacity-safe&nbsp;admission&nbsp;shortened&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;11.1%&nbsp;for&nbsp;spread&nbsp;returns&nbsp;and&nbsp;9.3%&nbsp;for&nbsp;burst&nbsp;returns.&nbsp;It&nbsp;also&nbsp;increased&nbsp;average&nbsp;tool-due-to-first-token&nbsp;delay&nbsp;by&nbsp;250&nbsp;ms&nbsp;and&nbsp;228&nbsp;ms&nbsp;respectively&nbsp;because&nbsp;requests&nbsp;waited&nbsp;outside&nbsp;SGLang&nbsp;for&nbsp;a&nbsp;safe&nbsp;slot&nbsp;and&nbsp;complete&nbsp;KV&nbsp;restoration. | complete |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;9:04:52&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[GPU / CPU / storage KV gap](#run-capacity_safe_tiers_7b_full_20261008) | RQ24 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 875&nbsp;ms&nbsp;→&nbsp;1129&nbsp;ms&nbsp;→&nbsp;2883&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 30.95&nbsp;s&nbsp;→&nbsp;35.95&nbsp;s&nbsp;→&nbsp;64.85&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+9.7%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+239.4&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+93.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1933.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+16.0%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+249.7&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+109.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2000.9&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 720 proven lower-tier replay hits |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;5:39:28&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[GPU / CPU / storage KV gap](#run-memory_tiers_7b_full_20261008) | RQ23 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 260&nbsp;ms&nbsp;→&nbsp;2267&nbsp;ms&nbsp;→&nbsp;3956&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 28.07&nbsp;s&nbsp;→&nbsp;67.70&nbsp;s&nbsp;→&nbsp;102.49&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+94.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1669.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+201.6%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3805.9&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+141.1%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2006.5&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+264.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3696.8&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 549 proven lower-tier replay hits |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;4:51:13&nbsp;p.m.&nbsp;CDT | [Session-level coordinated KV (calibration)](#run-coordinated_session_pipeline_pilot_v2_20261008) | RQ22 | 20&nbsp;sessions;&nbsp;session-level&nbsp;advance&nbsp;KV&nbsp;loading | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;1073.3ms;&nbsp;coordinated:&nbsp;1634.0ms;&nbsp;resident:&nbsp;792.1ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.2s;&nbsp;coordinated:&nbsp;9.8s;&nbsp;resident:&nbsp;6.2s | Coordinated&nbsp;workload&nbsp;was&nbsp;36.2%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;58.9%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;36&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
@@ -380,6 +393,56 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | Oct&nbsp;1,&nbsp;2026,&nbsp;5:42:31&nbsp;p.m.&nbsp;CDT | [Lifecycle validation](#run-work_audit_a10g_20261001_final) | RQ1 | Case&nbsp;order:&nbsp;warm&nbsp;→&nbsp;host&nbsp;·&nbsp;not&nbsp;recorded&nbsp;replays/case&nbsp;·&nbsp;wait&nbsp;not&nbsp;recorded | Observation only; no policy comparison | Host-backed&nbsp;replay&nbsp;TTFT:&nbsp;230.3&nbsp;ms | No&nbsp;other&nbsp;session | Not&nbsp;measured | Linked&nbsp;host-backed&nbsp;KV&nbsp;movement&nbsp;to&nbsp;replay;&nbsp;no&nbsp;speed&nbsp;win&nbsp;tested. | validated |
 
 ## Experiment details
+
+<a id="run-native_vs_capacity_safe_full_20261009"></a>
+<details>
+<summary><strong>Oct 9, 2026, 12:35:31 p.m. CDT · Native SGLang vs capacity-safe admission</strong> · native_vs_capacity_safe_full_20261009</summary>
+
+**Question (RQ25).** For the same six-session CPU-tier workload, backend memory limits, model and tool-return schedule, does capacity-safe pre-admission outperform native SGLang queue and cache management?
+
+**Finding.** With identical workloads and backend memory limits, capacity-safe admission shortened whole-workload time by 11.1% for spread returns and 9.3% for burst returns. It also increased average tool-due-to-first-token delay by 250 ms and 228 ms respectively because requests waited outside SGLang for a safe slot and complete KV restoration.
+
+**Setup.** 6 equal-priority sessions, 10 tool returns each, 4096 initial tokens, 16 output tokens per replay, and 1000 ms tool waits. Native SGLang received every due request immediately; capacity-safe held requests outside SGLang, restored their complete CPU-tier KV, and admitted at most 2 at once. Both used the same 12288-token GPU KV limit, 2.0 GiB host cache, CUDA graphs, overlap scheduling, fresh backends, and lean KV tracing. Two order-reversed seeds tested spread and 75 ms burst returns.
+
+**Key measurements**
+
+| Seed / returns / policy | Whole workload (s) | Due → first token mean / p95 (ms) | Backend TTFT mean / p95 (ms) | Total due delay (s) | Pre-submission wait (s) | Proven host / GPU source replays | Capacity violations |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / burst / capacity_safe | 35.878 | 1132.5 / 2119.4 | 146.9 / 144.9 | 67.949 | 59.134 | 60 / 0 | 0 |
+| 1 / burst / native_sglang | 39.574 | 904.2 / 1708.4 | 902.9 / 1707.9 | 54.250 | 0.069 | 60 / 0 | 0 |
+| 1 / spread / capacity_safe | 36.346 | 730.3 / 1439.4 | 145.1 / 179.2 | 43.816 | 35.110 | 60 / 0 | 0 |
+| 1 / spread / native_sglang | 40.921 | 481.1 / 913.9 | 480.1 / 912.9 | 28.864 | 0.053 | 60 / 0 | 0 |
+| 2 / burst / capacity_safe | 35.919 | 1132.3 / 2135.3 | 146.6 / 145.4 | 67.936 | 59.138 | 60 / 0 | 0 |
+| 2 / burst / native_sglang | 39.562 | 904.2 / 1707.2 | 902.9 / 1706.4 | 54.252 | 0.075 | 60 / 0 | 0 |
+| 2 / spread / capacity_safe | 36.421 | 733.4 / 1532.7 | 146.7 / 184.0 | 44.002 | 35.198 | 60 / 0 | 0 |
+| 2 / spread / native_sglang | 40.945 | 482.8 / 914.0 | 481.9 / 913.0 | 28.968 | 0.051 | 60 / 0 | 0 |
+
+| Seed / returns | Native → capacity-safe workload | Workload change | Native → capacity-safe mean replay delay | Replay-delay change | Native → capacity-safe p95 replay delay |
+| --- | --- | --- | --- | --- | --- |
+| 1 / spread | 40.921 → 36.346 s | -4.575 s (-11.2%) | 481.1 → 730.3 ms | +249.2 ms | 913.9 → 1439.4 ms |
+| 1 / burst | 39.574 → 35.878 s | -3.696 s (-9.3%) | 904.2 → 1132.5 ms | +228.3 ms | 1708.4 → 2119.4 ms |
+| 2 / spread | 40.945 → 36.421 s | -4.524 s (-11.0%) | 482.8 → 733.4 ms | +250.6 ms | 914.0 → 1532.7 ms |
+| 2 / burst | 39.562 → 35.919 s | -3.643 s (-9.2%) | 904.2 → 1132.3 ms | +228.1 ms | 1707.2 → 2135.3 ms |
+
+Lower time is better. Whole-workload change is capacity-safe relative to native SGLang. Due-to-first-token includes waiting outside SGLang plus backend TTFT.
+
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- This compares complete policies, not admission logic in isolation.
+- Capacity-safe explicitly restores and verifies KV before submission.
+- Synthetic equal-priority coding sessions use fixed tool waits.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+POLICY_COMPARE_RUN_ID='new_unique_id' POLICY_COMPARE_MODEL='Qwen/Qwen2.5-Coder-7B-Instruct' POLICY_COMPARE_SEEDS='1 2' POLICY_COMPARE_PATTERNS='spread burst' POLICY_COMPARE_SESSIONS='6' POLICY_COMPARE_TURNS='10' POLICY_COMPARE_INITIAL_TOKENS='4096' POLICY_COMPARE_PRIME_TOKENS='2' POLICY_COMPARE_TOOL_WORDS='16' POLICY_COMPARE_DECODE_TOKENS='16' POLICY_COMPARE_WAIT_MS='1000' POLICY_COMPARE_BURST_WINDOW_MS='75' POLICY_COMPARE_SPREAD_WINDOW_MS='1000' POLICY_COMPARE_GPU_TOKENS='12288' POLICY_COMPARE_HOST_GB='2.0' POLICY_COMPARE_MAX_ACTIVE='2' bash infra/container/run_work_audit_native_vs_capacity_safe.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/summary.json) · [Run manifest](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/run_manifest.json) · [Source hashes](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/source_sha256.txt) · [seed1/burst_capacity_safe timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/burst_capacity_safe/case_results.json) · [seed1/burst_capacity_safe trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/burst_capacity_safe/backend_trace.jsonl.gz) · [seed1/burst_capacity_safe hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/burst_capacity_safe/instrumentation_audit.json) · [seed1/burst_native_sglang timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/burst_native_sglang/case_results.json) · [seed1/burst_native_sglang trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/burst_native_sglang/backend_trace.jsonl.gz) · [seed1/burst_native_sglang hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/burst_native_sglang/instrumentation_audit.json) · [seed1/spread_capacity_safe timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/spread_capacity_safe/case_results.json) · [seed1/spread_capacity_safe trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/spread_capacity_safe/backend_trace.jsonl.gz) · [seed1/spread_capacity_safe hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/spread_capacity_safe/instrumentation_audit.json) · [seed1/spread_native_sglang timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/spread_native_sglang/case_results.json) · [seed1/spread_native_sglang trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/spread_native_sglang/backend_trace.jsonl.gz) · [seed1/spread_native_sglang hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed1/spread_native_sglang/instrumentation_audit.json) · [seed2/burst_capacity_safe timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/burst_capacity_safe/case_results.json) · [seed2/burst_capacity_safe trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/burst_capacity_safe/backend_trace.jsonl.gz) · [seed2/burst_capacity_safe hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/burst_capacity_safe/instrumentation_audit.json) · [seed2/burst_native_sglang timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/burst_native_sglang/case_results.json) · [seed2/burst_native_sglang trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/burst_native_sglang/backend_trace.jsonl.gz) · [seed2/burst_native_sglang hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/burst_native_sglang/instrumentation_audit.json) · [seed2/spread_capacity_safe timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/spread_capacity_safe/case_results.json) · [seed2/spread_capacity_safe trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/spread_capacity_safe/backend_trace.jsonl.gz) · [seed2/spread_capacity_safe hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/spread_capacity_safe/instrumentation_audit.json) · [seed2/spread_native_sglang timings](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/spread_native_sglang/case_results.json) · [seed2/spread_native_sglang trace](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/spread_native_sglang/backend_trace.jsonl.gz) · [seed2/spread_native_sglang hook gate](docs/reports/work_audit/native_vs_capacity_safe_full_20261009/arms/seed2/spread_native_sglang/instrumentation_audit.json)
+
+</details>
 
 <a id="run-capacity_safe_tiers_7b_full_20261008"></a>
 <details>
