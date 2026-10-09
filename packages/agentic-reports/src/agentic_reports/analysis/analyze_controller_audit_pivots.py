@@ -92,6 +92,11 @@ def analyze_arm(root: Path, arm: dict, spec: dict) -> dict:
     for row in replays:
         if any(row.get(key) in (None, "") for key in timing_keys) or row.get("error"):
             issues.append("Missing replay timing or failed replay")
+        elif any(not math.isfinite(float(row[key])) for key in timing_keys):
+            issues.append("Non-finite replay timing")
+        elif abs(float(row["first_token_lateness_ms"]) - float(row["due_to_request_start_ms"])
+                 - float(row["ttft_ms"])) > 0.01:
+            issues.append("Replay delay does not equal submission waiting plus TTFT")
     values = {key: [float(r[key]) for r in replays if r.get(key) not in (None, "")] for key in timing_keys}
     workloads = [r for r in trace if r.get("event") == "m27.workload_end"]
     if len(workloads) != 1 or not workloads[0].get("workload_duration_ms"):
