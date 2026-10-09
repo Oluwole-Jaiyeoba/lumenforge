@@ -131,8 +131,12 @@ def analyze_arm(root: Path, arm: dict, spec: dict) -> dict:
                 prepared[result["load_id"]] = result
     ranked = sum(r.get(BACKEND_PRIORITY_FIELD) not in (None, "") for r in starts
                  if r.get("phase") in ("replay", "pressure_filler"))
+    admission = Counter(r.get("decision") for r in trace
+                        if r.get("event") == "m27.controller_ready_time_gpu_backfill.decision")
     exposure = {"ranked_replays": ranked, "accepted_prepare_loads": len(prepared),
-                "device_eviction_calls": evictions, "device_evicted_token_slots": evicted_tokens}
+                "device_eviction_calls": evictions, "device_evicted_token_slots": evicted_tokens,
+                "admission_decisions": sum(admission.values()) if admission else None,
+                "hold_decisions": admission.get("hold", 0) if admission else None}
     if arm["mode"] == "controller_ready_time_gpu_backfill" and ranked != spec["expected_replays"]:
         issues.append("Not every replay had a controller-derived queue rank")
     if arm["mode"] == "controller_proactive_kv_management" and not prepared:

@@ -12,15 +12,17 @@ HEADERS = (
 )
 PAIR_HEADERS = ("Trial", "Whole workload: baseline → controller", "Change",
                 "Total replay lateness: baseline → controller", "Change", "Comparison")
-EXPOSURE_HEADERS = ("Trial / mode", "Ranked replays", "Actual prepare loads",
-                    "GPU eviction calls", "Evicted token slots")
+EXPOSURE_HEADERS = ("Trial / mode", "Ranked replays", "Accepted prepare loads",
+                    "GPU eviction calls", "Evicted token slots", "Admission decisions / holds")
 NOTES = (
     "Lower is better. Total TTFT/lateness sum across requests and can exceed the "
     "whole-workload clock because sessions overlap. Whole-workload time includes initial "
     "requests and tool waits, but excludes backend startup and preflight. Each trial "
     "uses its own seed; trial 2 reverses arm order. All sessions have equal importance. "
     "CUDA graphs and overlap scheduling are on. Good/bad short-filler runtime admits "
-    "are not classified by these tests; raw decisions remain available in the traces."
+    "are not classified by these tests; this is unavailable evidence, not zero bad admits. "
+    "Admission/hold counts are shown for RTG; other modes do not use that admission policy. "
+    "Raw decisions remain available in the traces."
 )
 
 
@@ -58,10 +60,15 @@ def pair_rows(summary: dict) -> list[tuple[str, ...]]:
 
 
 def exposure_rows(summary: dict) -> list[tuple[str, ...]]:
-    return [(f"{arm['trial']} / {'Baseline' if arm['mode'] == 'no_prefetch' else summary['name']}",
-             *(str((arm.get("exposure") or {}).get(key, "unavailable")) for key in
-               ("ranked_replays", "accepted_prepare_loads", "device_eviction_calls", "device_evicted_token_slots")))
-            for arm in summary.get("arms", [])]
+    rows = []
+    for arm in summary.get("arms", []):
+        exposure = arm.get("exposure") or {}
+        decisions = exposure.get("admission_decisions")
+        rows.append((f"{arm['trial']} / {'Baseline' if arm['mode'] == 'no_prefetch' else summary['name']}",
+                     *(str(exposure.get(key, "unavailable")) for key in
+                       ("ranked_replays", "accepted_prepare_loads", "device_eviction_calls", "device_evicted_token_slots")),
+                     f"{decisions} / {exposure['hold_decisions']}" if decisions is not None else "not applicable"))
+    return rows
 
 
 def finding(summary: dict) -> str:
