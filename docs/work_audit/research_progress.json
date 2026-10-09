@@ -2,6 +2,17 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ24",
+      "short_question": "What is the tiering cost when active KV always fits?",
+      "evidence_date_utc": "2026-10-08",
+      "question": "When every currently active session fits within the restricted GPU KV budget, how much performance is lost solely because waiting-session KV is kept on CPU or storage and restored only after its tool call returns? Does a near-simultaneous return burst make that unprepared tiering penalty worse?",
+      "answer": "Eighteen fresh-backend A10G arms completed: three seeds, six equal-priority sessions, ten one-second tool waits per session, two return patterns, and three memory placements. At most two sessions ran at once. Their maximum estimated active KV was 9342 tokens, safely below the 12288-token GPU limit, with zero capacity violations across 1080 measured replays. For spread returns, median whole-workload time rose from 33.384 seconds with resident GPU KV to 36.622 seconds with CPU KV and 64.543 seconds with storage KV: increases of 9.7% and 93.3%. Median mean due-to-first-token delay rose from 516 to 752 and 2449 ms. For 75 ms burst returns, median whole-workload time rose from 30.954 to 35.945 and 64.853 seconds: increases of 16.0% and 109.5%. Median mean due-to-first-token delay rose from 875 to 1129 and 2883 ms. Backend TTFT after submission stayed close across tiers; the main penalty happened before submission while a due session waited for an active slot and complete KV restoration. Native evidence proved all 360 resident-mode replays came from GPU KV, all 360 CPU-mode replays came from host KV, and all 360 storage-mode replays came from storage before becoming GPU-ready.",
+      "hypothesis": "Lower-tier placement can materially slow an agentic workload even when the KV of every admitted session fits in GPU memory. CPU recovery is a modest cost in this setup, while unprepared storage recovery is large enough to nearly double the workload. Bursty tool returns make the relative penalty worse because several due sessions serialize behind admission and restoration. Exact tool-return knowledge may close part of this gap by staging waiting-session KV before it becomes due.",
+      "unknown": "This intentionally measures an unprepared worst-credible case: no KV is prefetched before tool return, and a session is admitted only after its complete prefix is restored. The prompts, one-second waits and return patterns are synthetic. File-backed storage used normal operating-system caching and the page cache was not flushed, so this is not a physical SSD-latency claim. Priming was excluded, generated text was not compared byte-for-byte, and the active-KV limit is an estimate based on prompt tokens rather than physical HBM occupancy. The run does not yet show how much advance staging can recover or whether an optimized implementation can overlap recovery without delaying active sessions.",
+      "evidence_run_ids": ["capacity_safe_tiers_7b_full_20261008"],
+      "related_run_ids": ["capacity_safe_tiers_7b_full_20261008"]
+    },
+    {
       "id": "RQ23",
       "short_question": "How large is the GPU, CPU and storage KV gap?",
       "evidence_date_utc": "2026-10-08",

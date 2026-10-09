@@ -14,8 +14,11 @@ HEADERS = (
     "TTFT mean / p95 (ms)",
     "Total due delay / TTFT (s)",
     "Submission waiting (ms)",
-    "Native GPU / CPU / storage replay hits",
-    "Native GPU / CPU / storage tokens",
+    "Proven GPU / CPU / storage source requests",
+    "Proven GPU / CPU / storage source tokens",
+    "Active sessions max / limit",
+    "Active KV estimate max / limit",
+    "Slot wait / KV preparation mean (ms)",
 )
 COMPARISON_HEADERS = (
     "Seed / return pattern / tier",
@@ -26,7 +29,8 @@ COMPARISON_HEADERS = (
 NOTES = (
     "Positive changes mean the lower tier was slower than the all-GPU reference. "
     "Due-to-first-token includes any delay before submission plus backend TTFT. "
-    "Native hit counts come from SGLang's cache trace, not from the requested mode name. "
+    "Tier-source counts come from native SGLang evidence, not from the requested mode name. "
+    "Capacity-safe arms use pre-admission residency; original pressure arms use replay cache matches. "
     "File-backed storage uses normal operating-system caching; the page cache was not flushed."
 )
 
@@ -45,6 +49,12 @@ def table_rows(summary: dict) -> list[tuple[str, ...]]:
             f"{arm['native_storage_hit_replays']}",
             f"{arm['native_gpu_hit_tokens']:,} / {arm['native_host_hit_tokens']:,} / "
             f"{arm['native_storage_hit_tokens']:,}",
+            (f"{arm['max_active_observed']} / {arm['max_active_allowed']}"
+             if arm.get("max_active_observed") is not None else "not recorded"),
+            (f"{arm['max_active_tokens_observed']:,} / {arm['active_token_limit']:,} tokens"
+             if arm.get("max_active_tokens_observed") is not None else "not recorded"),
+            (f"{arm['mean_slot_wait_ms']:.1f} / {arm['mean_kv_prepare_ms']:.1f}"
+             if arm.get("mean_slot_wait_ms") is not None else "not recorded"),
         ))
     return rows
 
@@ -63,6 +73,13 @@ def setup(summary: dict) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
     runtime = manifest.get("backend_runtime_contract") or {}
+    capacity_safe = summary.get("variant") == "capacity_safe_active_set"
+    capacity_note = (
+        f" At most {workload.get('max_active', '?')} sessions could run at once, and their "
+        f"estimated combined active KV had to remain below {workload.get('active_token_limit', '?')} "
+        "tokens. Waiting sessions were restored completely before admission."
+        if capacity_safe else ""
+    )
     return (
         f"{workload.get('session_count', '?')} equal-priority sessions; "
         f"{workload.get('turns_per_session', '?')} tool returns per session; "
@@ -84,6 +101,7 @@ def setup(summary: dict) -> str:
         f"{manifest.get('model', 'not recorded')}; hardware: "
         f"{manifest.get('hardware_profile', 'not recorded')}; backend: "
         f"{manifest.get('backend_version') or runtime.get('backend_version', 'not recorded')}."
+        + capacity_note
     )
 
 
@@ -107,28 +125,36 @@ def finding(summary: dict) -> str:
 def reproduction(summary: dict) -> str:
     manifest = summary.get("_manifest") or {}
     workload = manifest.get("workload") or {}
+    capacity_safe = summary.get("variant") == "capacity_safe_active_set"
+    prefix = "CAPACITY_TIER" if capacity_safe else "TIER"
     values = {
-        "TIER_RUN_ID": str(summary.get("run_id", "memory_tiers")) + "_repeat",
-        "TIER_MODEL": manifest.get("model"),
-        "TIER_SEEDS": " ".join(map(str, workload.get("seeds") or [])),
-        "TIER_PATTERNS": " ".join(workload.get("return_patterns") or []),
-        "TIER_MODES": " ".join(workload.get("modes") or []),
-        "TIER_SESSIONS": workload.get("session_count"),
-        "TIER_TURNS": workload.get("turns_per_session"),
-        "TIER_INITIAL_TOKENS": workload.get("initial_tokens"),
-        "TIER_TOOL_WORDS": workload.get("tool_result_words"),
-        "TIER_DECODE_TOKENS": workload.get("decode_tokens"),
-        "TIER_WAIT_MS": workload.get("tool_wait_ms"),
-        "TIER_BURST_WINDOW_MS": workload.get("burst_window_ms"),
-        "TIER_SPREAD_WINDOW_MS": workload.get("spread_window_ms"),
-        "TIER_RESIDENT_GPU_TOKENS": workload.get("resident_gpu_tokens"),
-        "TIER_RESIDENT_HOST_GB": workload.get("resident_host_cache_gb"),
-        "TIER_RESTRICTED_GPU_TOKENS": workload.get("restricted_gpu_tokens"),
-        "TIER_HOST_GB": workload.get("host_cache_gb"),
-        "TIER_STORAGE_HOST_GB": workload.get("storage_host_cache_gb"),
-        "TIER_MAX_INFLIGHT": workload.get("max_inflight"),
+        f"{prefix}_RUN_ID": str(summary.get("run_id", "memory_tiers")) + "_repeat",
+        f"{prefix}_MODEL": manifest.get("model"),
+        f"{prefix}_SEEDS": " ".join(map(str, workload.get("seeds") or [])),
+        f"{prefix}_PATTERNS": " ".join(workload.get("return_patterns") or []),
+        f"{prefix}_MODES": " ".join(workload.get("modes") or []),
+        f"{prefix}_SESSIONS": workload.get("session_count"),
+        f"{prefix}_TURNS": workload.get("turns_per_session"),
+        f"{prefix}_INITIAL_TOKENS": workload.get("initial_tokens"),
+        f"{prefix}_TOOL_WORDS": workload.get("tool_result_words"),
+        f"{prefix}_DECODE_TOKENS": workload.get("decode_tokens"),
+        f"{prefix}_WAIT_MS": workload.get("tool_wait_ms"),
+        f"{prefix}_BURST_WINDOW_MS": workload.get("burst_window_ms"),
+        f"{prefix}_SPREAD_WINDOW_MS": workload.get("spread_window_ms"),
+        f"{prefix}_RESIDENT_GPU_TOKENS": workload.get("resident_gpu_tokens"),
+        f"{prefix}_RESIDENT_HOST_GB": workload.get("resident_host_cache_gb"),
+        f"{prefix}_RESTRICTED_GPU_TOKENS": workload.get("restricted_gpu_tokens"),
+        f"{prefix}_HOST_GB": workload.get("host_cache_gb"),
+        f"{prefix}_STORAGE_HOST_GB": workload.get("storage_host_cache_gb"),
     }
+    if capacity_safe:
+        values[f"{prefix}_MAX_ACTIVE"] = workload.get("max_active")
+        values[f"{prefix}_ACTIVE_TOKEN_LIMIT"] = workload.get("active_token_limit")
+    else:
+        values[f"{prefix}_MAX_INFLIGHT"] = workload.get("max_inflight")
     command = " \\\n".join(
         f"{key}={shlex.quote(str(value))}" for key, value in values.items() if value is not None
     )
-    return command + " \\\nbash infra/container/run_work_audit_memory_tiers.sh"
+    script = ("run_work_audit_capacity_safe_tiers.sh" if capacity_safe
+              else "run_work_audit_memory_tiers.sh")
+    return command + f" \\\nbash infra/container/{script}"

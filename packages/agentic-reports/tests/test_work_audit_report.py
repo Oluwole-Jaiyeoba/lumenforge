@@ -67,10 +67,70 @@ def test_memory_tier_report_proves_native_tier_hits_and_full_system_metrics():
     markdown = render_markdown([(path, summary)])
     for document in (page, markdown):
         assert "GPU / CPU / storage KV gap" in document
-        assert "Native GPU / CPU / storage replay hits" in document
+        assert "Proven GPU / CPU / storage source requests" in document
         assert "20 / 20 / 20" in document
         assert "run_work_audit_memory_tiers.sh" in document
     assert "20.00 s → 24.00 s → 30.00 s" in markdown.replace("&nbsp;", " ")
+
+
+def test_capacity_safe_tier_report_preserves_admission_limits_and_reproduction():
+    arms = []
+    for mode, workflow, source in (
+        ("resident", 30000, "gpu"), ("host", 34000, "host"),
+        ("storage", 60000, "storage"),
+    ):
+        hits = {tier: 60 if tier == source else 0 for tier in ("gpu", "host", "storage")}
+        arms.append({
+            "seed": 1, "pattern": "burst", "mode": mode,
+            "workflow_duration_ms": workflow, "mean_due_to_first_token_ms": workflow / 30,
+            "p95_due_to_first_token_ms": workflow / 20, "mean_ttft_ms": 150,
+            "p95_ttft_ms": 180, "total_due_to_first_token_ms": workflow * 2,
+            "total_ttft_ms": 9000, "total_submission_delay_ms": workflow,
+            "native_gpu_hit_replays": hits["gpu"], "native_gpu_hit_tokens": hits["gpu"] * 4096,
+            "native_host_hit_replays": hits["host"], "native_host_hit_tokens": hits["host"] * 4096,
+            "native_storage_hit_replays": hits["storage"],
+            "native_storage_hit_tokens": hits["storage"] * 4096,
+            "max_active_observed": 2, "max_active_allowed": 2,
+            "max_active_tokens_observed": 9342, "active_token_limit": 12288,
+            "mean_slot_wait_ms": 100, "mean_kv_prepare_ms": 80,
+        })
+    comparisons = [
+        {"seed": 1, "pattern": "burst", "mode": mode,
+         "workload_delta_ms": delta, "workload_change_pct": pct,
+         "mean_due_to_first_token_delta_ms": delay,
+         "p95_due_to_first_token_delta_ms": delay, "mean_ttft_delta_ms": 0}
+        for mode, delta, pct, delay in (("host", 4000, 13.3, 300),
+                                        ("storage", 30000, 100, 1500))
+    ]
+    summary = {
+        "schema": "agentic_work_audit.memory_tiers.summary.v1",
+        "variant": "capacity_safe_active_set", "run_id": "capacity-safe",
+        "status": "complete", "arms": arms, "comparisons": comparisons,
+        "issues": [], "exposure_warnings": [], "limitations": [],
+        "_manifest": {"model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+                      "hardware_profile": "nvidia_a10g_24gb", "backend_version": "0.5.10.post1",
+                      "workload": {"research_question_id": "RQ24", "seeds": [1],
+                                   "return_patterns": ["burst"],
+                                   "modes": ["resident", "host", "storage"],
+                                   "session_count": 6, "turns_per_session": 10,
+                                   "initial_tokens": 4096, "decode_tokens": 16,
+                                   "tool_wait_ms": 1000, "burst_window_ms": 75,
+                                   "spread_window_ms": 1000, "resident_gpu_tokens": 40960,
+                                   "restricted_gpu_tokens": 12288, "host_cache_gb": 2,
+                                   "storage_host_cache_gb": 1, "max_active": 2,
+                                   "active_token_limit": 12288, "cuda_graph": True,
+                                   "overlap_schedule": True,
+                                   "trace_profile": "kv_lifecycle_lean"}},
+    }
+    path = Path("docs/reports/work_audit/capacity-safe/summary.json")
+    page = render([(path, summary)])
+    markdown = render_markdown([(path, summary)])
+    for document in (page, markdown):
+        assert "2 / 2" in document
+        assert "9,342 / 12,288 tokens" in document
+        assert "Waiting sessions were restored completely before admission" in document
+        assert "run_work_audit_capacity_safe_tiers.sh" in document
+        assert "CAPACITY_TIER_MAX_ACTIVE=2" in document
 
 
 def test_storage_audit_report_shows_native_hits_and_reproduction():

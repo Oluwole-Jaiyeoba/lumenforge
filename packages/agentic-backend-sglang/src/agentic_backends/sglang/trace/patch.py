@@ -1674,6 +1674,30 @@ def _storage_audit_match(entry: dict[str, Any]) -> tuple[Any, int, int]:
     return match, len(match.device_indices), int(match.host_hit_length)
 
 
+def _storage_audit_deepest_node(entry: dict[str, Any]) -> Any:
+    """Return v0.5.10's deepest radix node, including host-only leaves.
+
+    HiRadixCache.match_prefix rewinds last_host_node to the nearest node with
+    the legacy ``backuped`` flag. A storage-prefetched leaf can already own
+    valid host indices while that returned pointer is the root, so the native
+    H2D loader needs the unrewound private-helper result instead.
+    """
+    from sglang.srt.mem_cache.radix_cache import RadixKey
+
+    tree_cache = entry["tree_cache"]
+    token_ids = entry.get("storage_audit_token_ids") or []
+    key = RadixKey(
+        token_ids,
+        entry.get("storage_audit_extra_key"),
+        is_bigram=bool(getattr(tree_cache, "is_eagle", False)),
+    )
+    key, _ = tree_cache.maybe_bigram_convert(key)
+    if tree_cache.page_size != 1:
+        key = key[: len(key) // tree_cache.page_size * tree_cache.page_size]
+    _values, deepest = tree_cache._match_prefix_helper(tree_cache.root_node, key)
+    return deepest
+
+
 def _storage_prefetch_plan(
     tree_cache: Any, controller: Any, match: Any, token_ids: list[int],
     matched_tokens: int,
@@ -1772,7 +1796,10 @@ def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any
         match, gpu_after, host_after = _storage_audit_match(entry)
         committed_ns = time.time_ns()
         if loaded > 0:
-            entry["last_host_node"] = match.last_host_node
+            deepest = _storage_audit_deepest_node(entry)
+            entry["last_host_node"] = (
+                deepest if _node_host_token_count(deepest) > 0 else match.last_host_node
+            )
             entry["last_node"] = match.last_device_node
         return {
             "ok": loaded > 0 and host_after > 0,
@@ -1782,6 +1809,7 @@ def _execute_storage_audit_command(command: dict[str, Any], entry: dict[str, Any
             "storage_data_ready_ns": timing.get("data_ready_ns"),
             "storage_host_committed_ns": committed_ns,
             "gpu_tokens_after": gpu_after, "host_tokens_after": host_after,
+            "storage_host_node_id": _safe_summary(_node_id(entry.get("last_host_node"))),
         }
     return {"ok": False, "status": "unknown_storage_action"}
 

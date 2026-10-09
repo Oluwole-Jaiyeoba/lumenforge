@@ -6,6 +6,16 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 ## Research progress
 
+### RQ24: What is the tiering cost when active KV always fits?
+
+**Question.** When every currently active session fits within the restricted GPU KV budget, how much performance is lost solely because waiting-session KV is kept on CPU or storage and restored only after its tool call returns? Does a near-simultaneous return burst make that unprepared tiering penalty worse?
+
+**What the evidence says.** Eighteen fresh-backend A10G arms completed: three seeds, six equal-priority sessions, ten one-second tool waits per session, two return patterns, and three memory placements. At most two sessions ran at once. Their maximum estimated active KV was 9342 tokens, safely below the 12288-token GPU limit, with zero capacity violations across 1080 measured replays. For spread returns, median whole-workload time rose from 33.384 seconds with resident GPU KV to 36.622 seconds with CPU KV and 64.543 seconds with storage KV: increases of 9.7% and 93.3%. Median mean due-to-first-token delay rose from 516 to 752 and 2449 ms. For 75 ms burst returns, median whole-workload time rose from 30.954 to 35.945 and 64.853 seconds: increases of 16.0% and 109.5%. Median mean due-to-first-token delay rose from 875 to 1129 and 2883 ms. Backend TTFT after submission stayed close across tiers; the main penalty happened before submission while a due session waited for an active slot and complete KV restoration. Native evidence proved all 360 resident-mode replays came from GPU KV, all 360 CPU-mode replays came from host KV, and all 360 storage-mode replays came from storage before becoming GPU-ready.
+
+**Working hypothesis.** Lower-tier placement can materially slow an agentic workload even when the KV of every admitted session fits in GPU memory. CPU recovery is a modest cost in this setup, while unprepared storage recovery is large enough to nearly double the workload. Bursty tool returns make the relative penalty worse because several due sessions serialize behind admission and restoration. Exact tool-return knowledge may close part of this gap by staging waiting-session KV before it becomes due.
+
+**Not yet proved.** This intentionally measures an unprepared worst-credible case: no KV is prefetched before tool return, and a session is admitted only after its complete prefix is restored. The prompts, one-second waits and return patterns are synthetic. File-backed storage used normal operating-system caching and the page cache was not flushed, so this is not a physical SSD-latency claim. Priming was excluded, generated text was not compared byte-for-byte, and the active-KV limit is an estimate based on prompt tokens rather than physical HBM occupancy. The run does not yet show how much advance staging can recover or whether an optimized implementation can overlap recovery without delaying active sessions.
+
 ### RQ23: How large is the GPU, CPU and storage KV gap?
 
 **Question.** With a 7B coding model, equal-priority multi-turn sessions and no prefetch before tool return, how far do whole-workload time and replay response time separate when KV stays on GPU, spills to CPU, or can fall through CPU to file-backed storage? Does a near-simultaneous tool-return burst make the gap worse than normally spread returns?
@@ -222,6 +232,7 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;9:04:52&nbsp;p.m.&nbsp;CDT | [GPU / CPU / storage KV gap](#run-capacity_safe_tiers_7b_full_20261008) | RQ24 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 875&nbsp;ms&nbsp;→&nbsp;1129&nbsp;ms&nbsp;→&nbsp;2883&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 30.95&nbsp;s&nbsp;→&nbsp;35.95&nbsp;s&nbsp;→&nbsp;64.85&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+9.7%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+239.4&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+93.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1933.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+16.0%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+249.7&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+109.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2000.9&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 720 proven lower-tier replay hits |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;5:39:28&nbsp;p.m.&nbsp;CDT | [GPU / CPU / storage KV gap](#run-memory_tiers_7b_full_20261008) | RQ23 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 260&nbsp;ms&nbsp;→&nbsp;2267&nbsp;ms&nbsp;→&nbsp;3956&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 28.07&nbsp;s&nbsp;→&nbsp;67.70&nbsp;s&nbsp;→&nbsp;102.49&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+94.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1669.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+201.6%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3805.9&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+141.1%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2006.5&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+264.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3696.8&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 549 proven lower-tier replay hits |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;4:51:13&nbsp;p.m.&nbsp;CDT | [Session-level coordinated KV (calibration)](#run-coordinated_session_pipeline_pilot_v2_20261008) | RQ22 | 20&nbsp;sessions;&nbsp;session-level&nbsp;advance&nbsp;KV&nbsp;loading | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;1073.3ms;&nbsp;coordinated:&nbsp;1634.0ms;&nbsp;resident:&nbsp;792.1ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.2s;&nbsp;coordinated:&nbsp;9.8s;&nbsp;resident:&nbsp;6.2s | Coordinated&nbsp;workload&nbsp;was&nbsp;36.2%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;58.9%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;36&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;4:42:28&nbsp;p.m.&nbsp;CDT | [Session-level coordinated KV (calibration)](#run-coordinated_session_pipeline_pilot_20261008) | RQ22 | 20&nbsp;sessions;&nbsp;session-level&nbsp;advance&nbsp;KV&nbsp;loading | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;992.6ms;&nbsp;coordinated:&nbsp;2352.7ms;&nbsp;resident:&nbsp;791.0ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.1s;&nbsp;coordinated:&nbsp;12.2s;&nbsp;resident:&nbsp;6.2s | Coordinated&nbsp;workload&nbsp;was&nbsp;71.5%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;97.2%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;46&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
@@ -337,6 +348,94 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 ## Experiment details
 
+<a id="run-capacity_safe_tiers_7b_full_20261008"></a>
+<details>
+<summary><strong>Oct 8, 2026, 9:04:52 p.m. CDT · GPU / CPU / storage KV gap</strong> · capacity_safe_tiers_7b_full_20261008</summary>
+
+**Question (RQ24).** When every currently active session fits within the restricted GPU KV budget, how much performance is lost solely because waiting-session KV is kept on CPU or storage and restored only after its tool call returns? Does a near-simultaneous return burst make that unprepared tiering penalty worse?
+
+**Finding.** spread CPU tier: whole workload +9.7% and mean replay delay +239.4 ms vs all-GPU. spread storage tier: whole workload +93.3% and mean replay delay +1933.0 ms vs all-GPU. burst CPU tier: whole workload +16.0% and mean replay delay +249.7 ms vs all-GPU. burst storage tier: whole workload +109.5% and mean replay delay +2000.9 ms vs all-GPU.
+
+**Setup.** 6 equal-priority sessions; 10 tool returns per session; 4096 initial prompt tokens; 16 output tokens per replay; 1000 ms tool waits. Return patterns: spread, burst; the burst spans 75 ms and the spread control spans 1000 ms. Fresh backend per arm; no KV prefetch; all-GPU cap 40960 tokens; lower-tier GPU cap 12288 tokens; CPU caches 3.0 GiB allocated but unused for measured replays in all-GPU mode, 2.0 GiB for CPU mode and 1.0 GiB for storage mode. CUDA graphs on; overlap scheduling on; frontend priority equal; kv_lifecycle_lean tracing. Model: Qwen/Qwen2.5-Coder-7B-Instruct; hardware: nvidia_a10g_24gb; backend: 0.5.10.post1. At most 2 sessions could run at once, and their estimated combined active KV had to remain below 12288 tokens. Waiting sessions were restored completely before admission.
+
+**Key measurements**
+
+| Seed / return pattern / mode | Whole workload (s) | Due to first token mean / p95 (ms) | TTFT mean / p95 (ms) | Total due delay / TTFT (s) | Submission waiting (ms) | Proven GPU / CPU / storage source requests | Proven GPU / CPU / storage source tokens | Active sessions max / limit | Active KV estimate max / limit | Slot wait / KV preparation mean (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / burst / host | 35.724 | 1123.9 / 2133.2 | 155.6 / 195.1 | 67.433 / 9.338 | 58095.7 | 0 / 60 / 0 | 0 / 258,432 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 854.2 / 82.9 |
+| 1 / burst / resident | 30.954 | 874.2 / 1769.9 | 161.3 / 160.1 | 52.450 / 9.681 | 42769.3 | 60 / 0 / 0 | 258,432 / 0 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 692.0 / 0.0 |
+| 1 / burst / storage | 64.853 | 2902.4 / 5070.4 | 152.0 / 153.4 | 174.144 / 9.121 | 165023.3 | 0 / 0 / 60 | 0 / 0 / 260,004 | 2 / 2 | 9,342 / 12,288 tokens | 1921.0 / 601.6 |
+| 1 / spread / host | 36.536 | 764.9 / 1480.7 | 158.1 / 195.0 | 45.892 / 9.489 | 36403.6 | 0 / 60 / 0 | 0 / 258,432 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 494.6 / 103.7 |
+| 1 / spread / resident | 33.384 | 516.1 / 1280.4 | 145.2 / 150.4 | 30.966 / 8.710 | 22256.1 | 60 / 0 / 0 | 258,432 / 0 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 344.0 / 0.0 |
+| 1 / spread / storage | 64.259 | 2449.1 / 4040.7 | 151.4 / 153.6 | 146.945 / 9.084 | 137861.2 | 0 / 0 / 60 | 0 / 0 / 260,004 | 2 / 2 | 9,342 / 12,288 tokens | 1500.8 / 595.2 |
+| 2 / burst / host | 35.966 | 1155.1 / 2019.4 | 168.2 / 192.1 | 69.304 / 10.094 | 59210.1 | 0 / 60 / 0 | 0 / 258,432 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 867.5 / 88.3 |
+| 2 / burst / resident | 30.947 | 874.9 / 1764.1 | 162.1 / 159.1 | 52.493 / 9.728 | 42764.6 | 60 / 0 / 0 | 258,432 / 0 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 691.8 / 0.0 |
+| 2 / burst / storage | 64.234 | 2857.4 / 4850.9 | 151.4 / 153.3 | 171.442 / 9.086 | 162355.7 | 0 / 0 / 60 | 0 / 0 / 260,004 | 2 / 2 | 9,342 / 12,288 tokens | 1890.0 / 593.2 |
+| 2 / spread / host | 36.650 | 752.2 / 1520.4 | 156.9 / 180.5 | 45.132 / 9.411 | 35721.1 | 0 / 60 / 0 | 0 / 258,432 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 487.4 / 105.2 |
+| 2 / spread / resident | 33.347 | 512.9 / 1257.5 | 145.2 / 151.1 | 30.771 / 8.712 | 22059.2 | 60 / 0 / 0 | 258,432 / 0 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 341.5 / 0.0 |
+| 2 / spread / storage | 65.565 | 2494.6 / 4037.5 | 151.5 / 153.7 | 149.673 / 9.091 | 140582.6 | 0 / 0 / 60 | 0 / 0 / 260,004 | 2 / 2 | 9,342 / 12,288 tokens | 1522.1 / 613.0 |
+| 3 / burst / host | 35.945 | 1128.5 / 2040.4 | 159.9 / 194.0 | 67.711 / 9.594 | 58116.8 | 0 / 60 / 0 | 0 / 258,432 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 853.3 / 82.7 |
+| 3 / burst / resident | 30.982 | 881.9 / 1780.2 | 166.4 / 159.9 | 52.917 / 9.985 | 42931.8 | 60 / 0 / 0 | 258,432 / 0 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 693.9 / 0.0 |
+| 3 / burst / storage | 64.924 | 2882.9 / 5176.1 | 153.7 / 153.6 | 172.973 / 9.221 | 163751.9 | 0 / 0 / 60 | 0 / 0 / 260,004 | 2 / 2 | 9,342 / 12,288 tokens | 1894.6 / 600.1 |
+| 3 / spread / host | 36.622 | 750.0 / 1467.0 | 158.8 / 194.5 | 45.003 / 9.528 | 35474.4 | 0 / 60 / 0 | 0 / 258,432 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 483.3 / 102.8 |
+| 3 / spread / resident | 33.386 | 518.5 / 1280.5 | 147.5 / 150.6 | 31.111 / 8.853 | 22258.4 | 60 / 0 / 0 | 258,432 / 0 / 0 | 2 / 2 | 9,342 / 12,288 tokens | 344.2 / 0.0 |
+| 3 / spread / storage | 64.543 | 2390.6 / 4074.5 | 153.2 / 153.4 | 143.435 / 9.194 | 134240.5 | 0 / 0 / 60 | 0 / 0 / 260,004 | 2 / 2 | 9,342 / 12,288 tokens | 1454.3 / 597.1 |
+
+| Seed / return pattern / tier | Whole-workload change vs GPU | Mean / p95 replay-delay increase (ms) | Mean TTFT increase (ms) |
+| --- | --- | --- | --- |
+| 1 / spread / host | +3.153s (+9.4%) | +248.8 / +200.3 | +13.0 |
+| 1 / spread / storage | +30.876s (+92.5%) | +1933.0 / +2760.3 | +6.2 |
+| 1 / burst / host | +4.770s (+15.4%) | +249.7 / +363.3 | -5.7 |
+| 1 / burst / storage | +33.899s (+109.5%) | +2028.2 / +3300.5 | -9.3 |
+| 2 / spread / host | +3.304s (+9.9%) | +239.4 / +262.9 | +11.7 |
+| 2 / spread / storage | +32.218s (+96.6%) | +1981.7 / +2780.0 | +6.3 |
+| 2 / burst / host | +5.020s (+16.2%) | +280.2 / +255.2 | +6.1 |
+| 2 / burst / storage | +33.288s (+107.6%) | +1982.5 / +3086.8 | -10.7 |
+| 3 / spread / host | +3.235s (+9.7%) | +231.5 / +186.5 | +11.3 |
+| 3 / spread / storage | +31.157s (+93.3%) | +1872.1 / +2794.0 | +5.7 |
+| 3 / burst / host | +4.963s (+16.0%) | +246.6 / +260.2 | -6.5 |
+| 3 / burst / storage | +33.942s (+109.6%) | +2000.9 / +3395.9 | -12.7 |
+
+Positive changes mean the lower tier was slower than the all-GPU reference. Due-to-first-token includes any delay before submission plus backend TTFT. Tier-source counts come from native SGLang evidence, not from the requested mode name. Capacity-safe arms use pre-admission residency; original pressure arms use replay cache matches. File-backed storage uses normal operating-system caching; the page cache was not flushed.
+
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
+
+**Limits**
+
+- Synthetic equal-priority coding sessions with at most two active at once.
+- Lower-tier restoration starts only after tool return; this is an unprepared worst case.
+- File-backed storage can be served by the operating-system page cache.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+CAPACITY_TIER_RUN_ID=capacity_safe_tiers_7b_full_20261008_repeat \
+CAPACITY_TIER_MODEL=Qwen/Qwen2.5-Coder-7B-Instruct \
+CAPACITY_TIER_SEEDS='1 2 3' \
+CAPACITY_TIER_PATTERNS='spread burst' \
+CAPACITY_TIER_MODES='resident host storage' \
+CAPACITY_TIER_SESSIONS=6 \
+CAPACITY_TIER_TURNS=10 \
+CAPACITY_TIER_INITIAL_TOKENS=4096 \
+CAPACITY_TIER_TOOL_WORDS=16 \
+CAPACITY_TIER_DECODE_TOKENS=16 \
+CAPACITY_TIER_WAIT_MS=1000 \
+CAPACITY_TIER_BURST_WINDOW_MS=75 \
+CAPACITY_TIER_SPREAD_WINDOW_MS=1000 \
+CAPACITY_TIER_RESIDENT_GPU_TOKENS=40960 \
+CAPACITY_TIER_RESIDENT_HOST_GB=3.0 \
+CAPACITY_TIER_RESTRICTED_GPU_TOKENS=12288 \
+CAPACITY_TIER_HOST_GB=2.0 \
+CAPACITY_TIER_STORAGE_HOST_GB=1.0 \
+CAPACITY_TIER_MAX_ACTIVE=2 \
+CAPACITY_TIER_ACTIVE_TOKEN_LIMIT=12288 \
+bash infra/container/run_work_audit_capacity_safe_tiers.sh
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/summary.json) · [Run manifest](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/run_manifest.json) · [Source hashes](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/source_sha256.txt) · [seed1/burst_host timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_host/case_results.json) · [seed1/burst_host trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_host/backend_trace.jsonl.gz) · [seed1/burst_host hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_host/instrumentation_audit.json) · [seed1/burst_resident timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_resident/case_results.json) · [seed1/burst_resident trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_resident/backend_trace.jsonl.gz) · [seed1/burst_resident hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_resident/instrumentation_audit.json) · [seed1/burst_storage timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_storage/case_results.json) · [seed1/burst_storage trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_storage/backend_trace.jsonl.gz) · [seed1/burst_storage hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/burst_storage/instrumentation_audit.json) · [seed1/spread_host timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_host/case_results.json) · [seed1/spread_host trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_host/backend_trace.jsonl.gz) · [seed1/spread_host hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_host/instrumentation_audit.json) · [seed1/spread_resident timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_resident/case_results.json) · [seed1/spread_resident trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_resident/backend_trace.jsonl.gz) · [seed1/spread_resident hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_resident/instrumentation_audit.json) · [seed1/spread_storage timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_storage/case_results.json) · [seed1/spread_storage trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_storage/backend_trace.jsonl.gz) · [seed1/spread_storage hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed1/spread_storage/instrumentation_audit.json) · [seed2/burst_host timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_host/case_results.json) · [seed2/burst_host trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_host/backend_trace.jsonl.gz) · [seed2/burst_host hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_host/instrumentation_audit.json) · [seed2/burst_resident timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_resident/case_results.json) · [seed2/burst_resident trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_resident/backend_trace.jsonl.gz) · [seed2/burst_resident hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_resident/instrumentation_audit.json) · [seed2/burst_storage timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_storage/case_results.json) · [seed2/burst_storage trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_storage/backend_trace.jsonl.gz) · [seed2/burst_storage hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/burst_storage/instrumentation_audit.json) · [seed2/spread_host timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_host/case_results.json) · [seed2/spread_host trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_host/backend_trace.jsonl.gz) · [seed2/spread_host hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_host/instrumentation_audit.json) · [seed2/spread_resident timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_resident/case_results.json) · [seed2/spread_resident trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_resident/backend_trace.jsonl.gz) · [seed2/spread_resident hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_resident/instrumentation_audit.json) · [seed2/spread_storage timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_storage/case_results.json) · [seed2/spread_storage trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_storage/backend_trace.jsonl.gz) · [seed2/spread_storage hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed2/spread_storage/instrumentation_audit.json) · [seed3/burst_host timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_host/case_results.json) · [seed3/burst_host trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_host/backend_trace.jsonl.gz) · [seed3/burst_host hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_host/instrumentation_audit.json) · [seed3/burst_resident timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_resident/case_results.json) · [seed3/burst_resident trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_resident/backend_trace.jsonl.gz) · [seed3/burst_resident hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_resident/instrumentation_audit.json) · [seed3/burst_storage timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_storage/case_results.json) · [seed3/burst_storage trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_storage/backend_trace.jsonl.gz) · [seed3/burst_storage hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/burst_storage/instrumentation_audit.json) · [seed3/spread_host timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_host/case_results.json) · [seed3/spread_host trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_host/backend_trace.jsonl.gz) · [seed3/spread_host hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_host/instrumentation_audit.json) · [seed3/spread_resident timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_resident/case_results.json) · [seed3/spread_resident trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_resident/backend_trace.jsonl.gz) · [seed3/spread_resident hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_resident/instrumentation_audit.json) · [seed3/spread_storage timings](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_storage/case_results.json) · [seed3/spread_storage trace](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_storage/backend_trace.jsonl.gz) · [seed3/spread_storage hook gate](docs/reports/work_audit/capacity_safe_tiers_7b_full_20261008/arms/seed3/spread_storage/instrumentation_audit.json)
+
+</details>
+
 <a id="run-memory_tiers_7b_full_20261008"></a>
 <details>
 <summary><strong>Oct 8, 2026, 5:39:28 p.m. CDT · GPU / CPU / storage KV gap</strong> · memory_tiers_7b_full_20261008</summary>
@@ -349,26 +448,26 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 **Key measurements**
 
-| Seed / return pattern / mode | Whole workload (s) | Due to first token mean / p95 (ms) | TTFT mean / p95 (ms) | Total due delay / TTFT (s) | Submission waiting (ms) | Native GPU / CPU / storage replay hits | Native GPU / CPU / storage tokens |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 / burst / host | 67.698 | 2267.0 / 4235.9 | 2265.8 / 4234.2 | 136.022 / 135.949 | 69.0 | 0 / 60 / 0 | 0 / 263,040 / 0 |
-| 1 / burst / resident | 28.207 | 272.6 / 520.3 | 271.4 / 518.8 | 16.354 / 16.282 | 68.1 | 60 / 0 / 0 | 263,040 / 0 / 0 |
-| 1 / burst / storage | 102.826 | 3970.0 / 7997.4 | 3968.8 / 7996.0 | 238.201 / 238.128 | 70.1 | 8 / 8 / 20 | 28,160 / 23,872 / 87,680 |
-| 1 / spread / host | 67.554 | 1795.7 / 3284.9 | 1794.8 / 3284.5 | 107.741 / 107.689 | 48.7 | 0 / 60 / 0 | 0 / 263,040 / 0 |
-| 1 / spread / resident | 34.796 | 130.7 / 167.2 | 129.9 / 166.1 | 7.841 / 7.794 | 44.2 | 60 / 0 / 0 | 263,040 / 0 / 0 |
-| 1 / spread / storage | 103.264 | 3933.6 / 7451.1 | 3932.7 / 7449.8 | 236.015 / 235.962 | 49.1 | 2 / 3 / 32 | 4,096 / 12,608 / 137,856 |
-| 2 / burst / host | 67.691 | 2266.9 / 4206.4 | 2265.5 / 4205.7 | 136.012 / 135.933 | 76.1 | 0 / 60 / 0 | 0 / 263,040 / 0 |
-| 2 / burst / resident | 28.070 | 260.3 / 496.5 | 259.1 / 494.7 | 15.620 / 15.548 | 69.2 | 60 / 0 / 0 | 263,040 / 0 / 0 |
-| 2 / burst / storage | 102.311 | 3955.8 / 7994.6 | 3954.6 / 7993.3 | 237.346 / 237.275 | 67.8 | 8 / 6 / 20 | 35,328 / 18,752 / 87,680 |
-| 2 / spread / host | 67.646 | 1800.1 / 3288.2 | 1799.3 / 3287.4 | 108.007 / 107.955 | 49.1 | 0 / 60 / 0 | 0 / 263,040 / 0 |
-| 2 / spread / resident | 34.781 | 129.8 / 164.4 | 129.0 / 163.6 | 7.788 / 7.740 | 44.6 | 60 / 0 / 0 | 263,040 / 0 / 0 |
-| 2 / spread / storage | 104.891 | 3935.7 / 7410.1 | 3934.9 / 7409.6 | 236.145 / 236.091 | 50.5 | 4 / 9 / 28 | 8,192 / 29,888 / 123,072 |
-| 3 / burst / host | 67.695 | 2268.1 / 4212.8 | 2266.9 / 4211.1 | 136.085 / 136.015 | 66.6 | 0 / 60 / 0 | 0 / 263,040 / 0 |
-| 3 / burst / resident | 28.045 | 257.2 / 496.7 | 256.0 / 494.9 | 15.434 / 15.361 | 70.1 | 60 / 0 / 0 | 263,040 / 0 / 0 |
-| 3 / burst / storage | 102.487 | 3954.0 / 8002.6 | 3952.8 / 8000.5 | 237.242 / 237.165 | 73.2 | 8 / 8 / 20 | 30,400 / 25,728 / 87,680 |
-| 3 / spread / host | 67.632 | 1799.1 / 3285.1 | 1798.3 / 3284.1 | 107.948 / 107.898 | 47.5 | 0 / 60 / 0 | 0 / 263,040 / 0 |
-| 3 / spread / resident | 34.806 | 130.1 / 166.0 | 129.3 / 164.9 | 7.806 / 7.758 | 44.4 | 60 / 0 / 0 | 263,040 / 0 / 0 |
-| 3 / spread / storage | 105.814 | 4045.4 / 7432.5 | 4044.5 / 7431.3 | 242.725 / 242.669 | 51.9 | 3 / 7 / 28 | 6,144 / 23,424 / 122,816 |
+| Seed / return pattern / mode | Whole workload (s) | Due to first token mean / p95 (ms) | TTFT mean / p95 (ms) | Total due delay / TTFT (s) | Submission waiting (ms) | Proven GPU / CPU / storage source requests | Proven GPU / CPU / storage source tokens | Active sessions max / limit | Active KV estimate max / limit | Slot wait / KV preparation mean (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / burst / host | 67.698 | 2267.0 / 4235.9 | 2265.8 / 4234.2 | 136.022 / 135.949 | 69.0 | 0 / 60 / 0 | 0 / 263,040 / 0 | not recorded | not recorded | not recorded |
+| 1 / burst / resident | 28.207 | 272.6 / 520.3 | 271.4 / 518.8 | 16.354 / 16.282 | 68.1 | 60 / 0 / 0 | 263,040 / 0 / 0 | not recorded | not recorded | not recorded |
+| 1 / burst / storage | 102.826 | 3970.0 / 7997.4 | 3968.8 / 7996.0 | 238.201 / 238.128 | 70.1 | 8 / 8 / 20 | 28,160 / 23,872 / 87,680 | not recorded | not recorded | not recorded |
+| 1 / spread / host | 67.554 | 1795.7 / 3284.9 | 1794.8 / 3284.5 | 107.741 / 107.689 | 48.7 | 0 / 60 / 0 | 0 / 263,040 / 0 | not recorded | not recorded | not recorded |
+| 1 / spread / resident | 34.796 | 130.7 / 167.2 | 129.9 / 166.1 | 7.841 / 7.794 | 44.2 | 60 / 0 / 0 | 263,040 / 0 / 0 | not recorded | not recorded | not recorded |
+| 1 / spread / storage | 103.264 | 3933.6 / 7451.1 | 3932.7 / 7449.8 | 236.015 / 235.962 | 49.1 | 2 / 3 / 32 | 4,096 / 12,608 / 137,856 | not recorded | not recorded | not recorded |
+| 2 / burst / host | 67.691 | 2266.9 / 4206.4 | 2265.5 / 4205.7 | 136.012 / 135.933 | 76.1 | 0 / 60 / 0 | 0 / 263,040 / 0 | not recorded | not recorded | not recorded |
+| 2 / burst / resident | 28.070 | 260.3 / 496.5 | 259.1 / 494.7 | 15.620 / 15.548 | 69.2 | 60 / 0 / 0 | 263,040 / 0 / 0 | not recorded | not recorded | not recorded |
+| 2 / burst / storage | 102.311 | 3955.8 / 7994.6 | 3954.6 / 7993.3 | 237.346 / 237.275 | 67.8 | 8 / 6 / 20 | 35,328 / 18,752 / 87,680 | not recorded | not recorded | not recorded |
+| 2 / spread / host | 67.646 | 1800.1 / 3288.2 | 1799.3 / 3287.4 | 108.007 / 107.955 | 49.1 | 0 / 60 / 0 | 0 / 263,040 / 0 | not recorded | not recorded | not recorded |
+| 2 / spread / resident | 34.781 | 129.8 / 164.4 | 129.0 / 163.6 | 7.788 / 7.740 | 44.6 | 60 / 0 / 0 | 263,040 / 0 / 0 | not recorded | not recorded | not recorded |
+| 2 / spread / storage | 104.891 | 3935.7 / 7410.1 | 3934.9 / 7409.6 | 236.145 / 236.091 | 50.5 | 4 / 9 / 28 | 8,192 / 29,888 / 123,072 | not recorded | not recorded | not recorded |
+| 3 / burst / host | 67.695 | 2268.1 / 4212.8 | 2266.9 / 4211.1 | 136.085 / 136.015 | 66.6 | 0 / 60 / 0 | 0 / 263,040 / 0 | not recorded | not recorded | not recorded |
+| 3 / burst / resident | 28.045 | 257.2 / 496.7 | 256.0 / 494.9 | 15.434 / 15.361 | 70.1 | 60 / 0 / 0 | 263,040 / 0 / 0 | not recorded | not recorded | not recorded |
+| 3 / burst / storage | 102.487 | 3954.0 / 8002.6 | 3952.8 / 8000.5 | 237.242 / 237.165 | 73.2 | 8 / 8 / 20 | 30,400 / 25,728 / 87,680 | not recorded | not recorded | not recorded |
+| 3 / spread / host | 67.632 | 1799.1 / 3285.1 | 1798.3 / 3284.1 | 107.948 / 107.898 | 47.5 | 0 / 60 / 0 | 0 / 263,040 / 0 | not recorded | not recorded | not recorded |
+| 3 / spread / resident | 34.806 | 130.1 / 166.0 | 129.3 / 164.9 | 7.806 / 7.758 | 44.4 | 60 / 0 / 0 | 263,040 / 0 / 0 | not recorded | not recorded | not recorded |
+| 3 / spread / storage | 105.814 | 4045.4 / 7432.5 | 4044.5 / 7431.3 | 242.725 / 242.669 | 51.9 | 3 / 7 / 28 | 6,144 / 23,424 / 122,816 | not recorded | not recorded | not recorded |
 
 | Seed / return pattern / tier | Whole-workload change vs GPU | Mean / p95 replay-delay increase (ms) | Mean TTFT increase (ms) |
 | --- | --- | --- | --- |
@@ -385,7 +484,7 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 | 3 / burst / host | +39.650s (+141.4%) | +2010.8 / +3716.1 | +2010.9 |
 | 3 / burst / storage | +74.441s (+265.4%) | +3696.8 / +7505.9 | +3696.7 |
 
-Positive changes mean the lower tier was slower than the all-GPU reference. Due-to-first-token includes any delay before submission plus backend TTFT. Native hit counts come from SGLang's cache trace, not from the requested mode name. File-backed storage uses normal operating-system caching; the page cache was not flushed.
+Positive changes mean the lower tier was slower than the all-GPU reference. Due-to-first-token includes any delay before submission plus backend TTFT. Tier-source counts come from native SGLang evidence, not from the requested mode name. Capacity-safe arms use pre-admission residency; original pressure arms use replay cache matches. File-backed storage uses normal operating-system caching; the page cache was not flushed.
 
 **Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
 
