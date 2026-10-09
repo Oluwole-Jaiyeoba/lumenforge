@@ -1,0 +1,406 @@
+{
+  "cpu": {
+    "Architecture": "x86_64",
+    "CPU(s)": "8",
+    "Core(s) per socket": "4",
+    "Model name": "AMD EPYC 7R32",
+    "Socket(s)": "1",
+    "Thread(s) per core": "2"
+  },
+  "generated_at": "2026-10-09T21:11:29.564062+00:00",
+  "gpu": {
+    "cuda_version_from_nvidia_smi": "13.2",
+    "gpus": [
+      {
+        "compute_capability": "8.6",
+        "driver_version": "595.58.03",
+        "index": "0",
+        "memory_free_mib": 22587,
+        "memory_total_mib": 23028,
+        "memory_type": "GDDR6 (inferred from GPU model)",
+        "memory_used_mib": 3,
+        "name": "NVIDIA A10G",
+        "pci_bus_id": "00000000:00:1E.0"
+      }
+    ],
+    "query": {
+      "cmd": [
+        "nvidia-smi",
+        "--query-gpu=index,name,memory.total,memory.used,memory.free,driver_version,compute_cap,pci.bus_id",
+        "--format=csv,noheader,nounits"
+      ],
+      "ok": true,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "0, NVIDIA A10G, 23028, 3, 22587, 595.58.03, 8.6, 00000000:00:1E.0"
+    },
+    "raw": {
+      "cmd": [
+        "nvidia-smi"
+      ],
+      "ok": true,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Fri Oct  9 21:11:29 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 595.58.03              Driver Version: 595.58.03      CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA A10G                    Off |   00000000:00:1E.0 Off |                    0 |\n|  0%   33C    P8             17W /  300W |       3MiB /  23028MiB |      0%      Default |\n|                                         |                        |                  N/A |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+"
+    }
+  },
+  "host_identity": {
+    "label": "",
+    "profile": "nvidia_a10g_24gb"
+  },
+  "host_memory": {
+    "available_bytes": 31184379904,
+    "available_gib": "29.04 GiB",
+    "free_bytes": 14275633152,
+    "total_bytes": 33267261440,
+    "total_gib": "30.98 GiB",
+    "used_bytes": 1626759168
+  },
+  "hostname": "ip-172-31-95-225.ec2.internal",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "paths": {
+    "controlled_root": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s2_trial2_controller_proactive_kv_management",
+    "live_root": "",
+    "run_config_env": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/reports/s2_trial2_controller_proactive_kv_management/run_config.env"
+  },
+  "platform": {
+    "machine": "x86_64",
+    "platform": "Linux-6.1.168-202.320.amzn2023.x86_64-x86_64-with-glibc2.34",
+    "release": "6.1.168-202.320.amzn2023.x86_64",
+    "system": "Linux"
+  },
+  "run_config": {
+    "AGENTIC_BACKEND_RUNTIME_CONTRACT": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s2_trial2_controller_proactive_kv_management/runtime/backend_runtime.json",
+    "AGENTIC_EQUAL_IMPORTANCE_WORKLOAD": "1",
+    "AGENTIC_KV_COPY_TELEMETRY_ENABLE": "0",
+    "AGENTIC_KV_GPU_UTIL_SAMPLER": "0",
+    "AGENTIC_KV_TRACE_KV_POOL": "0",
+    "AGENTIC_KV_TRACE_SCHEDULER": "1",
+    "AGENTIC_RUNTIME_TELEMETRY": "1",
+    "AGENTIC_RUN_MANIFEST": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s2_trial2_controller_proactive_kv_management/runtime/run_manifest.json",
+    "AGENTIC_WORKLOAD_PROFILE": "synthetic_pressure",
+    "CONTROLLER_ADMISSION_AGGRESSIVENESS": "hard",
+    "CONTROLLER_ALLOW_SMALL_WORK_TOKENS": "256",
+    "CONTROLLER_CALIBRATED_DEFAULT_FLOOR_MS": "",
+    "CONTROLLER_CALIBRATED_MIN_SAMPLES": "",
+    "CONTROLLER_CALIBRATED_QUANTILE": "",
+    "CONTROLLER_CALIBRATED_UNKNOWN_FLOOR_MS": "",
+    "CONTROLLER_CALIBRATION_HISTORY_CSV": "",
+    "CONTROLLER_CHUNKED_MAX_PREFILL_TOKENS": "4096",
+    "CONTROLLER_CHUNKED_PREFILL_MAX_REQUESTS": "",
+    "CONTROLLER_CHUNKED_PREFILL_SIZE": "512",
+    "CONTROLLER_GPU_BACKFILL_MAX_RUNTIME_MS": "1000",
+    "CONTROLLER_GPU_IDLE_RECENT_WINDOW_MS": "500",
+    "CONTROLLER_GPU_IDLE_UTIL_THRESHOLD_PCT": "5",
+    "CONTROLLER_GPU_TELEMETRY_POLL_MS": "250",
+    "CONTROLLER_INSTRUMENTATION_CONTRACT": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s2_trial2_controller_proactive_kv_management/runtime/instrumentation_contract.json",
+    "CONTROLLER_INSTRUMENTATION_GATE": "on",
+    "CONTROLLER_INSTRUMENTATION_POLICY": "strict",
+    "CONTROLLER_MAX_HOLD_MS": "10000",
+    "CONTROLLER_ORACLE_EXACT_FALLBACK_MS": "",
+    "CONTROLLER_ORACLE_EXACT_IDLE_OVERRIDE": "",
+    "CONTROLLER_ORACLE_EXACT_MAX_IN_FLIGHT": "",
+    "CONTROLLER_ORACLE_EXACT_SAFETY_MARGIN_MS": "",
+    "CONTROLLER_ORACLE_RUNTIME_TRUTH_CSV": "",
+    "CONTROLLER_REPLAY_ADMISSION_GUARD": "1",
+    "CONTROLLER_REPLAY_LOOKAHEAD_MS": "5000",
+    "CONTROLLER_REPLAY_SAFETY_MARGIN_MS": "500",
+    "CONTROLLER_SHORTHAND_CODEC_CONFIG": "configs/prompt_codecs/agent_trace_relations_v1.json",
+    "CONTROLLER_SHORTHAND_ENCODING_SCOPE": "target_requests",
+    "ENCODING_CASE_KEY": "controller_audit_pivots",
+    "EXPERIMENT_KIND": "multi_harness_deadline_pressure",
+    "FILLER_BACKLOG_MODE": "once",
+    "FILLER_BACKLOG_TARGET": "0",
+    "FILLER_BACKLOG_TOTAL": "0",
+    "FILLER_REPLAY_DEADLINES": "1",
+    "FILLER_REPLAY_DEADLINE_MS": "0",
+    "HARDWARE_PROFILE": "nvidia_a10g_24gb",
+    "HARDWARE_PROFILE_PATH": "configs/hardware/nvidia_a10g_24gb.env",
+    "HARNESSES": "hatcher",
+    "HICACHE_IO_BACKEND": "direct",
+    "HICACHE_MEM_LAYOUT": "layer_first",
+    "HICACHE_SIZE_GB": "8",
+    "HICACHE_STORAGE_BACKEND": "",
+    "HICACHE_STORAGE_BACKEND_EXTRA_CONFIG": "",
+    "HICACHE_STORAGE_PATH": "",
+    "HICACHE_STORAGE_PREFETCH_POLICY": "",
+    "MAX_TOTAL_TOKENS": "24576",
+    "MEM_FRACTION_STATIC": "0.72",
+    "MODEL": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "MODES": "controller_proactive_kv_management",
+    "P0_CONTROL": "tool_wait_ms=500,target_prompt_tokens=1024,filler_sessions=0,filler_prompt_tokens=768,session_count=1,concurrency=1",
+    "P1_MILD": "tool_wait_ms=250,target_prompt_tokens=2048,filler_sessions=8,filler_prompt_tokens=1024,session_count=1,concurrency=4",
+    "P2_MEDIUM": "tool_wait_ms=100,target_prompt_tokens=3072,filler_sessions=16,filler_prompt_tokens=1536,session_count=1,concurrency=6",
+    "P3_QUEUE_PRESSURE": "tool_wait_ms=1000,target_prompt_tokens=4096,filler_sessions=15,filler_prompt_tokens=4096,session_count=1,concurrency=6",
+    "P4_CLIFF": "tool_wait_ms=25,target_prompt_tokens=4096,filler_sessions=48,filler_prompt_tokens=2048,session_count=1,concurrency=10",
+    "P5_BOSS_QUEUE": "tool_wait_ms=50,target_prompt_tokens=4096,filler_sessions=4,filler_prompt_tokens=2048,session_count=4,concurrency=12",
+    "PRESSURE_LEVELS": "p3_high",
+    "PROMPT_CODEC_CONFIG": "",
+    "PROMPT_ENCODING_SCOPE": "target_requests",
+    "PROMPT_WORKLOAD_JSONL": "",
+    "REPORT_DIR": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/reports/s2_trial2_controller_proactive_kv_management",
+    "REPORT_LABEL": "s2_trial2_controller_proactive_kv_management",
+    "RESULTS_ROOT": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw",
+    "RUN_ROOT": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s2_trial2_controller_proactive_kv_management",
+    "SKIP_EXISTING_CASES": "0",
+    "TASK_REPLAY_STEPS": "2",
+    "TOOL_WAIT_PROFILE": "custom",
+    "TOOL_WAIT_PROFILE_SPEC": "long:100:60000-120000",
+    "TOOL_WAIT_SEED": "20260917",
+    "TRACE_CONTROLLER_COMPLETION_LINKAGE": "1",
+    "TRACE_CONTROLLER_DECISIONS": "1",
+    "TRACE_IDLE_GAP_AUDIT": "0",
+    "TRACE_PROFILE": "controller_queue",
+    "TRACE_REPLAY_BLOCKERS": "0",
+    "TRACE_REPLAY_BLOCKERS_EVENTS": "before_acquire,submit",
+    "TRACE_REPLAY_BLOCKERS_MAX_IDS": "16",
+    "TRACE_REPLAY_FRICTION_DEEP_DIVE": "0",
+    "WORKLOAD_SHAPE_MODE_INDEPENDENT": "1"
+  },
+  "sglang": {
+    "runtime": {
+      "available_gpu_mem": "5.65 GB",
+      "chunked_prefill_size": "2048",
+      "context_len": "32768",
+      "max_prefill_tokens": "16384",
+      "max_running_requests": "2048",
+      "max_total_num_tokens": "24576"
+    },
+    "selected_log": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s2_trial2_controller_proactive_kv_management/hatcher_p3_high_controller_proactive_kv_management_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/sglang_server.log",
+    "server_args": {
+      "context_length": "None",
+      "dtype": "auto",
+      "enable_hierarchical_cache": "True",
+      "file_storage_path": "sglang_storage",
+      "hicache_io_backend": "direct",
+      "hicache_mem_layout": "layer_first",
+      "hicache_ratio": "2.0",
+      "hicache_size": "8",
+      "hicache_storage_backend": "None",
+      "hicache_storage_backend_extra_config": "None",
+      "hicache_storage_prefetch_policy": "best_effort",
+      "hicache_write_policy": "write_through",
+      "kv_cache_dtype": "auto",
+      "max_total_tokens": "24576",
+      "mem_fraction_static": "0.72",
+      "pp_size": "1",
+      "radix_eviction_policy": "lru",
+      "schedule_policy": "fcfs",
+      "tp_size": "1"
+    }
+  },
+  "sglang_capabilities": {
+    "cache_signal_path_audit": {
+      "checks": [
+        {
+          "expected_native_path": "OpenAI-compatible request field mapped to cache_salt or extra_key",
+          "generate_req_input_seen": false,
+          "parser_seen": false,
+          "radix_namespace_seen": true,
+          "req_field_seen": false,
+          "signal": "prompt_cache_key",
+          "source_evidence": "prompt_cache_key not found in installed SGLang source",
+          "verdict": "native prompt_cache_key path not proven by source audit"
+        },
+        {
+          "expected_native_path": "request cache_salt becomes request extra_key / RadixKey extra_key",
+          "generate_req_input_seen": true,
+          "parser_seen": true,
+          "radix_namespace_seen": true,
+          "req_field_seen": true,
+          "signal": "cache_salt",
+          "source_evidence": "cache_salt found in installed SGLang source",
+          "verdict": "native cache_salt namespace path appears present"
+        },
+        {
+          "expected_native_path": "custom cache-control metadata directly changes SGLang cache policy",
+          "generate_req_input_seen": false,
+          "parser_seen": true,
+          "radix_namespace_seen": false,
+          "req_field_seen": false,
+          "signal": "custom_params.nvext.cache_control",
+          "source_evidence": "cache_control found in installed SGLang source",
+          "verdict": "native cache_control action path not proven by source audit"
+        },
+        {
+          "expected_native_path": "testbed bridge metadata directly changes SGLang cache policy",
+          "generate_req_input_seen": false,
+          "parser_seen": false,
+          "radix_namespace_seen": false,
+          "req_field_seen": false,
+          "signal": "native_cache_bridge",
+          "source_evidence": "native_cache_bridge not found in installed SGLang source",
+          "verdict": "native bridge action path not proven by source audit"
+        },
+        {
+          "expected_native_path": "request priority reaches scheduler and cache insertion/eviction priority",
+          "generate_req_input_seen": true,
+          "parser_seen": true,
+          "radix_namespace_seen": true,
+          "req_field_seen": true,
+          "signal": "priority",
+          "source_evidence": "priority found in scheduler/cache source",
+          "verdict": "native priority path appears present"
+        }
+      ],
+      "module_presence": {
+        "hiradix_cache": true,
+        "io_struct": true,
+        "openai_adapter": false,
+        "openai_protocol": true,
+        "radix_cache": true,
+        "schedule_batch": true,
+        "schedule_policy": true
+      },
+      "relevant_objects": {
+        "HiRadixCache.match_prefix": true,
+        "RadixCache.cache_finished_req": true,
+        "RadixCache.match_prefix": true
+      },
+      "sglang_package_root": "/home/ec2-user/agentic_hardware/sglang_direct_kv/.venv/lib64/python3.11/site-packages/sglang",
+      "summary": {
+        "cache_control_native_path": "native cache_control action path not proven by source audit",
+        "cache_salt_native_path": "native cache_salt namespace path appears present",
+        "native_cache_bridge_path": "native bridge action path not proven by source audit",
+        "priority_native_path": "native priority path appears present",
+        "prompt_cache_key_native_path": "native prompt_cache_key path not proven by source audit"
+      }
+    },
+    "hook_probe": [
+      {
+        "class": "HiCacheController",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.managers.cache_controller",
+        "module_found": true
+      },
+      {
+        "class": "PrefetchOperation",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.managers.cache_controller",
+        "module_found": true
+      },
+      {
+        "class": "HiRadixCache",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.mem_cache.hiradix_cache",
+        "module_found": true
+      },
+      {
+        "class": "RadixCache",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.mem_cache.radix_cache",
+        "module_found": true
+      },
+      {
+        "class": "HostPoolGroup",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.mem_cache.memory_pool_host",
+        "module_found": true
+      },
+      {
+        "class": "MHATokenToKVPoolHost",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.mem_cache.memory_pool_host",
+        "module_found": true
+      },
+      {
+        "class": "MLATokenToKVPoolHost",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.mem_cache.memory_pool_host",
+        "module_found": true
+      },
+      {
+        "class": "NSATokenToKVPoolHost",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.mem_cache.memory_pool_host",
+        "module_found": true
+      },
+      {
+        "class": "MambaPoolHost",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.mem_cache.memory_pool_host",
+        "module_found": true
+      },
+      {
+        "class": "Scheduler",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.managers.scheduler",
+        "module_found": true
+      },
+      {
+        "class": "TpModelWorker",
+        "class_found": true,
+        "missing_methods": [],
+        "module": "sglang.srt.managers.tp_worker",
+        "module_found": true
+      }
+    ],
+    "hook_probe_summary": {
+      "classes_found": 11,
+      "targets": 11,
+      "targets_with_missing_methods": 0
+    },
+    "launch_capabilities": {
+      "enable_priority_scheduling_flag_supported": true,
+      "entrypoints": {
+        "dynamo.sglang": {
+          "available": false,
+          "enable_priority_scheduling_flag_supported": false,
+          "error": null,
+          "error_type": null,
+          "exit_code": 1,
+          "module": "dynamo.sglang",
+          "priority_schedule_policy_supported": false,
+          "radix_eviction_policy_flag_supported": false,
+          "radix_priority_eviction_supported": false
+        },
+        "sglang.launch_server": {
+          "available": true,
+          "enable_priority_scheduling_flag_supported": true,
+          "error": null,
+          "error_type": null,
+          "exit_code": 0,
+          "module": "sglang.launch_server",
+          "priority_schedule_policy_supported": true,
+          "radix_eviction_policy_flag_supported": true,
+          "radix_priority_eviction_supported": false
+        }
+      },
+      "priority_schedule_policy_supported": true,
+      "radix_eviction_policy_choices": [
+        "lru",
+        "lfu",
+        "slru"
+      ],
+      "radix_eviction_policy_flag_supported": true,
+      "radix_priority_eviction_supported": false,
+      "schedule_policy_choices": []
+    },
+    "packages": {
+      "sgl-kernel": "",
+      "sglang": "0.5.10.post1",
+      "torch": "2.9.1",
+      "transformers": "5.3.0"
+    },
+    "selected_adapter": "v0510",
+    "sglang_version": "0.5.10.post1"
+  },
+  "software": {
+    "flashinfer-python": "0.6.7.post3",
+    "python": "3.11.15",
+    "sglang": "0.5.10.post1",
+    "torch": "2.9.1",
+    "transformers": "5.3.0",
+    "triton": "3.5.1"
+  }
+}

@@ -2,6 +2,25 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ28",
+      "controller_scenario": "2",
+      "short_question": "Does preparing host-resident KV during tool waits improve replay delay and workload completion without queue ranking or retention changes?",
+      "pivot_title": "Scenario 2: Early KV preparation",
+      "significance": "research_pivot",
+      "manager_takeaway": "Whole-workload time: 283.807 \u2192 285.909 s (+0.7%). Total replay lateness: 139.192 \u2192 153.236 s (+10.1%). Medians of two trials; see each trial below.",
+      "why_it_matters": "Tests one independent use of harness timing information, with equally important sessions. Measures the whole workload as well as replay response times.",
+      "question": "Does preparing host-resident KV during tool waits improve replay delay and workload completion without queue ranking or retention changes?",
+      "answer": "Whole-workload time: 283.807 \u2192 285.909 s (+0.7%). Total replay lateness: 139.192 \u2192 153.236 s (+10.1%). Medians of two trials; see each trial below.",
+      "unknown": "Long synthetic tool waits deliberately create preparation opportunities. Host-to-GPU preparation only; storage disabled. The controller may skip already-resident or insufficiently useful loads. Two synthetic trials do not establish production-wide gains or a hardware bottleneck.",
+      "evidence_date_utc": "2026-10-09",
+      "evidence_run_ids": [
+        "controller_pivots_20261009_01_s2"
+      ],
+      "related_run_ids": [
+        "controller_pivots_20261009_01_s2"
+      ]
+    },
+    {
       "id": "RQ27",
       "controller_scenario": "1",
       "short_question": "Does using expected tool-return times to order equally important replays shorten delays and whole-workload time?",

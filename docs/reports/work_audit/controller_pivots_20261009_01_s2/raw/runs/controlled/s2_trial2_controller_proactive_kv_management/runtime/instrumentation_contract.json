@@ -1,0 +1,48 @@
+{
+  "schema_version": "agentic_controller_instrumentation_contract.v1",
+  "contract_id": "scenario1_ready_time_reference",
+  "description": "Scenario 1 ready-time scheduling validation. Cache transfer hooks are optional because this scenario tests queue scheduling rather than storage movement.",
+  "supported_adapters": ["v0510"],
+  "required": [
+    {
+      "id": "gateway_request_lifecycle",
+      "trace_event_prefixes_all": ["m27.request.start", "m27.request.end"],
+      "required_fields": ["first_token_observed", "ttft_ms"]
+    },
+    {
+      "id": "request_lifecycle",
+      "hook_id": "request_lifecycle"
+    },
+    {
+      "id": "kv_cache_observation",
+      "hook_id": "kv_cache_lifecycle"
+    },
+    {
+      "id": "scheduler_batch_observation",
+      "hook_id": "scheduler_batch_observation"
+    },
+    {
+      "id": "request_completion_timing",
+      "hook_id": "request_completion_timing"
+    },
+    {
+      "id": "replay_ready_time_observation",
+      "trace_event_prefixes_all": ["m27.request.start"],
+      "required_fields": ["deadline_offset_ms"]
+    },
+    {
+      "id": "controller_decision_ledger",
+      "controller_probe": true
+    },
+    {
+      "id": "controller_action_acknowledgement",
+      "controller_probe": true
+    }
+  ],
+  "optional": [
+    {
+      "id": "hicache_transfer_observation",
+      "hook_id": "hicache_transfer_observation"
+    }
+  ]
+}

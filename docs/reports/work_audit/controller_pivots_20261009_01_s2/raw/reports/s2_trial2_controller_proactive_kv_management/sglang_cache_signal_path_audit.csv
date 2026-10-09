@@ -1,0 +1,6 @@
+signal,expected_native_path,parser_seen,generate_req_input_seen,req_field_seen,radix_namespace_seen,verdict,source_evidence
+prompt_cache_key,OpenAI-compatible request field mapped to cache_salt or extra_key,False,False,False,True,native prompt_cache_key path not proven by source audit,prompt_cache_key not found in installed SGLang source
+cache_salt,request cache_salt becomes request extra_key / RadixKey extra_key,True,True,True,True,native cache_salt namespace path appears present,cache_salt found in installed SGLang source
+custom_params.nvext.cache_control,custom cache-control metadata directly changes SGLang cache policy,True,False,False,False,native cache_control action path not proven by source audit,cache_control found in installed SGLang source
+native_cache_bridge,testbed bridge metadata directly changes SGLang cache policy,False,False,False,False,native bridge action path not proven by source audit,native_cache_bridge not found in installed SGLang source
+priority,request priority reaches scheduler and cache insertion/eviction priority,True,True,True,True,native priority path appears present,priority found in scheduler/cache source

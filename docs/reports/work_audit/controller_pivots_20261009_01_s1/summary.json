@@ -1369,7 +1369,12 @@
         "ranked_replays": 0,
         "accepted_prepare_loads": 0,
         "device_eviction_calls": 190,
-        "device_evicted_token_slots": 151829
+        "device_evicted_token_slots": 151829,
+        "admission_decisions": null,
+        "hold_decisions": null,
+        "prepare_calls": 0,
+        "rejected_prepares": 0,
+        "prepare_ready_before_due": 0
       },
       "report_path": "raw/reports/s1_trial1_no_prefetch",
       "good_admits": null,
@@ -2741,7 +2746,12 @@
         "ranked_replays": 32,
         "accepted_prepare_loads": 0,
         "device_eviction_calls": 184,
-        "device_evicted_token_slots": 145631
+        "device_evicted_token_slots": 145631,
+        "admission_decisions": 48,
+        "hold_decisions": 0,
+        "prepare_calls": 0,
+        "rejected_prepares": 0,
+        "prepare_ready_before_due": 0
       },
       "report_path": "raw/reports/s1_trial1_controller_ready_time_gpu_backfill",
       "good_admits": null,
@@ -4113,7 +4123,12 @@
         "ranked_replays": 32,
         "accepted_prepare_loads": 0,
         "device_eviction_calls": 174,
-        "device_evicted_token_slots": 139357
+        "device_evicted_token_slots": 139357,
+        "admission_decisions": 48,
+        "hold_decisions": 0,
+        "prepare_calls": 0,
+        "rejected_prepares": 0,
+        "prepare_ready_before_due": 0
       },
       "report_path": "raw/reports/s1_trial2_controller_ready_time_gpu_backfill",
       "good_admits": null,
@@ -5481,7 +5496,12 @@
         "ranked_replays": 0,
         "accepted_prepare_loads": 0,
         "device_eviction_calls": 195,
-        "device_evicted_token_slots": 162023
+        "device_evicted_token_slots": 162023,
+        "admission_decisions": null,
+        "hold_decisions": null,
+        "prepare_calls": 0,
+        "rejected_prepares": 0,
+        "prepare_ready_before_due": 0
       },
       "report_path": "raw/reports/s1_trial2_no_prefetch",
       "good_admits": null,
@@ -5558,6 +5578,6 @@
   "status": "complete",
   "measurement_boundary": "driver workload start through all session completions; includes initial requests and tool waits; excludes server startup and preflight",
   "matching": "Within a trial: identical model, prompt hashes, output limits, waits, capacities and instrumentation. Tool waits start after each session's preceding completion, so absolute arrivals can change as a consequence of policy.",
-  "analysis_revision": "c9b79d68ac386d628df5292a7616e80fba82594b",
+  "analysis_revision": "ffa94af18d61f7f4632465a7c37cf69371f0ca4d",
   "analysis_python_version": "3.14.5 (main, May 10 2026, 10:21:34) [Clang 17.0.0 (clang-1700.6.4.2)]"
 }

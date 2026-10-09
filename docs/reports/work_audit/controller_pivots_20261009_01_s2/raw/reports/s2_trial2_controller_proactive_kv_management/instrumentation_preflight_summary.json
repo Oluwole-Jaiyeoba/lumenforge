@@ -1,0 +1,17 @@
+{
+  "all_valid": true,
+  "cases": [
+    {
+      "adapter": "v0510",
+      "case": "hatcher_p3_high_controller_proactive_kv_management_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots",
+      "contract": "instrumentation_contract.json",
+      "optional_unavailable": 0,
+      "policy": "strict",
+      "required_passed": 9,
+      "required_total": 9,
+      "valid": true,
+      "version": "0.5.10.post1"
+    }
+  ],
+  "schema_version": "agentic_controller_instrumentation_summary.v1"
+}

@@ -1,0 +1,2 @@
+harness,pressure,mode,mode_label,replays,ttft_samples,total_ttft_ms,median_ttft_ms,lateness_samples,total_deadline_debt_ms,median_lateness_ms
+DeepAgents,P3 Queue Pressure,controller_proactive_kv_management,PKV = Controller proactive KV management,32,32,131977.299,4609.411,32,132306.119,4618.655
