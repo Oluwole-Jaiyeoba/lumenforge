@@ -15,6 +15,7 @@ def sample_summary():
                 "trial": trial, "mode": mode, "label": f"t{trial}_{mode}", "issues": [],
                 "metrics": {"workload_ms": 10000 * scale, "total_all_ttft_ms": 20000 * scale,
                             "total_replay_ttft_ms": 15000 * scale, "total_replay_lateness_ms": 18000 * scale,
+                            "median_replay_ttft_ms": 400 * scale,
                             "median_replay_delay_ms": 500 * scale, "p95_replay_delay_ms": 700 * scale,
                             "requests": 48, "replays": 32},
                 "request_fingerprint": [["a", "replay", "1", "hash", "8", "1000"]],
@@ -35,6 +36,7 @@ def test_html_and_markdown_show_each_trial_and_exact_reproduction():
     path = Path("docs/reports/work_audit/sample/summary.json")
     for document in (render([(path, summary)]), render_markdown([(path, summary)])):
         assert "All requests: total TTFT" in document
+        assert "Replay TTFT median (ms)" in document
         assert "Total replay lateness" in document
         assert "10.000" in document and "8.000" in document
         assert "source.tar.gz" in document

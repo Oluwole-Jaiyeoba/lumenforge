@@ -8,7 +8,7 @@ from agentic_backends.controller_audit import HOST_CACHE_ENV, TESTBED_DIRECTORY
 HEADERS = (
     "Trial / mode", "Whole workload (s)", "All requests: total TTFT (s)",
     "Replays: total TTFT (s)", "Replays: total lateness (s)",
-    "Replay delay median / p95 (ms)", "Requests / replays", "Evidence gate",
+    "Replay TTFT median (ms)", "Replay delay median / p95 (ms)", "Requests / replays", "Evidence gate",
 )
 PAIR_HEADERS = ("Trial", "Whole workload: baseline → controller", "Change",
                 "Total replay lateness: baseline → controller", "Change", "Comparison")
@@ -43,6 +43,7 @@ def table_rows(summary: dict) -> list[tuple[str, ...]]:
             f"{arm['trial']} / {label}", number(m["workload_ms"], 1000),
             number(m["total_all_ttft_ms"], 1000), number(m["total_replay_ttft_ms"], 1000),
             number(m["total_replay_lateness_ms"], 1000),
+            number(m.get("median_replay_ttft_ms"), places=1),
             number(m["median_replay_delay_ms"], places=1) + " / " + number(m["p95_replay_delay_ms"], places=1),
             f"{m['requests']} / {m['replays']}", "; ".join(arm["issues"]) or "passed",
         ))
