@@ -34,7 +34,7 @@
     {
       "id": "RQ24",
       "short_question": "What is the tiering cost when active KV always fits?",
-      "significance": "research_pivot",
+      "significance": "supporting_evidence",
       "pivot_title": "Capacity-safe memory tiering",
       "manager_takeaway": "When every admitted session fit in GPU KV, CPU tiering added 10-16% to workload time, while storage still added 93-110%.",
       "why_it_matters": "It separated raw tier-recovery cost from GPU-cache overcommit and showed that admission pressure caused much of the earlier CPU slowdown.",
@@ -49,7 +49,7 @@
     {
       "id": "RQ23",
       "short_question": "How large is the GPU, CPU and storage KV gap?",
-      "significance": "research_pivot",
+      "significance": "supporting_evidence",
       "pivot_title": "Unrestricted memory-tier pressure",
       "manager_takeaway": "With all six sessions free to compete, CPU tiering added 94-141% to workload time and storage added 202-264%.",
       "why_it_matters": "It revealed that lower-tier recovery and uncontrolled concurrent demand can compound into a severe full-system penalty.",
