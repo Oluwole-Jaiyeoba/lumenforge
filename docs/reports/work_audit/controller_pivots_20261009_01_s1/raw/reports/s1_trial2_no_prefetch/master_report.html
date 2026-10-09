@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Replay Deadline Pressure Chart</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; color: #111827; background: #f8fafc; }
+main { max-width: 1600px; margin: 0 auto; padding: 32px; }
+h1 { margin: 0 0 8px; font-size: 30px; }
+h2 { margin-top: 32px; font-size: 22px; }
+p { line-height: 1.5; color: #334155; }
+.card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-top: 18px; overflow-x: auto; }
+.legend-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-top: 10px; }
+.legend-row { display: flex; gap: 18px; align-items: flex-start; margin: 8px 0; }
+.legend-row strong { flex: 0 0 130px; }
+.legend-items { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.legend-item { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.muted { color: #64748b; }
+.legend-dot { width: 12px; height: 12px; border-radius: 999px; display: inline-block; }
+.legend-symbol { width: 18px; height: 18px; flex: 0 0 auto; overflow: visible; }
+.chart-controls { display: grid; gap: 10px; margin-bottom: 14px; padding: 14px 16px; border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; }
+.control-row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.control-row strong { flex: 0 0 112px; }
+.control-button { appearance: none; border: 1px solid #cbd5e1; border-radius: 7px; background: #ffffff; color: #111827; font-weight: 700; padding: 6px 10px; cursor: pointer; }
+.control-button:hover { border-color: #64748b; background: #f8fafc; }
+.control-hint { color: #64748b; font-size: 12px; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.chart-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e2e8f0; border-radius: 999px; background: white; padding: 5px 9px; font-size: 12px; font-weight: 650; color: #334155; }
+.chip-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.deadline-panel-symlog { display: none; }
+.deadline-panel-linear { display: inline; }
+.note { border-left: 4px solid #2563eb; background: #eff6ff; padding: 12px 16px; color: #1e3a8a; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; background: white; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 700; }
+code { background: #eef2ff; padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+<section style="margin:18px 0;padding:16px 20px;border:2px solid #166534;border-radius:8px;background:#fff">
+<h2 style="margin:0 0 8px">Controller Instrumentation Validity: <span style="color:#166534">VALID</span></h2>
+<p style="margin:0 0 10px">Every controller case must install its required hooks and produce live sentinel evidence before workload measurement begins.</p>
+<table><thead><tr><th>Case</th><th>Gate</th><th>Required proof</th><th>Optional unavailable</th><th>Runtime</th><th>Policy</th></tr></thead><tbody><tr><td>hatcher_p3_high_no_prefetch_tw50_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots</td><td>valid</td><td>9 of 9</td><td>0</td><td>v0510 0.5.10.post1</td><td>strict</td></tr></tbody></table>
+<p style="margin:10px 0 0"><a href="instrumentation_preflight_summary.json">Open preflight summary</a>.</p></section>
+<h1>Replay Deadline Pressure Chart</h1>
+<p>Report label: <code>s1_trial2_no_prefetch</code>. Generated 2026-10-09 20:46:40 UTC.</p>
+<p>Hardware profile: <code>nvidia_a10g_24gb</code>. Profile file: <code>configs/hardware/nvidia_a10g_24gb.env</code>.</p>
+    <p class="note">This report uses completed workload traces directly. Every replay request is included; all tasks have equal application importance. Each dot is the median replay for one harness and mode. Lower TTFT and lateness are better.</p>
+
+	<h2>Pressure Level Definitions</h2>
+	<p>Each pressure level is a bundled stress setting, not a full Cartesian sweep. The chart below shows only the levels marked <strong>Yes</strong> for this run.</p>
+	<div class="card"><table><thead><tr><th>level</th><th>in_this_run</th><th>what_it_means</th><th>knobs</th></tr></thead><tbody><tr><td>P0 Control</td><td>No</td><td>Easy baseline. Confirms the replay path works when the system is not under pressure.</td><td>tool_wait_ms=500,target_prompt_tokens=1024,filler_sessions=0,filler_prompt_tokens=768,session_count=1,concurrency=1</td></tr><tr><td>P1 Short Wait</td><td>No</td><td>Short-wait pressure. Tests whether replay can resume after a small tool pause.</td><td>tool_wait_ms=250,target_prompt_tokens=2048,filler_sessions=8,filler_prompt_tokens=1024,session_count=1,concurrency=4</td></tr><tr><td>P2 Large KV</td><td>No</td><td>Large-KV pressure. Tests whether a larger target context makes replay readiness harder.</td><td>tool_wait_ms=100,target_prompt_tokens=3072,filler_sessions=16,filler_prompt_tokens=1536,session_count=1,concurrency=6</td></tr><tr><td>P3 Queue Pressure</td><td>Yes</td><td>Queue pressure. One urgent replay returns while older backend work is already queued.</td><td>tool_wait_ms=50,target_prompt_tokens=4096,filler_sessions=15,filler_prompt_tokens=1536,session_count=1,concurrency=6</td></tr><tr><td>P4 KV Pool Pressure</td><td>No</td><td>KV-pool pressure. More filler work pushes harder on cache capacity and backend pressure.</td><td>tool_wait_ms=25,target_prompt_tokens=4096,filler_sessions=48,filler_prompt_tokens=2048,session_count=1,concurrency=10</td></tr><tr><td>P5 Boss Queue</td><td>No</td><td>Urgent burst pressure. Many urgent agents become ready together, so priority cannot make all of them first.</td><td>tool_wait_ms=50,target_prompt_tokens=4096,filler_sessions=4,filler_prompt_tokens=2048,session_count=4,concurrency=12</td></tr></tbody></table></div>
+<div class="card"><div class="chart-controls" aria-label="Replay chart controls"><div class="control-row"><strong>View</strong><button type="button" class="control-button" data-chart-preset="manager">Manager View</button><button type="button" class="control-button" data-chart-preset="all">Show All</button><span class="control-hint">Manager View keeps baseline, harness cache, harness cache + priority, front-end supplied, and full controller visible.</span></div><div class="control-row"><strong>Deadline axis</strong><label class="chart-chip"><input type="radio" name="deadline-axis" value="linear" checked> Linear</label><label class="chart-chip"><input type="radio" name="deadline-axis" value="symlog"> Symlog</label><span class="control-hint">Linear shows true distance; symlog compresses very large misses so small misses stay visible.</span></div><div class="control-row"><strong>Signals</strong><div class="chip-list"><label class="chart-chip" title="No signal was actually supplied or lowered for this replay"><input type="checkbox" data-signal-filter value="baseline" checked><span class="chip-dot" style="background:#475569"></span><span>Baseline</span></label></div></div><div class="control-row"><strong>Pressure levels</strong><button type="button" class="control-button" data-pressure-preset="core">Core P0/P3/P5</button><button type="button" class="control-button" data-pressure-preset="all">All Pressures</button><div class="chip-list"><label class="chart-chip" title="Queue pressure. One urgent replay returns while older backend work is already queued."><input type="checkbox" data-pressure-filter value="p3_high" checked><span>P3 Queue Pressure</span></label></div></div></div><svg class="replay-pressure-chart" viewBox="0 0 1400 1117" width="1400" height="1117" data-full-width="1400" data-chart-height="1117" data-left="120" data-right="40" data-pressure-width="1240.000000" data-pressure-order="[&quot;p3_high&quot;]" role="img" aria-label="Replay Deadline Pressure Chart">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<g class="deadline-panel deadline-panel-symlog" data-axis="symlog">
+<text x="120" y="36.0" font-size="18" font-weight="800" fill="#111827">A. Replay Deadline Pressure (Symlog Axis)</text>
+<text x="120" y="58.0" font-size="12" fill="#64748b">Delay view: every dot is one replay first token. Above zero missed the replay deadline; below zero was early.</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="370.6" y2="370.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="374.6" text-anchor="end" font-size="12" fill="#374151">-1000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="358.0" y2="358.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="362.0" text-anchor="end" font-size="12" fill="#374151">-500 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="328.7" y2="328.7" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="332.7" text-anchor="end" font-size="12" fill="#374151">-100 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="274.2" y2="274.2" stroke="#111827" stroke-width="1.5"/>
+<text x="108" y="278.2" text-anchor="end" font-size="12" fill="#374151">0 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="232.4" y2="232.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="236.4" text-anchor="end" font-size="12" fill="#374151">50 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="190.5" y2="190.5" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="194.5" text-anchor="end" font-size="12" fill="#374151">500 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="177.9" y2="177.9" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="181.9" text-anchor="end" font-size="12" fill="#374151">1000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="148.6" y2="148.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="152.6" text-anchor="end" font-size="12" fill="#374151">5000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="136.0" y2="136.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="140.0" text-anchor="end" font-size="12" fill="#374151">10000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="103.4" y2="103.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="107.4" text-anchor="end" font-size="12" fill="#374151">60000 ms</text>
+<text class="chart-zero-label" x="1356" y="266.2" text-anchor="end" font-size="13" font-weight="700">0 ms deadline</text>
+<g class="pressure-level" data-pressure-level="p3_high" data-pressure-index="0">
+<line x1="120.0" x2="120.0" y1="82" y2="426.0" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="5 6"/>
+<text x="740.0" y="448.0" text-anchor="middle" font-size="16" font-weight="800" fill="#111827">P3 Queue Pressure</text>
+<text x="740.0" y="467.0" text-anchor="middle" font-size="11" fill="#64748b">one sub-window per harness; color = mode</text>
+<line x1="120.0" x2="120.0" y1="82" y2="426.0" stroke="#bfdbfe" stroke-width="1.6" stroke-dasharray="3 4"/>
+<line x1="1360.0" x2="1360.0" y1="82" y2="426.0" stroke="#bfdbfe" stroke-width="1.6" stroke-dasharray="3 4"/>
+<text x="740.0" y="416.0" text-anchor="middle" font-size="10" font-weight="700" fill="#334155">DeepAgents</text>
+<g class="signal-bucket" data-signal-bucket="baseline">
+<text x="740.0" y="135.7" text-anchor="middle" font-size="9" font-weight="700" fill="#475569" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">5.8s n=32</text>
+<g><title>A. Replay Deadline Pressure (Symlog Axis) | P3 Queue Pressure | DeepAgents | Baseline | raw modes: NP = No prefetch | median 5846.4 ms vs deadline | n=32</title><circle cx="740.0" cy="145.7" r="5.8" fill="#475569" stroke="#475569" stroke-width="2" opacity="0.9"/></g>
+</g>
+<line x1="120.0" x2="120.0" y1="82" y2="426.0" stroke="#94a3b8" stroke-width="2.1" stroke-dasharray="5 6"/>
+</g>
+<line class="chart-right-boundary" x1="1360.0" x2="1360.0" y1="82" y2="426.0" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="5 6"/>
+<text transform="translate(32 237.0) rotate(-90)" text-anchor="middle" font-size="14" font-weight="700">lateness vs replay deadline ms (symlog)</text>
+<text x="120.0" y="480.0" font-size="11" font-weight="800" fill="#111827">Legend</text>
+<g class="signal-bucket legend-signal-item" data-signal-bucket="baseline">
+<g><title>Baseline</title><circle cx="206.0" cy="476.0" r="5.8" fill="#475569" stroke="#475569" stroke-width="2" opacity="0.9"/></g>
+<text x="222.0" y="480.0" font-size="10" font-weight="650" fill="#334155">Baseline</text>
+</g>
+<text x="120.0" y="504.0" font-size="10" fill="#64748b">Each dot is the median replay for that harness and mode. Labels show n= when multiple replay requests were summarized.</text>
+<text x="120.0" y="525.0" font-size="10" fill="#64748b">Harness identity is the sub-window label on the x-axis.</text>
+</g>
+<g class="deadline-panel deadline-panel-linear" data-axis="linear">
+<text x="120" y="36.0" font-size="18" font-weight="800" fill="#111827">A. Replay Deadline Pressure (Linear Axis)</text>
+<text x="120" y="58.0" font-size="12" fill="#64748b">Same replay-deadline data, but with a normal y-axis. This preserves true distance, though small values may bunch near the bottom.</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="338.1" y2="338.1" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="342.1" text-anchor="end" font-size="12" fill="#374151">10000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="259.9" y2="259.9" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="263.9" text-anchor="end" font-size="12" fill="#374151">20000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="103.4" y2="103.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="107.4" text-anchor="end" font-size="12" fill="#374151">40000 ms</text>
+<text class="chart-zero-label" x="1356" y="408.4" text-anchor="end" font-size="13" font-weight="700">0 ms deadline</text>
+<g class="pressure-level" data-pressure-level="p3_high" data-pressure-index="0">
+<line x1="120.0" x2="120.0" y1="82" y2="426.0" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="5 6"/>
+<text x="740.0" y="448.0" text-anchor="middle" font-size="16" font-weight="800" fill="#111827">P3 Queue Pressure</text>
+<text x="740.0" y="467.0" text-anchor="middle" font-size="11" fill="#64748b">one sub-window per harness; color = mode</text>
+<line x1="120.0" x2="120.0" y1="82" y2="426.0" stroke="#bfdbfe" stroke-width="1.6" stroke-dasharray="3 4"/>
+<line x1="1360.0" x2="1360.0" y1="82" y2="426.0" stroke="#bfdbfe" stroke-width="1.6" stroke-dasharray="3 4"/>
+<text x="740.0" y="416.0" text-anchor="middle" font-size="10" font-weight="700" fill="#334155">DeepAgents</text>
+<g class="signal-bucket" data-signal-bucket="baseline">
+<text x="740.0" y="360.6" text-anchor="middle" font-size="9" font-weight="700" fill="#475569" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">5.8s n=32</text>
+<g><title>A. Replay Deadline Pressure (Linear Axis) | P3 Queue Pressure | DeepAgents | Baseline | raw modes: NP = No prefetch | median 5846.4 ms vs deadline | n=32</title><circle cx="740.0" cy="370.6" r="5.8" fill="#475569" stroke="#475569" stroke-width="2" opacity="0.9"/></g>
+</g>
+<line x1="120.0" x2="120.0" y1="82" y2="426.0" stroke="#94a3b8" stroke-width="2.1" stroke-dasharray="5 6"/>
+</g>
+<line class="chart-right-boundary" x1="1360.0" x2="1360.0" y1="82" y2="426.0" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="5 6"/>
+<text transform="translate(32 237.0) rotate(-90)" text-anchor="middle" font-size="14" font-weight="700">lateness vs replay deadline ms (linear)</text>
+<text x="120.0" y="480.0" font-size="11" font-weight="800" fill="#111827">Legend</text>
+<g class="signal-bucket legend-signal-item" data-signal-bucket="baseline">
+<g><title>Baseline</title><circle cx="206.0" cy="476.0" r="5.8" fill="#475569" stroke="#475569" stroke-width="2" opacity="0.9"/></g>
+<text x="222.0" y="480.0" font-size="10" font-weight="650" fill="#334155">Baseline</text>
+</g>
+<text x="120.0" y="504.0" font-size="10" fill="#64748b">Each dot is the median replay for that harness and mode. Labels show n= when multiple replay requests were summarized.</text>
+<text x="120.0" y="525.0" font-size="10" fill="#64748b">Harness identity is the sub-window label on the x-axis.</text>
+</g>
+<text x="120" y="596.0" font-size="18" font-weight="800" fill="#111827">B. Replay TTFT Impact</text>
+<text x="120" y="618.0" font-size="12" fill="#64748b">Time from replay request start at the gateway/client boundary to first token. This is the clearest view for cache-control TTFT impact.</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="930.6" y2="930.6" stroke="#111827" stroke-width="1.5"/>
+<text x="108" y="934.6" text-anchor="end" font-size="12" fill="#374151">0 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="865.1" y2="865.1" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="869.1" text-anchor="end" font-size="12" fill="#374151">50 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="799.6" y2="799.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="803.6" text-anchor="end" font-size="12" fill="#374151">500 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="779.9" y2="779.9" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="783.9" text-anchor="end" font-size="12" fill="#374151">1000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="734.1" y2="734.1" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="738.1" text-anchor="end" font-size="12" fill="#374151">5000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="714.4" y2="714.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="718.4" text-anchor="end" font-size="12" fill="#374151">10000 ms</text>
+<line class="chart-horizontal-span" x1="120" x2="1360" y1="663.4" y2="663.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="108" y="667.4" text-anchor="end" font-size="12" fill="#374151">60000 ms</text>
+<text class="chart-zero-label" x="1356" y="922.6" text-anchor="end" font-size="13" font-weight="700">0 ms TTFT</text>
+<g class="pressure-level" data-pressure-level="p3_high" data-pressure-index="0">
+<line x1="120.0" x2="120.0" y1="642" y2="986.0" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="5 6"/>
+<text x="740.0" y="1008.0" text-anchor="middle" font-size="16" font-weight="800" fill="#111827">P3 Queue Pressure</text>
+<text x="740.0" y="1027.0" text-anchor="middle" font-size="11" fill="#64748b">one sub-window per harness; color = mode</text>
+<line x1="120.0" x2="120.0" y1="642" y2="986.0" stroke="#bfdbfe" stroke-width="1.6" stroke-dasharray="3 4"/>
+<line x1="1360.0" x2="1360.0" y1="642" y2="986.0" stroke="#bfdbfe" stroke-width="1.6" stroke-dasharray="3 4"/>
+<text x="740.0" y="976.0" text-anchor="middle" font-size="10" font-weight="700" fill="#334155">DeepAgents</text>
+<g class="signal-bucket" data-signal-bucket="baseline">
+<text x="740.0" y="741.8" text-anchor="middle" font-size="9" font-weight="700" fill="#475569" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">2.7s n=32</text>
+<g><title>B. Replay TTFT Impact | P3 Queue Pressure | DeepAgents | Baseline | raw modes: NP = No prefetch | median 2683.1 ms TTFT | n=32</title><circle cx="740.0" cy="751.8" r="5.8" fill="#475569" stroke="#475569" stroke-width="2" opacity="0.9"/></g>
+</g>
+<line x1="120.0" x2="120.0" y1="642" y2="986.0" stroke="#94a3b8" stroke-width="2.1" stroke-dasharray="5 6"/>
+</g>
+<line class="chart-right-boundary" x1="1360.0" x2="1360.0" y1="642" y2="986.0" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="5 6"/>
+<text transform="translate(32 797.0) rotate(-90)" text-anchor="middle" font-size="14" font-weight="700">replay TTFT ms (symlog)</text>
+<text x="120.0" y="1040.0" font-size="11" font-weight="800" fill="#111827">Legend</text>
+<g class="signal-bucket legend-signal-item" data-signal-bucket="baseline">
+<g><title>Baseline</title><circle cx="206.0" cy="1036.0" r="5.8" fill="#475569" stroke="#475569" stroke-width="2" opacity="0.9"/></g>
+<text x="222.0" y="1040.0" font-size="10" font-weight="650" fill="#334155">Baseline</text>
+</g>
+<text x="120.0" y="1064.0" font-size="10" fill="#64748b">Each dot is the median replay for that harness and mode. Labels show n= when multiple replay requests were summarized.</text>
+<text x="120.0" y="1085.0" font-size="10" fill="#64748b">Harness identity is the sub-window label on the x-axis.</text>
+<text class="chart-x-axis-label" x="740.0" y="1056" text-anchor="middle" font-size="14" font-weight="700">pressure level</text>
+</svg></div>
+<h2>Controller Harness Exposure</h2><p>No controller harness-exposure rows found in this run.</p>
+<h2>All Replay Requests</h2><p>Every task has equal application importance. Queue ranks come only from expected replay-ready times. Totals include all replay requests, regardless of their workload-generation role.</p><div class="card"><table><thead><tr><th>harness</th><th>pressure</th><th>mode_label</th><th>replays</th><th>ttft_samples</th><th>total_ttft_ms</th><th>median_ttft_ms</th><th>lateness_samples</th><th>total_deadline_debt_ms</th><th>median_lateness_ms</th></tr></thead><tbody><tr><td>DeepAgents</td><td>P3 Queue Pressure</td><td>NP = No prefetch</td><td>32</td><td>32</td><td>99077.733</td><td>2683.055</td><td>32</td><td>306843.638</td><td>5846.377</td></tr></tbody></table></div>
+<h2>GPU Idle Accounting</h2><p>This estimates whether a mode protected replay latency by leaving GPU capacity unused. Idle means sampled whole-GPU compute utilization was below 5% during that case's workload window.</p><p>The root-cause table separates hardware samples from SGLang scheduler activity. If utilization is high during <code>run_batch</code> but low outside it, the bottleneck is idle time between launched batches, not weak GPU use inside each batch.</p><div class="card"><h3>GPU Utilization Root Cause</h3><table><thead><tr><th>harness_label</th><th>pressure_level_label</th><th>signal_bucket_label</th><th>sglang_batch_count</th><th>sglang_batch_window_ms</th><th>sglang_run_batch_busy_ms</th><th>sglang_batch_duty_fraction</th><th>sglang_inter_batch_gap_ms</th><th>sglang_gap_after_nonempty_queue_ms</th><th>sglang_gap_after_nonempty_queue_fraction</th><th>sglang_single_request_batch_fraction</th><th>sglang_batch_request_count_median</th><th>sglang_batch_request_count_max</th><th>sglang_extend_tokens_median</th><th>gpu_avg_util_pct</th><th>gpu_avg_util_during_run_batch_pct</th><th>gpu_avg_util_outside_run_batch_pct</th></tr></thead><tbody><tr><td>DeepAgents</td><td>P3 Queue Pressure</td><td>Baseline</td><td>0</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td>0</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div><details><summary>Open compact GPU idle summary</summary><div class="card"><table><thead><tr><th>harness_label</th><th>pressure_level_label</th><th>signal_bucket_label</th><th>workload_window_ms</th><th>gpu_sample_count</th><th>gpu_idle_under_5pct_ms</th><th>gpu_idle_under_5pct_fraction</th><th>gpu_busy_over_50pct_ms</th><th>gpu_avg_util_pct</th><th>gpu_median_util_pct</th><th>gpu_max_util_pct</th><th>gpu_idle_measurement_status</th></tr></thead><tbody><tr><td>DeepAgents</td><td>P3 Queue Pressure</td><td>Baseline</td><td>198825.505</td><td>0</td><td>0</td><td></td><td>0</td><td></td><td></td><td></td><td>missing_samples</td></tr><tr><td></td><td></td><td></td><td></td><td>0</td><td>0</td><td></td><td>0</td><td></td><td></td><td></td><td>missing_samples</td></tr></tbody></table></div></details>
+<h2>Controller Utilization Audit</h2><p>This section asks: when SGLang had visible gaps between batches, why did the controller not launch more filler work? Reasons are best-effort classifications from controller traces, gateway request timing, and SGLang batch events.</p><div class="card"><svg viewBox="0 0 980 420" width="980" height="420" role="img" aria-label="Controller idle gap reason chart">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="0" y="22" font-size="18" font-weight="800" fill="#111827">Controller Idle Gap Reasons</text>
+<text x="0" y="44" font-size="12" fill="#64748b">Stacked bars show classified idle time between observed SGLang batches. Lower is better.</text>
+<line x1="96" x2="944" y1="280" y2="280" stroke="#111827" stroke-width="1.5"/>
+<line x1="96" x2="944" y1="225.5" y2="225.5" stroke="#e5e7eb"/>
+<text x="88" y="229.5" text-anchor="end" font-size="10" fill="#475569">49.7s</text>
+<line x1="96" x2="944" y1="171.0" y2="171.0" stroke="#e5e7eb"/>
+<text x="88" y="175.0" text-anchor="end" font-size="10" fill="#475569">99.4s</text>
+<line x1="96" x2="944" y1="116.5" y2="116.5" stroke="#e5e7eb"/>
+<text x="88" y="120.5" text-anchor="end" font-size="10" fill="#475569">149.1s</text>
+<line x1="96" x2="944" y1="62.0" y2="62.0" stroke="#e5e7eb"/>
+<text x="88" y="66.0" text-anchor="end" font-size="10" fill="#475569">198.8s</text>
+<g><title>P3 Queue Pressure | DeepAgents | NP = No prefetch</title>
+<rect x="503.0" y="62.0" width="34.0" height="218.0" fill="#9333ea" rx="2"/>
+<text x="520.0" y="56.0" text-anchor="middle" font-size="9" font-weight="700" fill="#334155" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">198.8s</text>
+<text x="520.0" y="298.0" text-anchor="middle" font-size="9" font-weight="700" fill="#334155">DeepAgents</text>
+<text x="520.0" y="312.0" text-anchor="middle" font-size="8" fill="#64748b">NP</text>
+</g>
+<text x="520.0" y="338.0" text-anchor="middle" font-size="13" font-weight="800" fill="#111827">P3 Queue Pressure</text>
+<text x="96.0" y="372.0" font-size="11" font-weight="800" fill="#111827">Reasons</text>
+<rect x="158.0" y="362.0" width="12" height="12" fill="#9333ea" rx="2"/>
+<text x="176.0" y="372.0" font-size="10" fill="#334155">backend submit gap</text>
+<text transform="translate(28 171.0) rotate(-90)" text-anchor="middle" font-size="13" font-weight="700">idle gap ms</text>
+</svg></div><div class="card"><h3>Idle Time By Reason</h3><table><thead><tr><th>harness_label</th><th>pressure_level_label</th><th>mode_label</th><th>idle_reason</th><th>idle_gap_count</th><th>sum_idle_gap_ms</th><th>median_idle_gap_ms</th></tr></thead><tbody><tr><td>DeepAgents</td><td>P3 Queue Pressure</td><td>NP = No prefetch</td><td>backend_submit_gap</td><td>1</td><td>198825.505</td><td>198825.505</td></tr></tbody></table></div><details><summary>Open largest idle gaps</summary><div class="card"><table><thead><tr><th>harness_label</th><th>pressure_level_label</th><th>mode_label</th><th>gap_index</th><th>gap_duration_ms</th><th>gap_location</th><th>idle_reason</th><th>reason_detail</th><th>pending_sjf_candidates_before_gap</th><th>sjf_hold_events_near_gap</th><th>sjf_admit_events_near_gap</th><th>admission_gate_blocks_near_gap</th><th>request_starts_inside_gap</th><th>next_replay_due_in_ms</th><th>shortest_filler_estimated_runtime_ms</th><th>safety_margin_ms</th><th>gpu_avg_util_pct_in_gap</th></tr></thead><tbody><tr><td>DeepAgents</td><td>P3 Queue Pressure</td><td>NP = No prefetch</td><td>1</td><td>198825.505</td><td>no_sglang_batch_observed</td><td>backend_submit_gap</td><td>request entered the gateway during the gap, but SGLang batch activity was not observed until later</td><td>0</td><td>0</td><td>0</td><td>0</td><td>34</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></details>
+<h2>Controller Decision Quality Ledger</h2><p>No controller decision-quality rows found. Rebuild from a run that includes controller admission or SJF trace rows.</p>
+<h2>Idle Gap Case Studies</h2><p>This section turns the largest idle gaps into concrete stories. It shows whether the gap overlapped tool waits, whether requests became ready during the gap, whether the gateway forwarded them, and what the adjacent SGLang batches looked like.</p><div class="card"><h3>Largest Gap Stories</h3><table><thead><tr><th>harness_label</th><th>pressure_level_label</th><th>mode_label</th><th>gap_rank_in_case</th><th>gap_duration_ms</th><th>idle_reason</th><th>plain_english_summary</th><th>active_tool_wait_count</th><th>request_starts_inside_gap</th><th>gateway_receives_inside_gap</th><th>gateway_forwards_inside_gap</th><th>batch_before_request_count</th><th>batch_before_waiting_queue_len</th><th>batch_after_starts_in_ms</th><th>batch_after_request_count</th><th>gpu_avg_util_pct_in_gap</th></tr></thead><tbody><tr><td>DeepAgents</td><td>P3 Queue Pressure</td><td>NP = No prefetch</td><td>1</td><td>198825.505</td><td>backend_submit_gap</td><td>49 request(s) became ready inside the gap, but visible SGLang batch work started later.</td><td>32</td><td>49</td><td>48</td><td>48</td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div><details><summary>Open detailed gap context</summary><div class="card"><table><thead><tr><th>harness_label</th><th>pressure_level_label</th><th>mode_label</th><th>gap_index</th><th>gap_rank_in_case</th><th>gap_start_ms</th><th>gap_end_ms</th><th>gap_duration_ms</th><th>idle_reason</th><th>plain_english_summary</th><th>active_tool_wait_labels</th><th>active_tool_wait_classes</th><th>next_tool_wait_end_in_ms</th><th>request_start_labels</th><th>request_start_phases</th><th>request_start_groups</th><th>request_end_labels</th><th>gateway_receive_labels</th><th>gateway_forward_labels</th><th>batch_before_request_count</th><th>batch_before_waiting_queue_len</th><th>batch_before_extend_tokens</th><th>batch_after_starts_in_ms</th><th>batch_after_request_count</th><th>batch_after_waiting_queue_len</th><th>batch_after_extend_tokens</th><th>gpu_avg_util_pct_in_gap</th></tr></thead><tbody><tr><td>DeepAgents</td><td>P3 Queue Pressure</td><td>NP = No prefetch</td><td>1</td><td>1</td><td>-25397.274</td><td>173428.231</td><td>198825.505</td><td>backend_submit_gap</td><td>49 request(s) became ready inside the gap, but visible SGLang batch work started later.</td><td>hatcher_p3_high_session_000_pressure_005_tool_wait_01;hatcher_p3_high_session_000_pressure_003_tool_wait_01;hatcher_p3_high_session_000_pressure_001_tool_wait_01;hatcher_p3_high_session_000_pressure_004_tool_wait_01;hatcher_p3_high_session_000_pressure_002_tool_wait_01;hatcher_p3_high_session_000_pressure_000_tool_wait_01;hatcher_p3_high_session_000_pressure_008_tool_wait_01;hatcher_p3_high_session_000_pressure_007_tool_wait_01;...+22 more</td><td>short;short;short;very_short;very_short;short;very_short;short;...+24 more</td><td>68039.756</td><td>instrumentation-sentinel-2d0ad0fb9166449d895c2d226558048f;hatcher_p3_high_session_000_initial;hatcher_p3_high_session_000_pressure_004_initial;hatcher_p3_high_session_000_pressure_003_initial;hatcher_p3_high_session_000_pressure_001_initial;hatcher_p3_high_session_000_pressure_005_initial;hatcher_p3_high_session_000_pressure_002_initial;hatcher_p3_high_session_000_pressure_000_initial;...+41 more</td><td>replay;initial_turn;pressure_filler_initial;pressure_filler_initial;pressure_filler_initial;pressure_filler_initial;pressure_filler_initial;pressure_filler_initial;...+41 more</td><td></td><td>instrumentation-sentinel-2d0ad0fb9166449d895c2d226558048f;hatcher_p3_high_session_000_initial;hatcher_p3_high_session_000_pressure_005_initial;hatcher_p3_high_session_000_pressure_003_initial;hatcher_p3_high_session_000_pressure_002_initial;hatcher_p3_high_session_000_pressure_001_initial;hatcher_p3_high_session_000_pressure_004_initial;hatcher_p3_high_session_000_pressure_000_initial;...+41 more</td><td></td><td>instrumentation-sentinel-2d0ad0fb9166449d895c2d226558048f;hatcher_p3_high_session_000_initial;hatcher_p3_high_session_000_pressure_003_initial;hatcher_p3_high_session_000_pressure_005_initial;hatcher_p3_high_session_000_pressure_002_initial;hatcher_p3_high_session_000_pressure_004_initial;hatcher_p3_high_session_000_pressure_001_initial;hatcher_p3_high_session_000_pressure_000_initial;...+40 more</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></details>
+ 	<h2>Evidence Tables</h2>
+ 	<p>The proof tables, raw replay rows, priority preservation audit, cache signal audit, cache action proof, and summary tables are now kept out of the main report.</p>
+ 	<p><a href="evidence_tables.html">Open the evidence tables / raw proof file</a>.</p>
+ 	</main>
+
+<script>
+(function () {
+  const managerBuckets = new Set(["baseline", "harness_cache_emitted", "harness_cache_priority_emitted", "frontend_supplied", "controller_full", "controller_full_chunked"]);
+  const corePressures = new Set(["p0_control", "p3_high", "p5_boss_queue"]);
+  const filterInputs = Array.from(document.querySelectorAll('[data-signal-filter]'));
+  const pressureInputs = Array.from(document.querySelectorAll('[data-pressure-filter]'));
+  const axisInputs = Array.from(document.querySelectorAll('input[name="deadline-axis"]'));
+
+  function selectedSignals() {
+    return new Set(filterInputs.filter((input) => input.checked).map((input) => input.value));
+  }
+
+  function applySignalFilters() {
+    const selected = selectedSignals();
+    document.querySelectorAll('[data-signal-bucket]').forEach((node) => {
+      const bucket = node.getAttribute('data-signal-bucket');
+      node.style.display = selected.has(bucket) ? '' : 'none';
+    });
+  }
+
+  function selectedPressures() {
+    return new Set(pressureInputs.filter((input) => input.checked).map((input) => input.value));
+  }
+
+  function applyPressureFilters() {
+    let selected = selectedPressures();
+    if (selected.size === 0) {
+      pressureInputs.forEach((input) => { input.checked = true; });
+      selected = selectedPressures();
+    }
+    document.querySelectorAll('.replay-pressure-chart').forEach((svg) => {
+      const pressureOrder = JSON.parse(svg.getAttribute('data-pressure-order') || '[]');
+      const visiblePressures = pressureOrder.filter((pressure) => selected.has(pressure));
+      const pressureWidth = Number(svg.getAttribute('data-pressure-width') || 0);
+      const left = Number(svg.getAttribute('data-left') || 0);
+      const right = Number(svg.getAttribute('data-right') || 0);
+      const height = Number(svg.getAttribute('data-chart-height') || svg.getAttribute('height') || 0);
+      const activeCount = Math.max(1, visiblePressures.length);
+      const activeRight = left + pressureWidth * activeCount;
+      const activeWidth = activeRight + right;
+
+      svg.setAttribute('viewBox', `0 0 ${activeWidth} ${height}`);
+      svg.setAttribute('width', String(activeWidth));
+
+      svg.querySelectorAll('[data-pressure-level]').forEach((node) => {
+        const pressure = node.getAttribute('data-pressure-level');
+        const originalIndex = Number(node.getAttribute('data-pressure-index') || 0);
+        const visibleIndex = visiblePressures.indexOf(pressure);
+        if (visibleIndex === -1) {
+          node.style.display = 'none';
+          node.removeAttribute('transform');
+          return;
+        }
+        node.style.display = 'inline';
+        const dx = (visibleIndex - originalIndex) * pressureWidth;
+        node.setAttribute('transform', `translate(${dx} 0)`);
+      });
+
+      svg.querySelectorAll('.chart-horizontal-span').forEach((node) => {
+        node.setAttribute('x2', String(activeRight));
+      });
+      svg.querySelectorAll('.chart-right-boundary').forEach((node) => {
+        node.setAttribute('x1', String(activeRight));
+        node.setAttribute('x2', String(activeRight));
+      });
+      svg.querySelectorAll('.chart-zero-label').forEach((node) => {
+        node.setAttribute('x', String(activeRight - 4));
+      });
+      svg.querySelectorAll('.chart-x-axis-label').forEach((node) => {
+        node.setAttribute('x', String(left + (pressureWidth * activeCount) / 2));
+      });
+    });
+  }
+
+  function applyAxis() {
+    const selected = (axisInputs.find((input) => input.checked) || { value: 'linear' }).value;
+    document.querySelectorAll('.deadline-panel').forEach((node) => {
+      node.style.display = node.getAttribute('data-axis') === selected ? 'inline' : 'none';
+    });
+  }
+
+  function setPreset(name) {
+    const available = filterInputs.map((input) => input.value);
+    let desired = name === 'manager'
+      ? new Set(available.filter((bucket) => managerBuckets.has(bucket)))
+      : new Set(available);
+    if (desired.size === 0) desired = new Set(available);
+    filterInputs.forEach((input) => { input.checked = desired.has(input.value); });
+    applySignalFilters();
+  }
+
+  function setPressurePreset(name) {
+    const available = pressureInputs.map((input) => input.value);
+    let desired = name === 'core'
+      ? new Set(available.filter((pressure) => corePressures.has(pressure)))
+      : new Set(available);
+    if (desired.size === 0) desired = new Set(available);
+    pressureInputs.forEach((input) => { input.checked = desired.has(input.value); });
+    applyPressureFilters();
+  }
+
+  filterInputs.forEach((input) => input.addEventListener('change', applySignalFilters));
+  pressureInputs.forEach((input) => input.addEventListener('change', applyPressureFilters));
+  axisInputs.forEach((input) => input.addEventListener('change', applyAxis));
+  document.querySelectorAll('[data-chart-preset]').forEach((button) => {
+    button.addEventListener('click', () => setPreset(button.getAttribute('data-chart-preset')));
+  });
+  document.querySelectorAll('[data-pressure-preset]').forEach((button) => {
+    button.addEventListener('click', () => setPressurePreset(button.getAttribute('data-pressure-preset')));
+  });
+
+  applySignalFilters();
+  applyPressureFilters();
+  applyAxis();
+}());
+</script>
+
+ 	</body>
+ 	</html>
+ 	

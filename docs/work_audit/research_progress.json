@@ -2,6 +2,25 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ27",
+      "controller_scenario": "1",
+      "short_question": "Does using expected tool-return times to order equally important replays shorten delays and whole-workload time?",
+      "pivot_title": "Scenario 1: Replay scheduling",
+      "significance": "research_pivot",
+      "manager_takeaway": "Whole-workload time: 167.688 \u2192 178.726 s (+6.6%). Total replay lateness: 258.912 \u2192 186.500 s (-28.0%). Medians of two trials; see each trial below.",
+      "why_it_matters": "Tests one independent use of harness timing information, with equally important sessions. Measures the whole workload as well as replay response times.",
+      "question": "Does using expected tool-return times to order equally important replays shorten delays and whole-workload time?",
+      "answer": "Whole-workload time: 167.688 \u2192 178.726 s (+6.6%). Total replay lateness: 258.912 \u2192 186.500 s (-28.0%). Medians of two trials; see each trial below.",
+      "unknown": "Synthetic reference workload with short outputs (main 8 tokens, peers 2). RTG includes its existing admission/backfill logic. This is a production-optimizations-on rerun, not a promise to reproduce historical timing exactly. Two synthetic trials do not establish production-wide gains or a hardware bottleneck.",
+      "evidence_date_utc": "2026-10-09",
+      "evidence_run_ids": [
+        "controller_pivots_20261009_01_s1"
+      ],
+      "related_run_ids": [
+        "controller_pivots_20261009_01_s1"
+      ]
+    },
+    {
       "id": "RQ26",
       "short_question": "Does capacity-safe admission help equally across memory tiers?",
       "significance": "research_pivot",
@@ -13,8 +32,12 @@
       "answer": "Twenty-four fresh-backend A10G arms completed: two seeds, spread and 75 ms burst tool returns, three memory tiers, and two policies. Every native/capacity-safe pair used the same Qwen2.5-Coder-7B model, six equal-priority sessions, ten one-second tool waits per session, request contents, return pattern, seed, GPU KV capacity, host-cache capacity, storage configuration, CUDA graphs, overlap scheduling, and lean trace profile. Initial prefix population was excluded from both policies. With spread returns, capacity-safe changed median whole-workload time from 26.450 to 26.473 seconds for GPU-resident KV (+0.1%), 33.272 to 35.406 seconds for CPU-tiered KV (+6.4%), and 80.672 to 61.440 seconds for storage-tiered KV (-23.8%). With burst returns, it changed workload time from 19.622 to 19.938 seconds (+1.6%), 31.664 to 34.908 seconds (+10.2%), and 80.699 to 64.717 seconds (-19.8%). Mean delay from tool return to first token followed the same direction: capacity-safe added about 9/55 ms in resident mode and 148/140 ms in CPU mode, but removed about 1119/904 ms in storage mode for spread/burst returns. All 24 arms passed the exposure and workload-equivalence gates with no capacity violation.",
       "hypothesis": "Native SGLang already handles GPU-resident and CPU-tiered work efficiently enough that the fixed capacity-safe gate adds more waiting than it saves. Storage recovery is much more expensive; there, preventing too many sessions from recovering at once lowers backend pressure and improves both replay delay and whole-workload completion. A useful policy should therefore respond to recovery cost and memory tier instead of applying the same fixed admission limit everywhere.",
       "unknown": "This compares complete policies, not admission logic alone: capacity-safe also releases, restores, and verifies KV before submission. Only two repetitions were run. The sessions and fixed tool waits are synthetic, generated text was not byte-compared, and file-backed storage may have been served partly by the operating-system page cache. Capacities are exactly matched inside every native/capacity-safe pair but intentionally differ across tiers so each tier is exercised. The result does not identify the best dynamic threshold or establish production performance.",
-      "evidence_run_ids": ["tier_policy_matrix_full_20261009"],
-      "related_run_ids": ["tier_policy_matrix_full_20261009"]
+      "evidence_run_ids": [
+        "tier_policy_matrix_full_20261009"
+      ],
+      "related_run_ids": [
+        "tier_policy_matrix_full_20261009"
+      ]
     },
     {
       "id": "RQ25",
@@ -28,8 +51,13 @@
       "answer": "This run completed eight arms, but its whole-workload comparison used unequal clocks. Native SGLang measured from before initial prefix population and therefore included about 7.77 seconds of setup in every arm. Capacity-safe measured from after initial population. The apparent 9-11% capacity-safe workload benefit is therefore not a valid policy result. Replay-delay measurements remain descriptive, but this run must not decide which policy is faster. RQ26 replaces it with 24 arms whose native and capacity-safe clocks both start after initial prefix population.",
       "hypothesis": "The apparent capacity-safe workload win was created by the timing-boundary mismatch rather than established by admission behavior. The corrected tier matrix indicates that a fixed capacity-safe gate is neutral for GPU-resident KV, slower for CPU-tiered KV, and beneficial for storage-tiered KV in this workload.",
       "unknown": "Because the original arms were timed differently, this run cannot establish the true policy effect. Subtracting recorded setup afterward is only diagnostic and is not treated as a repaired experiment. See RQ26 for the valid pair-matched result.",
-      "evidence_run_ids": ["native_vs_capacity_safe_full_20261009"],
-      "related_run_ids": ["native_vs_capacity_safe_sanity_20261009", "native_vs_capacity_safe_full_20261009"]
+      "evidence_run_ids": [
+        "native_vs_capacity_safe_full_20261009"
+      ],
+      "related_run_ids": [
+        "native_vs_capacity_safe_sanity_20261009",
+        "native_vs_capacity_safe_full_20261009"
+      ]
     },
     {
       "id": "RQ24",
@@ -43,8 +71,12 @@
       "answer": "Eighteen fresh-backend A10G arms completed: three seeds, six equal-priority sessions, ten one-second tool waits per session, two return patterns, and three memory placements. At most two sessions ran at once. Their maximum estimated active KV was 9342 tokens, safely below the 12288-token GPU limit, with zero capacity violations across 1080 measured replays. For spread returns, median whole-workload time rose from 33.384 seconds with resident GPU KV to 36.622 seconds with CPU KV and 64.543 seconds with storage KV: increases of 9.7% and 93.3%. Median mean due-to-first-token delay rose from 516 to 752 and 2449 ms. For 75 ms burst returns, median whole-workload time rose from 30.954 to 35.945 and 64.853 seconds: increases of 16.0% and 109.5%. Median mean due-to-first-token delay rose from 875 to 1129 and 2883 ms. Backend TTFT after submission stayed close across tiers; the main penalty happened before submission while a due session waited for an active slot and complete KV restoration. Native evidence proved all 360 resident-mode replays came from GPU KV, all 360 CPU-mode replays came from host KV, and all 360 storage-mode replays came from storage before becoming GPU-ready.",
       "hypothesis": "Lower-tier placement can materially slow an agentic workload even when the KV of every admitted session fits in GPU memory. CPU recovery is a modest cost in this setup, while unprepared storage recovery is large enough to nearly double the workload. Bursty tool returns make the relative penalty worse because several due sessions serialize behind admission and restoration. Exact tool-return knowledge may close part of this gap by staging waiting-session KV before it becomes due.",
       "unknown": "This intentionally measures an unprepared worst-credible case: no KV is prefetched before tool return, and a session is admitted only after its complete prefix is restored. The prompts, one-second waits and return patterns are synthetic. File-backed storage used normal operating-system caching and the page cache was not flushed, so this is not a physical SSD-latency claim. Priming was excluded, generated text was not compared byte-for-byte, and the active-KV limit is an estimate based on prompt tokens rather than physical HBM occupancy. The run does not yet show how much advance staging can recover or whether an optimized implementation can overlap recovery without delaying active sessions.",
-      "evidence_run_ids": ["capacity_safe_tiers_7b_full_20261008"],
-      "related_run_ids": ["capacity_safe_tiers_7b_full_20261008"]
+      "evidence_run_ids": [
+        "capacity_safe_tiers_7b_full_20261008"
+      ],
+      "related_run_ids": [
+        "capacity_safe_tiers_7b_full_20261008"
+      ]
     },
     {
       "id": "RQ23",
@@ -58,8 +90,12 @@
       "answer": "Eighteen fresh-backend A10G arms completed: three rotated seeds, six sessions, ten one-second tool waits per session, and both spread and 75 ms burst returns. With spread returns, median whole-workload time was 34.796 seconds all-GPU, 67.632 seconds with CPU-tier KV, and 104.891 seconds with GPU+CPU+storage tiering. Median mean due-to-first-token delay was 130, 1799 and 3936 ms. With burst returns, whole-workload time was 28.070, 67.695 and 102.487 seconds, while mean replay delay was 260, 2267 and 3956 ms. Relative to all-GPU, CPU tiering added about 94% workload time for spread returns and 141% for burst returns; storage tiering added about 202% and 264%. Client submission waiting stayed small. Native SGLang evidence showed all 360 all-GPU replays using GPU KV and all 360 CPU-tier replays using host KV. Across the 360 storage-mode replays, 148 had positive native storage hits, 41 had positive CPU hits, 33 had positive GPU hits, and the remaining replays showed zero reused cache tokens.",
       "hypothesis": "Unprepared tool returns expose a large placement gap even though earlier experiments showed that an isolated host-to-GPU copy can be cheap. The dominant cost here is the full lower-tier replay recovery and serialized service behavior under repeated multi-session demand, not late client submission. Simultaneous returns increase the relative penalty because the all-GPU reference batches them efficiently while lower-tier recovery remains expensive.",
       "unknown": "This is a synthetic worst-credible setup, not a production distribution: every session used the same 4096-token starting context, ten fixed one-second waits and 16 output tokens. GPU and CPU cache caps were deliberately different to force tier exposure. File-backed storage used normal operating-system caching and the page cache was not flushed, so a native storage hit is logical L3 evidence rather than proof of a physical SSD read. The experiment measures the unprepared gap; it does not yet show how much exact tool-return knowledge and advance staging can close it, or isolate storage I/O from cache reconstruction and scheduler service time.",
-      "evidence_run_ids": ["memory_tiers_7b_full_20261008"],
-      "related_run_ids": ["memory_tiers_7b_full_20261008"]
+      "evidence_run_ids": [
+        "memory_tiers_7b_full_20261008"
+      ],
+      "related_run_ids": [
+        "memory_tiers_7b_full_20261008"
+      ]
     },
     {
       "id": "RQ22",
@@ -69,8 +105,13 @@
       "answer": "The session pipeline worked correctly but did not make swapping invisible in the short gate. After removing a wasteful control-poll loop and moving preparation 750 ms ahead, whole-workload time was 7.200 seconds for normal restricted-cache operation, 9.804 seconds for coordinated CPU/GPU operation and 6.170 seconds for the GPU-resident reference. Coordinated mode was 36.2% slower than normal and 58.9% slower than resident; all twenty sessions finished later. Its mean TTFT after submission was 448 ms, but mean delay from tool due time to first token was 1634 ms because 71.180 seconds of submission waiting accumulated across sixty replays. Only 24 of 60 replays had KV ready by their tool deadline. All 44 actual loads were requested while other model requests were active, proving that session-level transfer/computation overlap occurred. Native CUDA-stream intervals totaled 0.971 seconds; release, residency, prepare and status controls totaled about 4.669 seconds of overlapping control wall time.",
       "hypothesis": "The remaining gap is primarily a preparation-throughput and software-control problem, not absence of overlap. Closely spaced session returns required 44 separate release/load handovers. Even with a 750 ms lead and two-session headroom, individual controls could not keep up, so late preparation became submission delay. Dynamic micro-batching of several soon-due independent sessions may retain session-level scheduling while reducing control transactions and native load launches.",
       "unknown": "This is one three-turn calibration trial with synthetic prompts, fixed one-second waits, eight output tokens, at most eight in-flight requests and an imposed GPU KV-token cap. It does not establish production performance or show that micro-batching will solve the delay. The controller used exact synthetic tool-return times, and initial priming/preparation was excluded. Native CUDA intervals are not pure copy-engine busy time, and control wall times overlap each other and model work. The first pilot used a 350 ms lead and repeated residency polling; it is retained as calibration evidence and must not be pooled with the corrected pilot.",
-      "evidence_run_ids": ["coordinated_session_pipeline_pilot_v2_20261008"],
-      "related_run_ids": ["coordinated_session_pipeline_pilot_20261008", "coordinated_session_pipeline_pilot_v2_20261008"]
+      "evidence_run_ids": [
+        "coordinated_session_pipeline_pilot_v2_20261008"
+      ],
+      "related_run_ids": [
+        "coordinated_session_pipeline_pilot_20261008",
+        "coordinated_session_pipeline_pilot_v2_20261008"
+      ]
     },
     {
       "id": "RQ21",
@@ -80,8 +121,17 @@
       "answer": "The native swaps and replay-prefix checks worked, but the waits did not hide the handovers. All nine arms completed 800 replays each. Across three rotated trials, independent sessions finished in 80.272-81.557 seconds, coordinated sessions in 99.703-101.347 seconds, and the same paired schedule with resident KV in 80.728-80.749 seconds. Coordination was 24.2-24.3% slower than the independent baseline, and all twenty sessions finished later in every paired comparison. Its mean TTFT after submission was only 316-321 ms versus 719-761 ms independently, but mean delay from tool due time to first token rose to 803-849 ms versus 724-766 ms. All 790 measured session restores per coordinated arm were observed ready after their original deadlines; the first ten sessions were prepared during excluded setup. Coordinated and resident replays reused at least 98.9% of their input prefix on GPU. CUDA graphs and overlap scheduling were on. This is a functional swapping proof, not GPU-resident-like performance.",
       "hypothesis": "The current release, restore and readiness-check sequence exceeds the available handover window. Coordinated controls took about 40-42 seconds of combined wall time per run; 79 native CUDA-stream load intervals totaled about 16.9 seconds. Those intervals overlap control time and must not be added together. The roughly 19-21 second whole-workload penalty versus the resident schedule appears before replay submission; after-submission TTFT was similar. This does not isolate copy-engine occupancy, scheduler bookkeeping or each control round trip as the single cause.",
       "unknown": "This uses twenty separate synthetic contexts, eight output tokens per replay, forty one-second tool waits, and an imposed GPU KV-pool cap, not exhausted physical GPU memory. The independent baseline has different ready times and batching. Initial priming is excluded; measured control, alignment and submission waits count. Count-only tracing avoids reading tensor index values but does not prove exact slot identity or zero tracing overhead. One setup reply was compared before and after a restore in each arm, not every replay or tensor. Earlier short pilots used different tracing, transfer or control settings and must not be pooled with the full run. These results do not establish production behavior or a hardware-offload benefit.",
-      "evidence_run_ids": ["coordinated_swap_count_full_20261008"],
-      "related_run_ids": ["coordinated_swap_pilot_20261008", "coordinated_swap_pilot_v2_20261008", "coordinated_swap_kernel_pilot_20261008", "coordinated_swap_batched_pilot_20261008", "coordinated_swap_count_pilot_20261008", "coordinated_swap_count_full_20261008"]
+      "evidence_run_ids": [
+        "coordinated_swap_count_full_20261008"
+      ],
+      "related_run_ids": [
+        "coordinated_swap_pilot_20261008",
+        "coordinated_swap_pilot_v2_20261008",
+        "coordinated_swap_kernel_pilot_20261008",
+        "coordinated_swap_batched_pilot_20261008",
+        "coordinated_swap_count_pilot_20261008",
+        "coordinated_swap_count_full_20261008"
+      ]
     },
     {
       "id": "RQ20",
@@ -91,7 +141,10 @@
       "answer": "A six-session baseline calibration produced only one storage candidate, so the paired test used eight equal-priority sessions, six tool returns each, 1 GiB host cache, 10240 GPU KV tokens, and two reversed-order seeds. Baselines had 19 and 24 native storage-tier replay hits. Selective staging completed two early loads in seed 1 and one in seed 2; none finished after the tool-return deadline. Whole-workload duration changed from 28.546 to 27.842 seconds in seed 1, but from 29.978 to 30.575 seconds in seed 2. Median due-to-first-token delay worsened from 1096 to 1158 ms and from 847 to 936 ms. Individual session finish times moved in both directions, with some delayed by over one second. Of the three matched early-staged replays, one improved by 211 ms and two worsened by 582 and 505 ms. This policy reliably exercised the storage path but did not show a consistent workload or replay-latency benefit.",
       "hypothesis": "Under busy multi-session pressure, a small number of feasible storage stages and interference with shared scheduling can outweigh the benefit of moving data before a tool returns. An early completion flag alone is not evidence that a replay will be faster or that the whole workload will finish sooner.",
       "unknown": "Only two paired seeds and three successful stages were observed. Storage-candidate and native-hit counts varied across arms despite matched logical sessions. Requests used synthetic prompts and file-backed storage that may be served by the OS page cache. Generated text was not compared byte-for-byte. The host ran synced working-tree files, so its manifest has an empty Git commit; the archived source change and trace identify the implementation. The experiment does not isolate the precise source of delay to peer sessions, establish production prevalence, or prove a hardware-offload benefit.",
-      "evidence_run_ids": ["rq20_exposure_h1_g10240_w900_s6_20261007", "rq20_selective_storage_pair_20261007"]
+      "evidence_run_ids": [
+        "rq20_exposure_h1_g10240_w900_s6_20261007",
+        "rq20_selective_storage_pair_20261007"
+      ]
     },
     {
       "id": "RQ19",
@@ -101,7 +154,10 @@
       "answer": "Two order-reversed, four-session controlled runs compared no early action, three scheduler-control status checks without transfer, and real storage-to-host staging. Median peer completion moved from 2585 to 2618 to 2647 ms in seed 1 and from 2588 to 2607 to 2667 ms in seed 2. Thus control-only checks added about 33 and 20 ms, while real staging added about 62 and 79 ms versus baseline. The returning session's due-to-first-token delay fell from 380 to 162 ms and 353 to 163 ms with staging; whole-workload duration fell by 224 and 212 ms. Native data readiness took 76 and 84 ms. The later status-observed timestamp followed after 189/183 ms until the next poll, 702/722 ms waiting for scheduler-control dequeue, and only about 6 ms inside the final status action. Earlier four- and eight-session traces show the same poll/queue pattern. The long data-ready-to-status interval is not a measurement of storage copying or cache-commit execution. Peer first-token differences appeared both before the first backend cache lookup and after it, depending on the peer.",
       "hypothesis": "The busy scheduler delays execution of status checks and may postpone publication of prefetched KV; issuing control checks also has some peer cost. Native staging adds further cost, but these runs do not separate storage I/O, host-cache bookkeeping, CPU scheduling, and GPU effects within that remainder.",
       "unknown": "Only two seeds, three fresh peer requests, a synthetic five-second tool wait, and a deliberately forced storage-only target prefix were tested. The three control-only status checks approximate the staging arm's control-call pattern but do not execute the same native prefetch action. File-backed data may have come from the OS page cache. The exact moment prefetched KV became usable is not independently timestamped; the reported commit timestamp is taken when a status check executes. These results do not establish physical SSD latency, HBM contention, production frequency, or a hardware-offload benefit.",
-      "evidence_run_ids": ["rq19_control_placebo_n4_s1_20261007", "rq19_control_placebo_n4_s2_20261007"]
+      "evidence_run_ids": [
+        "rq19_control_placebo_n4_s1_20261007",
+        "rq19_control_placebo_n4_s2_20261007"
+      ]
     },
     {
       "id": "RQ18",
@@ -134,8 +190,16 @@
       "answer": "The original three-seed study was blocked: one completed pair used 48 replays per arm, with median deadline-to-first-token delay 1705.9 to 1702.0 ms, p95 4358.7 to 4843.8 ms, and whole-workload duration 43.153 to 44.153 s. A later host-stage arm hit SGLang's evict_host cache-tree assertion; a full-GPU-prepare pilot hit a separate scheduler assertion. The unguarded partial-prefix path was replaced by a capacity- and rate-limit-guarded suffix path. In a subsequent one-seed eight-session, six-tool-return gate, that guarded path completed without a cache-tree failure. Only one of nine observed storage candidates staged before due time, and eight were skipped for insufficient host capacity. Median replay delay changed from 1046 to 1038 ms; whole-workload time rose from 27.336 to 27.468 s. This is a successful safety gate under one pressure setup, not a demonstrated whole-workload gain or a completed three-seed study.",
       "hypothesis": "When many sessions contend for the host cache, staging a missing storage suffix may need reservation and cache-tree synchronization; simply issuing the native prefetch early can move work into tool waits but cannot be assumed to improve end-to-end performance or remain safe under pressure.",
       "unknown": "There is no validated cross-seed performance conclusion. The exact internal cause of the historical assertions remains unknown. The first guarded attempt recorded a native prefetch refusal and was blocked by the audit gate; the adapter now explicitly checks SGLang's prefetch rate limit. The completed retry had only one successful early stage and was not a full repeat of the three-seed study. The guard prevents prefetch when host capacity is insufficient; it does not fix SGLang's underlying eviction assertion or establish safety across versions and loads. The workload is synthetic, and file-backed L3 hits do not prove physical SSD reads.",
-      "evidence_run_ids": ["storage_cycles_rq17_20261006", "rq18_guarded_cycles_retry_20261007"],
-      "related_run_ids": ["storage_cycles_rq17_20261006", "storage_cycles_full_pilot_20261006", "rq18_guarded_cycles_20261007", "rq18_guarded_cycles_retry_20261007"]
+      "evidence_run_ids": [
+        "storage_cycles_rq17_20261006",
+        "rq18_guarded_cycles_retry_20261007"
+      ],
+      "related_run_ids": [
+        "storage_cycles_rq17_20261006",
+        "storage_cycles_full_pilot_20261006",
+        "rq18_guarded_cycles_20261007",
+        "rq18_guarded_cycles_retry_20261007"
+      ]
     },
     {
       "id": "RQ16",
