@@ -701,6 +701,10 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     progress = tmp_path / "progress.json"
     progress.write_text(json.dumps({"milestones": [{
         "id": "RQ1", "short_question": "Does early KV preparation help?",
+        "significance": "research_pivot",
+        "pivot_title": "Early KV preparation",
+        "manager_takeaway": "Preparing KV early reduced replay delay in the controlled case.",
+        "why_it_matters": "It established that tool-return timing can expose a useful preparation window.",
         "evidence_date_utc": "2026-10-02",
         "question": "Does early KV preparation help?",
         "answer": "Yes in this controlled test.",
@@ -735,6 +739,12 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     assert "Reconstructed command" in page
     assert "frontend priority: none" in page
     assert "Research progress" in page
+    assert "Key Research Pivots" in page
+    assert "Early KV preparation" in page
+    assert "Main finding" in page and "Why it matters" in page
+    assert "Next direction" not in page
+    assert page.count("Research pivot") >= 3
+    assert "pivot-run" in page
     assert "Does early KV preparation help?" in page
     assert "Yes in this controlled test." in page
     assert 'href="#run-first"' in page and 'href="#run-second"' in page
@@ -746,6 +756,10 @@ def test_report_uses_trace_time_and_saved_evidence(tmp_path, monkeypatch):
     assert page.count("this was not a policy-speed comparison") == 2
     markdown = markdown_out.read_text(encoding="utf-8")
     assert "# KV Lifecycle Audit" in markdown
+    assert "## Key Research Pivots" in markdown
+    assert "| Research pivot | Main finding | Why it matters |" in markdown
+    assert "Next direction" not in markdown
+    assert "<kbd>Research pivot</kbd>" in markdown
     assert "Does early KV preparation help?" in markdown
     assert markdown.index("[Lifecycle validation](#run-second)") < markdown.index(
         "[Lifecycle validation](#run-first)")

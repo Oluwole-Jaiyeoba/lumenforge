@@ -1208,6 +1208,41 @@ def _question_index(milestones: list[dict]) -> tuple[dict[str, dict], dict[str, 
     return by_id, by_run
 
 
+def _research_pivots(milestones: list[dict]) -> list[dict]:
+    pivots = [row for row in milestones if row.get("significance") == "research_pivot"]
+    for pivot in pivots:
+        missing = [key for key in ("pivot_title", "manager_takeaway", "why_it_matters")
+                   if not pivot.get(key)]
+        if missing:
+            raise ValueError(
+                f"Research pivot {pivot.get('id', '<unknown>')} is missing: {', '.join(missing)}"
+            )
+    return pivots
+
+
+def _pivots_html(milestones: list[dict]) -> str:
+    pivots = _research_pivots(milestones)
+    if not pivots:
+        return ""
+    rows = []
+    for pivot in pivots:
+        question_id = str(pivot["id"])
+        rows.append(
+            f"<tr><td data-label='Research pivot'><a href='#rq-{_esc(quote(question_id, safe=''))}'>"
+            f"<strong>{_esc(pivot['pivot_title'])}</strong><small>{_esc(question_id)}</small></a></td>"
+            f"<td data-label='Main finding'>{_esc(pivot['manager_takeaway'])}</td>"
+            f"<td data-label='Why it matters'>{_esc(pivot['why_it_matters'])}</td></tr>"
+        )
+    return (
+        '<section class="key-pivots"><div class="section-heading"><h2>Key Research Pivots</h2>'
+        '<span class="pivot-badge">Research pivot</span></div>'
+        '<p>Manager-facing experiments that materially changed the direction or interpretation of the research.</p>'
+        '<div class="table-scroll"><table class="pivot-table"><thead><tr>'
+        '<th>Research pivot</th><th>Main finding</th><th>Why it matters</th>'
+        '</tr></thead><tbody>' + "".join(rows) + '</tbody></table></div></section>'
+    )
+
+
 def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
     if not milestones:
         return ""
@@ -1852,6 +1887,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
             raise ValueError(f"Run {run} has conflicting research question IDs")
         question_id = manifest_question_id or archived_question_id
         milestone = questions.get(question_id)
+        is_pivot = bool(milestone and milestone.get("significance") == "research_pivot")
         fallback_question = (
             "When early worker KV loading overlaps another session's decode, which part of its "
             "response path slows?" if summary.get("schema") == "agentic_work_audit.decode_overlap.v1" else
@@ -1887,11 +1923,15 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         limits = "".join(f"<li>{_esc(item)}</li>" for item in
                          [*(summary.get("failures") or []), *(summary.get("limitations") or [])])
         detail_id = f"detail-{_esc(quote(run, safe=''))}"
+        pivot_badge = '<span class="pivot-badge">Research pivot</span>' if is_pivot else ""
         rows.append(
-            f"<tr class='run-row' id='run-{_esc(quote(run, safe=''))}'>"
+            f"<tr class='run-row{' pivot-run' if is_pivot else ''}' "
+            f"id='run-{_esc(quote(run, safe=''))}'>"
             f"<td data-label='Date' title='{_esc(source)}'>{_esc(date)}</td>"
             f"<td data-label='Time (Central)' title='{_esc(source)}'>{_esc(time)}</td>"
-            f"<td data-label='Experiment'><strong>{kind}</strong><small>{_esc(run)}</small></td>"
+            f"<td data-label='Experiment'>"
+            f"{pivot_badge}"
+            f"<strong>{kind}</strong><small>{_esc(run)}</small></td>"
             f"<td data-label='Research question' class='question-cell'>{question_cell}</td>"
             f"<td data-label='Setup'>{setup}</td>"
             f"<td data-label='Main result'>{result}</td>"
@@ -1908,6 +1948,7 @@ def render(summaries: list[tuple[Path, dict]], milestones: list[dict] | None = N
         )
     if not rows:
         rows.append("<tr><td colspan='9'>No saved run summaries are archived yet.</td></tr>")
+    pivots_html = _pivots_html(milestones or [])
     progress_html = _progress_html(milestones or [], run_ids)
     return """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>KV Lifecycle Audit</title>
@@ -1922,6 +1963,16 @@ h1{font-size:1.7rem;margin:0 0 8px;letter-spacing:0}p{color:#3d5260}
 .scope li{display:grid;grid-template-columns:175px minmax(0,1fr);gap:16px;padding:7px 0;border-bottom:1px solid #d7e2e6;color:#3d5260}
 .scope strong{color:#182733}
 .scope li:nth-child(3){border-left:3px solid #198e7d;padding-left:10px;background:#edf7f2}
+.key-pivots{margin:0 0 24px}.section-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.key-pivots h2{font-size:1.2rem;margin:0;color:#234150}.key-pivots>p{margin:5px 0 10px;max-width:95ch}
+.pivot-table{table-layout:fixed}.pivot-table th:first-child,.pivot-table td:first-child{width:24%}
+.pivot-table th:nth-child(2),.pivot-table td:nth-child(2){width:36%}
+.pivot-table th{background:#f1e1aa;color:#5f4810}.pivot-table td{white-space:normal!important;background:#fffdf5}
+.pivot-table td:first-child{border-left:4px solid #c99619}.pivot-table a{text-decoration:none}
+.pivot-table a:hover{text-decoration:underline}.pivot-table small{color:#806521}
+.pivot-badge{display:inline-block;width:max-content;margin:0 0 5px;padding:2px 7px;border:1px solid #c99619;
+border-radius:999px;background:#fff3c4;color:#674c08;font-size:.72rem;font-weight:750;line-height:1.35}
+.pivot-run td:nth-child(3){background:#fff9e6;border-left:4px solid #c99619}
 .progress{margin:0 0 24px}.progress h2{font-size:1.1rem;margin:0 0 8px;color:#234150}
 .progress-table{table-layout:fixed}.progress-table td{white-space:normal!important;min-width:0!important;max-width:520px}
 .progress-table td:first-child{width:32%}.progress-table td:nth-child(2){width:35%}
@@ -1963,6 +2014,9 @@ a{color:#086780}a:hover{text-decoration:underline}
 .results-table .detail-row{display:block}.results-table .detail-row td{display:block;width:100%}
 }
 @media(max-width:960px){
+.pivot-table thead{display:none}.pivot-table tr{display:block;border-bottom:1px solid #e3d6a9}
+.pivot-table td{display:block;width:auto!important;border-bottom:0;padding:10px 12px}
+.pivot-table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#624d18;font-size:.82rem;font-weight:700}
 .progress-table thead{display:none}.progress-table tr{display:block;border-bottom:1px solid #d7e2e6}
 .progress-table td{display:block;width:auto!important;max-width:none!important;border-bottom:0;padding:10px 12px}
 .progress-table td::before{content:attr(data-label);display:block;margin-bottom:5px;color:#234150;font-size:.82rem;font-weight:700}
@@ -1982,7 +2036,7 @@ body{padding:16px 10px 40px}.scope li{grid-template-columns:1fr;gap:2px}
 <li><strong>Session resumes</strong><span>Early, late, and controller timing measured; RQ8 tests busy cache pressure, and RQ9 tests off-scheduler loading.</span></li>
 <li><strong>HBM occupancy</strong><span>Useful, idle, and dead block-seconds not yet measured.</span></li>
 <li><strong>GPU time</strong><span>Useful compute, recompute, and idle-with-stageable-work not yet measured.</span></li>
-</ul></section>""" + progress_html + """
+</ul></section>""" + pivots_html + progress_html + """
 <p class="intro">One row per saved experiment, newest first. Main result shows the measurements; Finding states the run-specific deduction. The research-question link opens the broader answer above. Date and time are UTC from the first recorded request; a completion-time fallback is labeled on hover. Lifecycle timing is not a policy win.</p>
 <div class="table-scroll"><table class="results-table"><colgroup><col style="width:8%"><col style="width:7%"><col style="width:11%"><col style="width:14%"><col style="width:14%"><col style="width:17%"><col style="width:15%"><col style="width:8%"><col style="width:6%"></colgroup><thead><tr><th>Date</th><th>Time (Central)</th><th>Experiment</th><th>Research question</th><th>Setup</th><th>Main result</th><th>Finding</th><th>Evidence gate</th><th>Details</th></tr></thead><tbody>""" + "".join(rows) + """</tbody></table></div>
 <script>
@@ -2762,10 +2816,27 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
         "This audit compares observed cache work with replay timing and whole-workload outcomes. "
         "A faster control call is not automatically a faster agent task. All times below are from "
         "saved runs; experimental and hypothetical claims are kept separate.", "",
-        "## Research progress", "",
     ]
+    pivots = _research_pivots(milestones or [])
+    if pivots:
+        lines.extend(("## Key Research Pivots", "",
+                      "Manager-facing experiments that materially changed the direction or "
+                      "interpretation of the research.", "",
+                      "| Research pivot | Main finding | Why it matters |",
+                      "| --- | --- | --- |"))
+        for pivot in pivots:
+            lines.append(
+                "| " + " | ".join((
+                    f"[{_md_cell(pivot['pivot_title'])}](#rq-{pivot['id']})",
+                    _md_cell(pivot["manager_takeaway"]),
+                    _md_cell(pivot["why_it_matters"]),
+                )) + " |"
+            )
+        lines.append("")
+    lines.extend(("## Research progress", ""))
     for milestone in milestones or []:
-        lines.extend((f"### {milestone['id']}: {milestone['short_question']}", "",
+        lines.extend((f"<a id=\"rq-{milestone['id']}\"></a>",
+                      f"### {milestone['id']}: {milestone['short_question']}", "",
                       f"**Question.** {milestone['question']}", "",
                       f"**What the evidence says.** {milestone['answer']}", ""))
         if milestone.get("hypothesis"):
@@ -2790,7 +2861,10 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
             raise ValueError(f"Run {run} has conflicting research question IDs")
         setup, _detail = _setup(summary, summary.get("schema") == "agentic_work_audit.timing.v1")
         comparison, replay, other, workflow, finding, gate = _markdown_index_outcome(summary)
-        cells = (stamp, f"[{_kind(summary)}](#run-{run})", question_id,
+        milestone = questions.get(question_id)
+        pivot_badge = ("<kbd>Research pivot</kbd><br>"
+                       if milestone and milestone.get("significance") == "research_pivot" else "")
+        cells = (stamp, f"{pivot_badge}[{_kind(summary)}](#run-{run})", question_id,
                  _report_text(setup), comparison, replay, other, workflow, finding, gate)
         lines.append("| " + " | ".join(_md_nowrap(cell) if index in (0, 3, 5, 6, 7, 8) else _md_cell(cell)
                                          for index, cell in enumerate(cells)) + " |")

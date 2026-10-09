@@ -4,8 +4,18 @@
 
 This audit compares observed cache work with replay timing and whole-workload outcomes. A faster control call is not automatically a faster agent task. All times below are from saved runs; experimental and hypothetical claims are kept separate.
 
+## Key Research Pivots
+
+Manager-facing experiments that materially changed the direction or interpretation of the research.
+
+| Research pivot | Main finding | Why it matters |
+| --- | --- | --- |
+| [Capacity-safe memory tiering](#rq-RQ24) | When every admitted session fit in GPU KV, CPU tiering added 10-16% to workload time, while storage still added 93-110%. | It separated raw tier-recovery cost from GPU-cache overcommit and showed that admission pressure caused much of the earlier CPU slowdown. |
+| [Unrestricted memory-tier pressure](#rq-RQ23) | With all six sessions free to compete, CPU tiering added 94-141% to workload time and storage added 202-264%. | It revealed that lower-tier recovery and uncontrolled concurrent demand can compound into a severe full-system penalty. |
+
 ## Research progress
 
+<a id="rq-RQ24"></a>
 ### RQ24: What is the tiering cost when active KV always fits?
 
 **Question.** When every currently active session fits within the restricted GPU KV budget, how much performance is lost solely because waiting-session KV is kept on CPU or storage and restored only after its tool call returns? Does a near-simultaneous return burst make that unprepared tiering penalty worse?
@@ -16,6 +26,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** This intentionally measures an unprepared worst-credible case: no KV is prefetched before tool return, and a session is admitted only after its complete prefix is restored. The prompts, one-second waits and return patterns are synthetic. File-backed storage used normal operating-system caching and the page cache was not flushed, so this is not a physical SSD-latency claim. Priming was excluded, generated text was not compared byte-for-byte, and the active-KV limit is an estimate based on prompt tokens rather than physical HBM occupancy. The run does not yet show how much advance staging can recover or whether an optimized implementation can overlap recovery without delaying active sessions.
 
+<a id="rq-RQ23"></a>
 ### RQ23: How large is the GPU, CPU and storage KV gap?
 
 **Question.** With a 7B coding model, equal-priority multi-turn sessions and no prefetch before tool return, how far do whole-workload time and replay response time separate when KV stays on GPU, spills to CPU, or can fall through CPU to file-backed storage? Does a near-simultaneous tool-return burst make the gap worse than normally spread returns?
@@ -26,6 +37,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** This is a synthetic worst-credible setup, not a production distribution: every session used the same 4096-token starting context, ten fixed one-second waits and 16 output tokens. GPU and CPU cache caps were deliberately different to force tier exposure. File-backed storage used normal operating-system caching and the page cache was not flushed, so a native storage hit is logical L3 evidence rather than proof of a physical SSD read. The experiment measures the unprepared gap; it does not yet show how much exact tool-return knowledge and advance staging can close it, or isolate storage I/O from cache reconstruction and scheduler service time.
 
+<a id="rq-RQ22"></a>
 ### RQ22: Can session-level advance loading make CPU spill invisible?
 
 **Question.** With twenty independent sessions, identical tool clocks in all modes, reserved GPU preparation space and exact tool-return times, can individual early KV restores overlap active model work and approach a fully GPU-resident reference without a group barrier?
@@ -36,6 +48,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** This is one three-turn calibration trial with synthetic prompts, fixed one-second waits, eight output tokens, at most eight in-flight requests and an imposed GPU KV-token cap. It does not establish production performance or show that micro-batching will solve the delay. The controller used exact synthetic tool-return times, and initial priming/preparation was excluded. Native CUDA intervals are not pure copy-engine busy time, and control wall times overlap each other and model work. The first pilot used a 350 ms lead and repeated residency polling; it is retained as calibration evidence and must not be pooled with the corrected pilot.
 
+<a id="rq-RQ21"></a>
 ### RQ21: Can ideal paired tool waits hide CPU/GPU KV swaps?
 
 **Question.** With twenty independent contexts that exceed the GPU cache budget, can perfectly staggered A/B and C/D pairs swap their KV during one-second tool waits and approach a GPU-resident reference?
@@ -46,6 +59,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** This uses twenty separate synthetic contexts, eight output tokens per replay, forty one-second tool waits, and an imposed GPU KV-pool cap, not exhausted physical GPU memory. The independent baseline has different ready times and batching. Initial priming is excluded; measured control, alignment and submission waits count. Count-only tracing avoids reading tensor index values but does not prove exact slot identity or zero tracing overhead. One setup reply was compared before and after a restore in each arm, not every replay or tensor. Earlier short pilots used different tracing, transfer or control settings and must not be pooled with the full run. These results do not establish production behavior or a hardware-offload benefit.
 
+<a id="rq-RQ20"></a>
 ### RQ20: Does selective early storage staging improve a full busy workload?
 
 **Question.** With repeated tool returns and natural file-backed KV displacement, can one-at-a-time storage-to-host staging during sufficiently long waits improve whole-workload completion and replay delay without shifting too much delay to other sessions?
@@ -56,6 +70,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** Only two paired seeds and three successful stages were observed. Storage-candidate and native-hit counts varied across arms despite matched logical sessions. Requests used synthetic prompts and file-backed storage that may be served by the OS page cache. Generated text was not compared byte-for-byte. The host ran synced working-tree files, so its manifest has an empty Git commit; the archived source change and trace identify the implementation. The experiment does not isolate the precise source of delay to peer sessions, establish production prevalence, or prove a hardware-offload benefit.
 
+<a id="rq-RQ19"></a>
 ### RQ19: Where do storage-stage delays come from?
 
 **Question.** When early storage-to-host KV staging delays peer requests, how much is associated with the scheduler-control path versus the native staging action, and what explains the apparent delay from storage data readiness to cache availability?
@@ -66,6 +81,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** Only two seeds, three fresh peer requests, a synthetic five-second tool wait, and a deliberately forced storage-only target prefix were tested. The three control-only status checks approximate the staging arm's control-call pattern but do not execute the same native prefetch action. File-backed data may have come from the OS page cache. The exact moment prefetched KV became usable is not independently timestamped; the reported commit timestamp is taken when a status check executes. These results do not establish physical SSD latency, HBM contention, production frequency, or a hardware-offload benefit.
 
+<a id="rq-RQ18"></a>
 ### RQ18: When does early storage staging stop helping everyone?
 
 **Question.** If a returning session's storage-resident KV is staged during its tool wait, how do its replay delay, peer latency, and whole-workload time change as equal-priority session count rises?
@@ -76,6 +92,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The controlled ladder used one seed at one, four, and eight sessions, two seeds at two sessions, synthetic prompts, a five-second tool wait, and deliberate GPU/host eviction. Peer sessions issued concurrent requests rather than full independent multi-turn workflows. File-backed L3 hits may be served by the OS page cache and do not prove physical SSD I/O. These data do not establish hardware-offload value or a production threshold.
 
+<a id="rq-RQ17"></a>
 ### RQ17: Does storage staging help across repeated tool returns?
 
 **Question.** With eight equal-priority agent sessions, six tool returns each, growing prompt histories, and natural GPU/host cache displacement, can storage-to-host staging during known tool waits improve replay delay and whole-workload time without harming other sessions?
@@ -86,6 +103,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** There is no validated cross-seed performance conclusion. The exact internal cause of the historical assertions remains unknown. The first guarded attempt recorded a native prefetch refusal and was blocked by the audit gate; the adapter now explicitly checks SGLang's prefetch rate limit. The completed retry had only one successful early stage and was not a full repeat of the three-seed study. The guard prevents prefetch when host capacity is insufficient; it does not fix SGLang's underlying eviction assertion or establish safety across versions and loads. The workload is synthetic, and file-backed L3 hits do not prove physical SSD reads.
 
+<a id="rq-RQ16"></a>
 ### RQ16: Does storage preparation still help under peer pressure?
 
 **Question.** With a storage-resident target prefix and equal-priority peer requests, does preparing KV during a five-second tool wait still improve target replay as concurrent peer pressure rises, and what do peers pay?
@@ -96,6 +114,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** These were two seeds per pressure level, with synthetic prompts, deliberate device/host eviction, one returning target, and at most six peer requests. At two peers, peer TTFT varied substantially between seeds. File-backed L3 hits do not establish physical SSD reads; OS page-cache warming may explain why native data-readiness times were shorter in later pressure runs. The ready-to-commit interval includes status-poll delay and must not be read as pure commit cost. The whole-workflow metric is the last completion among these requests, not a production throughput measure. The remote manifests have an empty Git commit because the host used a synced source copy; this change archives the evidence with the experiment code. This study does not isolate the exact cause of peer delay, prove net benefit across independent workflows, or establish hardware-offload value.
 
+<a id="rq-RQ15"></a>
 ### RQ15: Can storage KV be prepared during a tool wait?
 
 **Question.** When a session prefix is present in file-backed storage but absent from host and GPU cache, can native storage-to-host and host-to-GPU preparation during a known tool wait reduce replay delay, and what happens to peer requests?
@@ -106,6 +125,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The file-backed L3 hit does not prove physical SSD reads because the OS page cache may serve data. The workload used deliberate evictions, one returning session, at most two synthetic peers, one seed per concurrency setup, and a fixed five-second wait. Peer latency differences are measured associations, not a fully isolated transfer penalty. The experiment invokes explicit preparation controls rather than an autonomous controller; it does not establish production frequency, net system benefit at scale, or hardware-offload value. The remote run manifests have an empty git commit because the host used a synced source copy; the archived raw traces, settings, and local source provide reproducibility evidence instead.
 
+<a id="rq-RQ14"></a>
 ### RQ14: Do startup delays recur across many tool returns?
 
 **Question.** Across repeated tool returns and growing agent context, does the earlier one-off first-token delay recur, and how do competing sessions, CUDA graphs, and overlap scheduling change the result?
@@ -116,6 +136,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The trace places time before the replay's first backend batch but does not identify the exact scheduler, admission, CPU, or GPU mechanism. The observed load-back call duration is not physical device-copy time. Trace-on and trace-off runs alter timing and may change scheduling, so their difference is a perturbation check, not a calibrated instrumentation-overhead subtraction. These deterministic synthetic runs use only two seeds, two active sessions, at most 2291 prompt tokens, and changing natural eviction counts across modes; they do not establish production prevalence, an optimal flag setting, or a hardware-offload benefit. The remote run manifests record the host's older Git HEAD: the new experiment code was synced from a working tree before it was committed. A later move of raw-event translation into the backend adapter reproduced the saved metrics on a representative trace, but that does not make the recorded HEAD an exact source snapshot.
 
+<a id="rq-RQ13"></a>
 ### RQ13: Can existing backend features absorb KV-load overlap?
 
 **Question.** On the pinned A10G backend, do CUDA graphs and overlap scheduling reduce the extra target-decode time from four native host-KV loads, without moving KV management into hardware?
@@ -126,6 +147,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** Two seeds cover only the both-off and both-on comparison; single-feature arms have one seed. The combined mode raised no-load target first-token time from about 65-66 ms to 385-387 ms and no-load completion from about 3.53 to 3.65 seconds, so minimal added overlap cost is not an unconditional win. Worker-window overlap is a proxy in the unprofiled comparisons; the separate Nsight run verifies physical copy overlap but barely any copy/kernel concurrency and must not be used for latency estimates. The 2048-word prompts were chosen because a 4090-word graph-enabled four-load attempt hit KV-capacity admission limits. The exact reason the combined features remove the incremental penalty, production prevalence, and any hardware benefit remain unproven. The first-seed summaries retain their reused RQ11 driver label; their run manifests and this milestone identify them as RQ13, and later summaries emit RQ13 directly.
 
+<a id="rq-RQ12"></a>
 ### RQ12: Where does the overlap slowdown occur?
 
 **Question.** When native host-to-GPU KV copies physically overlap another session's decode, does added time appear inside decode kernels or in the host's cadence of submitting them?
@@ -136,6 +158,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The profiler locates time before CUDA launches but does not show why the host waited: Python/CPU contention, SGLang scheduling, batching, copy-launch overhead, or a mixture remain possible. Nsight perturbs timing, so profiled completion differences are not the clean slowdown estimate. This is synthetic traffic on one A10G and does not establish a hardware-offload speedup or a production-wide frequency. The first reverse-order pair had a post-run manifest recovery and a corrected research-question label; raw traces were unchanged.
 
+<a id="rq-RQ11"></a>
 ### RQ11: Does more KV-load overlap delay other decoders?
 
 **Question.** With equal-importance sessions and the same four host-resident donor prefixes, does shifting more native worker KV loads into an active replay's decode window increase other sessions' latency as session count grows?
@@ -146,6 +169,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** Worker start-to-commit windows are proxies, not verified physical host-to-GPU copy overlap. A profiled repeat recorded all four NVTX load ranges but no CUDA kernel or memcpy activity, so the physical-overlap gate failed. The cause could be host launch cadence, scheduler/batch effects, GPU copies, or a mixture; this does not isolate HBM bandwidth or prove a hardware fix. The six-session series used 4090-word active prompts and 20- or 40-second donor waits, while the twelve-session series used 512-word active prompts and 40-second donor waits to fit capacity; compare doses within each series, not absolute times across series. These synthetic runs are small, and only zero/four endpoints have a second seed. Excluded capacity and timeout attempts appear in the experiment details.
 
+<a id="rq-RQ10"></a>
 ### RQ10: Which stage slows another decoder?
 
 **Question.** When an early worker KV load overlaps a different session's decode, is that session delayed before its first token, between backend batches, or inside model forward?
@@ -154,6 +178,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** Nsight lost CUDA activity for later cases in both two-pair profiling runs; the launch-gap result is a validated subset, not a complete order-balanced profiler experiment. A reverse-order run had no CUDA kernel capture and is excluded. The trace does not show why the host delayed its next launch: CPU scheduling, Python work, other software waits, or competition from the worker remain candidates. Gaps between this request's kernels are not global GPU-idle measurements. The workload used explicit host eviction, a synthetic logical two-prefix budget, and a 10-second long tool wait; hardware offload benefits and production frequency remain unproven.
 
+<a id="rq-RQ9"></a>
 ### RQ9: Does off-scheduler KV loading help?
 
 **Question.** If a host-resident prefix reserves device slots and copies on a worker stream while the scheduler continues serving other requests, does that reduce replay or whole-workload time without exposing incomplete KV?
@@ -162,6 +187,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The prototype only handles explicit prepare-control loads, direct host I/O, and one tensor-parallel rank. A replay reaching the backend before commit may recompute rather than wait for the prefix. One warmed pair and one busy seed per mode cannot establish general performance. The busy admissions differed. Dedicated-stream copy time also changed under overlap, so scheduler relief is not an isolated hardware-speed measurement. Production replay gating, multi-rank safety, and native automatic load paths remain unimplemented.
 
+<a id="rq-RQ8"></a>
 ### RQ8: Does timed KV preparation help a busy system?
 
 **Question.** With 12 equal-importance sessions, three tool waits each, and natural SGLang cache pressure, does using each session's expected tool return to prepare host KV improve total replay timing and whole-workload completion?
@@ -170,6 +196,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The profiler diagnostic perturbs timing and is not a performance comparison; gaps between copy events cannot be assumed recoverable. The phase-timing and kernel controls each have only one seed and three accepted early loads. CUDA-event duration overlaps wall-clock ready-call time and must not be added to it. Matched-arm differences locate affected stages but do not prove per-copy causality, HBM contention, or how much a hardware offload would save; concurrent batch trajectories can diverge. An opt-in off-scheduler prototype is evaluated separately in RQ9. A separate sequential tracing-off/on microcheck measured +3.05% median latency but does not bound overhead in the busy workload. Prompts and tool waits remain synthetic.
 
+<a id="rq-RQ7"></a>
 ### RQ7: Can a controller choose the quiet load window?
 
 **Question.** Using observed short-replay completion, host residency, slot release, and the long tool-return estimate, can a controller policy decide when to load KV without frontend importance ranks?
@@ -178,6 +205,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** This policy was invoked by the experiment harness, not yet by the production gateway. The load-time estimate was a fixed 250 ms plus a 150 ms margin; this run did not test the defer path under real load or naturally arising cache pressure. Four synthetic trials do not establish a universal win or identify a hardware bottleneck.
 
+<a id="rq-RQ6"></a>
 ### RQ6: Can we load after the short replay finishes?
 
 **Question.** Under the same equal-importance, logical two-prefix workload, can loading just after the short replay completes preserve the long replay benefit while avoiding the short-session penalty?
@@ -186,6 +214,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The post-short trigger used the observed client completion event, not a prediction available to a production controller. The two-prefix budget was explicit, not natural capacity pressure. Two synthetic triplets do not establish a general policy win or identify GPU bandwidth versus backend scheduling as the cause.
 
+<a id="rq-RQ5"></a>
 ### RQ5: Does early loading help the whole shared system?
 
 **Question.** With equal-importance sessions and the same logical two-prefix budget, does loading during the wait help the returning session without delaying another session or the whole workflow?
@@ -194,6 +223,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The short-session delay is not attributed to GPU bandwidth versus backend scheduling. The two-prefix cap was an explicit logical policy, not measured physical occupancy or natural capacity pressure. Two synthetic pairs do not establish a production-wide benefit.
 
+<a id="rq-RQ4"></a>
 ### RQ4: What happens when equal-importance sessions overlap?
 
 **Question.** Can a small, equal-importance, concurrent workload link tool waits, one controlled host eviction/load, replays, and an ending session?
@@ -202,6 +232,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The eviction enforced a synthetic two-prefix policy, not natural capacity pressure. Different-session TTFTs do not prove a causal eviction penalty; RQ5 supplies the separate matched timing comparison.
 
+<a id="rq-RQ3"></a>
 ### RQ3: Does nonblocking late loading remove the delay?
 
 **Question.** Does not waiting for the late-load control response remove the observed tool-return-to-first-token penalty?
@@ -210,6 +241,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The native load was accepted after nonblocking replay submission, so the strict comparable delta was withheld. More order-balanced runs are needed; the full-task comparison was also withheld because second-replay TTFT drifted.
 
+<a id="rq-RQ2"></a>
 ### RQ2: Does loading during the tool wait help?
 
 **Question.** In a controlled replay, does requesting host-KV load during a tool wait shorten time from tool return to first token compared with requesting it after the wait?
@@ -218,6 +250,7 @@ This audit compares observed cache work with replay timing and whole-workload ou
 
 **Not yet proved.** The sequential runs did not test competing-session cost; RQ5 now measures that separately under explicit logical capacity. Neither result establishes a production or hardware benefit.
 
+<a id="rq-RQ1"></a>
 ### RQ1: Can we trace one session's KV lifecycle reliably?
 
 **Question.** Can host residency, GPU eviction and load-back, and replay be linked to the same session across one or two tool waits?
@@ -232,8 +265,8 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Oct&nbsp;8,&nbsp;2026,&nbsp;9:04:52&nbsp;p.m.&nbsp;CDT | [GPU / CPU / storage KV gap](#run-capacity_safe_tiers_7b_full_20261008) | RQ24 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 875&nbsp;ms&nbsp;→&nbsp;1129&nbsp;ms&nbsp;→&nbsp;2883&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 30.95&nbsp;s&nbsp;→&nbsp;35.95&nbsp;s&nbsp;→&nbsp;64.85&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+9.7%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+239.4&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+93.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1933.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+16.0%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+249.7&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+109.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2000.9&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 720 proven lower-tier replay hits |
-| Oct&nbsp;8,&nbsp;2026,&nbsp;5:39:28&nbsp;p.m.&nbsp;CDT | [GPU / CPU / storage KV gap](#run-memory_tiers_7b_full_20261008) | RQ23 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 260&nbsp;ms&nbsp;→&nbsp;2267&nbsp;ms&nbsp;→&nbsp;3956&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 28.07&nbsp;s&nbsp;→&nbsp;67.70&nbsp;s&nbsp;→&nbsp;102.49&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+94.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1669.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+201.6%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3805.9&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+141.1%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2006.5&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+264.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3696.8&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 549 proven lower-tier replay hits |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;9:04:52&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[GPU / CPU / storage KV gap](#run-capacity_safe_tiers_7b_full_20261008) | RQ24 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 875&nbsp;ms&nbsp;→&nbsp;1129&nbsp;ms&nbsp;→&nbsp;2883&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 30.95&nbsp;s&nbsp;→&nbsp;35.95&nbsp;s&nbsp;→&nbsp;64.85&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+9.7%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+239.4&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+93.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1933.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+16.0%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+249.7&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+109.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2000.9&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 720 proven lower-tier replay hits |
+| Oct&nbsp;8,&nbsp;2026,&nbsp;5:39:28&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[GPU / CPU / storage KV gap](#run-memory_tiers_7b_full_20261008) | RQ23 | All-GPU&nbsp;vs&nbsp;CPU-tiered&nbsp;vs&nbsp;storage-tiered&nbsp;KV | All GPU → CPU tier → storage tier (burst returns) | 260&nbsp;ms&nbsp;→&nbsp;2267&nbsp;ms&nbsp;→&nbsp;3956&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | 28.07&nbsp;s&nbsp;→&nbsp;67.70&nbsp;s&nbsp;→&nbsp;102.49&nbsp;s | spread&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+94.3%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+1669.0&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;spread&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+201.6%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3805.9&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;CPU&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+141.1%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+2006.5&nbsp;ms&nbsp;vs&nbsp;all-GPU.&nbsp;burst&nbsp;storage&nbsp;tier:&nbsp;whole&nbsp;workload&nbsp;+264.5%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;+3696.8&nbsp;ms&nbsp;vs&nbsp;all-GPU. | complete; 549 proven lower-tier replay hits |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;4:51:13&nbsp;p.m.&nbsp;CDT | [Session-level coordinated KV (calibration)](#run-coordinated_session_pipeline_pilot_v2_20261008) | RQ22 | 20&nbsp;sessions;&nbsp;session-level&nbsp;advance&nbsp;KV&nbsp;loading | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;1073.3ms;&nbsp;coordinated:&nbsp;1634.0ms;&nbsp;resident:&nbsp;792.1ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.2s;&nbsp;coordinated:&nbsp;9.8s;&nbsp;resident:&nbsp;6.2s | Coordinated&nbsp;workload&nbsp;was&nbsp;36.2%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;58.9%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;36&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;4:42:28&nbsp;p.m.&nbsp;CDT | [Session-level coordinated KV (calibration)](#run-coordinated_session_pipeline_pilot_20261008) | RQ22 | 20&nbsp;sessions;&nbsp;session-level&nbsp;advance&nbsp;KV&nbsp;loading | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;992.6ms;&nbsp;coordinated:&nbsp;2352.7ms;&nbsp;resident:&nbsp;791.0ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;7.1s;&nbsp;coordinated:&nbsp;12.2s;&nbsp;resident:&nbsp;6.2s | Coordinated&nbsp;workload&nbsp;was&nbsp;71.5%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;97.2%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;46&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
 | Oct&nbsp;8,&nbsp;2026,&nbsp;2:28:45&nbsp;p.m.&nbsp;CDT | [Coordinated CPU/GPU swaps](#run-coordinated_swap_count_full_20261008) | RQ21 | 20&nbsp;sessions;&nbsp;ideal&nbsp;paired&nbsp;CPU/GPU&nbsp;swaps | Independent / coordinated / resident (per-mode trial medians) | independent:&nbsp;748.3ms;&nbsp;coordinated:&nbsp;826.9ms;&nbsp;resident:&nbsp;339.6ms | All&nbsp;20&nbsp;sessions&nbsp;included | independent:&nbsp;81.0s;&nbsp;coordinated:&nbsp;100.6s;&nbsp;resident:&nbsp;80.7s | Coordinated&nbsp;workload&nbsp;was&nbsp;24.3%&nbsp;longer&nbsp;than&nbsp;independent&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;Coordinated&nbsp;workload&nbsp;was&nbsp;24.6%&nbsp;longer&nbsp;than&nbsp;resident&nbsp;(median&nbsp;paired&nbsp;change).&nbsp;2370&nbsp;coordinated&nbsp;replays&nbsp;had&nbsp;KV&nbsp;become&nbsp;ready&nbsp;after&nbsp;their&nbsp;tool&nbsp;deadline. | complete |
