@@ -20,6 +20,7 @@ NOTES = (
     "whole-workload clock because sessions overlap. Whole-workload time includes initial "
     "requests and tool waits, but excludes backend startup and preflight. Each trial "
     "uses its own seed; trial 2 reverses arm order. All sessions have equal importance. "
+    "Compare policies within a scenario: prompt sizes and tool-wait distributions differ across scenarios. "
     "CUDA graphs and overlap scheduling are on. Good/bad short-filler runtime admits "
     "are not classified by these tests; this is unavailable evidence, not zero bad admits. "
     "Admission/hold counts are shown for RTG; other modes do not use that admission policy. "
