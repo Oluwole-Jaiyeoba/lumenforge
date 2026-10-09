@@ -159,6 +159,8 @@ def analyze_arm(root: Path, arm: dict, spec: dict) -> dict:
         issues.append("No actual direct preparation load observed; cannot test preparation benefit")
     if arm["mode"] == "controller_proactive_kv_management" and not ready_before_due:
         issues.append("No completed preparation before a replay deadline")
+    if arm["mode"] != "controller_proactive_kv_management" and prepared:
+        issues.append("Unexpected direct preparation outside scenario 2")
     if arm["mode"] == "controller_value_aware_eviction" and (not evictions or ranked != spec["expected_replays"]):
         issues.append("Retention exposure missing: require ranked replays and actual GPU evictions")
     metrics = {

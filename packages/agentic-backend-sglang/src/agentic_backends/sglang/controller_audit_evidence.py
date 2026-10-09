@@ -21,6 +21,8 @@ def runtime_issues(args: dict, *, queue_ranking: bool, retention_ranking: bool) 
         issues.append("Queue isolation mismatch")
     if retention_ranking and args.get("radix_eviction_policy") != "priority":
         issues.append("Retention policy missing")
+    if not retention_ranking and args.get("radix_eviction_policy") != "lru":
+        issues.append("Unexpected retention policy outside scenario 3")
     return issues
 
 

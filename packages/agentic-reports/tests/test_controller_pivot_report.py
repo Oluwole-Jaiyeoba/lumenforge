@@ -86,6 +86,7 @@ def test_runtime_gate_requires_graphs_overlap_and_isolated_queue_policy():
     args = {"disable_cuda_graph": False, "disable_overlap_schedule": False,
             "enable_priority_scheduling": False, "radix_eviction_policy": "priority"}
     assert runtime_issues(args, queue_ranking=False, retention_ranking=True) == []
+    assert "Unexpected retention policy outside scenario 3" in runtime_issues(args, queue_ranking=False, retention_ranking=False)
     assert "Queue isolation mismatch" in runtime_issues(args, queue_ranking=True, retention_ranking=False)
     args["disable_overlap_schedule"] = True
     assert "CUDA graphs/overlap setting mismatch" in runtime_issues(args, queue_ranking=False, retention_ranking=True)
