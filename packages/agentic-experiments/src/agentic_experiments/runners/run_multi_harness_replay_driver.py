@@ -1589,7 +1589,10 @@ async def run_filler(
             "task_replay_steps": total_steps,
             **initial_workload_meta,
         }
-        meta.update(value_aware_eviction_metadata(meta))
+        meta.update(value_aware_eviction_metadata(
+            meta, next_wait_ms=wait_specs[0].wait_ms if wait_specs else None,
+            future_replay=bool(wait_specs),
+        ))
         meta["estimated_runtime_ms"] = estimate_request_runtime_ms(int(meta["prompt_tokens"]), int(meta["max_tokens"]))
     meta["oracle_runtime_key"] = oracle_runtime_key(meta)
     meta = attach_pre_harness_priority_intent(meta)
@@ -1766,7 +1769,11 @@ async def run_filler(
             "tool_wait_class": spec.wait_class,
             **replay_workload_meta,
         }
-        replay_meta.update(value_aware_eviction_metadata(replay_meta))
+        replay_meta.update(value_aware_eviction_metadata(
+            replay_meta,
+            next_wait_ms=wait_specs[spec.step_index].wait_ms if spec.step_index < len(wait_specs) else None,
+            future_replay=spec.step_index < len(wait_specs),
+        ))
         replay_meta["estimated_runtime_ms"] = estimate_request_runtime_ms(
             int(replay_meta["prompt_tokens"]),
             int(replay_meta["max_tokens"]),
@@ -3735,7 +3742,11 @@ async def main_async() -> None:
             "speculative_prefill": args.mode == "e2e_priority_hints_speculative_prefill",
             **target_initial_workload_meta,
         }
-        initial_meta.update(value_aware_eviction_metadata(initial_meta))
+        initial_meta.update(value_aware_eviction_metadata(
+            initial_meta,
+            next_wait_ms=target_wait_specs[0].wait_ms if target_wait_specs else None,
+            future_replay=bool(target_wait_specs),
+        ))
         initial_meta = attach_harness_priority_metadata(initial_meta)
         initial_meta = apply_equal_importance_contract(initial_meta, enabled=equal_importance_workload)
         await bounded_request(target_initial_prompt, initial_meta)
@@ -5077,7 +5088,11 @@ async def main_async() -> None:
                 **deadline_fair_replay_fields,
                 **predictive_replay_fields,
             }
-            replay_meta.update(value_aware_eviction_metadata(replay_meta))
+            replay_meta.update(value_aware_eviction_metadata(
+                replay_meta,
+                next_wait_ms=target_wait_specs[wait_spec.step_index].wait_ms if wait_spec.step_index < len(target_wait_specs) else None,
+                future_replay=wait_spec.step_index < len(target_wait_specs),
+            ))
             if controller_replay_priority is not None:
                 controller_fields = {
                     "controller_sglang_priority": controller_replay_priority,
@@ -5303,7 +5318,8 @@ async def main_async() -> None:
             raise RuntimeError(f"{len(filler_errors)} filler task(s) failed; first error: {filler_errors[0][1]}")
 
     await asyncio.gather(*(run_pair(pair, idx) for idx, pair in enumerate(pairs)))
-    write_trace(args.trace, {"event": "m27.workload_end", "harness": args.harness, "mode": args.mode, "row_count": len(rows)})
+    write_trace(args.trace, {"event": "m27.workload_end", "harness": args.harness, "mode": args.mode,
+                            "row_count": len(rows), "workload_duration_ms": round(offset_ms(), 3)})
     with args.out.open("w", encoding="utf-8") as handle:
         for row in rows:
             handle.write(json.dumps(row, sort_keys=True) + "\n")

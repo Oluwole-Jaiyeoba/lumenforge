@@ -622,6 +622,10 @@ run_case() {
     export EXTRA_SERVER_ARGS="${EXTRA_SERVER_ARGS} --enable-cache-report"
   fi
   if [[ "${mode}" == "controller_value_aware_eviction" || "${mode}" == "controller_harness_aware_sched_evict" || "${mode}" == "controller_harness_aware_full" ]]; then
+    if [[ "${mode}" == "controller_value_aware_eviction" && "${CONTROLLER_EVICTION_SIGNAL_POLICY:-}" == "reuse_time" ]]; then
+      # Isolate retention: native FCFS must not also sort by the cache rank.
+      export EXTRA_SERVER_ARGS="${BASE_EXTRA_SERVER_ARGS} --max-total-tokens ${MAX_TOTAL_TOKENS} --enable-cache-report --schedule-policy fcfs"
+    fi
     export AGENTIC_KV_ENABLE_PRIORITY_RADIX_EVICTION_CHOICE="${AGENTIC_KV_ENABLE_PRIORITY_RADIX_EVICTION_CHOICE:-1}"
     export EXTRA_SERVER_ARGS="${EXTRA_SERVER_ARGS} --radix-eviction-policy ${CONTROLLER_VALUE_AWARE_RADIX_EVICTION_POLICY}"
   fi
@@ -652,6 +656,21 @@ PYPORT
   fi
   SERVER_PID="$!"
   wait_for_server "${server_log}"
+  if [[ "${CONTROLLER_AUDIT_PINNED_RUNTIME:-0}" == "1" ]]; then
+    "${PYTHON_BIN}" - "${HOST_URL}" "${case_root}/server_info.json" "${mode}" <<'PYRUNTIME'
+import json, sys, urllib.request
+info = json.load(urllib.request.urlopen(sys.argv[1] + "/get_server_info"))
+with open(sys.argv[2], "w") as stream:
+    json.dump(info, stream, indent=2)
+args = info.get("server_args", info)
+for flag in ("disable_cuda_graph", "disable_overlap_schedule"):
+    if args.get(flag) is not False:
+        raise SystemExit(f"Production runtime gate: {flag} must be false; got {args.get(flag)!r}")
+expected = sys.argv[3] == "controller_ready_time_gpu_backfill"
+if args.get("enable_priority_scheduling") is not expected:
+    raise SystemExit("Queue isolation gate: unexpected priority scheduling setting")
+PYRUNTIME
+  fi
 
   "${PYTHON_BIN}" scripts/harness_sglang_gateway.py \
     --listen-host 127.0.0.1 \

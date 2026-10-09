@@ -14,6 +14,7 @@ because they are recorded artifact columns (see docs/architecture/README_RESTRUC
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 from typing import Any
 
@@ -35,9 +36,32 @@ def _float_meta(meta: dict[str, Any], key: str, default: float) -> float:
         return default
 
 
-def value_aware_eviction_metadata(meta: dict[str, Any]) -> dict[str, Any]:
+def value_aware_eviction_metadata(
+    meta: dict[str, Any], *, next_wait_ms: float | None = None,
+    future_replay: bool | None = None,
+) -> dict[str, Any]:
     if not controller_value_aware_eviction_mode(str(meta.get("mode") or "")):
         return {}
+
+    if os.environ.get("CONTROLLER_EVICTION_SIGNAL_POLICY") == "reuse_time":
+        if future_replay is None:
+            raise ValueError("Reuse-time retention requires an explicit future-replay signal")
+        if future_replay and (next_wait_ms is None or not math.isfinite(next_wait_ms) or next_wait_ms < 0):
+            raise ValueError("Reuse-time retention requires a finite nonnegative next tool wait")
+        # Higher native radix priority retains a node longer. This is a cache
+        # insertion rank, not a scheduling priority or a task importance class.
+        rank = max(1, 1_000_000 - math.ceil(next_wait_ms)) if future_replay else 0
+        return {
+            "priority_label": "equal",
+            "controller_sglang_priority": rank,
+            "controller_eviction_policy": "reuse_time_retention_only",
+            "controller_eviction_value_score": rank,
+            "controller_eviction_signal_source": "next_tool_wait_ms,has_future_replay",
+            "controller_eviction_translation": f"radix_insert_priority={rank};queue_priority_disabled",
+            "controller_eviction_scope": "all_replay_capable_requests",
+            "next_tool_wait_ms": next_wait_ms if future_replay else None,
+            "has_future_replay": future_replay,
+        }
 
     session_id = str(meta.get("session_id") or "")
     prefix_id = str(meta.get("prefix_id") or f"{session_id}:prefix")
