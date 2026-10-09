@@ -46,7 +46,11 @@ def _arm(root, mode, policy, *, workflow, mismatch_capacity=False):
         "started_ns": 100, "workflow_duration_ms": workflow,
         "config": {"turns": 1}, "metrics": metrics,
         "per_session_completion_ms": {"s": workflow},
-        "workload_fingerprint": "same-workload", "workload_contract": {"same": True},
+        "workload_fingerprint": "same-workload",
+        "workload_contract": {
+            "same": True,
+            "measurement_boundary": "after_initial_prefix_population",
+        },
         "backend_contract": backend,
         "policy_contract": {"policy": policy},
         "sessions": [{"session_id": "s", "turns": [

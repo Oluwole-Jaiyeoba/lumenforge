@@ -54,6 +54,12 @@ def comparison_rows(summary: dict) -> list[tuple[object, ...]]:
 
 
 def finding(summary: dict) -> str:
+    if summary.get("status") != "complete":
+        reasons = summary.get("issues") or summary.get("exposure_warnings") or []
+        return (
+            "This comparison is not valid for policy performance. "
+            + ("; ".join(reasons[:2]) if reasons else "Its evidence gate did not pass.")
+        )
     medians = {row["pattern"]: row for row in summary.get("pattern_medians", [])}
     spread = medians.get("spread")
     burst = medians.get("burst")

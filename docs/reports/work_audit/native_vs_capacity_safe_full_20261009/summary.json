@@ -1,7 +1,7 @@
 {
   "schema": "agentic_work_audit.native_vs_capacity_safe.summary.v1",
   "run_id": "native_vs_capacity_safe_full_20261009",
-  "status": "complete",
+  "status": "blocked",
   "started_ns": 1791567331704960220,
   "arms": [
     {
@@ -103,7 +103,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "after_initial_prefix_population",
+      "initial_setup_ms": null
     },
     {
       "seed": 1,
@@ -193,7 +195,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "includes_initial_prefix_population",
+      "initial_setup_ms": 7780.971895
     },
     {
       "seed": 1,
@@ -294,7 +298,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "after_initial_prefix_population",
+      "initial_setup_ms": null
     },
     {
       "seed": 1,
@@ -384,7 +390,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "includes_initial_prefix_population",
+      "initial_setup_ms": 7774.449952
     },
     {
       "seed": 2,
@@ -485,7 +493,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "after_initial_prefix_population",
+      "initial_setup_ms": null
     },
     {
       "seed": 2,
@@ -575,7 +585,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "includes_initial_prefix_population",
+      "initial_setup_ms": 7774.124956
     },
     {
       "seed": 2,
@@ -676,7 +688,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "after_initial_prefix_population",
+      "initial_setup_ms": null
     },
     {
       "seed": 2,
@@ -766,7 +780,9 @@
         "cuda_graph": true,
         "overlap_schedule": true,
         "trace_profile": "kv_lifecycle_lean"
-      }
+      },
+      "measurement_boundary": "includes_initial_prefix_population",
+      "initial_setup_ms": 7776.335736
     }
   ],
   "comparisons": [
@@ -871,7 +887,12 @@
       "mean_due_to_first_token_delta_ms": 228.19299999999998
     }
   ],
-  "issues": [],
+  "issues": [
+    "1/spread: workload clocks differ: native=includes_initial_prefix_population, capacity_safe=after_initial_prefix_population",
+    "1/burst: workload clocks differ: native=includes_initial_prefix_population, capacity_safe=after_initial_prefix_population",
+    "2/spread: workload clocks differ: native=includes_initial_prefix_population, capacity_safe=after_initial_prefix_population",
+    "2/burst: workload clocks differ: native=includes_initial_prefix_population, capacity_safe=after_initial_prefix_population"
+  ],
   "exposure_warnings": [],
   "research_question": "For an identical CPU-tier workload and backend capacity, does capacity-safe pre-admission outperform native SGLang queue and cache management?",
   "limitations": [

@@ -89,6 +89,10 @@ def analyze(root: Path, expected_seeds: list[int], expected_patterns: list[str])
                     continue
                 if native.get("backend_contract") != safe.get("backend_contract"):
                     issues.append(f"{seed}/{pattern}/{mode}: native and capacity-safe capacities differ")
+                if native.get("measurement_boundary") != safe.get("measurement_boundary"):
+                    issues.append(
+                        f"{seed}/{pattern}/{mode}: native and capacity-safe workload clocks differ"
+                    )
                 policy_comparisons.append({
                     "seed": seed, "pattern": pattern, "mode": mode,
                     "backend_contract": native.get("backend_contract"),

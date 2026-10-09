@@ -16,6 +16,15 @@ from .analyze_work_audit_memory_tiers import trace_evidence
 POLICIES = ("native_sglang", "capacity_safe")
 
 
+def _measurement_boundary(case: dict[str, Any]) -> str:
+    explicit = (case.get("workload_contract") or {}).get("measurement_boundary")
+    if explicit:
+        return str(explicit)
+    if case.get("policy") == "capacity_safe" or case.get("measurement_started_ns") is not None:
+        return "after_initial_prefix_population"
+    return "includes_initial_prefix_population"
+
+
 def _arm_summary(case: dict[str, Any], trace: Path) -> dict[str, Any]:
     matches, storage = trace_evidence(trace)
     policy = case.get("policy")
@@ -30,6 +39,8 @@ def _arm_summary(case: dict[str, Any], trace: Path) -> dict[str, Any]:
         "workload_fingerprint": case.get("workload_fingerprint"),
         "workload_contract": case.get("workload_contract"),
         "backend_contract": case.get("backend_contract"),
+        "measurement_boundary": _measurement_boundary(case),
+        "initial_setup_ms": case.get("initial_setup_ms"),
     })
     return value
 
@@ -72,6 +83,11 @@ def analyze(root: Path, expected_seeds: list[int], expected_patterns: list[str])
                 issues.append(f"{label}: workload fingerprints differ")
             if native["backend_contract"] != safe["backend_contract"]:
                 issues.append(f"{label}: backend contracts differ")
+            if native["measurement_boundary"] != safe["measurement_boundary"]:
+                issues.append(
+                    f"{label}: workload clocks differ: native={native['measurement_boundary']}, "
+                    f"capacity_safe={safe['measurement_boundary']}"
+                )
             if native["replay_count"] != safe["replay_count"]:
                 issues.append(f"{label}: replay counts differ")
             if native["output_tokens"] != safe["output_tokens"]:
