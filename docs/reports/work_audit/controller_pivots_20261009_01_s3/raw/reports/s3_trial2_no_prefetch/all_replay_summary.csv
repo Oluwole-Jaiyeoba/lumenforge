@@ -1,0 +1,2 @@
+harness,pressure,mode,mode_label,replays,ttft_samples,total_ttft_ms,median_ttft_ms,lateness_samples,total_deadline_debt_ms,median_lateness_ms
+DeepAgents,P3 Queue Pressure,no_prefetch,NP = No prefetch,32,32,574488.894,17319.208,32,1574776.321,47108.901

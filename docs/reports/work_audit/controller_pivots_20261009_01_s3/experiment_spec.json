@@ -1,0 +1,97 @@
+{
+  "schema": "controller_audit_spec.v1",
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "image": "agentic-sglang-standard:0.5.10.post1",
+  "seeds": [20260916, 20260917],
+  "expected_requests": 48,
+  "expected_replays": 32,
+  "common_env": {
+    "HARDWARE_PROFILE": "nvidia_a10g_24gb",
+    "BACKEND_RUNTIME_PROFILE": "nvidia_standard",
+    "HARNESSES": "hatcher",
+    "PRESSURE_LEVELS": "p3_high",
+    "MAX_TOTAL_TOKENS": "24576",
+    "HICACHE_SIZE_GB": "8",
+    "HICACHE_IO_BACKEND": "direct",
+    "HICACHE_MEM_LAYOUT": "layer_first",
+    "MEM_FRACTION_STATIC": "0.72",
+    "EXTRA_SERVER_ARGS": "--hicache-write-policy write_through --enable-cache-report",
+    "CUDA_GRAPH_FLAG": "",
+    "OVERLAP_FLAG": "",
+    "CONTROLLER_AUDIT_PINNED_RUNTIME": "1",
+    "AGENTIC_EQUAL_IMPORTANCE_WORKLOAD": "1",
+    "WORKLOAD_SHAPE_MODE_INDEPENDENT": "1",
+    "AGENTIC_WORKLOAD_PROFILE": "synthetic_pressure",
+    "TASK_REPLAY_STEPS": "2",
+    "FILLER_REPLAY_DEADLINES": "1",
+    "FILLER_REPLAY_DEADLINE_MS": "0",
+    "FILLER_BACKLOG_MODE": "once",
+    "FILLER_BACKLOG_TARGET": "0",
+    "FILLER_BACKLOG_TOTAL": "0",
+    "TOOL_WAIT_PROFILE": "custom",
+    "TOOL_WAIT_PROFILE_SPEC": "very_short:20:100-500,short:35:1000-5000,medium:30:10000-30000,long:15:60000-120000",
+    "TRACE_PROFILE": "controller_queue",
+    "TRACE_CONTROLLER_DECISIONS": "1",
+    "TRACE_CONTROLLER_COMPLETION_LINKAGE": "1",
+    "TRACE_IDLE_GAP_AUDIT": "0",
+    "TRACE_REPLAY_FRICTION_DEEP_DIVE": "0",
+    "TRACE_REPLAY_BLOCKERS": "0",
+    "AGENTIC_KV_TRACE_INDEX_DETAIL": "count",
+    "AGENTIC_KV_COPY_TELEMETRY_ENABLE": "0",
+    "AGENTIC_KV_PREPARE_LOAD_WORKER": "0",
+    "AGENTIC_KV_ASYNC_VERIFY_FULL_COPY": "0",
+    "CONTROLLER_INSTRUMENTATION_GATE": "on",
+    "CONTROLLER_INSTRUMENTATION_POLICY": "strict",
+    "CONTROLLER_INSTRUMENTATION_CONTRACT": "configs/controller_instrumentation_contracts/scenario1_ready_time_reference.json",
+    "REPORT_BUILDER_MODE": "lightweight",
+    "UPDATE_LATEST": "0",
+    "ENCODING_CASE_KEY": "controller_audit_pivots"
+  },
+  "scenarios": {
+    "1": {
+      "name": "Replay scheduling",
+      "question": "Does using expected tool-return times to order equally important replays shorten delays and whole-workload time?",
+      "mode": "controller_ready_time_gpu_backfill",
+      "env": {
+        "P3_HIGH_KNOBS": "tool_wait_ms=50 target_prompt_tokens=4096 filler_sessions=15 filler_prompt_tokens=1536 session_count=1 concurrency=6"
+      },
+      "limits": "Synthetic reference workload with short outputs (main 8 tokens, peers 2). RTG includes its existing admission/backfill logic. This is a production-optimizations-on rerun, not a promise to reproduce historical timing exactly."
+    },
+    "2": {
+      "name": "Early KV preparation",
+      "question": "Does preparing host-resident KV during tool waits improve replay delay and workload completion without queue ranking or retention changes?",
+      "mode": "controller_proactive_kv_management",
+      "env": {
+        "P3_HIGH_KNOBS": "tool_wait_ms=1000 target_prompt_tokens=4096 filler_sessions=15 filler_prompt_tokens=4096 session_count=1 concurrency=6",
+        "TOOL_WAIT_PROFILE_SPEC": "long:100:60000-120000",
+        "AGENTIC_KV_TARGETED_PREFETCH_HOOK": "1",
+        "AGENTIC_KV_PREPARE_CONTROL_ENABLE": "1",
+        "AGENTIC_KV_PREPARE_CONTROL_HOST": "127.0.0.1",
+        "AGENTIC_KV_PREPARE_CONTROL_PORT": "31991",
+        "AGENTIC_KV_PREPARE_CONTROL_URL": "http://127.0.0.1:31991/prepare_prefix_kv",
+        "AGENTIC_KV_PREPARE_WAIT_TIMEOUT_MS": "5000",
+        "CONTROLLER_DIRECT_LOAD_MECHANISM": "prepared_prefix_control",
+        "CONTROLLER_DIRECT_LOAD_FIXED_MS": "1000",
+        "CONTROLLER_DIRECT_LOAD_MS_PER_TOKEN": "2.0",
+        "CONTROLLER_DIRECT_LOAD_ESTIMATE_MULTIPLIER": "3.0",
+        "CONTROLLER_DIRECT_LOAD_SAFETY_MARGIN_MS": "750",
+        "CONTROLLER_DIRECT_LOAD_REQUIRE_COMPLETION": "1",
+        "CONTROLLER_DIRECT_LOAD_ALLOWED_WAIT_CLASSES": "long",
+        "CONTROLLER_DIRECT_LOAD_SELECTIVE_ADMISSION": "1",
+        "CONTROLLER_DIRECT_LOAD_MIN_SAVED_TOKENS": "1024"
+      },
+      "limits": "Long synthetic tool waits deliberately create preparation opportunities. Host-to-GPU preparation only; storage disabled. The controller may skip already-resident or insufficiently useful loads."
+    },
+    "3": {
+      "name": "Reuse-time KV retention",
+      "question": "Does protecting prefixes whose next tool waits are shorter improve replay and workload time under equal importance and native FCFS?",
+      "mode": "controller_value_aware_eviction",
+      "env": {
+        "P3_HIGH_KNOBS": "tool_wait_ms=1000 target_prompt_tokens=4096 filler_sessions=15 filler_prompt_tokens=4096 session_count=1 concurrency=6",
+        "CONTROLLER_EVICTION_SIGNAL_POLICY": "reuse_time",
+        "CONTROLLER_VALUE_AWARE_RADIX_EVICTION_POLICY": "priority"
+      },
+      "limits": "Updated equal-importance experiment, NOT a replication of historical high/normal/low S3. Rank=max(1,1000000-ceil(next tool wait ms)), terminal rank=0. Native radix insertion keeps the maximum historical rank on existing nodes; terminal rank does not demote old nodes. It is an insertion-time retention heuristic, not continuous reranking. Queue-priority scheduling and direct preparation are disabled."
+    }
+  }
+}

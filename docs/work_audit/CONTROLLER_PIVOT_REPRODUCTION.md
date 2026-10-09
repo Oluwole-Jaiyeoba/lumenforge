@@ -4,6 +4,11 @@ These are independent controller experiments, reported alongside the memory-tier
 comparison in the KV Lifecycle Audit. The controller and backend packages still
 own their policies and hooks. Do not combine the three policies in these runs.
 
+The completed reference is `controller_pivots_20261009_01`, published as separate
+`_s1`, `_s2`, and `_s3` records under `docs/reports/work_audit`. All 12 arms completed
+with 576 successful measured model calls and 384 replays. All six paired workload
+and runtime checks passed. Each trial's numbers are in the audit's experiment details.
+
 ## Frozen Definition
 
 The executable specification is
@@ -130,3 +135,31 @@ but rebuilding with unconstrained dependency downloads is not guaranteed to
 recreate the same image. Use the saved dependency inventories to identify drift;
 a changed runtime must be labeled a new-runtime reproduction. Do not commit
 multi-gigabyte model weights or Docker image exports to the repository.
+The model cache and container image are external prerequisites, not included in
+Git. Retain them on the GPU host, and match the recorded model snapshot and image
+identity before calling a later run a same-runtime reproduction.
+
+## Validation of This Reference
+
+- All 638 archived experiment source files matched before and after the 12 arms.
+- Each scenario has 208 preserved evidence files with verified SHA-256 hashes.
+- On the GPU host, focused tests passed: 57 tests and 3 subtests, using reporting
+  source `be5041ccb8f937def66b40bd21ded0706e179ca1` in an isolated source snapshot.
+- The broader architecture suite had 3 passes and 2 pre-existing failures:
+  backend vocabulary violations in 18 older files, and the existing
+  `analyze_kv_load_attribution.py` dependency on `agentic_instrumentation`.
+  Comparison with starting revision `77b8619` found no new violations. These
+  unrelated checks were not weakened or re-baselined to hide the failures.
+
+Focused test command, from a checkout of that reporting revision:
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+PYTHONPATH="sglang_direct_kv/src:$(printf '%s:' packages/*/src)" \
+pytest -q \
+  packages/agentic-reports/tests/test_controller_pivot_report.py \
+  packages/agentic-reports/tests/test_work_audit_report.py \
+  sglang_direct_kv/tests/test_controller_audit_pivots.py \
+  sglang_direct_kv/tests/test_equal_importance_scenario.py \
+  packages/agentic-backend-sglang/tests/test_runtime_contract.py
+```

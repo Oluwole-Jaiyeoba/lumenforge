@@ -2,6 +2,25 @@
   "schema": "agentic_work_audit.progress.v1",
   "milestones": [
     {
+      "id": "RQ29",
+      "controller_scenario": "3",
+      "short_question": "Does protecting prefixes whose next tool waits are shorter improve replay and workload time under equal importance and native FCFS?",
+      "pivot_title": "Scenario 3: Reuse-time KV retention",
+      "significance": "research_pivot",
+      "manager_takeaway": "Whole-workload time: 255.916 \u2192 232.942 s (-9.0%). Total replay lateness: 1302.221 \u2192 908.692 s (-30.2%). Medians of two trials; see each trial below.",
+      "why_it_matters": "Tests one independent use of harness timing information, with equally important sessions. Measures the whole workload as well as replay response times.",
+      "question": "Does protecting prefixes whose next tool waits are shorter improve replay and workload time under equal importance and native FCFS?",
+      "answer": "Whole-workload time: 255.916 \u2192 232.942 s (-9.0%). Total replay lateness: 1302.221 \u2192 908.692 s (-30.2%). Medians of two trials; see each trial below.",
+      "unknown": "Updated equal-importance experiment, NOT a replication of historical high/normal/low S3. Rank=max(1,1000000-ceil(next tool wait ms)), terminal rank=0. Native radix insertion keeps the maximum historical rank on existing nodes; terminal rank does not demote old nodes. It is an insertion-time retention heuristic, not continuous reranking. Queue-priority scheduling and direct preparation are disabled. Two synthetic trials do not establish production-wide gains or a hardware bottleneck.",
+      "evidence_date_utc": "2026-10-09",
+      "evidence_run_ids": [
+        "controller_pivots_20261009_01_s3"
+      ],
+      "related_run_ids": [
+        "controller_pivots_20261009_01_s3"
+      ]
+    },
+    {
       "id": "RQ28",
       "controller_scenario": "2",
       "short_question": "Does preparing host-resident KV during tool waits improve replay delay and workload completion without queue ranking or retention changes?",

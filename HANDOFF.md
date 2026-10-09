@@ -43,6 +43,10 @@ and overlap scheduling on, prohibit frontend importance classes, and archive
 source, settings, dependencies, runtime gates and per-request evidence. Scenario 3
 is a new reuse-time-only retention test; do not substitute the old high/normal/low
 retention-plus-queue experiment. The measured source revision is recorded per run.
+The completed `controller_pivots_20261009_01` study has all 12 arms archived as
+RQ27/RQ28/RQ29 in the audit. Use the frozen per-scenario evidence, not a later
+`latest_master_report.html`, when reproducing these results. The reproduction
+guide records validation results and external model/image prerequisites.
 
 Scenario 1 now gives every request equal application importance. The harness
 exposes expected tool-return times, and the controller derives temporary queue

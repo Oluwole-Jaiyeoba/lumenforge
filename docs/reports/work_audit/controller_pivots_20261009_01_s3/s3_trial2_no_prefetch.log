@@ -1,0 +1,55 @@
+Hybrid reference run
+  runtime profile: nvidia-standard
+  hardware profile: nvidia_a10g_24gb
+  backend image: agentic-sglang-standard:0.5.10.post1
+  host model cache: /home/ec2-user/.cache/huggingface
+  report label: s3_trial2_no_prefetch
+Backend runtime profile: nvidia-standard
+Container image: agentic-sglang-standard:0.5.10.post1
+Expected SGLang version: 0.5.10.post1
+Runtime contract: /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/runtime/backend_runtime.json
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.4.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Wrote backend runtime contract to /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/runtime/backend_runtime.json
+Runtime handshake passed: SGLang 0.5.10.post1, adapter v0510
+Instrumentation preflight valid: /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/runtime/instrumentation_static_preflight.json
+Wrote run manifest to /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/runtime/run_manifest.json
+Multi-Harness Replay Deadline Pressure
+MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
+REPORT_LABEL=s3_trial2_no_prefetch
+HARDWARE_PROFILE=nvidia_a10g_24gb
+HARDWARE_PROFILE_PATH=configs/hardware/nvidia_a10g_24gb.env
+HARNESSES=hatcher
+MODES=no_prefetch
+PRESSURE_LEVELS=p3_high
+TOOL_WAIT_PROFILE=custom
+TASK_REPLAY_STEPS=2
+AGENTIC_WORKLOAD_PROFILE=synthetic_pressure
+TOOL_WAIT_SEED=20260917
+TOOL_WAIT_PROFILE_SPEC=very_short:20:100-500,short:35:1000-5000,medium:30:10000-30000,long:15:60000-120000
+
+==== Multi-harness case: harness=hatcher mode=no_prefetch level=p3_high ====
+Validating controller instrumentation before workload measurement...
+Instrumentation preflight valid: /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/live_sentinel_report.json
+==== Completed: hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots ====
+Wrote run environment to /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/reports/s3_trial2_no_prefetch/run_environment.json
+wrote /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/reports/s3_trial2_no_prefetch/master_report.html
+wrote /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/reports/s3_trial2_no_prefetch/evidence_tables.html
+rows=33 summary_rows=1 cost_accounting_rows=2
+
+Done.
+Latest report: /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/latest_master_report.html
+Archived labeled report: /home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/reports/s3_trial2_no_prefetch/master_report.html

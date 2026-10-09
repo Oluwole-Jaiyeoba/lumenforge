@@ -10,11 +10,21 @@ Manager-facing experiments that materially changed the direction or interpretati
 
 | Research pivot | Main finding | Why it matters |
 | --- | --- | --- |
+| [Scenario 3: Reuse-time KV retention](#rq-RQ29)<br>[Results and reproduction](#run-controller_pivots_20261009_01_s3) | Whole-workload time: 255.916 → 232.942 s (-9.0%). Total replay lateness: 1302.221 → 908.692 s (-30.2%). Medians of two trials; see each trial below. | Tests one independent use of harness timing information, with equally important sessions. Measures the whole workload as well as replay response times. |
 | [Scenario 2: Early KV preparation](#rq-RQ28)<br>[Results and reproduction](#run-controller_pivots_20261009_01_s2) | Whole-workload time: 283.807 → 285.909 s (+0.7%). Total replay lateness: 139.192 → 153.236 s (+10.1%). Medians of two trials; see each trial below. | Tests one independent use of harness timing information, with equally important sessions. Measures the whole workload as well as replay response times. |
 | [Scenario 1: Replay scheduling](#rq-RQ27)<br>[Results and reproduction](#run-controller_pivots_20261009_01_s1) | Whole-workload time: 167.688 → 178.726 s (+6.6%). Total replay lateness: 258.912 → 186.500 s (-28.0%). Medians of two trials; see each trial below. | Tests one independent use of harness timing information, with equally important sessions. Measures the whole workload as well as replay response times. |
 | [Admission policy depends on KV tier](#rq-RQ26)<br>[Results and reproduction](#run-tier_policy_matrix_full_20261009) | Capacity-safe admission was neutral for GPU-resident KV, 6-10% slower for CPU-tiered KV, and 20-24% faster for storage-tiered KV. | It shows that restricting active sessions is not automatically better. The protection paid off only when uncontrolled storage recovery was expensive enough to outweigh the controller's waiting and restoration overhead. |
 
 ## Research progress
+
+<a id="rq-RQ29"></a>
+### RQ29: Does protecting prefixes whose next tool waits are shorter improve replay and workload time under equal importance and native FCFS?
+
+**Question.** Does protecting prefixes whose next tool waits are shorter improve replay and workload time under equal importance and native FCFS?
+
+**What the evidence says.** Whole-workload time: 255.916 → 232.942 s (-9.0%). Total replay lateness: 1302.221 → 908.692 s (-30.2%). Medians of two trials; see each trial below.
+
+**Not yet proved.** Updated equal-importance experiment, NOT a replication of historical high/normal/low S3. Rank=max(1,1000000-ceil(next tool wait ms)), terminal rank=0. Native radix insertion keeps the maximum historical rank on existing nodes; terminal rank does not demote old nodes. It is an insertion-time retention heuristic, not continuous reranking. Queue-priority scheduling and direct preparation are disabled. Two synthetic trials do not establish production-wide gains or a hardware bottleneck.
 
 <a id="rq-RQ28"></a>
 ### RQ28: Does preparing host-resident KV during tool waits improve replay delay and workload completion without queue ranking or retention changes?
@@ -306,6 +316,7 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 | Central date / time | Experiment | Question | Setup | Compared | Replay / long session | Other session | Whole workflow | Plain-English finding | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Oct&nbsp;9,&nbsp;2026,&nbsp;4:20:50&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[Scenario 3: Reuse-time KV retention](#run-controller_pivots_20261009_01_s3) | RQ29 | Controller&nbsp;scenario&nbsp;3:&nbsp;Reuse-time&nbsp;KV&nbsp;retention | Native → Reuse-time KV retention | Total&nbsp;replay&nbsp;lateness:&nbsp;1302.221&nbsp;→&nbsp;908.692&nbsp;s | All&nbsp;16&nbsp;equal-importance&nbsp;sessions&nbsp;included | Whole&nbsp;workload:&nbsp;255.916&nbsp;→&nbsp;232.942&nbsp;s | Whole-workload&nbsp;time:&nbsp;255.916&nbsp;→&nbsp;232.942&nbsp;s&nbsp;(-9.0%).&nbsp;Total&nbsp;replay&nbsp;lateness:&nbsp;1302.221&nbsp;→&nbsp;908.692&nbsp;s&nbsp;(-30.2%).&nbsp;Medians&nbsp;of&nbsp;two&nbsp;trials;&nbsp;see&nbsp;each&nbsp;trial&nbsp;below. | complete |
 | Oct&nbsp;9,&nbsp;2026,&nbsp;3:46:58&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[Scenario 2: Early KV preparation](#run-controller_pivots_20261009_01_s2) | RQ28 | Controller&nbsp;scenario&nbsp;2:&nbsp;Early&nbsp;KV&nbsp;preparation | Native → Early KV preparation | Total&nbsp;replay&nbsp;lateness:&nbsp;139.192&nbsp;→&nbsp;153.236&nbsp;s | All&nbsp;16&nbsp;equal-importance&nbsp;sessions&nbsp;included | Whole&nbsp;workload:&nbsp;283.807&nbsp;→&nbsp;285.909&nbsp;s | Whole-workload&nbsp;time:&nbsp;283.807&nbsp;→&nbsp;285.909&nbsp;s&nbsp;(+0.7%).&nbsp;Total&nbsp;replay&nbsp;lateness:&nbsp;139.192&nbsp;→&nbsp;153.236&nbsp;s&nbsp;(+10.1%).&nbsp;Medians&nbsp;of&nbsp;two&nbsp;trials;&nbsp;see&nbsp;each&nbsp;trial&nbsp;below. | complete |
 | Oct&nbsp;9,&nbsp;2026,&nbsp;3:16:51&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[Scenario 1: Replay scheduling](#run-controller_pivots_20261009_01_s1) | RQ27 | Controller&nbsp;scenario&nbsp;1:&nbsp;Replay&nbsp;scheduling | Native → Replay scheduling | Total&nbsp;replay&nbsp;lateness:&nbsp;258.912&nbsp;→&nbsp;186.500&nbsp;s | All&nbsp;16&nbsp;equal-importance&nbsp;sessions&nbsp;included | Whole&nbsp;workload:&nbsp;167.688&nbsp;→&nbsp;178.726&nbsp;s | Whole-workload&nbsp;time:&nbsp;167.688&nbsp;→&nbsp;178.726&nbsp;s&nbsp;(+6.6%).&nbsp;Total&nbsp;replay&nbsp;lateness:&nbsp;258.912&nbsp;→&nbsp;186.500&nbsp;s&nbsp;(-28.0%).&nbsp;Medians&nbsp;of&nbsp;two&nbsp;trials;&nbsp;see&nbsp;each&nbsp;trial&nbsp;below. | complete |
 | Oct&nbsp;9,&nbsp;2026,&nbsp;1:41:09&nbsp;p.m.&nbsp;CDT | <kbd>Research pivot</kbd><br>[Native vs capacity-safe · GPU / CPU / storage](#run-tier_policy_matrix_full_20261009) | RQ26 | Native&nbsp;vs&nbsp;capacity-safe&nbsp;across&nbsp;GPU,&nbsp;CPU,&nbsp;and&nbsp;storage&nbsp;KV | Native → capacity-safe across GPU, CPU, and storage | Burst&nbsp;storage&nbsp;replay:&nbsp;3731&nbsp;→&nbsp;2827&nbsp;ms | All&nbsp;equal-priority&nbsp;sessions&nbsp;included | Burst&nbsp;storage&nbsp;workload:&nbsp;80.70&nbsp;→&nbsp;64.72&nbsp;s | spread&nbsp;GPU:&nbsp;capacity-safe&nbsp;changed&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+0.1%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;by&nbsp;+8.6&nbsp;ms.&nbsp;spread&nbsp;CPU:&nbsp;capacity-safe&nbsp;changed&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+6.4%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;by&nbsp;+148.5&nbsp;ms.&nbsp;spread&nbsp;storage:&nbsp;capacity-safe&nbsp;changed&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;-23.8%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-1119.2&nbsp;ms.&nbsp;burst&nbsp;GPU:&nbsp;capacity-safe&nbsp;changed&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+1.6%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;by&nbsp;+54.6&nbsp;ms.&nbsp;burst&nbsp;CPU:&nbsp;capacity-safe&nbsp;changed&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;+10.2%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;by&nbsp;+140.0&nbsp;ms.&nbsp;burst&nbsp;storage:&nbsp;capacity-safe&nbsp;changed&nbsp;whole-workload&nbsp;time&nbsp;by&nbsp;-19.8%&nbsp;and&nbsp;mean&nbsp;replay&nbsp;delay&nbsp;by&nbsp;-903.8&nbsp;ms. | complete |
@@ -426,6 +437,67 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 ## Experiment details
 
+<a id="run-controller_pivots_20261009_01_s3"></a>
+<details>
+<summary><strong>Oct 9, 2026, 4:20:50 p.m. CDT · Scenario 3: Reuse-time KV retention</strong> · controller_pivots_20261009_01_s3</summary>
+
+**Question (RQ29).** Does protecting prefixes whose next tool waits are shorter improve replay and workload time under equal importance and native FCFS?
+
+**Finding.** Whole-workload time: 255.916 → 232.942 s (-9.0%). Total replay lateness: 1302.221 → 908.692 s (-30.2%). Medians of two trials; see each trial below.
+
+**Setup.** 16 equal-importance sessions, 2 tool returns each; tool_wait_ms=1000 target_prompt_tokens=4096 filler_sessions=15 filler_prompt_tokens=4096 session_count=1 concurrency=6. Tool-wait distribution: very_short:20:100-500,short:35:1000-5000,medium:30:10000-30000,long:15:60000-120000. Seeds: [20260916, 20260917]; opposite policy order in trial 2. Model: Qwen/Qwen2.5-Coder-7B-Instruct; GPU KV limit: 24576 tokens; host cache: 8 GiB; storage off. Main output limit 8 tokens, peer limit 2. CUDA graphs and overlap scheduling on. Tracing: controller_queue, count-only indices. Within a trial: identical model, prompt hashes, output limits, waits, capacities and instrumentation. Tool waits start after each session's preceding completion, so absolute arrivals can change as a consequence of policy. Updated equal-importance experiment, NOT a replication of historical high/normal/low S3. Rank=max(1,1000000-ceil(next tool wait ms)), terminal rank=0. Native radix insertion keeps the maximum historical rank on existing nodes; terminal rank does not demote old nodes. It is an insertion-time retention heuristic, not continuous reranking. Queue-priority scheduling and direct preparation are disabled.
+
+**Key measurements**
+
+| Trial / mode | Whole workload (s) | All requests: total TTFT (s) | Replays: total TTFT (s) | Replays: total lateness (s) | Replay TTFT median (ms) | Replay delay median / p95 (ms) | Requests / replays | Evidence gate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / Baseline | 232.815 | 837.803 | 409.268 | 1029.666 | 11497.3 | 21028.3 / 86869.6 | 48 / 32 | passed |
+| 1 / Reuse-time KV retention | 219.100 | 755.828 | 330.547 | 789.399 | 7604.9 | 16411.8 / 79349.5 | 48 / 32 | passed |
+| 2 / Reuse-time KV retention | 246.784 | 787.520 | 356.621 | 1027.985 | 8898.7 | 23530.1 / 82722.9 | 48 / 32 | passed |
+| 2 / Baseline | 279.017 | 1003.238 | 574.489 | 1574.776 | 17319.2 | 47108.9 / 92418.3 | 48 / 32 | passed |
+
+| Trial | Whole workload: baseline → controller | Change | Total replay lateness: baseline → controller | Change | Comparison |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 232.815 → 219.100 s | -5.9% | 1029.666 → 789.399 s | -23.3% | matched |
+| 2 | 279.017 → 246.784 s | -11.6% | 1574.776 → 1027.985 s | -34.7% | matched |
+
+| Trial / mode | Ranked replays | Accepted prepare loads | Ready before due / rejected prepare calls | GPU eviction calls | Evicted token slots | Admission decisions / holds |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 / Baseline | 0 | 0 | 0 / 0 | 336 | 459180 | not applicable |
+| 1 / Reuse-time KV retention | 32 | 0 | 0 / 0 | 339 | 451679 | not applicable |
+| 2 / Reuse-time KV retention | 32 | 0 | 0 / 0 | 350 | 480013 | not applicable |
+| 2 / Baseline | 0 | 0 | 0 / 0 | 348 | 490929 | not applicable |
+
+Lower is better. Total TTFT/lateness sum across requests and can exceed the whole-workload clock because sessions overlap. Whole-workload time includes initial requests and tool waits, but excludes backend startup and preflight. Each trial uses its own seed; trial 2 reverses arm order. All sessions have equal importance. Compare policies within a scenario: prompt sizes and tool-wait distributions differ across scenarios. CUDA graphs and overlap scheduling are on. Good/bad short-filler runtime admits are not classified by these tests; this is unavailable evidence, not zero bad admits. Admission/hold counts are shown for RTG; other modes do not use that admission policy. Ready before due means the prepare call reported completion before the replay deadline; it does not prove that the prefix remained resident or was used when replay arrived. Raw decisions remain available in the traces.
+
+**Evidence gate.** complete. Timestamp: First request; displayed in Central Time.
+
+**Reproduce** (set the container image and model cache for the target host):
+
+```bash
+# Experiment source commit: d05bf1be94ed9b286fdfef894fe623f85f254acb
+# Use a separate checkout at this commit; keep the archived evidence untouched.
+source sglang_direct_kv/.venv/bin/activate
+export PYTHONPATH="$(printf '%s:' "$PWD"/packages/*/src)"
+python -m agentic_experiments.runners.run_controller_audit_pivots \
+  --run-id controller_pivots_20261009_01_s3_repeat_$(date +%Y%m%d_%H%M%S) \
+  --scenarios 3 \
+  --spec configs/experiment_specs/controller_audit_pivots.json \
+  --model-cache "$HOME/.cache/huggingface" \
+  --image agentic-sglang-standard:0.5.10.post1
+# Exact image ID/digest, model snapshot, dependency lists and arm environments:
+# run_manifest.json, model_identity.json, *dependencies.txt in the evidence directory.
+# Source-synced host without git: append --source-archive PATH/source.tar.gz
+# and --source-revision d05bf1be94ed9b286fdfef894fe623f85f254acb.
+# Reporting source commit: be5041ccb8f937def66b40bd21ded0706e179ca1.
+# Publish from that separate reporting checkout, using --run-root /absolute/path/to/new/run.
+# See docs/work_audit/CONTROLLER_PIVOT_REPRODUCTION.md for publication commands.
+```
+
+**Evidence:** [Summary](docs/reports/work_audit/controller_pivots_20261009_01_s3/summary.json) · [Run manifest](docs/reports/work_audit/controller_pivots_20261009_01_s3/run_manifest.json) · [Summary and per-arm measurements](docs/reports/work_audit/controller_pivots_20261009_01_s3/summary.json) · [Exact commands and runtime](docs/reports/work_audit/controller_pivots_20261009_01_s3/run_manifest.json) · [Frozen workload settings](docs/reports/work_audit/controller_pivots_20261009_01_s3/experiment_spec.json) · [Source archive](docs/reports/work_audit/controller_pivots_20261009_01_s3/source.tar.gz) · [Model snapshot and hashes](docs/reports/work_audit/controller_pivots_20261009_01_s3/model_identity.json) · [Host dependencies](docs/reports/work_audit/controller_pivots_20261009_01_s3/host_dependencies.txt) · [Container dependencies](docs/reports/work_audit/controller_pivots_20261009_01_s3/container_dependencies.txt) · [Evidence hashes](docs/reports/work_audit/controller_pivots_20261009_01_s3/evidence_sha256.json) · [Analyzer used for these results](docs/reports/work_audit/controller_pivots_20261009_01_s3/analysis_source.py) · [Trial 1 no_prefetch: launcher log](docs/reports/work_audit/controller_pivots_20261009_01_s3/s3_trial1_no_prefetch.log) · [Trial 1 no_prefetch: server_info.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/server_info.json) · [Trial 1 no_prefetch: live_sentinel_report.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/live_sentinel_report.json) · [Trial 1 no_prefetch: m27_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/m27_trace.jsonl.gz) · [Trial 1 no_prefetch: backend_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/backend_trace.jsonl.gz) · [Trial 1 no_prefetch: every replay](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/reports/s3_trial1_no_prefetch/global_kv_readiness_by_mode.csv) · [Trial 1 controller_value_aware_eviction: launcher log](docs/reports/work_audit/controller_pivots_20261009_01_s3/s3_trial1_controller_value_aware_eviction.log) · [Trial 1 controller_value_aware_eviction: server_info.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/server_info.json) · [Trial 1 controller_value_aware_eviction: live_sentinel_report.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/live_sentinel_report.json) · [Trial 1 controller_value_aware_eviction: m27_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/m27_trace.jsonl.gz) · [Trial 1 controller_value_aware_eviction: backend_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial1_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260916_enccontroller_audit_pivots/backend_trace.jsonl.gz) · [Trial 1 controller_value_aware_eviction: every replay](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/reports/s3_trial1_controller_value_aware_eviction/global_kv_readiness_by_mode.csv) · [Trial 2 controller_value_aware_eviction: launcher log](docs/reports/work_audit/controller_pivots_20261009_01_s3/s3_trial2_controller_value_aware_eviction.log) · [Trial 2 controller_value_aware_eviction: server_info.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/server_info.json) · [Trial 2 controller_value_aware_eviction: live_sentinel_report.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/live_sentinel_report.json) · [Trial 2 controller_value_aware_eviction: m27_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/m27_trace.jsonl.gz) · [Trial 2 controller_value_aware_eviction: backend_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_controller_value_aware_eviction/hatcher_p3_high_controller_value_aware_eviction_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/backend_trace.jsonl.gz) · [Trial 2 controller_value_aware_eviction: every replay](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/reports/s3_trial2_controller_value_aware_eviction/global_kv_readiness_by_mode.csv) · [Trial 2 no_prefetch: launcher log](docs/reports/work_audit/controller_pivots_20261009_01_s3/s3_trial2_no_prefetch.log) · [Trial 2 no_prefetch: server_info.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/server_info.json) · [Trial 2 no_prefetch: live_sentinel_report.json](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/live_sentinel_report.json) · [Trial 2 no_prefetch: m27_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/m27_trace.jsonl.gz) · [Trial 2 no_prefetch: backend_trace.jsonl.gz](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/backend_trace.jsonl.gz) · [Trial 2 no_prefetch: every replay](docs/reports/work_audit/controller_pivots_20261009_01_s3/raw/reports/s3_trial2_no_prefetch/global_kv_readiness_by_mode.csv)
+
+</details>
+
 <a id="run-controller_pivots_20261009_01_s2"></a>
 <details>
 <summary><strong>Oct 9, 2026, 3:46:58 p.m. CDT · Scenario 2: Early KV preparation</strong> · controller_pivots_20261009_01_s2</summary>
@@ -438,12 +510,12 @@ Newest first. Each arrow goes from the named control to the changed case in the 
 
 **Key measurements**
 
-| Trial / mode | Whole workload (s) | All requests: total TTFT (s) | Replays: total TTFT (s) | Replays: total lateness (s) | Replay delay median / p95 (ms) | Requests / replays | Evidence gate |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 / Baseline | 275.914 | 531.305 | 113.148 | 113.488 | 4615.1 / 5780.9 | 48 / 32 | passed |
-| 1 / Early KV preparation | 280.113 | 550.179 | 131.977 | 132.306 | 4618.7 / 8028.0 | 48 / 32 | passed |
-| 2 / Early KV preparation | 291.705 | 594.041 | 173.830 | 174.166 | 4744.7 / 15210.3 | 48 / 32 | passed |
-| 2 / Baseline | 291.699 | 583.832 | 164.563 | 164.895 | 4766.2 / 13387.7 | 48 / 32 | passed |
+| Trial / mode | Whole workload (s) | All requests: total TTFT (s) | Replays: total TTFT (s) | Replays: total lateness (s) | Replay TTFT median (ms) | Replay delay median / p95 (ms) | Requests / replays | Evidence gate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / Baseline | 275.914 | 531.305 | 113.148 | 113.488 | 4605.9 | 4615.1 / 5780.9 | 48 / 32 | passed |
+| 1 / Early KV preparation | 280.113 | 550.179 | 131.977 | 132.306 | 4609.4 | 4618.7 / 8028.0 | 48 / 32 | passed |
+| 2 / Early KV preparation | 291.705 | 594.041 | 173.830 | 174.166 | 4735.4 | 4744.7 / 15210.3 | 48 / 32 | passed |
+| 2 / Baseline | 291.699 | 583.832 | 164.563 | 164.895 | 4751.9 | 4766.2 / 13387.7 | 48 / 32 | passed |
 
 | Trial | Whole workload: baseline → controller | Change | Total replay lateness: baseline → controller | Change | Comparison |
 | --- | --- | --- | --- | --- | --- |
@@ -478,7 +550,7 @@ python -m agentic_experiments.runners.run_controller_audit_pivots \
 # run_manifest.json, model_identity.json, *dependencies.txt in the evidence directory.
 # Source-synced host without git: append --source-archive PATH/source.tar.gz
 # and --source-revision d05bf1be94ed9b286fdfef894fe623f85f254acb.
-# Reporting source commit: ffa94af18d61f7f4632465a7c37cf69371f0ca4d.
+# Reporting source commit: be5041ccb8f937def66b40bd21ded0706e179ca1.
 # Publish from that separate reporting checkout, using --run-root /absolute/path/to/new/run.
 # See docs/work_audit/CONTROLLER_PIVOT_REPRODUCTION.md for publication commands.
 ```
@@ -499,12 +571,12 @@ python -m agentic_experiments.runners.run_controller_audit_pivots \
 
 **Key measurements**
 
-| Trial / mode | Whole workload (s) | All requests: total TTFT (s) | Replays: total TTFT (s) | Replays: total lateness (s) | Replay delay median / p95 (ms) | Requests / replays | Evidence gate |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 / Baseline | 161.946 | 210.328 | 85.501 | 210.981 | 1826.5 / 26820.6 | 48 / 32 | passed |
-| 1 / Replay scheduling | 164.168 | 203.178 | 71.854 | 162.398 | 2036.2 / 18200.0 | 48 / 32 | passed |
-| 2 / Replay scheduling | 193.284 | 221.540 | 74.408 | 210.601 | 5538.9 / 17445.7 | 48 / 32 | passed |
-| 2 / Baseline | 173.430 | 223.309 | 99.078 | 306.844 | 5846.4 / 27640.0 | 48 / 32 | passed |
+| Trial / mode | Whole workload (s) | All requests: total TTFT (s) | Replays: total TTFT (s) | Replays: total lateness (s) | Replay TTFT median (ms) | Replay delay median / p95 (ms) | Requests / replays | Evidence gate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 / Baseline | 161.946 | 210.328 | 85.501 | 210.981 | 1690.0 | 1826.5 / 26820.6 | 48 / 32 | passed |
+| 1 / Replay scheduling | 164.168 | 203.178 | 71.854 | 162.398 | 1736.7 | 2036.2 / 18200.0 | 48 / 32 | passed |
+| 2 / Replay scheduling | 193.284 | 221.540 | 74.408 | 210.601 | 3202.3 | 5538.9 / 17445.7 | 48 / 32 | passed |
+| 2 / Baseline | 173.430 | 223.309 | 99.078 | 306.844 | 2683.1 | 5846.4 / 27640.0 | 48 / 32 | passed |
 
 | Trial | Whole workload: baseline → controller | Change | Total replay lateness: baseline → controller | Change | Comparison |
 | --- | --- | --- | --- | --- | --- |
@@ -539,7 +611,7 @@ python -m agentic_experiments.runners.run_controller_audit_pivots \
 # run_manifest.json, model_identity.json, *dependencies.txt in the evidence directory.
 # Source-synced host without git: append --source-archive PATH/source.tar.gz
 # and --source-revision d05bf1be94ed9b286fdfef894fe623f85f254acb.
-# Reporting source commit: ffa94af18d61f7f4632465a7c37cf69371f0ca4d.
+# Reporting source commit: be5041ccb8f937def66b40bd21ded0706e179ca1.
 # Publish from that separate reporting checkout, using --run-root /absolute/path/to/new/run.
 # See docs/work_audit/CONTROLLER_PIVOT_REPRODUCTION.md for publication commands.
 ```

@@ -5578,6 +5578,6 @@
   "status": "complete",
   "measurement_boundary": "driver workload start through all session completions; includes initial requests and tool waits; excludes server startup and preflight",
   "matching": "Within a trial: identical model, prompt hashes, output limits, waits, capacities and instrumentation. Tool waits start after each session's preceding completion, so absolute arrivals can change as a consequence of policy.",
-  "analysis_revision": "ffa94af18d61f7f4632465a7c37cf69371f0ca4d",
+  "analysis_revision": "be5041ccb8f937def66b40bd21ded0706e179ca1",
   "analysis_python_version": "3.14.5 (main, May 10 2026, 10:21:34) [Clang 17.0.0 (clang-1700.6.4.2)]"
 }

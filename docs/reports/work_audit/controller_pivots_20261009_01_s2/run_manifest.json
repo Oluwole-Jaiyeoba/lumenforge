@@ -571,5 +571,7 @@
     }
   ],
   "measurement_boundary": "driver workload start through all session completions; includes initial requests and tool waits; excludes server startup and preflight",
-  "matching": "Within a trial: identical model, prompt hashes, output limits, waits, capacities and instrumentation. Tool waits start after each session's preceding completion, so absolute arrivals can change as a consequence of policy."
+  "matching": "Within a trial: identical model, prompt hashes, output limits, waits, capacities and instrumentation. Tool waits start after each session's preceding completion, so absolute arrivals can change as a consequence of policy.",
+  "post_run_source_verified_files": 638,
+  "post_run_source_verified_ns": 1791582964564620276
 }

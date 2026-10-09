@@ -1,0 +1,2 @@
+encoding_codec,encoding_config_hash,encoding_scope,requests,failures,harness,harness_label,pressure_level,pressure_level_label,mode,mode_label,samples,median_first_token_lateness_ms,median_due_to_request_start_ms,median_due_to_sglang_receive_ms,median_ttft_ms,median_sglang_receive_to_first_token_ms,min_first_token_lateness_ms,max_first_token_lateness_ms
+identity,,,32,0,hatcher,DeepAgents,p3_high,P3 Queue Pressure,controller_value_aware_eviction,VAE = Controller value-aware eviction,32,23530.09,8292.722,8292.722,8898.68,8898.68,759.002,86674.574

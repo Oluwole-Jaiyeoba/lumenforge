@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "adapter": "v0510",
+      "id": "runtime_capability_handshake",
+      "kind": "runtime",
+      "passed": true,
+      "supported_adapters": [
+        "v0510"
+      ]
+    }
+  ],
+  "contract": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_controller_value_aware_eviction/runtime/instrumentation_contract.json",
+  "experiment_allowed": true,
+  "invalid_for_controller_claims": false,
+  "policy": "strict",
+  "schema_version": "agentic_controller_instrumentation_preflight.v1",
+  "stage": "static",
+  "valid": true
+}

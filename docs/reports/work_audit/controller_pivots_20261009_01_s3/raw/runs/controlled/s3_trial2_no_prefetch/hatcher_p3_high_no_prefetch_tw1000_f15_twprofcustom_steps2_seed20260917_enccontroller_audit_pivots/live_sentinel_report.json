@@ -1,0 +1,244 @@
+{
+  "backend_trace": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/backend_trace.jsonl",
+  "checks": [
+    {
+      "adapter": "v0510",
+      "hook_id": "request_lifecycle",
+      "id": "request_lifecycle",
+      "kind": "installation",
+      "passed": true,
+      "targets": [
+        {
+          "status": "installed",
+          "target": "sglang.srt.managers.scheduler.Scheduler.handle_generate_request"
+        },
+        {
+          "status": "installed",
+          "target": "sglang.srt.managers.scheduler.Scheduler.process_input_requests"
+        }
+      ]
+    },
+    {
+      "adapter": "v0510",
+      "hook_id": "kv_cache_lifecycle",
+      "id": "kv_cache_observation",
+      "kind": "installation",
+      "passed": true,
+      "targets": [
+        {
+          "status": "installed",
+          "target": "sglang.srt.mem_cache.hiradix_cache.HiRadixCache.match_prefix"
+        },
+        {
+          "status": "installed",
+          "target": "sglang.srt.mem_cache.radix_cache.RadixCache.match_prefix"
+        }
+      ]
+    },
+    {
+      "adapter": "v0510",
+      "hook_id": "scheduler_batch_observation",
+      "id": "scheduler_batch_observation",
+      "kind": "installation",
+      "passed": true,
+      "targets": [
+        {
+          "status": "installed",
+          "target": "sglang.srt.managers.scheduler.Scheduler.process_batch_result"
+        },
+        {
+          "status": "installed",
+          "target": "sglang.srt.managers.scheduler.Scheduler.get_next_batch_to_run"
+        }
+      ]
+    },
+    {
+      "adapter": "v0510",
+      "hook_id": "request_completion_timing",
+      "id": "request_completion_timing",
+      "kind": "installation",
+      "passed": true,
+      "targets": [
+        {
+          "status": "installed",
+          "target": "sglang.srt.managers.scheduler.Scheduler.process_batch_result"
+        }
+      ]
+    },
+    {
+      "adapter": "v0510",
+      "hook_id": "hicache_transfer_observation",
+      "id": "hicache_transfer_observation",
+      "kind": "installation",
+      "passed": true,
+      "required": false,
+      "status": "installed",
+      "targets": [
+        {
+          "status": "installed",
+          "target": "sglang.srt.managers.cache_controller.HiCacheController.load"
+        },
+        {
+          "status": "installed",
+          "target": "sglang.srt.managers.cache_controller.HiCacheController.write"
+        }
+      ]
+    },
+    {
+      "details": {
+        "adapter": "v0510",
+        "installation": {
+          "adapter": "v0510",
+          "missing": [],
+          "profile": "controller_queue",
+          "valid": true
+        },
+        "invalid_fields": [],
+        "missing_events": [],
+        "optional_unobserved": [],
+        "profile": "controller_queue",
+        "valid": true,
+        "validation_level": "live_evidence"
+      },
+      "id": "shared_profile:controller_queue",
+      "kind": "shared_evidence",
+      "passed": true
+    },
+    {
+      "event_counts": {
+        "m27.request.end": 1,
+        "m27.request.start": 1
+      },
+      "expected": [
+        "m27.request.start",
+        "m27.request.end"
+      ],
+      "fields_observed": true,
+      "id": "gateway_request_lifecycle",
+      "kind": "live_trace",
+      "passed": true,
+      "required_fields": [
+        "first_token_observed",
+        "ttft_ms"
+      ]
+    },
+    {
+      "event_counts": {
+        "scheduler.handle_generate_request": 4,
+        "scheduler.process_input_requests": 110
+      },
+      "expected": [
+        "scheduler.handle_generate_request",
+        "scheduler.process_input_requests"
+      ],
+      "fields_observed": true,
+      "id": "request_lifecycle",
+      "kind": "live_trace",
+      "passed": true,
+      "required_fields": []
+    },
+    {
+      "event_counts": {
+        "hiradix.match_prefix": 3,
+        "radix.match_prefix": 0
+      },
+      "expected": [
+        "hiradix.match_prefix",
+        "radix.match_prefix"
+      ],
+      "fields_observed": true,
+      "id": "kv_cache_observation",
+      "kind": "live_trace",
+      "passed": true,
+      "required_fields": []
+    },
+    {
+      "event_counts": {
+        "scheduler.get_next_batch_to_run": 110,
+        "scheduler.process_batch_result": 16
+      },
+      "expected": [
+        "scheduler.process_batch_result",
+        "scheduler.get_next_batch_to_run"
+      ],
+      "fields_observed": true,
+      "id": "scheduler_batch_observation",
+      "kind": "live_trace",
+      "passed": true,
+      "required_fields": []
+    },
+    {
+      "event_counts": {
+        "scheduler.process_batch_result": 16
+      },
+      "expected": [
+        "scheduler.process_batch_result"
+      ],
+      "fields_observed": true,
+      "id": "request_completion_timing",
+      "kind": "live_trace",
+      "passed": true,
+      "required_fields": []
+    },
+    {
+      "event_counts": {
+        "m27.request.start": 1
+      },
+      "expected": [
+        "m27.request.start"
+      ],
+      "fields_observed": true,
+      "id": "replay_ready_time_observation",
+      "kind": "live_trace",
+      "passed": true,
+      "required_fields": [
+        "deadline_offset_ms"
+      ]
+    },
+    {
+      "acted": true,
+      "event_count": 1,
+      "expected": "m27.controller.preflight.decision",
+      "id": "controller_decision_ledger",
+      "kind": "controller_probe",
+      "passed": true
+    },
+    {
+      "acted": true,
+      "event_count": 1,
+      "expected": "m27.controller.preflight.action_ack",
+      "id": "controller_action_acknowledgement",
+      "kind": "controller_probe",
+      "passed": true
+    }
+  ],
+  "contract": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/instrumentation_contract.json",
+  "controller_probe": {
+    "ran": true,
+    "returncode": 0,
+    "stderr": ""
+  },
+  "experiment_allowed": true,
+  "gateway_trace": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/m27_trace.jsonl",
+  "installation": {
+    "adapter": "v0510",
+    "missing_optional_hooks": [],
+    "missing_required_hooks": [],
+    "sglang_version": "0.5.10.post1"
+  },
+  "installation_report": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/hook_installation_report.json",
+  "invalid_for_controller_claims": false,
+  "live_sentinel_trace": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial2_no_prefetch/hatcher_p3_high_no_prefetch_tw1000_f15_twprofcustom_steps2_seed20260917_enccontroller_audit_pivots/live_sentinel_trace.jsonl",
+  "policy": "strict",
+  "schema_version": "agentic_controller_instrumentation_preflight.v1",
+  "sentinel": {
+    "attempts": 1,
+    "excluded_from_measurement": true,
+    "request_id": "instrumentation-sentinel-f1310bf0bc6b4043acc5cabdc650f7e9",
+    "sent": true,
+    "started_ns": 1791582379302276524,
+    "trace_rows_considered": 594
+  },
+  "stage": "live",
+  "valid": true
+}

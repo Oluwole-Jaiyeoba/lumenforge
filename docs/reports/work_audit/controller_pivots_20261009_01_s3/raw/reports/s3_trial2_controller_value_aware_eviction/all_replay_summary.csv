@@ -1,0 +1,2 @@
+harness,pressure,mode,mode_label,replays,ttft_samples,total_ttft_ms,median_ttft_ms,lateness_samples,total_deadline_debt_ms,median_lateness_ms
+DeepAgents,P3 Queue Pressure,controller_value_aware_eviction,VAE = Controller value-aware eviction,32,32,356620.876,8898.68,32,1027984.873,23530.09

@@ -1,0 +1,45 @@
+{
+  "cache_action_row_count": 0,
+  "cache_benefit_row_count": 0,
+  "cache_signal_row_count": 0,
+  "controller_admission_row_count": 0,
+  "controller_decision_quality_row_count": 0,
+  "controller_decision_quality_summary_row_count": 0,
+  "controller_demote_restore_row_count": 0,
+  "controller_harness_exposure_row_count": 0,
+  "controller_idle_gap_audit_row_count": 1,
+  "cost_accounting_row_count": 2,
+  "experiment_kind": "multi_harness_deadline_pressure",
+  "generated_at": "2026-10-09T21:28:03.208222+00:00",
+  "gpu_idle_row_count": 2,
+  "hardware_profile": "nvidia_a10g_24gb",
+  "hardware_profile_path": "configs/hardware/nvidia_a10g_24gb.env",
+  "harness_priority_row_count": 0,
+  "harnesses": [
+    "hatcher",
+    "instrumentation"
+  ],
+  "idle_gap_case_study_row_count": 1,
+  "modes": [
+    "instrumentation_sentinel",
+    "no_prefetch"
+  ],
+  "nat_inferred_priority_profile": false,
+  "nat_inferred_priority_profile_path": "",
+  "nat_service_priority_row_count": 0,
+  "pressure_levels": [
+    "p3_high"
+  ],
+  "prompt_encodings": [
+    "identity:"
+  ],
+  "report_dir": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/reports/s3_trial1_no_prefetch",
+  "report_label": "s3_trial1_no_prefetch",
+  "root": "/home/ec2-user/agentic_hardware/sglang_direct_kv/artifacts/results/work_audit/controller_pivots_20261009_01/raw/runs/controlled/s3_trial1_no_prefetch",
+  "row_count": 33,
+  "script": "scripts/build_multi_harness_deadline_summary.py",
+  "sglang_cache_path_audit_row_count": 5,
+  "speculative_prefill_row_count": 0,
+  "summary_row_count": 1,
+  "targeted_kv_prefetch_row_count": 0
+}
