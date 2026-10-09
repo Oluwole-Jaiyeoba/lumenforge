@@ -36,6 +36,14 @@ as measured. Portable comparison code lives in
 
 ## Active Controller Protocol
 
+For the new independent Scenario 1/2/3 reruns reported in the KV Lifecycle Audit,
+start with [Controller pivot reproduction](docs/work_audit/CONTROLLER_PIVOT_REPRODUCTION.md)
+and `configs/experiment_specs/controller_audit_pivots.json`. These keep CUDA graphs
+and overlap scheduling on, prohibit frontend importance classes, and archive
+source, settings, dependencies, runtime gates and per-request evidence. Scenario 3
+is a new reuse-time-only retention test; do not substitute the old high/normal/low
+retention-plus-queue experiment. The measured source revision is recorded per run.
+
 Scenario 1 now gives every request equal application importance. The harness
 exposes expected tool-return times, and the controller derives temporary queue
 ranks for deadline-bearing replays. Do not assign high/low priority, QoS tiers,

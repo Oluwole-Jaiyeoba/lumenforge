@@ -5,6 +5,8 @@ from __future__ import annotations
 from statistics import median
 import shlex
 
+from agentic_backends.controller_audit import BACKEND_IMAGE_ENV
+
 
 HEADERS = (
     "Seed / returns / tier / policy", "Whole workload (s)",
@@ -134,8 +136,16 @@ def reproduction(summary: dict) -> str:
         "TIER_POLICY_HOST_GB": workload.get("host_cache_gb"),
         "TIER_POLICY_STORAGE_HOST_GB": workload.get("storage_host_cache_gb"),
         "TIER_POLICY_RESTRICTED_MAX_ACTIVE": workload.get("restricted_max_active"),
+        "TIER_POLICY_TRACE_PROFILE": workload.get("trace_profile"),
+        BACKEND_IMAGE_ENV: (manifest.get("backend_runtime_contract") or {}).get("container_image"),
     }
     prefix = " \\\n".join(
         f"{key}={shlex.quote(str(value))}" for key, value in values.items() if value is not None
     )
-    return prefix + " \\\nbash infra/container/run_work_audit_tier_policy_matrix.sh"
+    record = summary.get("_reproduction_record") or {}
+    revision = record.get("verified_source_revision")
+    note = (f"# Verified source snapshot: {revision}\n"
+            "# Match based on the six archived source hashes; see reproduction_record.json.\n"
+            "# Keep the original image ID from the manifest; a rebuilt image may differ.\n"
+            "# Set AGENTIC_MODEL_CACHE to the model-cache directory on the GPU host.\n") if revision else ""
+    return note + prefix + " \\\nbash infra/container/run_work_audit_tier_policy_matrix.sh"

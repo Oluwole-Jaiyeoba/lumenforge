@@ -20,6 +20,8 @@ from typing import Any
 
 from .modes import controller_value_aware_eviction_mode
 
+_PRIORITY_METADATA_KEY = "controller_sglang_priority"
+
 
 def _stable_percent(seed: str) -> int:
     digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
@@ -53,11 +55,11 @@ def value_aware_eviction_metadata(
         rank = max(1, 1_000_000 - math.ceil(next_wait_ms)) if future_replay else 0
         return {
             "priority_label": "equal",
-            "controller_sglang_priority": rank,
+            _PRIORITY_METADATA_KEY: rank,
             "controller_eviction_policy": "reuse_time_retention_only",
             "controller_eviction_value_score": rank,
             "controller_eviction_signal_source": "next_tool_wait_ms,has_future_replay",
-            "controller_eviction_translation": f"radix_insert_priority={rank};queue_priority_disabled",
+            "controller_eviction_translation": f"cache_insert_rank={rank};queue_priority_disabled",
             "controller_eviction_scope": "all_replay_capable_requests",
             "next_tool_wait_ms": next_wait_ms if future_replay else None,
             "has_future_replay": future_replay,
@@ -124,7 +126,7 @@ def value_aware_eviction_metadata(
         else "normal"
         if value_class == "normal_value"
         else "high",
-        "controller_sglang_priority": priority,
+        _PRIORITY_METADATA_KEY: priority,
         "controller_eviction_policy": "sglang_radix_priority_eviction",
         "controller_eviction_value_class": value_class,
         "controller_eviction_value_score": value_score,

@@ -33,7 +33,9 @@ zero to a terminal request does not demote its previously inserted prefix.
   guaranteed tokenizer counts. Output limits: main 8 tokens, peers 2 tokens.
 - Maximum submission concurrency six. Scenario 2 uses 60-120 second tool waits;
   scenarios 1/3 use the exact mixed wait distribution in the JSON specification.
-- Same prompt hashes, output limits, waits, seed and capacities within each pair.
+- Same model-prompt hashes, output limits, waits, seed and capacities within each pair.
+  Pairing uses `harness_controller_signal.cache.conversation_prefix_hash`, not the
+  transport-body hash that also contains mode-specific instrumentation metadata.
   Tool waits begin after each session's previous reply, so actual arrival times
   can shift when the policy changes completion times. This is a closed-loop
   synthetic agent workload, not a fixed open-loop arrival replay.
@@ -85,6 +87,8 @@ Under `sglang_direct_kv/artifacts/results/work_audit/RUN_ID`:
 - `raw/runs/controlled/ARM`: actual server configuration, installation/live gates,
   logs, raw gateway/backend traces (compressed after reporting), request metrics.
 - `raw/reports/ARM`: per-request tables and the existing controller report.
+- Each arm's launcher log and the report analyzer's source revision/code are
+  preserved with the published evidence, separately from the measured source.
 
 The audit must show each trial's workload duration, total/median replay TTFT,
 total/median replay lateness, request coverage and policy exposure. Pairing gates
@@ -92,3 +96,29 @@ must compare request identities, prompt hashes, output budgets and sampled waits
 Missing events or zero real KV preparation/eviction exposure must be visible.
 No throughput or cache advantage should be inferred solely from configured flags.
 All prior results remain archived, even when a rerun does not reproduce a win.
+
+## Publish Completed Pairs
+
+The analyzer skips scenarios until all four arms finish. It checks workload
+identity and runtime isolation before adding a key pivot. Invalid pairs remain
+visible as supporting evidence, without a percentage improvement claim.
+
+```bash
+python -m agentic_reports.analysis.analyze_controller_audit_pivots \
+  --run-root sglang_direct_kv/artifacts/results/work_audit/YOUR_RUN_ID \
+  --publish-dir docs/reports/work_audit \
+  --progress-file docs/work_audit/research_progress.json
+python -m agentic_reports.builders.build_work_audit_report \
+  --results-dir docs/reports/work_audit \
+  --progress-file docs/work_audit/research_progress.json \
+  --out KV_LIFECYCLE_AUDIT.html \
+  --markdown-out KV_LIFECYCLE_AUDIT.md
+```
+
+Keep the recorded container image. A tag is not an immutable image: compare its
+ID with `image_inspect` in the manifest before repeating. The archived
+`infra/container/build_sglang_runtime.sh` and `Dockerfile.sglang` describe the build,
+but rebuilding with unconstrained dependency downloads is not guaranteed to
+recreate the same image. Use the saved dependency inventories to identify drift;
+a changed runtime must be labeled a new-runtime reproduction. Do not commit
+multi-gigabyte model weights or Docker image exports to the repository.

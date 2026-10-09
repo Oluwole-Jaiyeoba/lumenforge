@@ -96,6 +96,7 @@ def _first_request_ns(path: Path) -> int | None:
     if path.exists():
         summary = json.loads(path.read_text(encoding="utf-8"))
         if summary.get("schema") in (
+            "agentic_work_audit.controller_pivot.summary.v1",
             "agentic_work_audit.memory_tiers.summary.v1",
             "agentic_work_audit.native_vs_capacity_safe.summary.v1",
             "agentic_work_audit.tier_policy_matrix.summary.v1",
@@ -158,9 +159,13 @@ def _time(summary: dict) -> tuple[int, str, str, str]:
 
 
 def _links(path: Path, summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.controller_pivot.summary.v1":
+        from .controller_pivot_report import evidence_files
+        return " · ".join(f'<a href="{_esc((path.parent / name).as_posix())}">{_esc(label)}</a>'
+                          for name, label in evidence_files(summary))
     if summary.get("schema") == "agentic_work_audit.tier_policy_matrix.summary.v1":
         links = [f'<a href="{_esc(path.as_posix())}">Summary JSON</a>']
-        for name in ("run_manifest.json", "source_sha256.txt"):
+        for name in ("run_manifest.json", "source_sha256.txt", "source.tar.gz", "reproduction_record.json"):
             target = path.parent / name
             if target.exists():
                 links.append(f'<a href="{_esc(target.as_posix())}">{_esc(name)}</a>')
@@ -295,6 +300,9 @@ def _links(path: Path, summary: dict) -> str:
 
 
 def _setup(summary: dict, timing: bool) -> tuple[str, str]:
+    if summary.get("schema") == "agentic_work_audit.controller_pivot.summary.v1":
+        from .controller_pivot_report import setup
+        return (f"Controller scenario {summary['scenario']}: {summary['name']}", _esc(setup(summary)))
     if summary.get("schema") == "agentic_work_audit.tier_policy_matrix.summary.v1":
         from .tier_policy_matrix_report import setup
         return ("Native vs capacity-safe across GPU, CPU, and storage KV",
@@ -554,6 +562,9 @@ def _setup(summary: dict, timing: bool) -> tuple[str, str]:
 
 
 def _reproduction(summary: dict, timing: bool) -> str:
+    if summary.get("schema") == "agentic_work_audit.controller_pivot.summary.v1":
+        from .controller_pivot_report import reproduction
+        return "<p><strong>Reproduce.</strong></p><pre><code>" + _esc(reproduction(summary)) + "</code></pre>"
     if summary.get("schema") == "agentic_work_audit.tier_policy_matrix.summary.v1":
         from .tier_policy_matrix_report import reproduction
         return "<p><strong>Reproduce.</strong></p><pre><code>" + _esc(reproduction(summary)) + "</code></pre>"
@@ -1271,9 +1282,14 @@ def _pivots_html(milestones: list[dict]) -> str:
     rows = []
     for pivot in pivots:
         question_id = str(pivot["id"])
+        repeat_links = " · ".join(
+            f"<a href='#run-{_esc(quote(run, safe=''))}'>Results and reproduction</a>"
+            for run in pivot.get("evidence_run_ids", [])
+        )
         rows.append(
             f"<tr><td data-label='Research pivot'><a href='#rq-{_esc(quote(question_id, safe=''))}'>"
-            f"<strong>{_esc(pivot['pivot_title'])}</strong><small>{_esc(question_id)}</small></a></td>"
+            f"<strong>{_esc(pivot['pivot_title'])}</strong><small>{_esc(question_id)}</small></a>"
+            f"<small>{repeat_links}</small></td>"
             f"<td data-label='Main finding'>{_esc(pivot['manager_takeaway'])}</td>"
             f"<td data-label='Why it matters'>{_esc(pivot['why_it_matters'])}</td></tr>"
         )
@@ -1323,6 +1339,9 @@ def _progress_html(milestones: list[dict], run_ids: set[str]) -> str:
 
 
 def _run_finding(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.controller_pivot.summary.v1":
+        from .controller_pivot_report import finding
+        return finding(summary)
     if summary.get("schema") == "agentic_work_audit.tier_policy_matrix.summary.v1":
         from .tier_policy_matrix_report import finding
         return finding(summary)
@@ -1614,6 +1633,8 @@ def _run_finding(summary: dict) -> str:
 
 
 def _kind(summary: dict) -> str:
+    if summary.get("schema") == "agentic_work_audit.controller_pivot.summary.v1":
+        return f"Scenario {summary['scenario']}: {summary['name']}"
     if summary.get("schema") == "agentic_work_audit.tier_policy_matrix.summary.v1":
         return "Native vs capacity-safe · GPU / CPU / storage"
     if summary.get("schema") == "agentic_work_audit.native_vs_capacity_safe.summary.v1":
@@ -1664,6 +1685,11 @@ def _kind(summary: dict) -> str:
 
 def _result_parts(summary: dict) -> tuple[str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.controller_pivot.summary.v1":
+        from .controller_pivot_report import HEADERS, PAIR_HEADERS, EXPOSURE_HEADERS, NOTES, table_rows, pair_rows, exposure_rows
+        return _esc(_run_finding(summary)), (_mode_table(HEADERS, table_rows(summary))
+                + _mode_table(PAIR_HEADERS, pair_rows(summary))
+                + _mode_table(EXPOSURE_HEADERS, exposure_rows(summary)) + f"<p>{_esc(NOTES)}</p>")
     if schema == "agentic_work_audit.tier_policy_matrix.summary.v1":
         from .tier_policy_matrix_report import (
             HEADERS, POLICY_HEADERS, TIER_HEADERS, NOTES,
@@ -2186,6 +2212,11 @@ def _md_table(headers: tuple[str, ...], rows: list[tuple[object, ...]]) -> str:
 
 def _markdown_metrics(summary: dict) -> str:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.controller_pivot.summary.v1":
+        from .controller_pivot_report import HEADERS, PAIR_HEADERS, EXPOSURE_HEADERS, NOTES, table_rows, pair_rows, exposure_rows
+        return (_md_table(HEADERS, table_rows(summary)) + "\n\n"
+                + _md_table(PAIR_HEADERS, pair_rows(summary)) + "\n\n"
+                + _md_table(EXPOSURE_HEADERS, exposure_rows(summary)) + "\n\n" + NOTES)
     if schema == "agentic_work_audit.tier_policy_matrix.summary.v1":
         from .tier_policy_matrix_report import (
             HEADERS, POLICY_HEADERS, TIER_HEADERS, NOTES,
@@ -2669,6 +2700,18 @@ def _timing_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
 
 def _markdown_index_outcome(summary: dict) -> tuple[str, str, str, str, str, str]:
     schema = summary.get("schema")
+    if schema == "agentic_work_audit.controller_pivot.summary.v1":
+        valid = [pair for pair in summary.get("pairs", []) if pair["comparable"]]
+        def transition(key):
+            if not valid:
+                return "Comparison withheld"
+            import statistics
+            before = statistics.median(pair["metrics"][key]["baseline"] for pair in valid) / 1000
+            after = statistics.median(pair["metrics"][key]["controller"] for pair in valid) / 1000
+            return f"{before:.3f} → {after:.3f} s"
+        return (f"Native → {summary['name']}", "Total replay lateness: " + transition("total_replay_lateness_ms"),
+                "All 16 equal-importance sessions included", "Whole workload: " + transition("workload_ms"),
+                _run_finding(summary), summary.get("status", "unknown"))
     if schema == "agentic_work_audit.tier_policy_matrix.summary.v1":
         rows = summary.get("pattern_tier_medians") or []
         selected = next((row for row in rows
@@ -2945,9 +2988,12 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                       "| Research pivot | Main finding | Why it matters |",
                       "| --- | --- | --- |"))
         for pivot in pivots:
+            repeat_links = " · ".join(
+                f"[Results and reproduction](#run-{run})" for run in pivot.get("evidence_run_ids", [])
+            )
             lines.append(
                 "| " + " | ".join((
-                    f"[{_md_cell(pivot['pivot_title'])}](#rq-{pivot['id']})",
+                    f"[{_md_cell(pivot['pivot_title'])}](#rq-{pivot['id']})<br>{repeat_links}",
                     _md_cell(pivot["manager_takeaway"]),
                     _md_cell(pivot["why_it_matters"]),
                 )) + " |"
@@ -3027,9 +3073,15 @@ def render_markdown(summaries: list[tuple[Path, dict]], milestones: list[dict] |
                 evidence.append(f"[{arm} trace]({base}/arms/{arm}/backend_trace.jsonl.gz)")
                 if (path.parent / "arms" / arm / "instrumentation_audit.json").exists():
                     evidence.append(f"[{arm} hook gate]({base}/arms/{arm}/instrumentation_audit.json)")
+        if summary.get("schema") == "agentic_work_audit.controller_pivot.summary.v1":
+            from .controller_pivot_report import evidence_files
+            evidence.extend(f"[{label}]({base}/{name})" for name, label in evidence_files(summary))
         if summary.get("schema") == "agentic_work_audit.tier_policy_matrix.summary.v1":
             if (path.parent / "source_sha256.txt").exists():
                 evidence.append(f"[Source hashes]({base}/source_sha256.txt)")
+            for filename in ("source.tar.gz", "reproduction_record.json"):
+                if (path.parent / filename).exists():
+                    evidence.append(f"[{filename}]({base}/{filename})")
             for row in summary.get("arms", []):
                 arm = f"seed{row['seed']}/{row['pattern']}_{row['mode']}_{row['policy']}"
                 evidence.append(f"[{arm} timings]({base}/arms/{arm}/case_results.json)")
@@ -3171,6 +3223,7 @@ def main() -> None:
         summary = json.loads(path.read_text(encoding="utf-8"))
         for name, key in (("block_audit.json", "_block_audit"),
                           ("instrumentation_analysis.json", "_instrumentation_analysis"),
+                          ("reproduction_record.json", "_reproduction_record"),
                           ("run_manifest.json", "_manifest")):
             evidence = path.with_name(name)
             if evidence.exists():

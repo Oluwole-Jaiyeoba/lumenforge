@@ -13,6 +13,8 @@ import subprocess
 import tarfile
 import time
 
+from agentic_backends.controller_audit import BACKEND_IMAGE_ENV, TESTBED_DIRECTORY
+
 
 def write_json(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
@@ -34,7 +36,7 @@ def arm_environment(root: Path, spec: dict, scenario: str, trial: int, mode: str
     values.update(spec["scenarios"][scenario]["env"])
     values.update({
         "MODES": mode, "TOOL_WAIT_SEED": str(spec["seeds"][trial - 1]),
-        "SGLANG_DOCKER_IMAGE": image, "AGENTIC_MODEL_CACHE": str(cache),
+        BACKEND_IMAGE_ENV: image, "AGENTIC_MODEL_CACHE": str(cache),
         "RESULTS_ROOT": f"artifacts/results/work_audit/{run_id}/raw",
         "REPORT_LABEL": f"s{scenario}_trial{trial}_{mode}",
         "PYTHONPATH": ":".join(str(p) for p in sorted((root / "packages").glob("*/src"))),
@@ -98,11 +100,11 @@ def main() -> None:
     cache = args.model_cache.resolve()
     if not cache.is_dir():
         parser.error("model cache does not exist")
-    out = root / "sglang_direct_kv/artifacts/results/work_audit" / args.run_id
+    out = root / TESTBED_DIRECTORY / "artifacts/results/work_audit" / args.run_id
     assert_idle()
     out.mkdir(parents=True, exist_ok=False)
     shutil.copy2(spec_path, out / "experiment_spec.json")
-    paths = ["packages", "configs", "infra", "scripts", "sglang_direct_kv/scripts", "sglang_direct_kv/configs"]
+    paths = ["packages", "configs", "infra", "scripts", *(f"{TESTBED_DIRECTORY}/{name}" for name in ("scripts", "configs", "src"))]
     if args.source_archive:
         if not args.source_revision or len(args.source_revision) != 40:
             parser.error("source-archive requires its full source-revision")
@@ -126,7 +128,7 @@ def main() -> None:
         "matching": "Within a trial: identical model, prompt hashes, output limits, waits, capacities and instrumentation. Tool waits start after each session's preceding completion, so absolute arrivals can change as a consequence of policy.",
     }
     write_json(out / "run_manifest.json", metadata)
-    py = root / "sglang_direct_kv/.venv/bin/python"
+    py = root / TESTBED_DIRECTORY / ".venv/bin/python"
     (out / "host_dependencies.txt").write_text(command(str(py), "-m", "pip", "freeze") + "\n")
     (out / "container_dependencies.txt").write_text(command("docker", "run", "--rm", "--entrypoint", "python3", image, "-m", "pip", "freeze") + "\n")
     model_dir = cache / "hub" / ("models--" + spec["model"].replace("/", "--"))

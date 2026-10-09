@@ -1,0 +1,17 @@
+{
+  "schema": "agentic_work_audit.reproduction_record.v1",
+  "verified_source_revision": "e0c984077e15df40210c21cf8cae00a88a9ff591",
+  "verification_basis": "All six files in the original source_sha256.txt match this revision exactly. The original remote run did not record a git commit; this is a subsequently verified source snapshot, not a contemporaneously captured revision.",
+  "verified_file_count": 6,
+  "source_archive": "source.tar.gz",
+  "source_archive_sha256": "f68c5983ca598b40f1240e4091dc769dcb836e348b75950577c1c8022e42e2d1",
+  "entrypoint": "infra/container/run_work_audit_tier_policy_matrix.sh",
+  "parameters": "run_manifest.json: workload",
+  "runtime": "run_manifest.json: backend_runtime_contract",
+  "analysis_note": "Later commit e15513d adds explicit measurement-boundary rejection. The completed RQ26 arms use the same post-initial-prefix-population clock and pass that newer gate.",
+  "limitations": [
+    "The exact container image is identified by its local image ID, not a downloadable registry digest; retain that image or label a rebuilt runtime as changed.",
+    "The older run did not capture a complete dependency lock or model snapshot identity. Do not silently fill these missing historical measurements with current values.",
+    "Hash verification covers the six measured source files; other files in the reconstructed source archive were not individually hashed in the original run."
+  ]
+}
