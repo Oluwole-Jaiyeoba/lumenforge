@@ -99,6 +99,14 @@ All prior results remain archived, even when a rerun does not reproduce a win.
 
 ## Publish Completed Pairs
 
+The experiment revision and report-analysis revision can differ. The first runs
+used frozen experiment source while the new report was being implemented.
+Repeat the workload from `source_revision`; publish from a separate checkout at
+`analysis_revision` (both are in the published `summary.json`), or a later
+compatible reporting revision. Do not replace measured source files during a run.
+Give the publisher an absolute path to the copied run directory when it is outside
+that reporting checkout.
+
 The analyzer skips scenarios until all four arms finish. It checks workload
 identity and runtime isolation before adding a key pivot. Invalid pairs remain
 visible as supporting evidence, without a percentage improvement claim.

@@ -129,11 +129,20 @@ def analyze_arm(root: Path, arm: dict, spec: dict) -> dict:
                 evictions += 1
                 evicted_tokens += count
     prepared = {}
+    replay_due = {r.get("request_id") or r.get("label"): r.get("deadline_offset_ms") for r in starts}
+    prepare_calls, rejected_prepares, ready_before_due = 0, 0, 0
     for row in trace:
         if row.get("event") == "m27.targeted_kv_prefetch.prepare_prefix_control_result" and not row.get("plan_only"):
+            prepare_calls += 1
             result = row.get("result") or {}
+            rejected_prepares += result.get("ok") is not True
             if result.get("load_id") and result.get("loaded_tokens", 0) > 0:
                 prepared[result["load_id"]] = result
+                due = replay_due.get(row.get("expected_replay_request_id"))
+                if due is None or row.get("offset_ms") is None:
+                    issues.append("Missing preparation-to-replay timing linkage")
+                elif result.get("status") == "ready" and float(row["offset_ms"]) <= float(due):
+                    ready_before_due += 1
     ranked = sum(r.get(BACKEND_PRIORITY_FIELD) not in (None, "") for r in starts
                  if r.get("phase") in ("replay", "pressure_filler"))
     admission = Counter(r.get("decision") for r in trace
@@ -141,11 +150,15 @@ def analyze_arm(root: Path, arm: dict, spec: dict) -> dict:
     exposure = {"ranked_replays": ranked, "accepted_prepare_loads": len(prepared),
                 "device_eviction_calls": evictions, "device_evicted_token_slots": evicted_tokens,
                 "admission_decisions": sum(admission.values()) if admission else None,
-                "hold_decisions": admission.get("hold", 0) if admission else None}
+                "hold_decisions": admission.get("hold", 0) if admission else None,
+                "prepare_calls": prepare_calls, "rejected_prepares": rejected_prepares,
+                "prepare_ready_before_due": ready_before_due}
     if arm["mode"] == "controller_ready_time_gpu_backfill" and ranked != spec["expected_replays"]:
         issues.append("Not every replay had a controller-derived queue rank")
     if arm["mode"] == "controller_proactive_kv_management" and not prepared:
         issues.append("No actual direct preparation load observed; cannot test preparation benefit")
+    if arm["mode"] == "controller_proactive_kv_management" and not ready_before_due:
+        issues.append("No completed preparation before a replay deadline")
     if arm["mode"] == "controller_value_aware_eviction" and (not evictions or ranked != spec["expected_replays"]):
         issues.append("Retention exposure missing: require ranked replays and actual GPU evictions")
     metrics = {

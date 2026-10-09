@@ -13,7 +13,8 @@ HEADERS = (
 PAIR_HEADERS = ("Trial", "Whole workload: baseline → controller", "Change",
                 "Total replay lateness: baseline → controller", "Change", "Comparison")
 EXPOSURE_HEADERS = ("Trial / mode", "Ranked replays", "Accepted prepare loads",
-                    "GPU eviction calls", "Evicted token slots", "Admission decisions / holds")
+                    "Ready before due / rejected prepare calls", "GPU eviction calls",
+                    "Evicted token slots", "Admission decisions / holds")
 NOTES = (
     "Lower is better. Total TTFT/lateness sum across requests and can exceed the "
     "whole-workload clock because sessions overlap. Whole-workload time includes initial "
@@ -22,6 +23,8 @@ NOTES = (
     "CUDA graphs and overlap scheduling are on. Good/bad short-filler runtime admits "
     "are not classified by these tests; this is unavailable evidence, not zero bad admits. "
     "Admission/hold counts are shown for RTG; other modes do not use that admission policy. "
+    "Ready before due means the prepare call reported completion before the replay deadline; "
+    "it does not prove that the prefix remained resident or was used when replay arrived. "
     "Raw decisions remain available in the traces."
 )
 
@@ -66,7 +69,10 @@ def exposure_rows(summary: dict) -> list[tuple[str, ...]]:
         decisions = exposure.get("admission_decisions")
         rows.append((f"{arm['trial']} / {'Baseline' if arm['mode'] == 'no_prefetch' else summary['name']}",
                      *(str(exposure.get(key, "unavailable")) for key in
-                       ("ranked_replays", "accepted_prepare_loads", "device_eviction_calls", "device_evicted_token_slots")),
+                       ("ranked_replays", "accepted_prepare_loads")),
+                     f"{exposure.get('prepare_ready_before_due', 'unavailable')} / {exposure.get('rejected_prepares', 'unavailable')}",
+                     *(str(exposure.get(key, "unavailable")) for key in
+                       ("device_eviction_calls", "device_evicted_token_slots")),
                      f"{decisions} / {exposure['hold_decisions']}" if decisions is not None else "not applicable"))
     return rows
 
@@ -117,7 +123,10 @@ def reproduction(summary: dict) -> str:
         "# Exact image ID/digest, model snapshot, dependency lists and arm environments:\n"
         "# run_manifest.json, model_identity.json, *dependencies.txt in the evidence directory.\n"
         "# Source-synced host without git: append --source-archive PATH/source.tar.gz\n"
-        f"# and --source-revision {summary.get('source_revision', 'FULL_COMMIT_SHA')}."
+        f"# and --source-revision {summary.get('source_revision', 'FULL_COMMIT_SHA')}.\n"
+        f"# Reporting source commit: {summary.get('analysis_revision', 'see summary.json')}.\n"
+        "# Publish from that separate reporting checkout, using --run-root /absolute/path/to/new/run.\n"
+        "# See docs/work_audit/CONTROLLER_PIVOT_REPRODUCTION.md for publication commands."
     )
 
 
